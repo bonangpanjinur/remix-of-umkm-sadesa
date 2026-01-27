@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Bike, Eye, Check, X, MoreHorizontal, MapPin } from 'lucide-react';
+import { Bike, Eye, Check, X, MoreHorizontal } from 'lucide-react';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { DataTable } from '@/components/admin/DataTable';
 import { Badge } from '@/components/ui/badge';
@@ -11,6 +11,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { AddCourierDialog } from '@/components/admin/AddCourierDialog';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { approveCourier, rejectCourier } from '@/lib/adminApi';
@@ -206,11 +207,14 @@ export default function AdminCouriersPage() {
 
   return (
     <AdminLayout title="Manajemen Kurir" subtitle="Kelola semua kurir yang terdaftar">
-      <div className="flex items-center gap-2 mb-4">
-        <Bike className="h-5 w-5 text-primary" />
-        <span className="text-muted-foreground text-sm">
-          {couriers.length} kurir terdaftar • {couriers.filter(c => c.is_available).length} online
-        </span>
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <Bike className="h-5 w-5 text-primary" />
+          <span className="text-muted-foreground text-sm">
+            {couriers.length} kurir terdaftar • {couriers.filter(c => c.is_available).length} online
+          </span>
+        </div>
+        <AddCourierDialog onSuccess={fetchCouriers} />
       </div>
 
       <DataTable
