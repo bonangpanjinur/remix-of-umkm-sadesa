@@ -27,6 +27,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
+import { ImageUpload } from '@/components/ui/ImageUpload';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
@@ -49,6 +50,7 @@ interface ProductForm {
   price: string;
   stock: string;
   category: string;
+  image_url: string | null;
   is_active: boolean;
   is_promo: boolean;
 }
@@ -59,6 +61,7 @@ const defaultForm: ProductForm = {
   price: '',
   stock: '0',
   category: 'kuliner',
+  image_url: null,
   is_active: true,
   is_promo: false,
 };
@@ -124,6 +127,7 @@ export default function MerchantProductsPage() {
       price: product.price.toString(),
       stock: product.stock.toString(),
       category: product.category,
+      image_url: product.image_url,
       is_active: product.is_active,
       is_promo: product.is_promo,
     });
@@ -145,6 +149,7 @@ export default function MerchantProductsPage() {
         price: parseInt(form.price),
         stock: parseInt(form.stock) || 0,
         category: form.category,
+        image_url: form.image_url,
         is_active: form.is_active,
         is_promo: form.is_promo,
         merchant_id: merchantId,
@@ -337,6 +342,18 @@ export default function MerchantProductsPage() {
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Gambar Produk</Label>
+              <ImageUpload
+                bucket="product-images"
+                path={merchantId || 'temp'}
+                value={form.image_url}
+                onChange={(url) => setForm(prev => ({ ...prev, image_url: url }))}
+                aspectRatio="square"
+                maxSizeMB={5}
+                placeholder="Upload gambar produk"
+              />
+            </div>
             <div className="space-y-2">
               <Label>Nama Produk *</Label>
               <Input

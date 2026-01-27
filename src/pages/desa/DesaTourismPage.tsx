@@ -20,6 +20,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
+import { ImageUpload } from '@/components/ui/ImageUpload';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
@@ -41,6 +42,7 @@ interface TourismRow {
 interface TourismForm {
   name: string;
   description: string;
+  image_url: string | null;
   wa_link: string;
   sosmed_link: string;
   facilities: string;
@@ -50,6 +52,7 @@ interface TourismForm {
 const defaultForm: TourismForm = {
   name: '',
   description: '',
+  image_url: null,
   wa_link: '',
   sosmed_link: '',
   facilities: '',
@@ -116,6 +119,7 @@ export default function DesaTourismPage() {
     setForm({
       name: item.name,
       description: item.description || '',
+      image_url: item.image_url,
       wa_link: item.wa_link || '',
       sosmed_link: item.sosmed_link || '',
       facilities: item.facilities?.join(', ') || '',
@@ -136,6 +140,7 @@ export default function DesaTourismPage() {
       const tourismData = {
         name: form.name,
         description: form.description || null,
+        image_url: form.image_url,
         wa_link: form.wa_link || null,
         sosmed_link: form.sosmed_link || null,
         facilities: form.facilities ? form.facilities.split(',').map(f => f.trim()) : [],
@@ -301,7 +306,19 @@ export default function DesaTourismPage() {
               {editingTourism ? 'Edit Wisata' : 'Tambah Wisata Baru'}
             </DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 py-4">
+          <div className="space-y-4 py-4 max-h-[70vh] overflow-y-auto">
+            <div className="space-y-2">
+              <Label>Gambar Wisata</Label>
+              <ImageUpload
+                bucket="tourism-images"
+                path={villageId || 'temp'}
+                value={form.image_url}
+                onChange={(url) => setForm(prev => ({ ...prev, image_url: url }))}
+                aspectRatio="video"
+                maxSizeMB={10}
+                placeholder="Upload gambar wisata"
+              />
+            </div>
             <div className="space-y-2">
               <Label>Nama Wisata *</Label>
               <Input

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Save, ToggleLeft, ToggleRight, Globe, CreditCard, AlertCircle } from 'lucide-react';
+import { Save, ToggleLeft, Globe, CreditCard, AlertCircle, Truck, Percent, Plus, Trash2 } from 'lucide-react';
 import { AdminSidebar } from '@/components/admin/AdminSidebar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -7,7 +7,16 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { fetchAppSettings, updateAppSetting } from '@/lib/adminApi';
-import type { AppSetting, RegistrationSettings, PaymentSettings, AddressApiSettings } from '@/types/admin';
+import type { 
+  AppSetting, 
+  RegistrationSettings, 
+  PaymentSettings, 
+  AddressApiSettings,
+  ShippingFeeSettings,
+  PlatformFeeSettings,
+  ShippingZonesSettings,
+  ShippingZone,
+} from '@/types/admin';
 import { toast } from 'sonner';
 
 export default function AdminSettingsPage() {
@@ -76,6 +85,9 @@ export default function AdminSettingsPage() {
   const addressApi = getSetting('address_api')?.value as unknown as AddressApiSettings | undefined;
   const paymentMidtrans = getSetting('payment_midtrans')?.value as unknown as PaymentSettings | undefined;
   const paymentXendit = getSetting('payment_xendit')?.value as unknown as PaymentSettings | undefined;
+  const shippingBaseFee = getSetting('shipping_base_fee')?.value as unknown as ShippingFeeSettings | undefined;
+  const platformFee = getSetting('platform_fee')?.value as unknown as PlatformFeeSettings | undefined;
+  const shippingZones = getSetting('shipping_zones')?.value as unknown as ShippingZonesSettings | undefined;
 
   return (
     <div className="flex min-h-screen bg-background">
@@ -145,7 +157,84 @@ export default function AdminSettingsPage() {
                 </CardContent>
               </Card>
 
-              {/* Address API Settings */}
+              {/* Shipping Fee Settings */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Truck className="h-5 w-5" />
+                    Pengaturan Biaya Kirim
+                  </CardTitle>
+                  <CardDescription>
+                    Konfigurasi biaya pengiriman berdasarkan jarak dan zona
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <ShippingFeeForm
+                    initialValues={shippingBaseFee}
+                    onSave={async (values) => {
+                      setSaving('shipping_base_fee');
+                      const success = await updateAppSetting('shipping_base_fee', values as unknown as Record<string, unknown>);
+                      if (success) {
+                        toast.success('Pengaturan biaya kirim berhasil disimpan');
+                        loadSettings();
+                      } else {
+                        toast.error('Gagal menyimpan pengaturan');
+                      }
+                      setSaving(null);
+                    }}
+                    isSaving={saving === 'shipping_base_fee'}
+                  />
+
+                  <div className="border-t border-border pt-6">
+                    <h4 className="font-medium mb-4">Zona Pengiriman</h4>
+                    <ShippingZonesForm
+                      initialValues={shippingZones}
+                      onSave={async (values) => {
+                        setSaving('shipping_zones');
+                        const success = await updateAppSetting('shipping_zones', values as unknown as Record<string, unknown>);
+                        if (success) {
+                          toast.success('Zona pengiriman berhasil disimpan');
+                          loadSettings();
+                        } else {
+                          toast.error('Gagal menyimpan zona');
+                        }
+                        setSaving(null);
+                      }}
+                      isSaving={saving === 'shipping_zones'}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Platform Fee Settings */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Percent className="h-5 w-5" />
+                    Pengaturan Biaya Platform
+                  </CardTitle>
+                  <CardDescription>
+                    Konfigurasi komisi platform dari setiap transaksi
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <PlatformFeeForm
+                    initialValues={platformFee}
+                    onSave={async (values) => {
+                      setSaving('platform_fee');
+                      const success = await updateAppSetting('platform_fee', values as unknown as Record<string, unknown>);
+                      if (success) {
+                        toast.success('Pengaturan biaya platform berhasil disimpan');
+                        loadSettings();
+                      } else {
+                        toast.error('Gagal menyimpan pengaturan');
+                      }
+                      setSaving(null);
+                    }}
+                    isSaving={saving === 'platform_fee'}
+                  />
+                </CardContent>
+              </Card>
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -393,6 +482,257 @@ function PaymentXenditForm({
           />
         </div>
       </div>
+      <Button type="submit" disabled={isSaving}>
+        <Save className="h-4 w-4 mr-2" />
+        {isSaving ? 'Menyimpan...' : 'Simpan'}
+      </Button>
+    </form>
+  );
+}
+
+// Shipping Fee Form Component
+function ShippingFeeForm({ 
+  initialValues, 
+  onSave, 
+  isSaving 
+}: { 
+  initialValues?: ShippingFeeSettings; 
+  onSave: (values: ShippingFeeSettings) => Promise<void>;
+  isSaving: boolean;
+}) {
+  const [baseFee, setBaseFee] = useState(initialValues?.base_fee?.toString() || '5000');
+  const [perKmFee, setPerKmFee] = useState(initialValues?.per_km_fee?.toString() || '2000');
+  const [minFee, setMinFee] = useState(initialValues?.min_fee?.toString() || '5000');
+  const [maxFee, setMaxFee] = useState(initialValues?.max_fee?.toString() || '50000');
+  const [freeShippingMinOrder, setFreeShippingMinOrder] = useState(initialValues?.free_shipping_min_order?.toString() || '100000');
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSave({ 
+      base_fee: parseInt(baseFee) || 0,
+      per_km_fee: parseInt(perKmFee) || 0,
+      min_fee: parseInt(minFee) || 0,
+      max_fee: parseInt(maxFee) || 0,
+      free_shipping_min_order: parseInt(freeShippingMinOrder) || 0,
+    });
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="grid gap-4 md:grid-cols-2">
+        <div className="space-y-2">
+          <Label>Biaya Dasar (Rp)</Label>
+          <Input
+            type="number"
+            value={baseFee}
+            onChange={(e) => setBaseFee(e.target.value)}
+            placeholder="5000"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label>Biaya per KM (Rp)</Label>
+          <Input
+            type="number"
+            value={perKmFee}
+            onChange={(e) => setPerKmFee(e.target.value)}
+            placeholder="2000"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label>Biaya Minimum (Rp)</Label>
+          <Input
+            type="number"
+            value={minFee}
+            onChange={(e) => setMinFee(e.target.value)}
+            placeholder="5000"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label>Biaya Maksimum (Rp)</Label>
+          <Input
+            type="number"
+            value={maxFee}
+            onChange={(e) => setMaxFee(e.target.value)}
+            placeholder="50000"
+          />
+        </div>
+      </div>
+      <div className="space-y-2">
+        <Label>Gratis Ongkir Min. Order (Rp)</Label>
+        <Input
+          type="number"
+          value={freeShippingMinOrder}
+          onChange={(e) => setFreeShippingMinOrder(e.target.value)}
+          placeholder="100000"
+        />
+        <p className="text-xs text-muted-foreground">Minimal order untuk mendapat gratis ongkir (0 = nonaktif)</p>
+      </div>
+      <Button type="submit" disabled={isSaving}>
+        <Save className="h-4 w-4 mr-2" />
+        {isSaving ? 'Menyimpan...' : 'Simpan'}
+      </Button>
+    </form>
+  );
+}
+
+// Shipping Zones Form Component
+function ShippingZonesForm({ 
+  initialValues, 
+  onSave, 
+  isSaving 
+}: { 
+  initialValues?: ShippingZonesSettings; 
+  onSave: (values: ShippingZonesSettings) => Promise<void>;
+  isSaving: boolean;
+}) {
+  const [zones, setZones] = useState<ShippingZone[]>(
+    initialValues?.zones || [
+      { name: 'Dalam Desa', max_distance_km: 5, fee: 5000 },
+      { name: 'Antar Desa', max_distance_km: 15, fee: 10000 },
+      { name: 'Luar Kecamatan', max_distance_km: 30, fee: 20000 },
+    ]
+  );
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSave({ zones });
+  };
+
+  const updateZone = (index: number, field: keyof ShippingZone, value: string | number) => {
+    setZones(prev => prev.map((z, i) => 
+      i === index ? { ...z, [field]: field === 'name' ? value : parseInt(value as string) || 0 } : z
+    ));
+  };
+
+  const addZone = () => {
+    setZones(prev => [...prev, { name: 'Zona Baru', max_distance_km: 0, fee: 0 }]);
+  };
+
+  const removeZone = (index: number) => {
+    setZones(prev => prev.filter((_, i) => i !== index));
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="space-y-3">
+        {zones.map((zone, index) => (
+          <div key={index} className="flex items-center gap-2 p-3 bg-secondary/50 rounded-lg">
+            <div className="flex-1 grid gap-2 md:grid-cols-3">
+              <Input
+                value={zone.name}
+                onChange={(e) => updateZone(index, 'name', e.target.value)}
+                placeholder="Nama zona"
+              />
+              <Input
+                type="number"
+                value={zone.max_distance_km}
+                onChange={(e) => updateZone(index, 'max_distance_km', e.target.value)}
+                placeholder="Maks. KM"
+              />
+              <Input
+                type="number"
+                value={zone.fee}
+                onChange={(e) => updateZone(index, 'fee', e.target.value)}
+                placeholder="Biaya (Rp)"
+              />
+            </div>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={() => removeZone(index)}
+              disabled={zones.length <= 1}
+            >
+              <Trash2 className="h-4 w-4 text-destructive" />
+            </Button>
+          </div>
+        ))}
+      </div>
+      <div className="flex items-center gap-2">
+        <Button type="button" variant="outline" onClick={addZone}>
+          <Plus className="h-4 w-4 mr-2" />
+          Tambah Zona
+        </Button>
+        <Button type="submit" disabled={isSaving}>
+          <Save className="h-4 w-4 mr-2" />
+          {isSaving ? 'Menyimpan...' : 'Simpan'}
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+// Platform Fee Form Component
+function PlatformFeeForm({ 
+  initialValues, 
+  onSave, 
+  isSaving 
+}: { 
+  initialValues?: PlatformFeeSettings; 
+  onSave: (values: PlatformFeeSettings) => Promise<void>;
+  isSaving: boolean;
+}) {
+  const [enabled, setEnabled] = useState(initialValues?.enabled ?? true);
+  const [percentage, setPercentage] = useState(initialValues?.percentage?.toString() || '5');
+  const [minFee, setMinFee] = useState(initialValues?.min_fee?.toString() || '1000');
+  const [maxFee, setMaxFee] = useState(initialValues?.max_fee?.toString() || '50000');
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSave({ 
+      enabled,
+      percentage: parseFloat(percentage) || 0,
+      min_fee: parseInt(minFee) || 0,
+      max_fee: parseInt(maxFee) || 0,
+    });
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="flex items-center justify-between p-4 bg-secondary/50 rounded-lg">
+        <div>
+          <p className="font-medium text-sm">Aktifkan Biaya Platform</p>
+          <p className="text-xs text-muted-foreground">Potong komisi dari setiap transaksi</p>
+        </div>
+        <Switch
+          checked={enabled}
+          onCheckedChange={setEnabled}
+        />
+      </div>
+      
+      {enabled && (
+        <div className="grid gap-4 md:grid-cols-3">
+          <div className="space-y-2">
+            <Label>Persentase (%)</Label>
+            <Input
+              type="number"
+              step="0.1"
+              value={percentage}
+              onChange={(e) => setPercentage(e.target.value)}
+              placeholder="5"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Minimum (Rp)</Label>
+            <Input
+              type="number"
+              value={minFee}
+              onChange={(e) => setMinFee(e.target.value)}
+              placeholder="1000"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Maksimum (Rp)</Label>
+            <Input
+              type="number"
+              value={maxFee}
+              onChange={(e) => setMaxFee(e.target.value)}
+              placeholder="50000"
+            />
+          </div>
+        </div>
+      )}
+      
       <Button type="submit" disabled={isSaving}>
         <Save className="h-4 w-4 mr-2" />
         {isSaving ? 'Menyimpan...' : 'Simpan'}

@@ -59,6 +59,31 @@ export interface PaymentSettings {
   is_production?: boolean;
 }
 
+export interface ShippingFeeSettings {
+  base_fee: number;
+  per_km_fee: number;
+  min_fee: number;
+  max_fee: number;
+  free_shipping_min_order: number;
+}
+
+export interface PlatformFeeSettings {
+  percentage: number;
+  min_fee: number;
+  max_fee: number;
+  enabled: boolean;
+}
+
+export interface ShippingZone {
+  name: string;
+  max_distance_km: number;
+  fee: number;
+}
+
+export interface ShippingZonesSettings {
+  zones: ShippingZone[];
+}
+
 export interface AdminStats {
   totalMerchants: number;
   pendingMerchants: number;
