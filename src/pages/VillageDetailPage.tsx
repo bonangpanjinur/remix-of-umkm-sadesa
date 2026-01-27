@@ -11,13 +11,15 @@ import {
   Mail,
   Eye,
   Check,
-  Calendar
+  Calendar,
+  Map
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { TourismCard } from '@/components/TourismCard';
 import { ProductCard } from '@/components/ProductCard';
+import { TourismMap } from '@/components/village/TourismMap';
 import type { Tourism, Product } from '@/types';
 
 interface VillageData {
@@ -286,6 +288,17 @@ export default function VillageDetailPage() {
                   <span>Bergabung sejak {new Date(village.registered_at).toLocaleDateString('id-ID', { year: 'numeric', month: 'long' })}</span>
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Tourism Map */}
+          {tourisms.length > 0 && (
+            <div className="bg-card rounded-2xl p-4 shadow-sm border border-border mb-4">
+              <h3 className="font-semibold text-foreground mb-3 flex items-center gap-2">
+                <Map className="h-4 w-4 text-primary" />
+                Peta Lokasi Wisata
+              </h3>
+              <TourismMap tourismSpots={tourisms} height="250px" />
             </div>
           )}
 

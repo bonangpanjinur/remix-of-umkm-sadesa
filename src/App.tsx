@@ -32,6 +32,7 @@ import OrderTrackingPage from "./pages/OrderTrackingPage";
 import UnauthorizedPage from "./pages/UnauthorizedPage";
 import VillageDetailPage from "./pages/VillageDetailPage";
 import MerchantProfilePage from "./pages/MerchantProfilePage";
+import ShopsPage from "./pages/ShopsPage";
 
 // Admin Pages
 import AdminDashboardPage from "./pages/admin/AdminDashboardPage";
@@ -101,6 +102,8 @@ const App = () => (
               <Route path="/tourism/:id" element={<TourismDetail />} />
               <Route path="/village/:id" element={<VillageDetailPage />} />
               <Route path="/store/:id" element={<MerchantProfilePage />} />
+              <Route path="/merchant/:id" element={<MerchantProfilePage />} />
+              <Route path="/shops" element={<ShopsPage />} />
               <Route path="/explore" element={<ExplorePage />} />
               <Route path="/search" element={<SearchResultsPage />} />
               <Route path="/auth" element={<AuthPage />} />
