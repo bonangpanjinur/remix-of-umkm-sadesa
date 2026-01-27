@@ -329,6 +329,12 @@ export type Database = {
           id: string
           merchant_id: string | null
           notes: string | null
+          payment_channel: string | null
+          payment_invoice_id: string | null
+          payment_invoice_url: string | null
+          payment_method: string | null
+          payment_paid_at: string | null
+          payment_status: string | null
           picked_up_at: string | null
           shipping_cost: number
           status: string
@@ -352,6 +358,12 @@ export type Database = {
           id?: string
           merchant_id?: string | null
           notes?: string | null
+          payment_channel?: string | null
+          payment_invoice_id?: string | null
+          payment_invoice_url?: string | null
+          payment_method?: string | null
+          payment_paid_at?: string | null
+          payment_status?: string | null
           picked_up_at?: string | null
           shipping_cost?: number
           status?: string
@@ -375,6 +387,12 @@ export type Database = {
           id?: string
           merchant_id?: string | null
           notes?: string | null
+          payment_channel?: string | null
+          payment_invoice_id?: string | null
+          payment_invoice_url?: string | null
+          payment_method?: string | null
+          payment_paid_at?: string | null
+          payment_status?: string | null
           picked_up_at?: string | null
           shipping_cost?: number
           status?: string

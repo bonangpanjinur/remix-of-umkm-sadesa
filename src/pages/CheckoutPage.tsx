@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ArrowLeft, MapPin, Truck, Package, Loader2, CheckCircle } from 'lucide-react';
+import { ArrowLeft, MapPin, Truck, Package, Loader2, CheckCircle, CreditCard, Wallet } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -13,12 +13,15 @@ import { supabase } from '@/integrations/supabase/client';
 import { formatPrice } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
 import { z } from 'zod';
+import { createPaymentInvoice, isXenditEnabled } from '@/lib/paymentApi';
 
 const checkoutSchema = z.object({
   deliveryName: z.string().min(2, 'Nama minimal 2 karakter').max(100),
   deliveryPhone: z.string().min(10, 'Nomor telepon minimal 10 digit').max(15),
   deliveryAddress: z.string().min(10, 'Alamat minimal 10 karakter').max(500),
 });
+
+type PaymentMethod = 'COD' | 'ONLINE';
 
 export default function CheckoutPage() {
   const navigate = useNavigate();
@@ -27,7 +30,10 @@ export default function CheckoutPage() {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [orderId, setOrderId] = useState<string | null>(null);
+  const [invoiceUrl, setInvoiceUrl] = useState<string | null>(null);
   const [deliveryType, setDeliveryType] = useState<'PICKUP' | 'INTERNAL'>('INTERNAL');
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('COD');
+  const [xenditAvailable, setXenditAvailable] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   
   const [formData, setFormData] = useState({
@@ -36,6 +42,11 @@ export default function CheckoutPage() {
     deliveryAddress: '',
     notes: '',
   });
+
+  // Check if Xendit is enabled
+  useEffect(() => {
+    isXenditEnabled().then(setXenditAvailable);
+  }, []);
 
   const subtotal = getCartTotal();
   const shippingCost = deliveryType === 'INTERNAL' ? 5000 : 0;
@@ -118,6 +129,7 @@ export default function CheckoutPage() {
             subtotal: merchantSubtotal,
             total: merchantTotal,
             notes: formData.notes || null,
+            payment_status: paymentMethod === 'COD' ? 'COD' : 'UNPAID',
           })
           .select()
           .single();
@@ -147,6 +159,32 @@ export default function CheckoutPage() {
         }
 
         setOrderId(orderData.id);
+
+        // If online payment, create Xendit invoice
+        if (paymentMethod === 'ONLINE' && xenditAvailable) {
+          try {
+            const invoice = await createPaymentInvoice({
+              orderId: orderData.id,
+              amount: merchantTotal,
+              payerEmail: user.email || `${user.id}@placeholder.com`,
+              description: `Order dari ${merchantData.merchantName}`,
+            });
+
+            setInvoiceUrl(invoice.invoice_url);
+            
+            // Redirect to payment page
+            window.location.href = invoice.invoice_url;
+            return;
+          } catch (paymentError) {
+            console.error('Payment error:', paymentError);
+            // Order is created, just show error for payment
+            toast({
+              title: 'Pesanan dibuat, tapi pembayaran gagal',
+              description: 'Silakan bayar dari halaman pesanan Anda',
+              variant: 'destructive',
+            });
+          }
+        }
       }
 
       // Clear cart and show success
@@ -154,7 +192,9 @@ export default function CheckoutPage() {
       setSuccess(true);
       toast({
         title: 'Pesanan berhasil dibuat!',
-        description: 'Pesanan Anda sedang diproses',
+        description: paymentMethod === 'COD' 
+          ? 'Bayar saat pesanan tiba' 
+          : 'Pesanan Anda sedang diproses',
       });
     } catch (error) {
       console.error('Checkout error:', error);
@@ -308,6 +348,49 @@ export default function CheckoutPage() {
               </div>
               <span className="text-sm font-bold text-primary">Gratis</span>
             </label>
+          </RadioGroup>
+        </motion.div>
+
+        {/* Payment Method */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.15 }}
+          className="bg-card rounded-xl p-4 border border-border shadow-sm mb-4"
+        >
+          <div className="flex items-center gap-2 mb-4">
+            <CreditCard className="h-5 w-5 text-primary" />
+            <h3 className="font-bold text-foreground">Metode Pembayaran</h3>
+          </div>
+          
+          <RadioGroup 
+            value={paymentMethod} 
+            onValueChange={(value) => setPaymentMethod(value as PaymentMethod)}
+            className="space-y-2"
+          >
+            <label className={`flex items-center gap-3 p-3 border rounded-lg cursor-pointer transition ${
+              paymentMethod === 'COD' ? 'border-primary bg-brand-light' : 'border-border'
+            }`}>
+              <RadioGroupItem value="COD" id="cod" />
+              <Wallet className="h-5 w-5 text-muted-foreground" />
+              <div className="flex-1">
+                <p className="font-bold text-sm">Bayar di Tempat (COD)</p>
+                <p className="text-xs text-muted-foreground">Bayar tunai saat pesanan tiba</p>
+              </div>
+            </label>
+            
+            {xenditAvailable && (
+              <label className={`flex items-center gap-3 p-3 border rounded-lg cursor-pointer transition ${
+                paymentMethod === 'ONLINE' ? 'border-primary bg-brand-light' : 'border-border'
+              }`}>
+                <RadioGroupItem value="ONLINE" id="online" />
+                <CreditCard className="h-5 w-5 text-muted-foreground" />
+                <div className="flex-1">
+                  <p className="font-bold text-sm">Bayar Online</p>
+                  <p className="text-xs text-muted-foreground">QRIS, Transfer Bank, E-Wallet</p>
+                </div>
+              </label>
+            )}
           </RadioGroup>
         </motion.div>
 

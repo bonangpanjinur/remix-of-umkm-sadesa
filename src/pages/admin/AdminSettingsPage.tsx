@@ -449,21 +449,28 @@ function PaymentXenditForm({
 }) {
   const [secretKey, setSecretKey] = useState(initialValues?.secret_key || '');
   const [publicKey, setPublicKey] = useState(initialValues?.public_key || '');
+  const [callbackToken, setCallbackToken] = useState(initialValues?.callback_token || '');
+  const [isProduction, setIsProduction] = useState(initialValues?.is_production || false);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onSave({ 
       enabled: true, 
       secret_key: secretKey, 
-      public_key: publicKey 
+      public_key: publicKey,
+      callback_token: callbackToken,
+      is_production: isProduction,
     });
   };
+
+  // Generate webhook URL based on project
+  const webhookUrl = `${window.location.origin}/api/xendit-webhook`;
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="grid gap-4 md:grid-cols-2">
         <div className="space-y-2">
-          <Label htmlFor="xendit-secret">Secret Key</Label>
+          <Label htmlFor="xendit-secret">Secret Key (API Key)</Label>
           <Input
             id="xendit-secret"
             type="password"
@@ -471,6 +478,9 @@ function PaymentXenditForm({
             onChange={(e) => setSecretKey(e.target.value)}
             placeholder="xnd_development_..."
           />
+          <p className="text-xs text-muted-foreground">
+            Dapatkan dari Dashboard Xendit → Settings → API Keys
+          </p>
         </div>
         <div className="space-y-2">
           <Label htmlFor="xendit-public">Public Key</Label>
@@ -481,6 +491,42 @@ function PaymentXenditForm({
             placeholder="xnd_public_development_..."
           />
         </div>
+        <div className="space-y-2">
+          <Label htmlFor="xendit-callback">Callback Verification Token</Label>
+          <Input
+            id="xendit-callback"
+            type="password"
+            value={callbackToken}
+            onChange={(e) => setCallbackToken(e.target.value)}
+            placeholder="Token untuk verifikasi webhook"
+          />
+          <p className="text-xs text-muted-foreground">
+            Dapatkan dari Dashboard Xendit → Settings → Callbacks
+          </p>
+        </div>
+        <div className="space-y-2">
+          <Label>Webhook URL</Label>
+          <Input
+            value={webhookUrl}
+            readOnly
+            className="bg-muted cursor-text"
+            onClick={(e) => {
+              (e.target as HTMLInputElement).select();
+              navigator.clipboard.writeText(webhookUrl);
+            }}
+          />
+          <p className="text-xs text-muted-foreground">
+            Klik untuk copy. Masukkan URL ini di Dashboard Xendit
+          </p>
+        </div>
+      </div>
+      <div className="flex items-center gap-2">
+        <Switch
+          id="xendit-production"
+          checked={isProduction}
+          onCheckedChange={setIsProduction}
+        />
+        <Label htmlFor="xendit-production" className="text-sm">Mode Production</Label>
       </div>
       <Button type="submit" disabled={isSaving}>
         <Save className="h-4 w-4 mr-2" />
