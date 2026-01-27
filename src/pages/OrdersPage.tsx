@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Receipt, ShoppingBag, Package, Truck, CheckCircle, XCircle, Clock, ArrowLeft } from 'lucide-react';
+import { Receipt, ShoppingBag, Package, Truck, CheckCircle, XCircle, Clock, ArrowLeft, Star } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
 import { BottomNav } from '@/components/layout/BottomNav';
 import { Button } from '@/components/ui/button';
@@ -227,7 +227,22 @@ export default function OrdersPage() {
                           </p>
                         )}
                       </div>
-                      <p className="font-bold text-primary">{formatPrice(order.total)}</p>
+                      <div className="flex items-center gap-2">
+                        {(order.status === 'DONE' || order.status === 'DELIVERED') && (
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigate(`/orders/${order.id}/review`);
+                            }}
+                          >
+                            <Star className="h-3 w-3 mr-1" />
+                            Ulasan
+                          </Button>
+                        )}
+                        <p className="font-bold text-primary">{formatPrice(order.total)}</p>
+                      </div>
                     </div>
                   </motion.div>
                 );

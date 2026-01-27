@@ -1,24 +1,28 @@
 import { useState, useEffect } from 'react';
-import { Receipt, Check, X, Package, Clock, MoreHorizontal, User, MapPin, Phone } from 'lucide-react';
+import { Receipt, Check, X, Package, Clock, MoreHorizontal, User, MapPin, Phone, Truck, CreditCard, MessageSquare } from 'lucide-react';
 import { MerchantLayout } from '@/components/merchant/MerchantLayout';
 import { DataTable } from '@/components/admin/DataTable';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
 } from '@/components/ui/dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
+import { formatPrice } from '@/lib/utils';
 
 interface OrderItem {
   id: string;
@@ -31,6 +35,8 @@ interface OrderItem {
 interface OrderRow {
   id: string;
   status: string;
+  payment_status: string | null;
+  payment_method: string | null;
   delivery_type: string;
   delivery_name: string | null;
   delivery_phone: string | null;
@@ -50,6 +56,8 @@ export default function MerchantOrdersPage() {
   const [selectedOrder, setSelectedOrder] = useState<OrderRow | null>(null);
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
+  const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
+  const [rejectReason, setRejectReason] = useState('');
 
   useEffect(() => {
     const fetchOrders = async () => {
@@ -91,7 +99,6 @@ export default function MerchantOrdersPage() {
   const viewOrderDetail = async (order: OrderRow) => {
     setSelectedOrder(order);
     
-    // Fetch order items
     const { data: items } = await supabase
       .from('order_items')
       .select('*')
@@ -101,11 +108,16 @@ export default function MerchantOrdersPage() {
     setDetailDialogOpen(true);
   };
 
-  const updateOrderStatus = async (orderId: string, newStatus: string) => {
+  const updateOrderStatus = async (orderId: string, newStatus: string, reason?: string) => {
     try {
+      const updateData: Record<string, unknown> = { status: newStatus };
+      if (reason) {
+        updateData.rejection_reason = reason;
+      }
+      
       const { error } = await supabase
         .from('orders')
-        .update({ status: newStatus })
+        .update(updateData)
         .eq('id', orderId);
 
       if (error) throw error;
@@ -115,15 +127,29 @@ export default function MerchantOrdersPage() {
       ));
       toast.success('Status pesanan diperbarui');
       setDetailDialogOpen(false);
+      setRejectDialogOpen(false);
+      setRejectReason('');
     } catch (error) {
       toast.error('Gagal mengubah status');
+    }
+  };
+
+  const openRejectDialog = (order: OrderRow) => {
+    setSelectedOrder(order);
+    setRejectDialogOpen(true);
+  };
+
+  const handleReject = () => {
+    if (selectedOrder && rejectReason.trim()) {
+      updateOrderStatus(selectedOrder.id, 'CANCELED', rejectReason);
     }
   };
 
   const getStatusBadge = (status: string) => {
     const statusMap: Record<string, { label: string; className: string }> = {
       'NEW': { label: 'Baru', className: 'bg-blue-100 text-blue-700' },
-      'PROCESSED': { label: 'Diproses', className: 'bg-amber-100 text-amber-700' },
+      'PENDING_CONFIRMATION': { label: 'Menunggu', className: 'bg-amber-100 text-amber-700' },
+      'PROCESSED': { label: 'Diproses', className: 'bg-cyan-100 text-cyan-700' },
       'SENT': { label: 'Dikirim', className: 'bg-purple-100 text-purple-700' },
       'DONE': { label: 'Selesai', className: 'bg-primary/10 text-primary' },
       'CANCELED': { label: 'Dibatalkan', className: 'bg-destructive/10 text-destructive' },
@@ -131,6 +157,19 @@ export default function MerchantOrdersPage() {
     
     const config = statusMap[status] || { label: status, className: '' };
     return <Badge className={config.className}>{config.label}</Badge>;
+  };
+
+  const getPaymentBadge = (status: string | null, method: string | null) => {
+    if (method === 'COD') {
+      return <Badge variant="outline" className="bg-purple-100 text-purple-700">COD</Badge>;
+    }
+    const statusMap: Record<string, { label: string; className: string }> = {
+      'PAID': { label: 'Lunas', className: 'bg-primary/10 text-primary' },
+      'PENDING': { label: 'Menunggu', className: 'bg-amber-100 text-amber-700' },
+      'UNPAID': { label: 'Belum Bayar', className: 'bg-destructive/10 text-destructive' },
+    };
+    const config = statusMap[status || 'UNPAID'] || { label: status || '-', className: '' };
+    return <Badge variant="outline" className={config.className}>{config.label}</Badge>;
   };
 
   const columns = [
@@ -154,7 +193,12 @@ export default function MerchantOrdersPage() {
     {
       key: 'total',
       header: 'Total',
-      render: (item: OrderRow) => `Rp ${item.total.toLocaleString('id-ID')}`,
+      render: (item: OrderRow) => formatPrice(item.total),
+    },
+    {
+      key: 'payment',
+      header: 'Pembayaran',
+      render: (item: OrderRow) => getPaymentBadge(item.payment_status, item.payment_method),
     },
     {
       key: 'delivery_type',
@@ -189,22 +233,29 @@ export default function MerchantOrdersPage() {
             <DropdownMenuItem onClick={() => viewOrderDetail(item)}>
               Lihat Detail
             </DropdownMenuItem>
+            <DropdownMenuSeparator />
             {item.status === 'NEW' && (
-              <DropdownMenuItem onClick={() => updateOrderStatus(item.id, 'PROCESSED')}>
-                <Check className="h-4 w-4 mr-2" />
-                Proses Pesanan
-              </DropdownMenuItem>
+              <>
+                <DropdownMenuItem onClick={() => updateOrderStatus(item.id, 'PROCESSED')}>
+                  <Check className="h-4 w-4 mr-2" />
+                  Terima Pesanan
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => openRejectDialog(item)} className="text-destructive">
+                  <X className="h-4 w-4 mr-2" />
+                  Tolak Pesanan
+                </DropdownMenuItem>
+              </>
             )}
             {item.status === 'PROCESSED' && (
               <DropdownMenuItem onClick={() => updateOrderStatus(item.id, 'SENT')}>
-                <Package className="h-4 w-4 mr-2" />
+                <Truck className="h-4 w-4 mr-2" />
                 Kirim
               </DropdownMenuItem>
             )}
-            {(item.status === 'NEW' || item.status === 'PROCESSED') && (
-              <DropdownMenuItem onClick={() => updateOrderStatus(item.id, 'CANCELED')} className="text-destructive">
-                <X className="h-4 w-4 mr-2" />
-                Batalkan
+            {item.status === 'SENT' && (
+              <DropdownMenuItem onClick={() => updateOrderStatus(item.id, 'DONE')}>
+                <Check className="h-4 w-4 mr-2" />
+                Selesai
               </DropdownMenuItem>
             )}
           </DropdownMenuContent>
@@ -235,13 +286,18 @@ export default function MerchantOrdersPage() {
     },
   ];
 
+  const newOrdersCount = orders.filter(o => o.status === 'NEW').length;
+
   return (
     <MerchantLayout title="Pesanan" subtitle="Kelola pesanan masuk">
       <div className="flex items-center gap-2 mb-4">
         <Receipt className="h-5 w-5 text-primary" />
         <span className="text-muted-foreground text-sm">
-          {orders.length} pesanan • {orders.filter(o => o.status === 'NEW').length} baru
+          {orders.length} pesanan
         </span>
+        {newOrdersCount > 0 && (
+          <Badge className="bg-blue-100 text-blue-700">{newOrdersCount} baru</Badge>
+        )}
       </div>
 
       <DataTable
@@ -256,7 +312,7 @@ export default function MerchantOrdersPage() {
 
       {/* Order Detail Dialog */}
       <Dialog open={detailDialogOpen} onOpenChange={setDetailDialogOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               Detail Pesanan #{selectedOrder?.id.slice(0, 8).toUpperCase()}
@@ -264,14 +320,21 @@ export default function MerchantOrdersPage() {
           </DialogHeader>
           {selectedOrder && (
             <div className="space-y-4 py-4">
-              {/* Status */}
+              {/* Status Row */}
               <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">Status</span>
-                {getStatusBadge(selectedOrder.status)}
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground">Status:</span>
+                  {getStatusBadge(selectedOrder.status)}
+                </div>
+                <div className="flex items-center gap-2">
+                  <CreditCard className="h-4 w-4 text-muted-foreground" />
+                  {getPaymentBadge(selectedOrder.payment_status, selectedOrder.payment_method)}
+                </div>
               </div>
 
               {/* Customer Info */}
               <div className="bg-secondary/50 rounded-lg p-4 space-y-2">
+                <p className="text-sm font-medium mb-2">Informasi Pengiriman</p>
                 <div className="flex items-center gap-2 text-sm">
                   <User className="h-4 w-4 text-muted-foreground" />
                   <span>{selectedOrder.delivery_name || 'Pelanggan'}</span>
@@ -279,7 +342,11 @@ export default function MerchantOrdersPage() {
                 {selectedOrder.delivery_phone && (
                   <div className="flex items-center gap-2 text-sm">
                     <Phone className="h-4 w-4 text-muted-foreground" />
-                    <span>{selectedOrder.delivery_phone}</span>
+                    <a href={`https://wa.me/${selectedOrder.delivery_phone.replace(/\D/g, '')}`} 
+                       className="text-primary hover:underline"
+                       target="_blank" rel="noopener noreferrer">
+                      {selectedOrder.delivery_phone}
+                    </a>
                   </div>
                 )}
                 {selectedOrder.delivery_address && (
@@ -288,6 +355,9 @@ export default function MerchantOrdersPage() {
                     <span>{selectedOrder.delivery_address}</span>
                   </div>
                 )}
+                <Badge variant="outline" className="mt-2">
+                  {selectedOrder.delivery_type === 'PICKUP' ? 'Ambil Sendiri' : 'Diantar Kurir'}
+                </Badge>
               </div>
 
               {/* Items */}
@@ -299,11 +369,11 @@ export default function MerchantOrdersPage() {
                       <div>
                         <p className="font-medium text-sm">{item.product_name}</p>
                         <p className="text-xs text-muted-foreground">
-                          {item.quantity} x Rp {item.product_price.toLocaleString('id-ID')}
+                          {item.quantity} x {formatPrice(item.product_price)}
                         </p>
                       </div>
                       <p className="font-medium text-sm">
-                        Rp {item.subtotal.toLocaleString('id-ID')}
+                        {formatPrice(item.subtotal)}
                       </p>
                     </div>
                   ))}
@@ -312,8 +382,11 @@ export default function MerchantOrdersPage() {
 
               {/* Notes */}
               {selectedOrder.notes && (
-                <div className="text-sm">
-                  <p className="text-muted-foreground">Catatan:</p>
+                <div className="text-sm bg-muted/50 rounded-lg p-3">
+                  <div className="flex items-center gap-2 mb-1">
+                    <MessageSquare className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-muted-foreground">Catatan:</span>
+                  </div>
                   <p>{selectedOrder.notes}</p>
                 </div>
               )}
@@ -322,15 +395,15 @@ export default function MerchantOrdersPage() {
               <div className="border-t border-border pt-4 space-y-2">
                 <div className="flex justify-between text-sm">
                   <span>Subtotal</span>
-                  <span>Rp {selectedOrder.subtotal.toLocaleString('id-ID')}</span>
+                  <span>{formatPrice(selectedOrder.subtotal)}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span>Ongkir</span>
-                  <span>Rp {selectedOrder.shipping_cost.toLocaleString('id-ID')}</span>
+                  <span>{formatPrice(selectedOrder.shipping_cost)}</span>
                 </div>
-                <div className="flex justify-between font-bold">
+                <div className="flex justify-between font-bold text-lg">
                   <span>Total</span>
-                  <span>Rp {selectedOrder.total.toLocaleString('id-ID')}</span>
+                  <span className="text-primary">{formatPrice(selectedOrder.total)}</span>
                 </div>
               </div>
 
@@ -342,18 +415,59 @@ export default function MerchantOrdersPage() {
                     onClick={() => updateOrderStatus(selectedOrder.id, 'PROCESSED')}
                   >
                     <Check className="h-4 w-4 mr-2" />
-                    Proses Pesanan
+                    Terima Pesanan
                   </Button>
                   <Button 
-                    variant="outline"
-                    onClick={() => updateOrderStatus(selectedOrder.id, 'CANCELED')}
+                    variant="destructive"
+                    onClick={() => {
+                      setDetailDialogOpen(false);
+                      openRejectDialog(selectedOrder);
+                    }}
                   >
-                    <X className="h-4 w-4" />
+                    <X className="h-4 w-4 mr-2" />
+                    Tolak
                   </Button>
                 </div>
               )}
+              {selectedOrder.status === 'PROCESSED' && (
+                <Button 
+                  className="w-full"
+                  onClick={() => updateOrderStatus(selectedOrder.id, 'SENT')}
+                >
+                  <Truck className="h-4 w-4 mr-2" />
+                  Kirim
+                </Button>
+              )}
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Reject Dialog */}
+      <Dialog open={rejectDialogOpen} onOpenChange={setRejectDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Tolak Pesanan</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="text-sm text-muted-foreground mb-3">
+              Berikan alasan penolakan pesanan #{selectedOrder?.id.slice(0, 8).toUpperCase()}
+            </p>
+            <Textarea
+              placeholder="Alasan penolakan..."
+              value={rejectReason}
+              onChange={(e) => setRejectReason(e.target.value)}
+              rows={3}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRejectDialogOpen(false)}>
+              Batal
+            </Button>
+            <Button variant="destructive" onClick={handleReject} disabled={!rejectReason.trim()}>
+              Tolak Pesanan
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </MerchantLayout>

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Receipt, Eye, MoreHorizontal, User, MapPin, Phone, Package, Truck, CreditCard, AlertCircle } from 'lucide-react';
+import { Receipt, Eye, MoreHorizontal, User, MapPin, Phone, Package, Truck, CreditCard, AlertCircle, Check, X } from 'lucide-react';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { DataTable } from '@/components/admin/DataTable';
 import { Badge } from '@/components/ui/badge';
@@ -261,10 +261,19 @@ export default function AdminOrdersPage() {
             )}
             <DropdownMenuSeparator />
             {item.status === 'NEW' && (
-              <DropdownMenuItem onClick={() => updateOrderStatus(item.id, 'PROCESSED')}>
-                <Package className="h-4 w-4 mr-2" />
-                Proses
-              </DropdownMenuItem>
+              <>
+                <DropdownMenuItem onClick={() => updateOrderStatus(item.id, 'PROCESSED')}>
+                  <Package className="h-4 w-4 mr-2" />
+                  Terima & Proses
+                </DropdownMenuItem>
+                <DropdownMenuItem 
+                  onClick={() => updateOrderStatus(item.id, 'CANCELLED')} 
+                  className="text-destructive"
+                >
+                  <AlertCircle className="h-4 w-4 mr-2" />
+                  Tolak Pesanan
+                </DropdownMenuItem>
+              </>
             )}
             {item.status === 'PROCESSED' && (
               <DropdownMenuItem onClick={() => updateOrderStatus(item.id, 'SENT')}>
@@ -275,6 +284,15 @@ export default function AdminOrdersPage() {
             {item.status === 'SENT' && (
               <DropdownMenuItem onClick={() => updateOrderStatus(item.id, 'DONE')}>
                 Selesaikan
+              </DropdownMenuItem>
+            )}
+            {['NEW', 'PROCESSED'].includes(item.status) && (
+              <DropdownMenuItem 
+                onClick={() => updateOrderStatus(item.id, 'CANCELLED')}
+                className="text-destructive"
+              >
+                <AlertCircle className="h-4 w-4 mr-2" />
+                Batalkan
               </DropdownMenuItem>
             )}
           </DropdownMenuContent>
@@ -444,15 +462,24 @@ export default function AdminOrdersPage() {
               </div>
 
               {/* Action Buttons */}
-              <div className="flex gap-2 pt-2">
+              <div className="flex flex-wrap gap-2 pt-2">
                 {selectedOrder.status === 'NEW' && (
-                  <Button 
-                    className="flex-1"
-                    onClick={() => updateOrderStatus(selectedOrder.id, 'PROCESSED')}
-                  >
-                    <Package className="h-4 w-4 mr-2" />
-                    Proses
-                  </Button>
+                  <>
+                    <Button 
+                      className="flex-1"
+                      onClick={() => updateOrderStatus(selectedOrder.id, 'PROCESSED')}
+                    >
+                      <Check className="h-4 w-4 mr-2" />
+                      Terima & Proses
+                    </Button>
+                    <Button 
+                      variant="destructive"
+                      onClick={() => updateOrderStatus(selectedOrder.id, 'CANCELLED')}
+                    >
+                      <X className="h-4 w-4 mr-2" />
+                      Tolak
+                    </Button>
+                  </>
                 )}
                 {selectedOrder.status === 'PROCESSED' && (
                   <Button 
@@ -461,6 +488,15 @@ export default function AdminOrdersPage() {
                   >
                     <Truck className="h-4 w-4 mr-2" />
                     Kirim
+                  </Button>
+                )}
+                {selectedOrder.status === 'SENT' && (
+                  <Button 
+                    className="flex-1"
+                    onClick={() => updateOrderStatus(selectedOrder.id, 'DONE')}
+                  >
+                    <Check className="h-4 w-4 mr-2" />
+                    Selesai
                   </Button>
                 )}
                 {selectedOrder.delivery_type === 'INTERNAL' && !selectedOrder.courier_id && (

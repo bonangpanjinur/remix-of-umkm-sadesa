@@ -26,6 +26,7 @@ import RegisterMerchantPage from "./pages/RegisterMerchantPage";
 import RegisterCourierPage from "./pages/RegisterCourierPage";
 import NotFound from "./pages/NotFound";
 import CourierDashboardPage from "./pages/CourierDashboardPage";
+import CourierEarningsPage from "./pages/courier/CourierEarningsPage";
 import OrderTrackingPage from "./pages/OrderTrackingPage";
 import UnauthorizedPage from "./pages/UnauthorizedPage";
 
@@ -62,6 +63,10 @@ import MerchantWithdrawalPage from "./pages/merchant/MerchantWithdrawalPage";
 // Desa Pages
 import DesaDashboardPage from "./pages/desa/DesaDashboardPage";
 import DesaTourismPage from "./pages/desa/DesaTourismPage";
+
+// Buyer Pages
+import ReviewsPage from "./pages/buyer/ReviewsPage";
+import WishlistPage from "./pages/buyer/WishlistPage";
 
 // Notifications
 import NotificationsPage from "./pages/NotificationsPage";
@@ -123,6 +128,23 @@ const App = () => (
               <Route path="/courier" element={
                 <ProtectedRoute allowedRoles={['courier', 'admin']}>
                   <CourierDashboardPage />
+                </ProtectedRoute>
+              } />
+              <Route path="/courier/earnings" element={
+                <ProtectedRoute allowedRoles={['courier', 'admin']}>
+                  <CourierEarningsPage />
+                </ProtectedRoute>
+              } />
+
+              {/* Buyer additional routes */}
+              <Route path="/orders/:orderId/review" element={
+                <ProtectedRoute>
+                  <ReviewsPage />
+                </ProtectedRoute>
+              } />
+              <Route path="/wishlist" element={
+                <ProtectedRoute>
+                  <WishlistPage />
                 </ProtectedRoute>
               } />
 

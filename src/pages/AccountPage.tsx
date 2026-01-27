@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { User, Settings, HelpCircle, LogIn, LogOut, Store, ChevronRight, Edit } from 'lucide-react';
+import { User, Settings, HelpCircle, LogIn, LogOut, Store, ChevronRight, Edit, Heart, Star, Bell, MapPin, CreditCard } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
 import { BottomNav } from '@/components/layout/BottomNav';
 import { Button } from '@/components/ui/button';
@@ -201,6 +201,28 @@ export default function AccountPage() {
               <div className="flex items-center gap-3">
                 <Store className="h-5 w-5 text-muted-foreground" />
                 <span className="font-medium">Pesanan Saya</span>
+              </div>
+              <ChevronRight className="h-4 w-4 text-muted-foreground" />
+            </button>
+
+            <button 
+              onClick={() => navigate('/wishlist')}
+              className="w-full flex items-center justify-between p-4 bg-card rounded-xl border border-border hover:bg-secondary transition"
+            >
+              <div className="flex items-center gap-3">
+                <Heart className="h-5 w-5 text-muted-foreground" />
+                <span className="font-medium">Wishlist</span>
+              </div>
+              <ChevronRight className="h-4 w-4 text-muted-foreground" />
+            </button>
+
+            <button 
+              onClick={() => navigate('/notifications')}
+              className="w-full flex items-center justify-between p-4 bg-card rounded-xl border border-border hover:bg-secondary transition"
+            >
+              <div className="flex items-center gap-3">
+                <Bell className="h-5 w-5 text-muted-foreground" />
+                <span className="font-medium">Notifikasi</span>
               </div>
               <ChevronRight className="h-4 w-4 text-muted-foreground" />
             </button>

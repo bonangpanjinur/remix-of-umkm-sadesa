@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { 
   Package, 
@@ -12,7 +12,8 @@ import {
   RefreshCw,
   User,
   LogOut,
-  AlertCircle
+  AlertCircle,
+  Wallet
 } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
 import { Button } from '@/components/ui/button';
@@ -293,6 +294,29 @@ export default function CourierDashboardPage() {
             />
           </motion.div>
         )}
+
+        {/* Earnings Link */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.15 }}
+        >
+          <Link
+            to="/courier/earnings"
+            className="flex items-center justify-between p-4 bg-card rounded-xl border border-border hover:bg-secondary transition"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
+                <Wallet className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <p className="font-medium">Pendapatan</p>
+                <p className="text-sm text-muted-foreground">Lihat riwayat & statistik</p>
+              </div>
+            </div>
+            <Navigation className="h-4 w-4 text-muted-foreground" />
+          </Link>
+        </motion.div>
 
         {/* Orders Section */}
         <motion.div
