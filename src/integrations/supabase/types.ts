@@ -323,6 +323,78 @@ export type Database = {
         }
         Relationships: []
       }
+      promotions: {
+        Row: {
+          advertiser_id: string | null
+          advertiser_type: string | null
+          click_count: number | null
+          created_at: string
+          end_date: string | null
+          id: string
+          image_url: string | null
+          is_active: boolean | null
+          is_approved: boolean | null
+          is_paid: boolean | null
+          link_id: string | null
+          link_type: string | null
+          link_url: string | null
+          price: number | null
+          sort_order: number | null
+          start_date: string
+          subtitle: string | null
+          title: string
+          type: string
+          updated_at: string
+          view_count: number | null
+        }
+        Insert: {
+          advertiser_id?: string | null
+          advertiser_type?: string | null
+          click_count?: number | null
+          created_at?: string
+          end_date?: string | null
+          id?: string
+          image_url?: string | null
+          is_active?: boolean | null
+          is_approved?: boolean | null
+          is_paid?: boolean | null
+          link_id?: string | null
+          link_type?: string | null
+          link_url?: string | null
+          price?: number | null
+          sort_order?: number | null
+          start_date?: string
+          subtitle?: string | null
+          title: string
+          type: string
+          updated_at?: string
+          view_count?: number | null
+        }
+        Update: {
+          advertiser_id?: string | null
+          advertiser_type?: string | null
+          click_count?: number | null
+          created_at?: string
+          end_date?: string | null
+          id?: string
+          image_url?: string | null
+          is_active?: boolean | null
+          is_approved?: boolean | null
+          is_paid?: boolean | null
+          link_id?: string | null
+          link_type?: string | null
+          link_url?: string | null
+          price?: number | null
+          sort_order?: number | null
+          start_date?: string
+          subtitle?: string | null
+          title?: string
+          type?: string
+          updated_at?: string
+          view_count?: number | null
+        }
+        Relationships: []
+      }
       tourism: {
         Row: {
           created_at: string

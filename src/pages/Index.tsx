@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { motion } from 'framer-motion';
 import { ChevronRight, Sparkles, Flame, TrendingUp } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
 import { BottomNav } from '@/components/layout/BottomNav';
@@ -8,32 +7,45 @@ import { CategoryIcon } from '@/components/CategoryIcon';
 import { VillageCard } from '@/components/VillageCard';
 import { ProductCard } from '@/components/ProductCard';
 import { TourismCard } from '@/components/TourismCard';
+import { HeroCarousel, type BannerSlide } from '@/components/home/HeroCarousel';
 import { 
-  heroImage, 
   fetchProducts, 
   fetchVillages, 
   fetchTourism,
   categories 
 } from '@/lib/api';
+import { fetchBannerPromotions } from '@/lib/promotions';
 import type { Product, Village, Tourism } from '@/types';
 
 const Index = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [villages, setVillages] = useState<Village[]>([]);
   const [tourismSpots, setTourismSpots] = useState<Tourism[]>([]);
+  const [bannerSlides, setBannerSlides] = useState<BannerSlide[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function loadData() {
       try {
-        const [productsData, villagesData, tourismData] = await Promise.all([
+        const [productsData, villagesData, tourismData, promotionsData] = await Promise.all([
           fetchProducts(),
           fetchVillages(),
           fetchTourism(),
+          fetchBannerPromotions(),
         ]);
         setProducts(productsData);
         setVillages(villagesData);
         setTourismSpots(tourismData);
+        
+        // Transform promotions to banner slides
+        const slides: BannerSlide[] = promotionsData.map(p => ({
+          id: p.id,
+          title: p.title,
+          subtitle: p.subtitle,
+          image: p.imageUrl,
+          linkUrl: p.linkUrl,
+        }));
+        setBannerSlides(slides);
       } catch (error) {
         console.error('Error loading data:', error);
       } finally {
@@ -53,44 +65,10 @@ const Index = () => {
 
       {/* Scrollable Content */}
       <div className="flex-1 overflow-y-auto pb-24">
-        {/* Hero Banner - Enhanced */}
-        <section className="relative h-44 overflow-hidden">
-          <img 
-            src={heroImage} 
-            alt="Desa Wisata"
-            className="w-full h-full object-cover"
-          />
-          <div className="absolute inset-0 bg-gradient-to-r from-foreground/80 via-foreground/50 to-transparent flex items-center">
-            <div className="px-5">
-              <motion.div
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.5 }}
-              >
-                <div className="flex items-center gap-1.5 mb-2">
-                  <span className="bg-primary/20 text-primary-foreground text-[9px] font-medium px-2 py-0.5 rounded-full backdrop-blur-sm">
-                    🌾 Produk Desa Asli
-                  </span>
-                </div>
-                <h2 className="text-primary-foreground font-bold text-xl leading-tight">
-                  Jelajahi Produk<br />Asli Desa
-                </h2>
-                <p className="text-primary-foreground/80 text-xs mt-1.5 max-w-[200px]">
-                  Dukung UMKM lokal & ekonomi desa Indonesia
-                </p>
-                <Link
-                  to="/products"
-                  className="inline-flex items-center gap-1.5 bg-primary text-primary-foreground text-xs font-bold px-4 py-2 rounded-xl mt-3 hover:bg-brand-dark transition shadow-brand"
-                >
-                  Belanja Sekarang
-                  <ChevronRight className="h-3.5 w-3.5" />
-                </Link>
-              </motion.div>
-            </div>
-          </div>
-        </section>
+        {/* Hero Carousel Banner */}
+        <HeroCarousel slides={bannerSlides} autoPlayInterval={5000} />
 
-        {/* Categories - Enhanced with gradient background */}
+        {/* Categories */}
         <section className="mt-4 px-5">
           <div className="flex justify-between gap-2 overflow-x-auto hide-scrollbar pb-2">
             {categories.map((cat) => (
