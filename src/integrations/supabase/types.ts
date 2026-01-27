@@ -20,9 +20,13 @@ export type Database = {
           approved_at: string | null
           approved_by: string | null
           badge: string | null
+          business_category: string | null
+          business_description: string | null
+          city: string | null
           classification_price: string | null
           close_time: string | null
           created_at: string
+          district: string | null
           id: string
           image_url: string | null
           is_open: boolean
@@ -30,14 +34,19 @@ export type Database = {
           open_time: string | null
           order_mode: string
           phone: string | null
+          province: string | null
           rating_avg: number | null
           rating_count: number | null
           registered_at: string | null
           registration_status: string
           rejection_reason: string | null
           status: string
+          subdistrict: string | null
+          trade_group: string | null
           updated_at: string
           user_id: string | null
+          verifikator_code: string | null
+          verifikator_id: string | null
           village_id: string | null
         }
         Insert: {
@@ -45,9 +54,13 @@ export type Database = {
           approved_at?: string | null
           approved_by?: string | null
           badge?: string | null
+          business_category?: string | null
+          business_description?: string | null
+          city?: string | null
           classification_price?: string | null
           close_time?: string | null
           created_at?: string
+          district?: string | null
           id?: string
           image_url?: string | null
           is_open?: boolean
@@ -55,14 +68,19 @@ export type Database = {
           open_time?: string | null
           order_mode?: string
           phone?: string | null
+          province?: string | null
           rating_avg?: number | null
           rating_count?: number | null
           registered_at?: string | null
           registration_status?: string
           rejection_reason?: string | null
           status?: string
+          subdistrict?: string | null
+          trade_group?: string | null
           updated_at?: string
           user_id?: string | null
+          verifikator_code?: string | null
+          verifikator_id?: string | null
           village_id?: string | null
         }
         Update: {
@@ -70,9 +88,13 @@ export type Database = {
           approved_at?: string | null
           approved_by?: string | null
           badge?: string | null
+          business_category?: string | null
+          business_description?: string | null
+          city?: string | null
           classification_price?: string | null
           close_time?: string | null
           created_at?: string
+          district?: string | null
           id?: string
           image_url?: string | null
           is_open?: boolean
@@ -80,14 +102,19 @@ export type Database = {
           open_time?: string | null
           order_mode?: string
           phone?: string | null
+          province?: string | null
           rating_avg?: number | null
           rating_count?: number | null
           registered_at?: string | null
           registration_status?: string
           rejection_reason?: string | null
           status?: string
+          subdistrict?: string | null
+          trade_group?: string | null
           updated_at?: string
           user_id?: string | null
+          verifikator_code?: string | null
+          verifikator_id?: string | null
           village_id?: string | null
         }
         Relationships: [
@@ -370,6 +397,42 @@ export type Database = {
         }
         Relationships: []
       }
+      verifikator_codes: {
+        Row: {
+          code: string
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          max_usage: number | null
+          trade_group: string
+          usage_count: number
+          verifikator_id: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          max_usage?: number | null
+          trade_group: string
+          usage_count?: number
+          verifikator_id: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          max_usage?: number | null
+          trade_group?: string
+          usage_count?: number
+          verifikator_id?: string
+        }
+        Relationships: []
+      }
       villages: {
         Row: {
           approved_at: string | null
@@ -388,6 +451,7 @@ export type Database = {
           registered_at: string | null
           registration_status: string
           rejection_reason: string | null
+          subdistrict: string | null
         }
         Insert: {
           approved_at?: string | null
@@ -406,6 +470,7 @@ export type Database = {
           registered_at?: string | null
           registration_status?: string
           rejection_reason?: string | null
+          subdistrict?: string | null
         }
         Update: {
           approved_at?: string | null
@@ -424,6 +489,7 @@ export type Database = {
           registered_at?: string | null
           registration_status?: string
           rejection_reason?: string | null
+          subdistrict?: string | null
         }
         Relationships: []
       }
