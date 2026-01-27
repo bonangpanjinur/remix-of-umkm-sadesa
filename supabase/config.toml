@@ -1,1 +1,4 @@
 project_id = "gehpvwpbsrzfstbgunet"
+
+[functions.assign-courier]
+verify_jwt = false

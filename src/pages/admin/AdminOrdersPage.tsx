@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { Receipt, Eye, MoreHorizontal, User, MapPin, Phone, Package, Truck, CreditCard, AlertCircle, Check, X } from 'lucide-react';
+import { Receipt, Eye, MoreHorizontal, User, MapPin, Phone, Package, Truck, CreditCard, AlertCircle, Check, X, Zap } from 'lucide-react';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { DataTable } from '@/components/admin/DataTable';
+import { CourierAssignDialog } from '@/components/admin/CourierAssignDialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -68,6 +69,7 @@ export default function AdminOrdersPage() {
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
   const [assignDialogOpen, setAssignDialogOpen] = useState(false);
+  const [courierAssignDialogOpen, setCourierAssignDialogOpen] = useState(false);
   const [selectedCourier, setSelectedCourier] = useState<string>('');
 
   const fetchOrders = async () => {
@@ -141,8 +143,7 @@ export default function AdminOrdersPage() {
 
   const openAssignDialog = (order: OrderRow) => {
     setSelectedOrder(order);
-    setSelectedCourier(order.courier_id || '');
-    setAssignDialogOpen(true);
+    setCourierAssignDialogOpen(true);
   };
 
   const assignCourier = async () => {
@@ -561,6 +562,19 @@ export default function AdminOrdersPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* New Courier Assign Dialog with Auto-Assign */}
+      {selectedOrder && (
+        <CourierAssignDialog
+          open={courierAssignDialogOpen}
+          onOpenChange={setCourierAssignDialogOpen}
+          orderId={selectedOrder.id}
+          onSuccess={() => {
+            fetchOrders();
+            setDetailDialogOpen(false);
+          }}
+        />
+      )}
     </AdminLayout>
   );
 }
