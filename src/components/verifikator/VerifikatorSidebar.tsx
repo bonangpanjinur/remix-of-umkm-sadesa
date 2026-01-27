@@ -2,11 +2,9 @@ import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { 
   LayoutDashboard, 
-  TicketCheck, 
   Store, 
   ChevronLeft,
   ClipboardCheck,
-  Users,
   Wallet
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -29,20 +27,19 @@ export function VerifikatorSidebar() {
     const fetchPending = async () => {
       if (!user) return;
       
-      // Get codes created by this verifikator
+      // Get code created by this verifikator
       const { data: codes } = await supabase
         .from('verifikator_codes')
         .select('code')
-        .eq('verifikator_id', user.id);
+        .eq('verifikator_id', user.id)
+        .limit(1);
 
       if (codes && codes.length > 0) {
-        const codeValues = codes.map(c => c.code);
-        
-        // Count pending merchants using these codes
+        // Count pending merchants using this code
         const { count } = await supabase
           .from('merchants')
           .select('*', { count: 'exact', head: true })
-          .in('verifikator_code', codeValues)
+          .eq('verifikator_code', codes[0].code)
           .eq('registration_status', 'PENDING');
         
         setPendingMerchants(count || 0);
@@ -53,10 +50,8 @@ export function VerifikatorSidebar() {
 
   const menuItems: SidebarItem[] = [
     { label: 'Dashboard', href: '/verifikator', icon: <LayoutDashboard className="h-4 w-4" /> },
-    { label: 'Kode Referral', href: '/verifikator/codes', icon: <TicketCheck className="h-4 w-4" /> },
     { label: 'Merchant', href: '/verifikator/merchants', icon: <Store className="h-4 w-4" />, badge: pendingMerchants },
-    { label: 'Kelompok Dagang', href: '/verifikator/groups', icon: <Users className="h-4 w-4" /> },
-    { label: 'Pendapatan Komisi', href: '/verifikator/earnings', icon: <Wallet className="h-4 w-4" /> },
+    { label: 'Pendapatan', href: '/verifikator/earnings', icon: <Wallet className="h-4 w-4" /> },
   ];
 
   return (

@@ -51,10 +51,7 @@ import AdminVerifikatorCommissionsPage from "./pages/admin/AdminVerifikatorCommi
 
 // Verifikator Pages
 import VerifikatorDashboardPage from "./pages/verifikator/VerifikatorDashboardPage";
-import VerifikatorCodesPage from "./pages/verifikator/VerifikatorCodesPage";
 import VerifikatorMerchantsPage from "./pages/verifikator/VerifikatorMerchantsPage";
-import VerifikatorGroupsPage from "./pages/verifikator/VerifikatorGroupsPage";
-import VerifikatorGroupDetailPage from "./pages/verifikator/VerifikatorGroupDetailPage";
 import VerifikatorEarningsPage from "./pages/verifikator/VerifikatorEarningsPage";
 
 // Merchant Pages
@@ -235,30 +232,15 @@ const App = () => (
                 </ProtectedRoute>
               } />
 
-              {/* Verifikator routes - only merchants, no couriers */}
+              {/* Verifikator routes */}
               <Route path="/verifikator" element={
                 <ProtectedRoute allowedRoles={['verifikator', 'admin']}>
                   <VerifikatorDashboardPage />
                 </ProtectedRoute>
               } />
-              <Route path="/verifikator/codes" element={
-                <ProtectedRoute allowedRoles={['verifikator', 'admin']}>
-                  <VerifikatorCodesPage />
-                </ProtectedRoute>
-              } />
               <Route path="/verifikator/merchants" element={
                 <ProtectedRoute allowedRoles={['verifikator', 'admin']}>
                   <VerifikatorMerchantsPage />
-                </ProtectedRoute>
-              } />
-              <Route path="/verifikator/groups" element={
-                <ProtectedRoute allowedRoles={['verifikator', 'admin']}>
-                  <VerifikatorGroupsPage />
-                </ProtectedRoute>
-              } />
-              <Route path="/verifikator/groups/:id" element={
-                <ProtectedRoute allowedRoles={['verifikator', 'admin']}>
-                  <VerifikatorGroupDetailPage />
                 </ProtectedRoute>
               } />
               <Route path="/verifikator/earnings" element={
