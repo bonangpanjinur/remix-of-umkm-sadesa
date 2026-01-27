@@ -3,14 +3,22 @@ import { Plus, Star } from 'lucide-react';
 import { motion } from 'framer-motion';
 import type { Product } from '@/types';
 import { useCart } from '@/contexts/CartContext';
-import { formatPrice } from '@/lib/utils';
+import { formatPrice, cn } from '@/lib/utils';
 
 interface ProductCardProps {
   product: Product;
   index?: number;
+  showCategoryBadge?: boolean;
 }
 
-export function ProductCard({ product, index = 0 }: ProductCardProps) {
+const categoryLabels: Record<string, { label: string; className: string }> = {
+  kuliner: { label: 'Kuliner', className: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' },
+  fashion: { label: 'Fashion', className: 'bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-400' },
+  kriya: { label: 'Kriya', className: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' },
+  wisata: { label: 'Wisata', className: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' },
+};
+
+export function ProductCard({ product, index = 0, showCategoryBadge = false }: ProductCardProps) {
   const { addToCart } = useCart();
 
   const handleAddToCart = (e: React.MouseEvent) => {
@@ -18,6 +26,8 @@ export function ProductCard({ product, index = 0 }: ProductCardProps) {
     e.stopPropagation();
     addToCart(product, 1);
   };
+
+  const categoryInfo = categoryLabels[product.category] || { label: product.category, className: 'bg-muted text-muted-foreground' };
 
   return (
     <motion.div
@@ -29,13 +39,19 @@ export function ProductCard({ product, index = 0 }: ProductCardProps) {
         to={`/product/${product.id}`}
         className="bg-card rounded-xl border border-border shadow-sm overflow-hidden relative group cursor-pointer block card-hover"
       >
-        {product.isPromo && (
-          <div className="absolute top-2 left-2 z-10">
+        {/* Badges Container */}
+        <div className="absolute top-2 left-2 z-10 flex flex-col gap-1">
+          {product.isPromo && (
             <span className="bg-destructive text-destructive-foreground text-[8px] font-bold px-1.5 py-0.5 rounded">
               PROMO
             </span>
-          </div>
-        )}
+          )}
+          {showCategoryBadge && (
+            <span className={cn("text-[8px] font-medium px-1.5 py-0.5 rounded", categoryInfo.className)}>
+              {categoryInfo.label}
+            </span>
+          )}
+        </div>
         
         <div className="h-32 bg-muted overflow-hidden relative">
           <img 
