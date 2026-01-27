@@ -57,6 +57,8 @@ export interface PaymentSettings {
   secret_key?: string;
   public_key?: string;
   is_production?: boolean;
+  callback_token?: string;
+  webhook_url?: string;
 }
 
 export interface ShippingFeeSettings {
