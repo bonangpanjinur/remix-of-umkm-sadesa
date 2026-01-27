@@ -13,7 +13,8 @@ import {
   Users,
   FileText,
   RotateCcw,
-  ScrollText
+  ScrollText,
+  Package
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -43,6 +44,7 @@ export function AdminSidebar({ pendingMerchants = 0, pendingVillages = 0, pendin
     { label: 'Merchant', href: '/admin/merchants', icon: <Store className="h-4 w-4" />, badge: pendingMerchants },
     { label: 'Desa Wisata', href: '/admin/villages', icon: <MapPin className="h-4 w-4" />, badge: pendingVillages },
     { label: 'Kurir', href: '/admin/couriers', icon: <Bike className="h-4 w-4" />, badge: pendingCouriers },
+    { label: 'Paket Transaksi', href: '/admin/packages', icon: <Package className="h-4 w-4" /> },
     { label: 'Penarikan', href: '/admin/withdrawals', icon: <RotateCcw className="h-4 w-4" />, badge: pendingWithdrawals },
     { label: 'Refund', href: '/admin/refunds', icon: <RotateCcw className="h-4 w-4" />, badge: pendingRefunds },
     { label: 'Laporan', href: '/admin/reports', icon: <FileText className="h-4 w-4" /> },

@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Package, Receipt, TrendingUp, DollarSign, AlertCircle, Settings,
-  BarChart3, Star, Wallet, Percent
+  BarChart3, Star, Wallet, Percent, CreditCard
 } from 'lucide-react';
 import { MerchantLayout } from '@/components/merchant/MerchantLayout';
 import { StatsCard } from '@/components/admin/StatsCard';
@@ -10,6 +10,7 @@ import { SalesAreaChart, OrdersBarChart } from '@/components/admin/SalesChart';
 import { QuickStats } from '@/components/merchant/QuickStats';
 import { StockAlerts } from '@/components/merchant/StockAlerts';
 import { OrderStatusManager } from '@/components/merchant/OrderStatusManager';
+import { QuotaStatusCard } from '@/components/merchant/QuotaStatusCard';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
@@ -187,6 +188,11 @@ export default function MerchantDashboardPage() {
             />
           </div>
         </div>
+      </div>
+
+      {/* Quota Status Card */}
+      <div className="mb-6">
+        <QuotaStatusCard />
       </div>
 
       {/* Quick Stats */}

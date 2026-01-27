@@ -247,6 +247,69 @@ export type Database = {
           },
         ]
       }
+      merchant_subscriptions: {
+        Row: {
+          created_at: string
+          expired_at: string
+          id: string
+          merchant_id: string
+          package_id: string
+          paid_at: string | null
+          payment_amount: number
+          payment_status: string
+          started_at: string
+          status: string
+          transaction_quota: number
+          updated_at: string
+          used_quota: number
+        }
+        Insert: {
+          created_at?: string
+          expired_at: string
+          id?: string
+          merchant_id: string
+          package_id: string
+          paid_at?: string | null
+          payment_amount?: number
+          payment_status?: string
+          started_at?: string
+          status?: string
+          transaction_quota?: number
+          updated_at?: string
+          used_quota?: number
+        }
+        Update: {
+          created_at?: string
+          expired_at?: string
+          id?: string
+          merchant_id?: string
+          package_id?: string
+          paid_at?: string | null
+          payment_amount?: number
+          payment_status?: string
+          started_at?: string
+          status?: string
+          transaction_quota?: number
+          updated_at?: string
+          used_quota?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "merchant_subscriptions_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "merchant_subscriptions_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "transaction_packages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       merchants: {
         Row: {
           address: string | null
@@ -262,6 +325,7 @@ export type Database = {
           cod_max_amount: number | null
           cod_max_distance_km: number | null
           created_at: string
+          current_subscription_id: string | null
           district: string | null
           id: string
           image_url: string | null
@@ -301,6 +365,7 @@ export type Database = {
           cod_max_amount?: number | null
           cod_max_distance_km?: number | null
           created_at?: string
+          current_subscription_id?: string | null
           district?: string | null
           id?: string
           image_url?: string | null
@@ -340,6 +405,7 @@ export type Database = {
           cod_max_amount?: number | null
           cod_max_distance_km?: number | null
           created_at?: string
+          current_subscription_id?: string | null
           district?: string | null
           id?: string
           image_url?: string | null
@@ -366,6 +432,13 @@ export type Database = {
           village_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "merchants_current_subscription_id_fkey"
+            columns: ["current_subscription_id"]
+            isOneToOne: false
+            referencedRelation: "merchant_subscriptions"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "merchants_village_id_fkey"
             columns: ["village_id"]
@@ -988,6 +1061,48 @@ export type Database = {
           },
         ]
       }
+      transaction_packages: {
+        Row: {
+          classification_price: string
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          kas_fee: number
+          name: string
+          price_per_transaction: number
+          transaction_quota: number
+          updated_at: string
+          validity_days: number
+        }
+        Insert: {
+          classification_price: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          kas_fee?: number
+          name: string
+          price_per_transaction?: number
+          transaction_quota?: number
+          updated_at?: string
+          validity_days?: number
+        }
+        Update: {
+          classification_price?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          kas_fee?: number
+          name?: string
+          price_per_transaction?: number
+          transaction_quota?: number
+          updated_at?: string
+          validity_days?: number
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           id: string
@@ -1170,6 +1285,7 @@ export type Database = {
         }
         Returns: Json
       }
+      check_merchant_quota: { Args: { p_merchant_id: string }; Returns: Json }
       get_user_roles: { Args: { _user_id: string }; Returns: string[] }
       has_any_role: {
         Args: {
@@ -1200,6 +1316,7 @@ export type Database = {
         }
         Returns: string
       }
+      use_merchant_quota: { Args: { p_merchant_id: string }; Returns: boolean }
     }
     Enums: {
       app_role:
