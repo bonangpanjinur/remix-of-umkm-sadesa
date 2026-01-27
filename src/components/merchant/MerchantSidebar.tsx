@@ -11,7 +11,8 @@ import {
   Star,
   Percent,
   Wallet,
-  CreditCard
+  CreditCard,
+  Zap
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
@@ -68,6 +69,7 @@ export function MerchantSidebar() {
     { label: 'Dashboard', href: '/merchant', icon: <LayoutDashboard className="h-4 w-4" /> },
     { label: 'Produk', href: '/merchant/products', icon: <Package className="h-4 w-4" /> },
     { label: 'Pesanan', href: '/merchant/orders', icon: <Receipt className="h-4 w-4" />, badge: pendingOrders },
+    { label: 'Flash Sale', href: '/merchant/flash-sale', icon: <Zap className="h-4 w-4" /> },
     { label: 'Kuota Transaksi', href: '/merchant/subscription', icon: <CreditCard className="h-4 w-4" /> },
     { label: 'Analitik', href: '/merchant/analytics', icon: <BarChart3 className="h-4 w-4" /> },
     { label: 'Ulasan', href: '/merchant/reviews', icon: <Star className="h-4 w-4" />, badge: unrepliedReviews },

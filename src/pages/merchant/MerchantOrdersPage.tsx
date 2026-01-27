@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Receipt, Check, X, Package, Clock, MoreHorizontal, User, MapPin, Phone, Truck, CreditCard, MessageSquare } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Receipt, Check, X, Package, MoreHorizontal, User, MapPin, Phone, Truck, CreditCard, MessageSquare, Printer } from 'lucide-react';
 import { MerchantLayout } from '@/components/merchant/MerchantLayout';
 import { DataTable } from '@/components/admin/DataTable';
 import { Badge } from '@/components/ui/badge';
@@ -23,6 +23,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { formatPrice } from '@/lib/utils';
+import { OrderInvoice, printInvoice } from '@/components/merchant/OrderInvoice';
 
 interface OrderItem {
   id: string;
@@ -51,6 +52,7 @@ interface OrderRow {
 export default function MerchantOrdersPage() {
   const { user } = useAuth();
   const [merchantId, setMerchantId] = useState<string | null>(null);
+  const [merchantName, setMerchantName] = useState<string>('');
   const [orders, setOrders] = useState<OrderRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedOrder, setSelectedOrder] = useState<OrderRow | null>(null);
@@ -58,6 +60,8 @@ export default function MerchantOrdersPage() {
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
+  const [printDialogOpen, setPrintDialogOpen] = useState(false);
+  const invoiceRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const fetchOrders = async () => {
@@ -66,7 +70,7 @@ export default function MerchantOrdersPage() {
       try {
         const { data: merchant } = await supabase
           .from('merchants')
-          .select('id')
+          .select('id, name')
           .eq('user_id', user.id)
           .maybeSingle();
 
@@ -76,6 +80,7 @@ export default function MerchantOrdersPage() {
         }
 
         setMerchantId(merchant.id);
+        setMerchantName(merchant.name);
 
         const { data, error } = await supabase
           .from('orders')
@@ -106,6 +111,24 @@ export default function MerchantOrdersPage() {
 
     setOrderItems(items || []);
     setDetailDialogOpen(true);
+  };
+
+  const openPrintDialog = async (order: OrderRow) => {
+    setSelectedOrder(order);
+    
+    const { data: items } = await supabase
+      .from('order_items')
+      .select('*')
+      .eq('order_id', order.id);
+
+    setOrderItems(items || []);
+    setPrintDialogOpen(true);
+  };
+
+  const handlePrint = () => {
+    if (invoiceRef.current) {
+      printInvoice(invoiceRef.current);
+    }
   };
 
   const updateOrderStatus = async (orderId: string, newStatus: string, reason?: string) => {
@@ -232,6 +255,10 @@ export default function MerchantOrdersPage() {
           <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={() => viewOrderDetail(item)}>
               Lihat Detail
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => openPrintDialog(item)}>
+              <Printer className="h-4 w-4 mr-2" />
+              Cetak Struk
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             {item.status === 'NEW' && (
@@ -466,6 +493,50 @@ export default function MerchantOrdersPage() {
             </Button>
             <Button variant="destructive" onClick={handleReject} disabled={!rejectReason.trim()}>
               Tolak Pesanan
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Print Invoice Dialog */}
+      <Dialog open={printDialogOpen} onOpenChange={setPrintDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Cetak Struk</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            {selectedOrder && (
+              <OrderInvoice
+                ref={invoiceRef}
+                order={{
+                  id: selectedOrder.id,
+                  delivery_name: selectedOrder.delivery_name,
+                  delivery_phone: selectedOrder.delivery_phone,
+                  delivery_address: selectedOrder.delivery_address,
+                  delivery_type: selectedOrder.delivery_type,
+                  subtotal: selectedOrder.subtotal,
+                  shipping_cost: selectedOrder.shipping_cost,
+                  total: selectedOrder.total,
+                  payment_method: selectedOrder.payment_method,
+                  created_at: selectedOrder.created_at,
+                  notes: selectedOrder.notes,
+                }}
+                items={orderItems}
+                merchant={{
+                  name: merchantName,
+                  address: null,
+                  phone: null,
+                }}
+              />
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPrintDialogOpen(false)}>
+              Tutup
+            </Button>
+            <Button onClick={handlePrint}>
+              <Printer className="h-4 w-4 mr-2" />
+              Cetak
             </Button>
           </DialogFooter>
         </DialogContent>

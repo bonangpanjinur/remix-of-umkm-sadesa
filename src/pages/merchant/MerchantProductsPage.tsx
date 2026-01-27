@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Package, Plus, Edit, Trash2, MoreHorizontal, ImageIcon } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Package, Plus, Edit, Trash2, MoreHorizontal, ImageIcon, Layers, Images } from 'lucide-react';
 import { MerchantLayout } from '@/components/merchant/MerchantLayout';
 import { DataTable } from '@/components/admin/DataTable';
 import { Badge } from '@/components/ui/badge';
@@ -67,6 +68,7 @@ const defaultForm: ProductForm = {
 };
 
 export default function MerchantProductsPage() {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const [merchantId, setMerchantId] = useState<string | null>(null);
   const [products, setProducts] = useState<ProductRow[]>([]);
@@ -283,6 +285,10 @@ export default function MerchantProductsPage() {
             <DropdownMenuItem onClick={() => openEditDialog(item)}>
               <Edit className="h-4 w-4 mr-2" />
               Edit
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => navigate(`/merchant/products/${item.id}`)}>
+              <Images className="h-4 w-4 mr-2" />
+              Gambar & Varian
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => toggleActive(item.id, item.is_active)}>
               {item.is_active ? 'Nonaktifkan' : 'Aktifkan'}

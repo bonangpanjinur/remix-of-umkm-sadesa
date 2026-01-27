@@ -320,6 +320,7 @@ export default function AccountPage() {
             </button>
             
             <button 
+              onClick={() => navigate('/settings')}
               className="w-full flex items-center justify-between p-4 bg-card rounded-xl border border-border hover:bg-secondary transition"
             >
               <div className="flex items-center gap-3">

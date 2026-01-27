@@ -19,6 +19,7 @@ import ExplorePage from "./pages/ExplorePage";
 import SearchResultsPage from "./pages/SearchResultsPage";
 import OrdersPage from "./pages/OrdersPage";
 import AccountPage from "./pages/AccountPage";
+import SettingsPage from "./pages/SettingsPage";
 import AuthPage from "./pages/AuthPage";
 import RegisterPage from "./pages/RegisterPage";
 import RegisterVillagePage from "./pages/RegisterVillagePage";
@@ -57,6 +58,7 @@ import VerifikatorEarningsPage from "./pages/verifikator/VerifikatorEarningsPage
 // Merchant Pages
 import MerchantDashboardPage from "./pages/merchant/MerchantDashboardPage";
 import MerchantProductsPage from "./pages/merchant/MerchantProductsPage";
+import MerchantProductDetailPage from "./pages/merchant/MerchantProductDetailPage";
 import MerchantOrdersPage from "./pages/merchant/MerchantOrdersPage";
 import MerchantSettingsPage from "./pages/merchant/MerchantSettingsPage";
 import MerchantAnalyticsPage from "./pages/merchant/MerchantAnalyticsPage";
@@ -64,6 +66,7 @@ import MerchantReviewsPage from "./pages/merchant/MerchantReviewsPage";
 import MerchantPromoPage from "./pages/merchant/MerchantPromoPage";
 import MerchantWithdrawalPage from "./pages/merchant/MerchantWithdrawalPage";
 import MerchantSubscriptionPage from "./pages/merchant/MerchantSubscriptionPage";
+import MerchantFlashSalePage from "./pages/merchant/MerchantFlashSalePage";
 
 // Desa Pages
 import DesaDashboardPage from "./pages/desa/DesaDashboardPage";
@@ -128,6 +131,11 @@ const App = () => (
               <Route path="/account" element={
                 <ProtectedRoute>
                   <AccountPage />
+                </ProtectedRoute>
+              } />
+              <Route path="/settings" element={
+                <ProtectedRoute>
+                  <SettingsPage />
                 </ProtectedRoute>
               } />
 
@@ -260,6 +268,11 @@ const App = () => (
                   <MerchantProductsPage />
                 </ProtectedRoute>
               } />
+              <Route path="/merchant/products/:productId" element={
+                <ProtectedRoute allowedRoles={['merchant', 'admin']}>
+                  <MerchantProductDetailPage />
+                </ProtectedRoute>
+              } />
               <Route path="/merchant/orders" element={
                 <ProtectedRoute allowedRoles={['merchant', 'admin']}>
                   <MerchantOrdersPage />
@@ -293,6 +306,11 @@ const App = () => (
               <Route path="/merchant/subscription" element={
                 <ProtectedRoute allowedRoles={['merchant', 'admin']}>
                   <MerchantSubscriptionPage />
+                </ProtectedRoute>
+              } />
+              <Route path="/merchant/flash-sale" element={
+                <ProtectedRoute allowedRoles={['merchant', 'admin']}>
+                  <MerchantFlashSalePage />
                 </ProtectedRoute>
               } />
 

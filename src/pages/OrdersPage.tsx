@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Receipt, ShoppingBag, Package, Truck, CheckCircle, XCircle, Clock, ArrowLeft, Star } from 'lucide-react';
+import { Receipt, ShoppingBag, Package, Truck, CheckCircle, XCircle, Clock, Star, X } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
 import { BottomNav } from '@/components/layout/BottomNav';
 import { Button } from '@/components/ui/button';
@@ -9,6 +9,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useCart } from '@/contexts/CartContext';
 import { supabase } from '@/integrations/supabase/client';
 import { formatPrice } from '@/lib/utils';
+import { OrderCancelDialog } from '@/components/order/OrderCancelDialog';
 
 interface Order {
   id: string;
@@ -38,6 +39,8 @@ export default function OrdersPage() {
   const { items } = useCart();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -92,6 +95,15 @@ export default function OrdersPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const openCancelDialog = (orderId: string) => {
+    setSelectedOrderId(orderId);
+    setCancelDialogOpen(true);
+  };
+
+  const handleOrderCancelled = () => {
+    fetchOrders(); // Refresh orders list
   };
 
   if (authLoading) {
@@ -228,6 +240,19 @@ export default function OrdersPage() {
                         )}
                       </div>
                       <div className="flex items-center gap-2">
+                        {order.status === 'NEW' && (
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openCancelDialog(order.id);
+                            }}
+                          >
+                            <X className="h-3 w-3 mr-1" />
+                            Batalkan
+                          </Button>
+                        )}
                         {(order.status === 'DONE' || order.status === 'DELIVERED') && (
                           <Button 
                             size="sm" 
@@ -251,6 +276,16 @@ export default function OrdersPage() {
           )}
         </motion.div>
       </div>
+      
+      {/* Cancel Dialog */}
+      {selectedOrderId && (
+        <OrderCancelDialog
+          orderId={selectedOrderId}
+          open={cancelDialogOpen}
+          onOpenChange={setCancelDialogOpen}
+          onCancelled={handleOrderCancelled}
+        />
+      )}
       
       <BottomNav />
     </div>

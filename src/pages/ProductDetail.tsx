@@ -16,6 +16,7 @@ import { Button } from '@/components/ui/button';
 import { fetchProduct, fetchMerchant } from '@/lib/api';
 import { useCart } from '@/contexts/CartContext';
 import { formatPrice } from '@/lib/utils';
+import { WishlistButton } from '@/components/WishlistButton';
 import type { Product, Merchant } from '@/types';
 
 export default function ProductDetail() {
@@ -91,9 +92,12 @@ export default function ProductDetail() {
             >
               <ArrowLeft className="h-5 w-5" />
             </button>
-            <button className="w-10 h-10 bg-foreground/20 backdrop-blur rounded-full flex items-center justify-center text-primary-foreground hover:bg-foreground/40 transition border border-primary-foreground/20">
-              <Share2 className="h-5 w-5" />
-            </button>
+            <div className="flex items-center gap-2">
+              <WishlistButton productId={id || ''} size="md" />
+              <button className="w-10 h-10 bg-foreground/20 backdrop-blur rounded-full flex items-center justify-center text-primary-foreground hover:bg-foreground/40 transition border border-primary-foreground/20">
+                <Share2 className="h-5 w-5" />
+              </button>
+            </div>
           </div>
           
           {product.isPromo && (

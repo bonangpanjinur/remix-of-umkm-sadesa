@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import type { Product } from '@/types';
 import { useCart } from '@/contexts/CartContext';
 import { formatPrice, cn } from '@/lib/utils';
+import { WishlistButton } from '@/components/WishlistButton';
 
 interface ProductCardProps {
   product: Product;
@@ -51,6 +52,11 @@ export function ProductCard({ product, index = 0, showCategoryBadge = false }: P
               {categoryInfo.label}
             </span>
           )}
+        </div>
+        
+        {/* Wishlist Button */}
+        <div className="absolute top-2 right-2 z-10">
+          <WishlistButton productId={product.id} size="sm" />
         </div>
         
         <div className="h-32 bg-muted overflow-hidden relative">
