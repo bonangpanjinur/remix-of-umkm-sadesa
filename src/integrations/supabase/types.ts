@@ -14,6 +14,143 @@ export type Database = {
   }
   public: {
     Tables: {
+      app_settings: {
+        Row: {
+          category: string
+          created_at: string
+          description: string | null
+          id: string
+          key: string
+          updated_at: string
+          updated_by: string | null
+          value: Json
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          key: string
+          updated_at?: string
+          updated_by?: string | null
+          value?: Json
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          key?: string
+          updated_at?: string
+          updated_by?: string | null
+          value?: Json
+        }
+        Relationships: []
+      }
+      couriers: {
+        Row: {
+          address: string
+          approved_at: string | null
+          approved_by: string | null
+          city: string
+          created_at: string
+          current_lat: number | null
+          current_lng: number | null
+          district: string
+          email: string | null
+          id: string
+          is_available: boolean
+          ktp_image_url: string
+          ktp_number: string
+          last_location_update: string | null
+          name: string
+          phone: string
+          photo_url: string
+          province: string
+          registered_at: string | null
+          registration_status: string
+          rejection_reason: string | null
+          status: string
+          subdistrict: string
+          updated_at: string
+          user_id: string | null
+          vehicle_image_url: string
+          vehicle_plate: string | null
+          vehicle_type: string
+          village_id: string | null
+        }
+        Insert: {
+          address: string
+          approved_at?: string | null
+          approved_by?: string | null
+          city: string
+          created_at?: string
+          current_lat?: number | null
+          current_lng?: number | null
+          district: string
+          email?: string | null
+          id?: string
+          is_available?: boolean
+          ktp_image_url: string
+          ktp_number: string
+          last_location_update?: string | null
+          name: string
+          phone: string
+          photo_url: string
+          province: string
+          registered_at?: string | null
+          registration_status?: string
+          rejection_reason?: string | null
+          status?: string
+          subdistrict: string
+          updated_at?: string
+          user_id?: string | null
+          vehicle_image_url: string
+          vehicle_plate?: string | null
+          vehicle_type?: string
+          village_id?: string | null
+        }
+        Update: {
+          address?: string
+          approved_at?: string | null
+          approved_by?: string | null
+          city?: string
+          created_at?: string
+          current_lat?: number | null
+          current_lng?: number | null
+          district?: string
+          email?: string | null
+          id?: string
+          is_available?: boolean
+          ktp_image_url?: string
+          ktp_number?: string
+          last_location_update?: string | null
+          name?: string
+          phone?: string
+          photo_url?: string
+          province?: string
+          registered_at?: string | null
+          registration_status?: string
+          rejection_reason?: string | null
+          status?: string
+          subdistrict?: string
+          updated_at?: string
+          user_id?: string | null
+          vehicle_image_url?: string
+          vehicle_plate?: string | null
+          vehicle_type?: string
+          village_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "couriers_village_id_fkey"
+            columns: ["village_id"]
+            isOneToOne: false
+            referencedRelation: "villages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       merchants: {
         Row: {
           address: string | null

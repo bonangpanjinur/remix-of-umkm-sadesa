@@ -22,7 +22,12 @@ import AuthPage from "./pages/AuthPage";
 import RegisterPage from "./pages/RegisterPage";
 import RegisterVillagePage from "./pages/RegisterVillagePage";
 import RegisterMerchantPage from "./pages/RegisterMerchantPage";
+import RegisterCourierPage from "./pages/RegisterCourierPage";
 import NotFound from "./pages/NotFound";
+
+// Admin Pages
+import AdminDashboardPage from "./pages/admin/AdminDashboardPage";
+import AdminSettingsPage from "./pages/admin/AdminSettingsPage";
 
 const queryClient = new QueryClient();
 
@@ -50,6 +55,10 @@ const App = () => (
               <Route path="/register" element={<RegisterPage />} />
               <Route path="/register/village" element={<RegisterVillagePage />} />
               <Route path="/register/merchant" element={<RegisterMerchantPage />} />
+              <Route path="/register/courier" element={<RegisterCourierPage />} />
+              {/* Admin Routes */}
+              <Route path="/admin" element={<AdminDashboardPage />} />
+              <Route path="/admin/settings" element={<AdminSettingsPage />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>

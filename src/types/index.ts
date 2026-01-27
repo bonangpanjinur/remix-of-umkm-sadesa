@@ -5,9 +5,15 @@ export interface Village {
   name: string;
   district: string;
   regency: string;
+  subdistrict?: string;
   description: string;
   image: string;
   isActive: boolean;
+  registrationStatus?: string;
+  registeredAt?: string;
+  contactName?: string;
+  contactPhone?: string;
+  contactEmail?: string;
 }
 
 export interface Merchant {
@@ -28,6 +34,17 @@ export interface Merchant {
   image?: string;
   phone?: string;
   isOpen: boolean;
+  // Extended fields for admin
+  registrationStatus?: string;
+  registeredAt?: string;
+  province?: string;
+  city?: string;
+  district?: string;
+  subdistrict?: string;
+  businessCategory?: string;
+  businessDescription?: string;
+  tradeGroup?: string;
+  verifikatorCode?: string;
 }
 
 export interface Product {
