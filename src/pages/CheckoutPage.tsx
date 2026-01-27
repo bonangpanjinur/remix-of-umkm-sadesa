@@ -17,13 +17,15 @@ import { CheckoutAddressForm, createEmptyCheckoutAddress, type CheckoutAddressDa
 import { formatFullAddress } from '@/components/AddressSelector';
 import { fetchCODSettings, quickCODCheck, getBuyerCODStatus } from '@/lib/codSecurity';
 import { validatePhone, isWhatsAppFormat } from '@/lib/phoneValidation';
+import { useMerchantQuota, useMerchantQuotaForOrder, notifyMerchantLowQuota } from '@/hooks/useMerchantQuota';
+import { QuotaBlockedAlert } from '@/components/checkout/QuotaBlockedAlert';
 
 type PaymentMethod = 'COD' | 'ONLINE';
 
 export default function CheckoutPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { items, getCartTotal, clearCart } = useCart();
+  const { items, getCartTotal, clearCart, removeFromCart } = useCart();
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [orderId, setOrderId] = useState<string | null>(null);
@@ -132,6 +134,29 @@ export default function CheckoutPage() {
     return acc;
   }, {} as Record<string, { merchantName: string; items: typeof items }>);
 
+  // Get unique merchant IDs for quota check
+  const merchantIds = useMemo(() => Object.keys(itemsByMerchant), [itemsByMerchant]);
+
+  // Check merchant quotas
+  const { 
+    blockedMerchants, 
+    canProceedCheckout, 
+    loading: quotaLoading,
+    quotaStatuses 
+  } = useMerchantQuota(merchantIds);
+
+  // Remove items from a specific merchant
+  const handleRemoveMerchantItems = (merchantId: string) => {
+    const merchantItems = itemsByMerchant[merchantId]?.items || [];
+    merchantItems.forEach(item => {
+      removeFromCart(item.product.id);
+    });
+    toast({
+      title: 'Produk dihapus',
+      description: `Produk dari ${itemsByMerchant[merchantId]?.merchantName || 'toko'} telah dihapus dari keranjang`,
+    });
+  };
+
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
 
@@ -175,6 +200,16 @@ export default function CheckoutPage() {
     if (items.length === 0) {
       toast({
         title: 'Keranjang kosong',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    // Check if any merchant has no quota
+    if (!canProceedCheckout) {
+      toast({
+        title: 'Tidak dapat melanjutkan',
+        description: 'Beberapa toko tidak memiliki kuota transaksi aktif',
         variant: 'destructive',
       });
       return;
@@ -258,6 +293,21 @@ export default function CheckoutPage() {
         if (itemsError) {
           console.error('Error creating order items:', itemsError);
           throw itemsError;
+        }
+
+        // Use merchant quota after successful order
+        const quotaUsed = await useMerchantQuotaForOrder(merchantId);
+        if (quotaUsed) {
+          // Check remaining quota and send notification if low/empty
+          const quotaStatus = quotaStatuses[merchantId];
+          if (quotaStatus) {
+            const newRemaining = quotaStatus.remainingQuota - 1;
+            if (newRemaining <= 0) {
+              await notifyMerchantLowQuota(merchantId, 0, 'empty');
+            } else if (newRemaining <= 5) {
+              await notifyMerchantLowQuota(merchantId, newRemaining, 'low');
+            }
+          }
         }
 
         setOrderId(orderData.id);
@@ -355,6 +405,22 @@ export default function CheckoutPage() {
       </div>
       
       <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-4 pb-56">
+        {/* Quota Blocked Alert */}
+        {!quotaLoading && blockedMerchants.length > 0 && (
+          <QuotaBlockedAlert 
+            blockedMerchants={blockedMerchants}
+            onRemoveMerchantItems={handleRemoveMerchantItems}
+          />
+        )}
+
+        {/* Loading quota check */}
+        {quotaLoading && (
+          <div className="bg-muted/50 rounded-lg p-4 mb-4 flex items-center justify-center gap-2">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            <span className="text-sm text-muted-foreground">Memeriksa ketersediaan toko...</span>
+          </div>
+        )}
+
         {/* Delivery Address */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -579,13 +645,20 @@ export default function CheckoutPage() {
           onClick={handleSubmit}
           className="w-full shadow-brand font-bold"
           size="lg"
-          disabled={loading || items.length === 0}
+          disabled={loading || items.length === 0 || !canProceedCheckout || quotaLoading}
         >
           {loading ? (
             <>
               <Loader2 className="h-4 w-4 mr-2 animate-spin" />
               Memproses...
             </>
+          ) : quotaLoading ? (
+            <>
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              Memeriksa Kuota...
+            </>
+          ) : !canProceedCheckout ? (
+            'Tidak Dapat Melanjutkan'
           ) : paymentMethod === 'COD' ? (
             'Pesan & Konfirmasi WA'
           ) : (
