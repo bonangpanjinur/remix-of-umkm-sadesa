@@ -11,6 +11,7 @@ import { QuickStats } from '@/components/merchant/QuickStats';
 import { StockAlerts } from '@/components/merchant/StockAlerts';
 import { OrderStatusManager } from '@/components/merchant/OrderStatusManager';
 import { QuotaStatusCard } from '@/components/merchant/QuotaStatusCard';
+import { MerchantGroupCard } from '@/components/merchant/MerchantGroupCard';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
@@ -190,9 +191,10 @@ export default function MerchantDashboardPage() {
         </div>
       </div>
 
-      {/* Quota Status Card */}
-      <div className="mb-6">
+      {/* Quota and Group Status */}
+      <div className="grid md:grid-cols-2 gap-6 mb-6">
         <QuotaStatusCard />
+        <MerchantGroupCard />
       </div>
 
       {/* Quick Stats */}

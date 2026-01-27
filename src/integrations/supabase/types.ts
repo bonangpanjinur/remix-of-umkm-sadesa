@@ -190,6 +190,45 @@ export type Database = {
           },
         ]
       }
+      group_members: {
+        Row: {
+          group_id: string
+          id: string
+          joined_at: string
+          merchant_id: string
+          status: string
+        }
+        Insert: {
+          group_id: string
+          id?: string
+          joined_at?: string
+          merchant_id: string
+          status?: string
+        }
+        Update: {
+          group_id?: string
+          id?: string
+          joined_at?: string
+          merchant_id?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "group_members_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "trade_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "group_members_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       insurance_fund: {
         Row: {
           amount: number
@@ -243,6 +282,66 @@ export type Database = {
             columns: ["order_id"]
             isOneToOne: false
             referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      kas_payments: {
+        Row: {
+          amount: number
+          collected_by: string | null
+          created_at: string
+          group_id: string
+          id: string
+          merchant_id: string
+          notes: string | null
+          payment_date: string | null
+          payment_month: number
+          payment_year: number
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          collected_by?: string | null
+          created_at?: string
+          group_id: string
+          id?: string
+          merchant_id: string
+          notes?: string | null
+          payment_date?: string | null
+          payment_month: number
+          payment_year: number
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          collected_by?: string | null
+          created_at?: string
+          group_id?: string
+          id?: string
+          merchant_id?: string
+          notes?: string | null
+          payment_date?: string | null
+          payment_month?: number
+          payment_year?: number
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "kas_payments_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "trade_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "kas_payments_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchants"
             referencedColumns: ["id"]
           },
         ]
@@ -1061,6 +1160,50 @@ export type Database = {
           },
         ]
       }
+      trade_groups: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          monthly_fee: number
+          name: string
+          updated_at: string
+          verifikator_id: string
+          village_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          monthly_fee?: number
+          name: string
+          updated_at?: string
+          verifikator_id: string
+          village_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          monthly_fee?: number
+          name?: string
+          updated_at?: string
+          verifikator_id?: string
+          village_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "trade_groups_village_id_fkey"
+            columns: ["village_id"]
+            isOneToOne: false
+            referencedRelation: "villages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       transaction_packages: {
         Row: {
           classification_price: string
@@ -1286,6 +1429,10 @@ export type Database = {
         Returns: Json
       }
       check_merchant_quota: { Args: { p_merchant_id: string }; Returns: Json }
+      generate_monthly_kas: {
+        Args: { p_group_id: string; p_month: number; p_year: number }
+        Returns: number
+      }
       get_user_roles: { Args: { _user_id: string }; Returns: string[] }
       has_any_role: {
         Args: {

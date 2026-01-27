@@ -5,7 +5,8 @@ import {
   TicketCheck, 
   Store, 
   ChevronLeft,
-  ClipboardCheck
+  ClipboardCheck,
+  Users
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
@@ -53,6 +54,7 @@ export function VerifikatorSidebar() {
     { label: 'Dashboard', href: '/verifikator', icon: <LayoutDashboard className="h-4 w-4" /> },
     { label: 'Kode Referral', href: '/verifikator/codes', icon: <TicketCheck className="h-4 w-4" /> },
     { label: 'Merchant', href: '/verifikator/merchants', icon: <Store className="h-4 w-4" />, badge: pendingMerchants },
+    { label: 'Kelompok Dagang', href: '/verifikator/groups', icon: <Users className="h-4 w-4" /> },
   ];
 
   return (

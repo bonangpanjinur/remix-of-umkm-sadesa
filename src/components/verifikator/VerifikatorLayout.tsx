@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils';
 
 interface VerifikatorLayoutProps {
   children: ReactNode;
-  title: string;
+  title?: string;
   subtitle?: string;
 }
 
