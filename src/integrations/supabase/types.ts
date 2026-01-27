@@ -314,9 +314,14 @@ export type Database = {
       }
       orders: {
         Row: {
+          assigned_at: string | null
           buyer_id: string
+          courier_id: string | null
           created_at: string
+          delivered_at: string | null
           delivery_address: string | null
+          delivery_lat: number | null
+          delivery_lng: number | null
           delivery_name: string | null
           delivery_phone: string | null
           delivery_type: string
@@ -324,6 +329,7 @@ export type Database = {
           id: string
           merchant_id: string | null
           notes: string | null
+          picked_up_at: string | null
           shipping_cost: number
           status: string
           subtotal: number
@@ -331,9 +337,14 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          assigned_at?: string | null
           buyer_id: string
+          courier_id?: string | null
           created_at?: string
+          delivered_at?: string | null
           delivery_address?: string | null
+          delivery_lat?: number | null
+          delivery_lng?: number | null
           delivery_name?: string | null
           delivery_phone?: string | null
           delivery_type?: string
@@ -341,6 +352,7 @@ export type Database = {
           id?: string
           merchant_id?: string | null
           notes?: string | null
+          picked_up_at?: string | null
           shipping_cost?: number
           status?: string
           subtotal?: number
@@ -348,9 +360,14 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          assigned_at?: string | null
           buyer_id?: string
+          courier_id?: string | null
           created_at?: string
+          delivered_at?: string | null
           delivery_address?: string | null
+          delivery_lat?: number | null
+          delivery_lng?: number | null
           delivery_name?: string | null
           delivery_phone?: string | null
           delivery_type?: string
@@ -358,6 +375,7 @@ export type Database = {
           id?: string
           merchant_id?: string | null
           notes?: string | null
+          picked_up_at?: string | null
           shipping_cost?: number
           status?: string
           subtotal?: number
@@ -365,6 +383,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "orders_courier_id_fkey"
+            columns: ["courier_id"]
+            isOneToOne: false
+            referencedRelation: "couriers"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "orders_merchant_id_fkey"
             columns: ["merchant_id"]

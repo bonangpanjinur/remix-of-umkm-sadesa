@@ -24,6 +24,8 @@ import RegisterVillagePage from "./pages/RegisterVillagePage";
 import RegisterMerchantPage from "./pages/RegisterMerchantPage";
 import RegisterCourierPage from "./pages/RegisterCourierPage";
 import NotFound from "./pages/NotFound";
+import CourierDashboardPage from "./pages/CourierDashboardPage";
+import OrderTrackingPage from "./pages/OrderTrackingPage";
 
 // Admin Pages
 import AdminDashboardPage from "./pages/admin/AdminDashboardPage";
@@ -56,6 +58,8 @@ const App = () => (
               <Route path="/register/village" element={<RegisterVillagePage />} />
               <Route path="/register/merchant" element={<RegisterMerchantPage />} />
               <Route path="/register/courier" element={<RegisterCourierPage />} />
+              <Route path="/courier" element={<CourierDashboardPage />} />
+              <Route path="/orders/:orderId/tracking" element={<OrderTrackingPage />} />
               {/* Admin Routes */}
               <Route path="/admin" element={<AdminDashboardPage />} />
               <Route path="/admin/settings" element={<AdminSettingsPage />} />

@@ -18,12 +18,16 @@ interface Order {
   delivery_type: string;
   merchant_name?: string;
   items_count?: number;
+  courier_id?: string | null;
 }
 
 const statusConfig: Record<string, { label: string; icon: React.ElementType; color: string }> = {
   NEW: { label: 'Pesanan Baru', icon: Clock, color: 'text-amber-500' },
-  PROCESSED: { label: 'Diproses', icon: Package, color: 'text-blue-500' },
-  SENT: { label: 'Dikirim', icon: Truck, color: 'text-primary' },
+  PROCESSING: { label: 'Diproses', icon: Package, color: 'text-blue-500' },
+  ASSIGNED: { label: 'Kurir Ditugaskan', icon: Truck, color: 'text-purple-500' },
+  PICKED_UP: { label: 'Diambil', icon: Truck, color: 'text-orange-500' },
+  ON_DELIVERY: { label: 'Dalam Perjalanan', icon: Truck, color: 'text-primary' },
+  DELIVERED: { label: 'Terkirim', icon: CheckCircle, color: 'text-green-500' },
   DONE: { label: 'Selesai', icon: CheckCircle, color: 'text-green-500' },
   CANCELED: { label: 'Dibatalkan', icon: XCircle, color: 'text-destructive' },
 };
@@ -58,6 +62,7 @@ export default function OrdersPage() {
           total,
           created_at,
           delivery_type,
+          courier_id,
           merchants (
             name
           ),
@@ -76,6 +81,7 @@ export default function OrdersPage() {
         total: order.total,
         created_at: order.created_at,
         delivery_type: order.delivery_type,
+        courier_id: order.courier_id,
         merchant_name: order.merchants?.name || 'Toko',
         items_count: order.order_items?.length || 0,
       }));
@@ -183,6 +189,13 @@ export default function OrdersPage() {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: index * 0.05 }}
                     className="bg-card rounded-xl p-4 border border-border shadow-sm"
+                    onClick={() => {
+                      if (order.courier_id && ['ASSIGNED', 'PICKED_UP', 'ON_DELIVERY'].includes(order.status)) {
+                        navigate(`/orders/${order.id}/tracking`);
+                      }
+                    }}
+                    role={order.courier_id ? 'button' : undefined}
+                    style={{ cursor: order.courier_id && ['ASSIGNED', 'PICKED_UP', 'ON_DELIVERY'].includes(order.status) ? 'pointer' : 'default' }}
                   >
                     <div className="flex justify-between items-start mb-3">
                       <div>
@@ -204,9 +217,16 @@ export default function OrdersPage() {
                     </div>
                     
                     <div className="flex justify-between items-center pt-3 border-t border-border">
-                      <p className="text-xs text-muted-foreground">
-                        {order.items_count} item • {order.delivery_type === 'INTERNAL' ? 'Kurir Desa' : 'Ambil Sendiri'}
-                      </p>
+                      <div>
+                        <p className="text-xs text-muted-foreground">
+                          {order.items_count} item • {order.delivery_type === 'INTERNAL' ? 'Kurir Desa' : 'Ambil Sendiri'}
+                        </p>
+                        {order.courier_id && ['ASSIGNED', 'PICKED_UP', 'ON_DELIVERY'].includes(order.status) && (
+                          <p className="text-xs text-primary font-medium mt-1">
+                            Tap untuk lacak kurir →
+                          </p>
+                        )}
+                      </div>
                       <p className="font-bold text-primary">{formatPrice(order.total)}</p>
                     </div>
                   </motion.div>
