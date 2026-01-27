@@ -1,12 +1,19 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Package, Receipt, TrendingUp, DollarSign, AlertCircle, Settings } from 'lucide-react';
+import { 
+  Package, Receipt, TrendingUp, DollarSign, AlertCircle, Settings,
+  BarChart3, Star, Wallet, Percent
+} from 'lucide-react';
 import { MerchantLayout } from '@/components/merchant/MerchantLayout';
 import { StatsCard } from '@/components/admin/StatsCard';
 import { SalesAreaChart, OrdersBarChart } from '@/components/admin/SalesChart';
+import { QuickStats } from '@/components/merchant/QuickStats';
+import { StockAlerts } from '@/components/merchant/StockAlerts';
+import { OrderStatusManager } from '@/components/merchant/OrderStatusManager';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
@@ -27,37 +34,20 @@ interface OrderData {
   created_at: string;
 }
 
-interface Stats {
-  totalProducts: number;
-  activeProducts: number;
-  totalOrders: number;
-  pendingOrders: number;
-  totalRevenue: number;
-  todayOrders: number;
-}
-
 export default function MerchantDashboardPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [merchant, setMerchant] = useState<MerchantData | null>(null);
   const [orders, setOrders] = useState<OrderData[]>([]);
-  const [stats, setStats] = useState<Stats>({
-    totalProducts: 0,
-    activeProducts: 0,
-    totalOrders: 0,
-    pendingOrders: 0,
-    totalRevenue: 0,
-    todayOrders: 0,
-  });
   const [loading, setLoading] = useState(true);
   const [updatingStatus, setUpdatingStatus] = useState(false);
+  const [activeTab, setActiveTab] = useState('overview');
 
   useEffect(() => {
     const fetchData = async () => {
       if (!user) return;
 
       try {
-        // Get merchant
         const { data: merchantData } = await supabase
           .from('merchants')
           .select('id, name, is_open, status, registration_status')
@@ -71,35 +61,12 @@ export default function MerchantDashboardPage() {
 
         setMerchant(merchantData);
 
-        // Get stats
-        const [productsRes, ordersRes] = await Promise.all([
-          supabase
-            .from('products')
-            .select('id, is_active')
-            .eq('merchant_id', merchantData.id),
-          supabase
-            .from('orders')
-            .select('id, status, total, created_at')
-            .eq('merchant_id', merchantData.id),
-        ]);
+        const { data: ordersData } = await supabase
+          .from('orders')
+          .select('id, status, total, created_at')
+          .eq('merchant_id', merchantData.id);
 
-        const products = productsRes.data || [];
-        const ordersData = ordersRes.data || [];
-        const today = new Date().toDateString();
-
-        setOrders(ordersData);
-        setStats({
-          totalProducts: products.length,
-          activeProducts: products.filter(p => p.is_active).length,
-          totalOrders: ordersData.length,
-          pendingOrders: ordersData.filter(o => o.status === 'NEW').length,
-          totalRevenue: ordersData
-            .filter(o => o.status === 'DONE')
-            .reduce((sum, o) => sum + o.total, 0),
-          todayOrders: ordersData.filter(o => 
-            new Date(o.created_at).toDateString() === today
-          ).length,
-        });
+        setOrders(ordersData || []);
       } catch (error) {
         console.error('Error fetching merchant data:', error);
       } finally {
@@ -110,7 +77,6 @@ export default function MerchantDashboardPage() {
     fetchData();
   }, [user]);
 
-  // Calculate chart data from orders
   const salesChartData = useMemo(() => {
     const dateMap = new Map<string, { revenue: number; orders: number }>();
     
@@ -123,7 +89,6 @@ export default function MerchantDashboardPage() {
       });
     });
 
-    // Fill in last 14 days
     const result: { date: string; revenue: number; orders: number }[] = [];
     for (let i = 13; i >= 0; i--) {
       const date = new Date(Date.now() - i * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
@@ -224,65 +189,104 @@ export default function MerchantDashboardPage() {
         </div>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <StatsCard
-          title="Total Produk"
-          value={stats.totalProducts}
-          icon={<Package className="h-5 w-5" />}
-          description={`${stats.activeProducts} aktif`}
-        />
-        <StatsCard
-          title="Total Pesanan"
-          value={stats.totalOrders}
-          icon={<Receipt className="h-5 w-5" />}
-          description={`${stats.pendingOrders} baru`}
-        />
-        <StatsCard
-          title="Pesanan Hari Ini"
-          value={stats.todayOrders}
-          icon={<TrendingUp className="h-5 w-5" />}
-        />
-        <StatsCard
-          title="Total Pendapatan"
-          value={formatPrice(stats.totalRevenue)}
-          icon={<DollarSign className="h-5 w-5" />}
-        />
+      {/* Quick Stats */}
+      <div className="mb-6">
+        <QuickStats merchantId={merchant.id} />
       </div>
 
-      {/* Charts */}
-      <div className="grid md:grid-cols-2 gap-6 mb-8">
-        <SalesAreaChart data={salesChartData} title="Pendapatan 14 Hari Terakhir" />
-        <OrdersBarChart data={salesChartData} title="Jumlah Pesanan 14 Hari Terakhir" />
-      </div>
+      {/* Tabs */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+        <TabsList className="grid grid-cols-2 lg:grid-cols-4 w-full">
+          <TabsTrigger value="overview" className="flex items-center gap-2">
+            <TrendingUp className="h-4 w-4" />
+            Overview
+          </TabsTrigger>
+          <TabsTrigger value="orders" className="flex items-center gap-2">
+            <Receipt className="h-4 w-4" />
+            Pesanan
+          </TabsTrigger>
+          <TabsTrigger value="stock" className="flex items-center gap-2">
+            <Package className="h-4 w-4" />
+            Stok
+          </TabsTrigger>
+          <TabsTrigger value="more" className="flex items-center gap-2">
+            <BarChart3 className="h-4 w-4" />
+            Lainnya
+          </TabsTrigger>
+        </TabsList>
 
-      {/* Quick Actions */}
-      <div className="grid grid-cols-3 gap-4">
-        <Button 
-          variant="outline" 
-          className="h-auto py-4 flex flex-col items-center gap-2"
-          onClick={() => navigate('/merchant/products')}
-        >
-          <Package className="h-6 w-6" />
-          <span>Kelola Produk</span>
-        </Button>
-        <Button 
-          variant="outline" 
-          className="h-auto py-4 flex flex-col items-center gap-2"
-          onClick={() => navigate('/merchant/orders')}
-        >
-          <Receipt className="h-6 w-6" />
-          <span>Lihat Pesanan</span>
-        </Button>
-        <Button 
-          variant="outline" 
-          className="h-auto py-4 flex flex-col items-center gap-2"
-          onClick={() => navigate('/merchant/settings')}
-        >
-          <Settings className="h-6 w-6" />
-          <span>Pengaturan</span>
-        </Button>
-      </div>
+        <TabsContent value="overview" className="space-y-6">
+          {/* Charts */}
+          <div className="grid md:grid-cols-2 gap-6">
+            <SalesAreaChart data={salesChartData} title="Pendapatan 14 Hari Terakhir" />
+            <OrdersBarChart data={salesChartData} title="Jumlah Pesanan 14 Hari Terakhir" />
+          </div>
+
+          {/* Stock Alerts */}
+          <StockAlerts merchantId={merchant.id} />
+        </TabsContent>
+
+        <TabsContent value="orders">
+          <OrderStatusManager merchantId={merchant.id} />
+        </TabsContent>
+
+        <TabsContent value="stock">
+          <StockAlerts merchantId={merchant.id} />
+        </TabsContent>
+
+        <TabsContent value="more" className="space-y-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <Button 
+              variant="outline" 
+              className="h-auto py-6 flex flex-col items-center gap-2"
+              onClick={() => navigate('/merchant/products')}
+            >
+              <Package className="h-8 w-8" />
+              <span>Kelola Produk</span>
+            </Button>
+            <Button 
+              variant="outline" 
+              className="h-auto py-6 flex flex-col items-center gap-2"
+              onClick={() => navigate('/merchant/analytics')}
+            >
+              <BarChart3 className="h-8 w-8" />
+              <span>Analitik</span>
+            </Button>
+            <Button 
+              variant="outline" 
+              className="h-auto py-6 flex flex-col items-center gap-2"
+              onClick={() => navigate('/merchant/reviews')}
+            >
+              <Star className="h-8 w-8" />
+              <span>Ulasan</span>
+            </Button>
+            <Button 
+              variant="outline" 
+              className="h-auto py-6 flex flex-col items-center gap-2"
+              onClick={() => navigate('/merchant/promo')}
+            >
+              <Percent className="h-8 w-8" />
+              <span>Promo</span>
+            </Button>
+            <Button 
+              variant="outline" 
+              className="h-auto py-6 flex flex-col items-center gap-2"
+              onClick={() => navigate('/merchant/withdrawal')}
+            >
+              <Wallet className="h-8 w-8" />
+              <span>Penarikan</span>
+            </Button>
+            <Button 
+              variant="outline" 
+              className="h-auto py-6 flex flex-col items-center gap-2"
+              onClick={() => navigate('/merchant/settings')}
+            >
+              <Settings className="h-8 w-8" />
+              <span>Pengaturan</span>
+            </Button>
+          </div>
+        </TabsContent>
+      </Tabs>
     </MerchantLayout>
   );
 }

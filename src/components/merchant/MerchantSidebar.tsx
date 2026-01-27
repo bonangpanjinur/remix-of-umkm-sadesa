@@ -6,7 +6,11 @@ import {
   Receipt, 
   Settings, 
   ChevronLeft,
-  Store
+  Store,
+  BarChart3,
+  Star,
+  Percent,
+  Wallet
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
@@ -23,9 +27,10 @@ export function MerchantSidebar() {
   const location = useLocation();
   const { user } = useAuth();
   const [pendingOrders, setPendingOrders] = useState(0);
+  const [unrepliedReviews, setUnrepliedReviews] = useState(0);
 
   useEffect(() => {
-    const fetchPending = async () => {
+    const fetchBadges = async () => {
       if (!user) return;
       
       // Get merchant for this user
@@ -36,22 +41,36 @@ export function MerchantSidebar() {
         .maybeSingle();
 
       if (merchant) {
-        const { count } = await supabase
+        // Pending orders
+        const { count: ordersCount } = await supabase
           .from('orders')
           .select('*', { count: 'exact', head: true })
           .eq('merchant_id', merchant.id)
-          .eq('status', 'NEW');
+          .in('status', ['NEW', 'PENDING_CONFIRMATION']);
         
-        setPendingOrders(count || 0);
+        setPendingOrders(ordersCount || 0);
+
+        // Unreplied reviews
+        const { count: reviewsCount } = await supabase
+          .from('reviews')
+          .select('*', { count: 'exact', head: true })
+          .eq('merchant_id', merchant.id)
+          .is('merchant_reply', null);
+        
+        setUnrepliedReviews(reviewsCount || 0);
       }
     };
-    fetchPending();
+    fetchBadges();
   }, [user]);
 
   const menuItems: SidebarItem[] = [
     { label: 'Dashboard', href: '/merchant', icon: <LayoutDashboard className="h-4 w-4" /> },
     { label: 'Produk', href: '/merchant/products', icon: <Package className="h-4 w-4" /> },
     { label: 'Pesanan', href: '/merchant/orders', icon: <Receipt className="h-4 w-4" />, badge: pendingOrders },
+    { label: 'Analitik', href: '/merchant/analytics', icon: <BarChart3 className="h-4 w-4" /> },
+    { label: 'Ulasan', href: '/merchant/reviews', icon: <Star className="h-4 w-4" />, badge: unrepliedReviews },
+    { label: 'Promo', href: '/merchant/promo', icon: <Percent className="h-4 w-4" /> },
+    { label: 'Penarikan', href: '/merchant/withdrawal', icon: <Wallet className="h-4 w-4" /> },
     { label: 'Pengaturan', href: '/merchant/settings', icon: <Settings className="h-4 w-4" /> },
   ];
 

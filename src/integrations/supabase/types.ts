@@ -190,17 +190,77 @@ export type Database = {
           },
         ]
       }
+      insurance_fund: {
+        Row: {
+          amount: number
+          claim_reason: string | null
+          created_at: string | null
+          evidence_urls: string[] | null
+          id: string
+          merchant_id: string
+          order_id: string | null
+          processed_at: string | null
+          processed_by: string | null
+          status: string | null
+          type: string
+        }
+        Insert: {
+          amount: number
+          claim_reason?: string | null
+          created_at?: string | null
+          evidence_urls?: string[] | null
+          id?: string
+          merchant_id: string
+          order_id?: string | null
+          processed_at?: string | null
+          processed_by?: string | null
+          status?: string | null
+          type: string
+        }
+        Update: {
+          amount?: number
+          claim_reason?: string | null
+          created_at?: string | null
+          evidence_urls?: string[] | null
+          id?: string
+          merchant_id?: string
+          order_id?: string | null
+          processed_at?: string | null
+          processed_by?: string | null
+          status?: string | null
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "insurance_fund_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "insurance_fund_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       merchants: {
         Row: {
           address: string | null
           approved_at: string | null
           approved_by: string | null
+          available_balance: number | null
           badge: string | null
           business_category: string | null
           business_description: string | null
           city: string | null
           classification_price: string | null
           close_time: string | null
+          cod_max_amount: number | null
+          cod_max_distance_km: number | null
           created_at: string
           district: string | null
           id: string
@@ -209,6 +269,7 @@ export type Database = {
           name: string
           open_time: string | null
           order_mode: string
+          pending_balance: number | null
           phone: string | null
           province: string | null
           rating_avg: number | null
@@ -218,6 +279,7 @@ export type Database = {
           rejection_reason: string | null
           status: string
           subdistrict: string | null
+          total_withdrawn: number | null
           trade_group: string | null
           updated_at: string
           user_id: string | null
@@ -229,12 +291,15 @@ export type Database = {
           address?: string | null
           approved_at?: string | null
           approved_by?: string | null
+          available_balance?: number | null
           badge?: string | null
           business_category?: string | null
           business_description?: string | null
           city?: string | null
           classification_price?: string | null
           close_time?: string | null
+          cod_max_amount?: number | null
+          cod_max_distance_km?: number | null
           created_at?: string
           district?: string | null
           id?: string
@@ -243,6 +308,7 @@ export type Database = {
           name: string
           open_time?: string | null
           order_mode?: string
+          pending_balance?: number | null
           phone?: string | null
           province?: string | null
           rating_avg?: number | null
@@ -252,6 +318,7 @@ export type Database = {
           rejection_reason?: string | null
           status?: string
           subdistrict?: string | null
+          total_withdrawn?: number | null
           trade_group?: string | null
           updated_at?: string
           user_id?: string | null
@@ -263,12 +330,15 @@ export type Database = {
           address?: string | null
           approved_at?: string | null
           approved_by?: string | null
+          available_balance?: number | null
           badge?: string | null
           business_category?: string | null
           business_description?: string | null
           city?: string | null
           classification_price?: string | null
           close_time?: string | null
+          cod_max_amount?: number | null
+          cod_max_distance_km?: number | null
           created_at?: string
           district?: string | null
           id?: string
@@ -277,6 +347,7 @@ export type Database = {
           name?: string
           open_time?: string | null
           order_mode?: string
+          pending_balance?: number | null
           phone?: string | null
           province?: string | null
           rating_avg?: number | null
@@ -286,6 +357,7 @@ export type Database = {
           rejection_reason?: string | null
           status?: string
           subdistrict?: string | null
+          total_withdrawn?: number | null
           trade_group?: string | null
           updated_at?: string
           user_id?: string | null
@@ -354,7 +426,11 @@ export type Database = {
       orders: {
         Row: {
           assigned_at: string | null
+          buyer_distance_km: number | null
           buyer_id: string
+          cod_service_fee: number | null
+          confirmation_deadline: string | null
+          confirmed_at: string | null
           courier_id: string | null
           created_at: string
           delivered_at: string | null
@@ -364,8 +440,10 @@ export type Database = {
           delivery_name: string | null
           delivery_phone: string | null
           delivery_type: string
+          flash_sale_discount: number | null
           handled_by: string
           id: string
+          is_flash_sale: boolean | null
           merchant_id: string | null
           notes: string | null
           payment_channel: string | null
@@ -375,6 +453,7 @@ export type Database = {
           payment_paid_at: string | null
           payment_status: string | null
           picked_up_at: string | null
+          rejection_reason: string | null
           shipping_cost: number
           status: string
           subtotal: number
@@ -383,7 +462,11 @@ export type Database = {
         }
         Insert: {
           assigned_at?: string | null
+          buyer_distance_km?: number | null
           buyer_id: string
+          cod_service_fee?: number | null
+          confirmation_deadline?: string | null
+          confirmed_at?: string | null
           courier_id?: string | null
           created_at?: string
           delivered_at?: string | null
@@ -393,8 +476,10 @@ export type Database = {
           delivery_name?: string | null
           delivery_phone?: string | null
           delivery_type?: string
+          flash_sale_discount?: number | null
           handled_by?: string
           id?: string
+          is_flash_sale?: boolean | null
           merchant_id?: string | null
           notes?: string | null
           payment_channel?: string | null
@@ -404,6 +489,7 @@ export type Database = {
           payment_paid_at?: string | null
           payment_status?: string | null
           picked_up_at?: string | null
+          rejection_reason?: string | null
           shipping_cost?: number
           status?: string
           subtotal?: number
@@ -412,7 +498,11 @@ export type Database = {
         }
         Update: {
           assigned_at?: string | null
+          buyer_distance_km?: number | null
           buyer_id?: string
+          cod_service_fee?: number | null
+          confirmation_deadline?: string | null
+          confirmed_at?: string | null
           courier_id?: string | null
           created_at?: string
           delivered_at?: string | null
@@ -422,8 +512,10 @@ export type Database = {
           delivery_name?: string | null
           delivery_phone?: string | null
           delivery_type?: string
+          flash_sale_discount?: number | null
           handled_by?: string
           id?: string
+          is_flash_sale?: boolean | null
           merchant_id?: string | null
           notes?: string | null
           payment_channel?: string | null
@@ -433,6 +525,7 @@ export type Database = {
           payment_paid_at?: string | null
           payment_status?: string | null
           picked_up_at?: string | null
+          rejection_reason?: string | null
           shipping_cost?: number
           status?: string
           subtotal?: number
@@ -461,43 +554,58 @@ export type Database = {
           category: string
           created_at: string
           description: string | null
+          discount_end_date: string | null
+          discount_percent: number | null
           id: string
           image_url: string | null
           is_active: boolean
           is_promo: boolean
           merchant_id: string
+          min_stock_alert: number | null
           name: string
+          order_count: number | null
           price: number
           stock: number
           updated_at: string
+          view_count: number | null
         }
         Insert: {
           category: string
           created_at?: string
           description?: string | null
+          discount_end_date?: string | null
+          discount_percent?: number | null
           id?: string
           image_url?: string | null
           is_active?: boolean
           is_promo?: boolean
           merchant_id: string
+          min_stock_alert?: number | null
           name: string
+          order_count?: number | null
           price: number
           stock?: number
           updated_at?: string
+          view_count?: number | null
         }
         Update: {
           category?: string
           created_at?: string
           description?: string | null
+          discount_end_date?: string | null
+          discount_percent?: number | null
           id?: string
           image_url?: string | null
           is_active?: boolean
           is_promo?: boolean
           merchant_id?: string
+          min_stock_alert?: number | null
           name?: string
+          order_count?: number | null
           price?: number
           stock?: number
           updated_at?: string
+          view_count?: number | null
         }
         Relationships: [
           {
@@ -519,15 +627,19 @@ export type Database = {
           blocked_by: string | null
           city_id: string | null
           city_name: string | null
+          cod_enabled: boolean | null
+          cod_fail_count: number | null
           created_at: string
           district_id: string | null
           district_name: string | null
           full_name: string
           id: string
           is_blocked: boolean | null
+          is_verified_buyer: boolean | null
           phone: string | null
           province_id: string | null
           province_name: string | null
+          trust_score: number | null
           updated_at: string
           user_id: string
           village: string | null
@@ -543,15 +655,19 @@ export type Database = {
           blocked_by?: string | null
           city_id?: string | null
           city_name?: string | null
+          cod_enabled?: boolean | null
+          cod_fail_count?: number | null
           created_at?: string
           district_id?: string | null
           district_name?: string | null
           full_name?: string
           id?: string
           is_blocked?: boolean | null
+          is_verified_buyer?: boolean | null
           phone?: string | null
           province_id?: string | null
           province_name?: string | null
+          trust_score?: number | null
           updated_at?: string
           user_id: string
           village?: string | null
@@ -567,15 +683,19 @@ export type Database = {
           blocked_by?: string | null
           city_id?: string | null
           city_name?: string | null
+          cod_enabled?: boolean | null
+          cod_fail_count?: number | null
           created_at?: string
           district_id?: string | null
           district_name?: string | null
           full_name?: string
           id?: string
           is_blocked?: boolean | null
+          is_verified_buyer?: boolean | null
           phone?: string | null
           province_id?: string | null
           province_name?: string | null
+          trust_score?: number | null
           updated_at?: string
           user_id?: string
           village?: string | null
@@ -702,6 +822,76 @@ export type Database = {
             columns: ["order_id"]
             isOneToOne: false
             referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      reviews: {
+        Row: {
+          buyer_id: string
+          comment: string | null
+          created_at: string | null
+          id: string
+          image_urls: string[] | null
+          is_visible: boolean | null
+          merchant_id: string
+          merchant_replied_at: string | null
+          merchant_reply: string | null
+          order_id: string | null
+          product_id: string
+          rating: number
+          updated_at: string | null
+        }
+        Insert: {
+          buyer_id: string
+          comment?: string | null
+          created_at?: string | null
+          id?: string
+          image_urls?: string[] | null
+          is_visible?: boolean | null
+          merchant_id: string
+          merchant_replied_at?: string | null
+          merchant_reply?: string | null
+          order_id?: string | null
+          product_id: string
+          rating: number
+          updated_at?: string | null
+        }
+        Update: {
+          buyer_id?: string
+          comment?: string | null
+          created_at?: string | null
+          id?: string
+          image_urls?: string[] | null
+          is_visible?: boolean | null
+          merchant_id?: string
+          merchant_replied_at?: string | null
+          merchant_reply?: string | null
+          order_id?: string | null
+          product_id?: string
+          rating?: number
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reviews_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reviews_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reviews_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
             referencedColumns: ["id"]
           },
         ]
@@ -876,11 +1066,74 @@ export type Database = {
         }
         Relationships: []
       }
+      withdrawal_requests: {
+        Row: {
+          account_holder: string
+          account_number: string
+          admin_notes: string | null
+          amount: number
+          bank_name: string
+          created_at: string | null
+          id: string
+          merchant_id: string
+          processed_at: string | null
+          processed_by: string | null
+          status: string
+          updated_at: string | null
+        }
+        Insert: {
+          account_holder: string
+          account_number: string
+          admin_notes?: string | null
+          amount: number
+          bank_name: string
+          created_at?: string | null
+          id?: string
+          merchant_id: string
+          processed_at?: string | null
+          processed_by?: string | null
+          status?: string
+          updated_at?: string | null
+        }
+        Update: {
+          account_holder?: string
+          account_number?: string
+          admin_notes?: string | null
+          amount?: number
+          bank_name?: string
+          created_at?: string | null
+          id?: string
+          merchant_id?: string
+          processed_at?: string | null
+          processed_by?: string | null
+          status?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "withdrawal_requests_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
+      auto_cancel_pending_orders: { Args: never; Returns: undefined }
+      check_cod_eligibility: {
+        Args: {
+          p_buyer_id: string
+          p_distance_km?: number
+          p_merchant_id: string
+          p_total_amount: number
+        }
+        Returns: Json
+      }
       get_user_roles: { Args: { _user_id: string }; Returns: string[] }
       has_any_role: {
         Args: {
