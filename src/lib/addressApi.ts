@@ -1,51 +1,63 @@
-// Emsifa API for Indonesian regions
-// Source: https://github.com/emsifa/api-wilayah-indonesia
+// Wilayah.id API for Indonesian regions
+// Source: https://wilayah.id/
 
-const BASE_URL = 'https://emsifa.github.io/api-wilayah-indonesia/api';
+const BASE_URL = 'https://wilayah.id/api';
 
 export interface Region {
-  id: string;
+  code: string;
   name: string;
+}
+
+interface WilayahResponse {
+  data: Region[];
+  meta: {
+    administrative_area_level: number;
+    updated_at: string;
+  };
 }
 
 export async function fetchProvinces(): Promise<Region[]> {
   try {
     const response = await fetch(`${BASE_URL}/provinces.json`);
     if (!response.ok) throw new Error('Failed to fetch provinces');
-    return await response.json();
+    const result: WilayahResponse = await response.json();
+    return result.data || [];
   } catch (error) {
     console.error('Error fetching provinces:', error);
     return [];
   }
 }
 
-export async function fetchRegencies(provinceId: string): Promise<Region[]> {
+export async function fetchRegencies(provinceCode: string): Promise<Region[]> {
   try {
-    const response = await fetch(`${BASE_URL}/regencies/${provinceId}.json`);
+    const response = await fetch(`${BASE_URL}/regencies/${provinceCode}.json`);
     if (!response.ok) throw new Error('Failed to fetch regencies');
-    return await response.json();
+    const result: WilayahResponse = await response.json();
+    return result.data || [];
   } catch (error) {
     console.error('Error fetching regencies:', error);
     return [];
   }
 }
 
-export async function fetchDistricts(regencyId: string): Promise<Region[]> {
+export async function fetchDistricts(regencyCode: string): Promise<Region[]> {
   try {
-    const response = await fetch(`${BASE_URL}/districts/${regencyId}.json`);
+    const response = await fetch(`${BASE_URL}/districts/${regencyCode}.json`);
     if (!response.ok) throw new Error('Failed to fetch districts');
-    return await response.json();
+    const result: WilayahResponse = await response.json();
+    return result.data || [];
   } catch (error) {
     console.error('Error fetching districts:', error);
     return [];
   }
 }
 
-export async function fetchVillages(districtId: string): Promise<Region[]> {
+export async function fetchVillages(districtCode: string): Promise<Region[]> {
   try {
-    const response = await fetch(`${BASE_URL}/villages/${districtId}.json`);
+    const response = await fetch(`${BASE_URL}/villages/${districtCode}.json`);
     if (!response.ok) throw new Error('Failed to fetch villages');
-    return await response.json();
+    const result: WilayahResponse = await response.json();
+    return result.data || [];
   } catch (error) {
     console.error('Error fetching villages:', error);
     return [];

@@ -1,7 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { User, Settings, HelpCircle, LogIn, LogOut, Store, ChevronRight, Edit, Heart, Star, Bell, MapPin, CreditCard } from 'lucide-react';
+import { 
+  User, Settings, HelpCircle, LogIn, LogOut, Store, ChevronRight, Edit, Heart, 
+  Bell, LayoutDashboard, Shield, CheckCircle, Bike, Building2 
+} from 'lucide-react';
 import { Header } from '@/components/layout/Header';
 import { BottomNav } from '@/components/layout/BottomNav';
 import { Button } from '@/components/ui/button';
@@ -27,7 +30,7 @@ interface Profile {
 
 export default function AccountPage() {
   const navigate = useNavigate();
-  const { user, signOut, loading: authLoading } = useAuth();
+  const { user, signOut, loading: authLoading, roles, isAdmin, isVerifikator, isMerchant, isCourier, isAdminDesa } = useAuth();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
@@ -72,6 +75,60 @@ export default function AccountPage() {
     navigate('/');
     toast({ title: 'Berhasil keluar' });
   };
+
+  // Get dashboard buttons based on user roles
+  const getDashboardButtons = () => {
+    const buttons: { label: string; path: string; icon: React.ReactNode; color: string }[] = [];
+
+    if (isAdmin) {
+      buttons.push({
+        label: 'Dashboard Admin',
+        path: '/admin',
+        icon: <Shield className="h-5 w-5" />,
+        color: 'bg-red-500/10 text-red-600 border-red-200',
+      });
+    }
+
+    if (isAdminDesa) {
+      buttons.push({
+        label: 'Dashboard Desa',
+        path: '/desa',
+        icon: <Building2 className="h-5 w-5" />,
+        color: 'bg-green-500/10 text-green-600 border-green-200',
+      });
+    }
+
+    if (isVerifikator) {
+      buttons.push({
+        label: 'Dashboard Verifikator',
+        path: '/verifikator',
+        icon: <CheckCircle className="h-5 w-5" />,
+        color: 'bg-blue-500/10 text-blue-600 border-blue-200',
+      });
+    }
+
+    if (isMerchant) {
+      buttons.push({
+        label: 'Dashboard Merchant',
+        path: '/merchant',
+        icon: <Store className="h-5 w-5" />,
+        color: 'bg-orange-500/10 text-orange-600 border-orange-200',
+      });
+    }
+
+    if (isCourier) {
+      buttons.push({
+        label: 'Dashboard Kurir',
+        path: '/courier',
+        icon: <Bike className="h-5 w-5" />,
+        color: 'bg-purple-500/10 text-purple-600 border-purple-200',
+      });
+    }
+
+    return buttons;
+  };
+
+  const dashboardButtons = getDashboardButtons();
 
   if (authLoading || loading) {
     return (
@@ -151,6 +208,31 @@ export default function AccountPage() {
                   </div>
                 )}
               </div>
+
+              {/* Dashboard Buttons */}
+              {dashboardButtons.length > 0 && (
+                <div className="mb-6">
+                  <h3 className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2">
+                    <LayoutDashboard className="h-4 w-4" />
+                    Dashboard Anda
+                  </h3>
+                  <div className="grid gap-2">
+                    {dashboardButtons.map((btn) => (
+                      <button
+                        key={btn.path}
+                        onClick={() => navigate(btn.path)}
+                        className={`w-full flex items-center justify-between p-4 rounded-xl border transition hover:shadow-md ${btn.color}`}
+                      >
+                        <div className="flex items-center gap-3">
+                          {btn.icon}
+                          <span className="font-medium">{btn.label}</span>
+                        </div>
+                        <ChevronRight className="h-4 w-4" />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </>
           ) : (
             <div className="bg-card rounded-2xl p-6 border border-border text-center mb-6">

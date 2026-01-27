@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ChevronDown, Loader2 } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import {
@@ -70,7 +70,7 @@ export function AddressSelector({ value, onChange, disabled, initialNames }: Add
         if (matchedProvince) {
           onChange({
             ...value,
-            province: matchedProvince.id,
+            province: matchedProvince.code,
             provinceName: matchedProvince.name,
           });
         }
@@ -96,7 +96,7 @@ export function AddressSelector({ value, onChange, disabled, initialNames }: Add
           if (matchedCity) {
             onChange({
               ...value,
-              city: matchedCity.id,
+              city: matchedCity.code,
               cityName: matchedCity.name,
             });
           }
@@ -125,7 +125,7 @@ export function AddressSelector({ value, onChange, disabled, initialNames }: Add
           if (matchedDistrict) {
             onChange({
               ...value,
-              district: matchedDistrict.id,
+              district: matchedDistrict.code,
               districtName: matchedDistrict.name,
             });
           }
@@ -154,7 +154,7 @@ export function AddressSelector({ value, onChange, disabled, initialNames }: Add
           if (matchedVillage) {
             onChange({
               ...value,
-              village: matchedVillage.id,
+              village: matchedVillage.code,
               villageName: matchedVillage.name,
             });
             setInitialized(true); // Mark as initialized after full chain
@@ -167,11 +167,11 @@ export function AddressSelector({ value, onChange, disabled, initialNames }: Add
     }
   }, [value.district]);
 
-  const handleProvinceChange = (provinceId: string) => {
-    const province = provinces.find(p => p.id === provinceId);
+  const handleProvinceChange = (provinceCode: string) => {
+    const province = provinces.find(p => p.code === provinceCode);
     setInitialized(true); // User manually changed, stop auto-fill
     onChange({
-      province: provinceId,
+      province: provinceCode,
       provinceName: province?.name || '',
       city: '',
       cityName: '',
@@ -183,12 +183,12 @@ export function AddressSelector({ value, onChange, disabled, initialNames }: Add
     });
   };
 
-  const handleCityChange = (cityId: string) => {
-    const city = cities.find(c => c.id === cityId);
+  const handleCityChange = (cityCode: string) => {
+    const city = cities.find(c => c.code === cityCode);
     setInitialized(true);
     onChange({
       ...value,
-      city: cityId,
+      city: cityCode,
       cityName: city?.name || '',
       district: '',
       districtName: '',
@@ -197,24 +197,24 @@ export function AddressSelector({ value, onChange, disabled, initialNames }: Add
     });
   };
 
-  const handleDistrictChange = (districtId: string) => {
-    const district = districts.find(d => d.id === districtId);
+  const handleDistrictChange = (districtCode: string) => {
+    const district = districts.find(d => d.code === districtCode);
     setInitialized(true);
     onChange({
       ...value,
-      district: districtId,
+      district: districtCode,
       districtName: district?.name || '',
       village: '',
       villageName: '',
     });
   };
 
-  const handleVillageChange = (villageId: string) => {
-    const village = villages.find(v => v.id === villageId);
+  const handleVillageChange = (villageCode: string) => {
+    const village = villages.find(v => v.code === villageCode);
     setInitialized(true);
     onChange({
       ...value,
-      village: villageId,
+      village: villageCode,
       villageName: village?.name || '',
     });
   };
@@ -248,7 +248,7 @@ export function AddressSelector({ value, onChange, disabled, initialNames }: Add
           </SelectTrigger>
           <SelectContent>
             {provinces.map((province) => (
-              <SelectItem key={province.id} value={province.id}>
+              <SelectItem key={province.code} value={province.code}>
                 {province.name}
               </SelectItem>
             ))}
@@ -276,7 +276,7 @@ export function AddressSelector({ value, onChange, disabled, initialNames }: Add
           </SelectTrigger>
           <SelectContent>
             {cities.map((city) => (
-              <SelectItem key={city.id} value={city.id}>
+              <SelectItem key={city.code} value={city.code}>
                 {city.name}
               </SelectItem>
             ))}
@@ -304,7 +304,7 @@ export function AddressSelector({ value, onChange, disabled, initialNames }: Add
           </SelectTrigger>
           <SelectContent>
             {districts.map((district) => (
-              <SelectItem key={district.id} value={district.id}>
+              <SelectItem key={district.code} value={district.code}>
                 {district.name}
               </SelectItem>
             ))}
@@ -332,7 +332,7 @@ export function AddressSelector({ value, onChange, disabled, initialNames }: Add
           </SelectTrigger>
           <SelectContent>
             {villages.map((village) => (
-              <SelectItem key={village.id} value={village.id}>
+              <SelectItem key={village.code} value={village.code}>
                 {village.name}
               </SelectItem>
             ))}

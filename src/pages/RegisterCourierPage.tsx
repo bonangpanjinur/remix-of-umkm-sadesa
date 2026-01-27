@@ -49,9 +49,9 @@ export default function RegisterCourierPage() {
   const [cities, setCities] = useState<Region[]>([]);
   const [districts, setDistricts] = useState<Region[]>([]);
   const [subdistricts, setSubdistricts] = useState<Region[]>([]);
-  const [selectedProvinceId, setSelectedProvinceId] = useState('');
-  const [selectedCityId, setSelectedCityId] = useState('');
-  const [selectedDistrictId, setSelectedDistrictId] = useState('');
+  const [selectedProvinceCode, setSelectedProvinceCode] = useState('');
+  const [selectedCityCode, setSelectedCityCode] = useState('');
+  const [selectedDistrictCode, setSelectedDistrictCode] = useState('');
 
   // Check if registration is enabled
   useEffect(() => {
@@ -69,44 +69,44 @@ export default function RegisterCourierPage() {
     setProvinces(data);
   };
 
-  const handleProvinceChange = async (provinceId: string) => {
-    setSelectedProvinceId(provinceId);
-    const province = provinces.find(p => p.id === provinceId);
+  const handleProvinceChange = async (provinceCode: string) => {
+    setSelectedProvinceCode(provinceCode);
+    const province = provinces.find(p => p.code === provinceCode);
     setFormData(prev => ({ ...prev, province: province?.name || '' }));
     setCities([]);
     setDistricts([]);
     setSubdistricts([]);
-    setSelectedCityId('');
-    setSelectedDistrictId('');
+    setSelectedCityCode('');
+    setSelectedDistrictCode('');
     
-    const data = await fetchRegencies(provinceId);
+    const data = await fetchRegencies(provinceCode);
     setCities(data);
   };
 
-  const handleCityChange = async (cityId: string) => {
-    setSelectedCityId(cityId);
-    const city = cities.find(c => c.id === cityId);
+  const handleCityChange = async (cityCode: string) => {
+    setSelectedCityCode(cityCode);
+    const city = cities.find(c => c.code === cityCode);
     setFormData(prev => ({ ...prev, city: city?.name || '' }));
     setDistricts([]);
     setSubdistricts([]);
-    setSelectedDistrictId('');
+    setSelectedDistrictCode('');
     
-    const data = await fetchDistricts(cityId);
+    const data = await fetchDistricts(cityCode);
     setDistricts(data);
   };
 
-  const handleDistrictChange = async (districtId: string) => {
-    setSelectedDistrictId(districtId);
-    const district = districts.find(d => d.id === districtId);
+  const handleDistrictChange = async (districtCode: string) => {
+    setSelectedDistrictCode(districtCode);
+    const district = districts.find(d => d.code === districtCode);
     setFormData(prev => ({ ...prev, district: district?.name || '' }));
     setSubdistricts([]);
     
-    const data = await fetchSubdistricts(districtId);
+    const data = await fetchSubdistricts(districtCode);
     setSubdistricts(data);
   };
 
-  const handleSubdistrictChange = (subdistrictId: string) => {
-    const subdistrict = subdistricts.find(s => s.id === subdistrictId);
+  const handleSubdistrictChange = (subdistrictCode: string) => {
+    const subdistrict = subdistricts.find(s => s.code === subdistrictCode);
     setFormData(prev => ({ ...prev, subdistrict: subdistrict?.name || '' }));
   };
 
@@ -353,13 +353,13 @@ export default function RegisterCourierPage() {
             
             <div className="space-y-2">
               <Label>Provinsi *</Label>
-              <Select value={selectedProvinceId} onValueChange={handleProvinceChange}>
+              <Select value={selectedProvinceCode} onValueChange={handleProvinceChange}>
                 <SelectTrigger>
                   <SelectValue placeholder="Pilih provinsi" />
                 </SelectTrigger>
                 <SelectContent>
                   {provinces.map((p) => (
-                    <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                    <SelectItem key={p.code} value={p.code}>{p.name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -368,13 +368,13 @@ export default function RegisterCourierPage() {
 
             <div className="space-y-2">
               <Label>Kota/Kabupaten *</Label>
-              <Select value={selectedCityId} onValueChange={handleCityChange} disabled={!selectedProvinceId}>
+              <Select value={selectedCityCode} onValueChange={handleCityChange} disabled={!selectedProvinceCode}>
                 <SelectTrigger>
                   <SelectValue placeholder="Pilih kota/kabupaten" />
                 </SelectTrigger>
                 <SelectContent>
                   {cities.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                    <SelectItem key={c.code} value={c.code}>{c.name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -383,13 +383,13 @@ export default function RegisterCourierPage() {
 
             <div className="space-y-2">
               <Label>Kecamatan *</Label>
-              <Select value={selectedDistrictId} onValueChange={handleDistrictChange} disabled={!selectedCityId}>
+              <Select value={selectedDistrictCode} onValueChange={handleDistrictChange} disabled={!selectedCityCode}>
                 <SelectTrigger>
                   <SelectValue placeholder="Pilih kecamatan" />
                 </SelectTrigger>
                 <SelectContent>
                   {districts.map((d) => (
-                    <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
+                    <SelectItem key={d.code} value={d.code}>{d.name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -399,16 +399,16 @@ export default function RegisterCourierPage() {
             <div className="space-y-2">
               <Label>Kelurahan/Desa *</Label>
               <Select 
-                value={subdistricts.find(s => s.name === formData.subdistrict)?.id || ''} 
+                value={subdistricts.find(s => s.name === formData.subdistrict)?.code || ''} 
                 onValueChange={handleSubdistrictChange}
-                disabled={!selectedDistrictId}
+                disabled={!selectedDistrictCode}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Pilih kelurahan/desa" />
                 </SelectTrigger>
                 <SelectContent>
                   {subdistricts.map((s) => (
-                    <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                    <SelectItem key={s.code} value={s.code}>{s.name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -464,12 +464,12 @@ export default function RegisterCourierPage() {
       <div className="fixed bottom-0 left-0 right-0 bg-card border-t border-border p-4">
         <div className="max-w-lg mx-auto">
           {step < 3 ? (
-            <Button className="w-full" onClick={handleNext}>
+            <Button onClick={handleNext} className="w-full">
               Lanjutkan
             </Button>
           ) : (
-            <Button className="w-full" onClick={handleSubmit} disabled={loading}>
-              {loading ? 'Mendaftar...' : 'Daftar Sekarang'}
+            <Button onClick={handleSubmit} className="w-full" disabled={loading}>
+              {loading ? 'Mendaftarkan...' : 'Daftar Sekarang'}
             </Button>
           )}
         </div>
@@ -494,37 +494,43 @@ function FileUpload({
 }) {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0] || null;
+    if (selectedFile && selectedFile.size > 5 * 1024 * 1024) {
+      toast.error('Ukuran file maksimal 5MB');
+      return;
+    }
     onChange(selectedFile);
   };
 
   return (
     <div className="space-y-2">
       <Label>{label}</Label>
-      <label className={`block border-2 border-dashed rounded-xl p-4 cursor-pointer transition-colors ${
-        file ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'
-      }`}>
+      <div 
+        className={`border-2 border-dashed rounded-lg p-4 text-center transition ${
+          file ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'
+        }`}
+      >
         <input
           type="file"
           accept="image/*"
           onChange={handleChange}
           className="hidden"
+          id={label}
         />
-        <div className="flex flex-col items-center text-center">
+        <label htmlFor={label} className="cursor-pointer">
           {file ? (
-            <>
-              <Check className="h-8 w-8 text-primary mb-2" />
-              <p className="text-sm font-medium">{file.name}</p>
-              <p className="text-xs text-muted-foreground">Klik untuk ganti</p>
-            </>
+            <div className="flex items-center justify-center gap-2 text-primary">
+              <Check className="h-5 w-5" />
+              <span className="font-medium">{file.name}</span>
+            </div>
           ) : (
-            <>
-              <Upload className="h-8 w-8 text-muted-foreground mb-2" />
-              <p className="text-sm font-medium">Upload Foto</p>
-              <p className="text-xs text-muted-foreground">{description}</p>
-            </>
+            <div>
+              <Upload className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
+              <p className="text-sm text-muted-foreground">{description}</p>
+              <p className="text-xs text-muted-foreground mt-1">Max 5MB, format JPG/PNG</p>
+            </div>
           )}
-        </div>
-      </label>
+        </label>
+      </div>
       {error && <p className="text-xs text-destructive">{error}</p>}
     </div>
   );
