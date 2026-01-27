@@ -1,4 +1,5 @@
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { 
   ArrowLeft, 
@@ -12,13 +13,37 @@ import {
   Eye
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { tourismSpots } from '@/data/mockData';
+import { fetchTourismById } from '@/lib/api';
+import type { Tourism } from '@/types';
 
 export default function TourismDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  
-  const tourism = tourismSpots.find(t => t.id === id);
+  const [tourism, setTourism] = useState<Tourism | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function loadData() {
+      if (!id) return;
+      try {
+        const data = await fetchTourismById(id);
+        setTourism(data);
+      } catch (error) {
+        console.error('Error loading tourism:', error);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadData();
+  }, [id]);
+
+  if (loading) {
+    return (
+      <div className="mobile-shell flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+      </div>
+    );
+  }
   
   if (!tourism) {
     return (
@@ -112,18 +137,22 @@ export default function TourismDetail() {
             {tourism.description}
           </p>
 
-          <h3 className="font-bold text-foreground mb-3">Fasilitas</h3>
-          <div className="grid grid-cols-2 gap-3 mb-10">
-            {tourism.facilities.map((facility, idx) => (
-              <div 
-                key={idx}
-                className="flex items-center gap-2 text-sm text-muted-foreground"
-              >
-                <Check className="h-4 w-4 text-primary" />
-                {facility}
+          {tourism.facilities.length > 0 && (
+            <>
+              <h3 className="font-bold text-foreground mb-3">Fasilitas</h3>
+              <div className="grid grid-cols-2 gap-3 mb-10">
+                {tourism.facilities.map((facility, idx) => (
+                  <div 
+                    key={idx}
+                    className="flex items-center gap-2 text-sm text-muted-foreground"
+                  >
+                    <Check className="h-4 w-4 text-primary" />
+                    {facility}
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
+            </>
+          )}
         </motion.div>
       </div>
 

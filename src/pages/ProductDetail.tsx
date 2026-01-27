@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { 
@@ -7,24 +7,52 @@ import {
   Minus, 
   Plus,
   ShoppingCart,
-  MessageCircle,
   Star
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { MerchantInfo } from '@/components/MerchantInfo';
-import { products, merchants } from '@/data/mockData';
+import { fetchProduct, fetchMerchant } from '@/lib/api';
 import { useCart } from '@/contexts/CartContext';
 import { formatPrice } from '@/lib/utils';
+import type { Product, Merchant } from '@/types';
 
 export default function ProductDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { addToCart } = useCart();
   const [quantity, setQuantity] = useState(1);
+  const [product, setProduct] = useState<Product | null>(null);
+  const [merchant, setMerchant] = useState<Merchant | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function loadData() {
+      if (!id) return;
+      try {
+        const productData = await fetchProduct(id);
+        setProduct(productData);
+        
+        if (productData) {
+          const merchantData = await fetchMerchant(productData.merchantId);
+          setMerchant(merchantData);
+        }
+      } catch (error) {
+        console.error('Error loading product:', error);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadData();
+  }, [id]);
   
-  const product = products.find(p => p.id === id);
-  const merchant = product ? merchants.find(m => m.id === product.merchantId) : null;
-  
+  if (loading) {
+    return (
+      <div className="mobile-shell flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+      </div>
+    );
+  }
+
   if (!product) {
     return (
       <div className="mobile-shell flex items-center justify-center min-h-screen">
@@ -39,11 +67,6 @@ export default function ProductDetail() {
   const handleAddToCart = () => {
     addToCart(product, quantity);
     navigate('/cart');
-  };
-
-  const handleWhatsAppOrder = () => {
-    const message = `Halo, saya tertarik dengan produk:\n\n*${product.name}*\nJumlah: ${quantity}\nTotal: ${formatPrice(product.price * quantity)}\n\nApakah masih tersedia?`;
-    window.open(`https://wa.me/62${merchant?.phone?.slice(1)}?text=${encodeURIComponent(message)}`, '_blank');
   };
 
   return (
@@ -149,23 +172,14 @@ export default function ProductDetail() {
           </div>
         </div>
         
-        <div className="flex gap-3">
-          <Button
-            variant="outline"
-            onClick={handleAddToCart}
-            className="flex-1"
-          >
-            <ShoppingCart className="h-4 w-4 mr-2" />
-            Keranjang
-          </Button>
-          <Button
-            onClick={handleWhatsAppOrder}
-            className="flex-1 bg-primary text-primary-foreground shadow-brand"
-          >
-            <MessageCircle className="h-4 w-4 mr-2" />
-            Pesan via WA
-          </Button>
-        </div>
+        <Button
+          onClick={handleAddToCart}
+          className="w-full shadow-brand"
+          size="lg"
+        >
+          <ShoppingCart className="h-4 w-4 mr-2" />
+          Tambah ke Keranjang
+        </Button>
       </div>
     </div>
   );

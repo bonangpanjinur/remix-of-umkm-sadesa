@@ -1,12 +1,14 @@
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Minus, Plus, Trash2, ShoppingBag, MessageCircle } from 'lucide-react';
+import { ArrowLeft, Minus, Plus, Trash2, ShoppingBag } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useCart } from '@/contexts/CartContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { formatPrice } from '@/lib/utils';
 
 export default function CartPage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { items, updateQuantity, removeFromCart, getCartTotal, clearCart } = useCart();
   
   const total = getCartTotal();
@@ -14,14 +16,11 @@ export default function CartPage() {
   const grandTotal = total + shippingCost;
 
   const handleCheckout = () => {
-    // Generate WhatsApp message with all items
-    const itemsList = items.map(item => 
-      `• ${item.product.name} (${item.quantity}x) - ${formatPrice(item.product.price * item.quantity)}`
-    ).join('\n');
-    
-    const message = `Halo, saya ingin memesan:\n\n${itemsList}\n\nSubtotal: ${formatPrice(total)}\nOngkir: ${formatPrice(shippingCost)}\n*Total: ${formatPrice(grandTotal)}*\n\nMohon konfirmasi ketersediaan.`;
-    
-    window.open(`https://wa.me/6281234567890?text=${encodeURIComponent(message)}`, '_blank');
+    if (!user) {
+      navigate('/auth');
+      return;
+    }
+    navigate('/checkout');
   };
 
   if (items.length === 0) {
@@ -151,11 +150,10 @@ export default function CartPage() {
         </div>
         <Button
           onClick={handleCheckout}
-          className="w-full bg-primary text-primary-foreground shadow-brand font-bold"
+          className="w-full shadow-brand font-bold"
           size="lg"
         >
-          <MessageCircle className="h-5 w-5 mr-2" />
-          Checkout via WhatsApp
+          {user ? 'Lanjut ke Checkout' : 'Masuk untuk Checkout'}
         </Button>
       </div>
     </div>

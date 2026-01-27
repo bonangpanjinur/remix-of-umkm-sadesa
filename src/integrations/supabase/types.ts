@@ -14,16 +14,396 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      merchants: {
+        Row: {
+          address: string | null
+          badge: string | null
+          classification_price: string | null
+          close_time: string | null
+          created_at: string
+          id: string
+          image_url: string | null
+          is_open: boolean
+          name: string
+          open_time: string | null
+          order_mode: string
+          phone: string | null
+          rating_avg: number | null
+          rating_count: number | null
+          status: string
+          updated_at: string
+          user_id: string | null
+          village_id: string | null
+        }
+        Insert: {
+          address?: string | null
+          badge?: string | null
+          classification_price?: string | null
+          close_time?: string | null
+          created_at?: string
+          id?: string
+          image_url?: string | null
+          is_open?: boolean
+          name: string
+          open_time?: string | null
+          order_mode?: string
+          phone?: string | null
+          rating_avg?: number | null
+          rating_count?: number | null
+          status?: string
+          updated_at?: string
+          user_id?: string | null
+          village_id?: string | null
+        }
+        Update: {
+          address?: string | null
+          badge?: string | null
+          classification_price?: string | null
+          close_time?: string | null
+          created_at?: string
+          id?: string
+          image_url?: string | null
+          is_open?: boolean
+          name?: string
+          open_time?: string | null
+          order_mode?: string
+          phone?: string | null
+          rating_avg?: number | null
+          rating_count?: number | null
+          status?: string
+          updated_at?: string
+          user_id?: string | null
+          village_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "merchants_village_id_fkey"
+            columns: ["village_id"]
+            isOneToOne: false
+            referencedRelation: "villages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      order_items: {
+        Row: {
+          created_at: string
+          id: string
+          order_id: string
+          product_id: string | null
+          product_name: string
+          product_price: number
+          quantity: number
+          subtotal: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          order_id: string
+          product_id?: string | null
+          product_name: string
+          product_price: number
+          quantity: number
+          subtotal: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          order_id?: string
+          product_id?: string | null
+          product_name?: string
+          product_price?: number
+          quantity?: number
+          subtotal?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_items_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orders: {
+        Row: {
+          buyer_id: string
+          created_at: string
+          delivery_address: string | null
+          delivery_name: string | null
+          delivery_phone: string | null
+          delivery_type: string
+          handled_by: string
+          id: string
+          merchant_id: string | null
+          notes: string | null
+          shipping_cost: number
+          status: string
+          subtotal: number
+          total: number
+          updated_at: string
+        }
+        Insert: {
+          buyer_id: string
+          created_at?: string
+          delivery_address?: string | null
+          delivery_name?: string | null
+          delivery_phone?: string | null
+          delivery_type?: string
+          handled_by?: string
+          id?: string
+          merchant_id?: string | null
+          notes?: string | null
+          shipping_cost?: number
+          status?: string
+          subtotal?: number
+          total?: number
+          updated_at?: string
+        }
+        Update: {
+          buyer_id?: string
+          created_at?: string
+          delivery_address?: string | null
+          delivery_name?: string | null
+          delivery_phone?: string | null
+          delivery_type?: string
+          handled_by?: string
+          id?: string
+          merchant_id?: string | null
+          notes?: string | null
+          shipping_cost?: number
+          status?: string
+          subtotal?: number
+          total?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "orders_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      products: {
+        Row: {
+          category: string
+          created_at: string
+          description: string | null
+          id: string
+          image_url: string | null
+          is_active: boolean
+          is_promo: boolean
+          merchant_id: string
+          name: string
+          price: number
+          stock: number
+          updated_at: string
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          is_active?: boolean
+          is_promo?: boolean
+          merchant_id: string
+          name: string
+          price: number
+          stock?: number
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          is_active?: boolean
+          is_promo?: boolean
+          merchant_id?: string
+          name?: string
+          price?: number
+          stock?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "products_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          address: string | null
+          created_at: string
+          full_name: string
+          id: string
+          phone: string | null
+          updated_at: string
+          user_id: string
+          village: string | null
+        }
+        Insert: {
+          address?: string | null
+          created_at?: string
+          full_name?: string
+          id?: string
+          phone?: string | null
+          updated_at?: string
+          user_id: string
+          village?: string | null
+        }
+        Update: {
+          address?: string | null
+          created_at?: string
+          full_name?: string
+          id?: string
+          phone?: string | null
+          updated_at?: string
+          user_id?: string
+          village?: string | null
+        }
+        Relationships: []
+      }
+      tourism: {
+        Row: {
+          created_at: string
+          description: string | null
+          facilities: string[] | null
+          id: string
+          image_url: string | null
+          is_active: boolean
+          location_lat: number | null
+          location_lng: number | null
+          name: string
+          sosmed_link: string | null
+          view_count: number
+          village_id: string
+          wa_link: string | null
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          facilities?: string[] | null
+          id?: string
+          image_url?: string | null
+          is_active?: boolean
+          location_lat?: number | null
+          location_lng?: number | null
+          name: string
+          sosmed_link?: string | null
+          view_count?: number
+          village_id: string
+          wa_link?: string | null
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          facilities?: string[] | null
+          id?: string
+          image_url?: string | null
+          is_active?: boolean
+          location_lat?: number | null
+          location_lng?: number | null
+          name?: string
+          sosmed_link?: string | null
+          view_count?: number
+          village_id?: string
+          wa_link?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tourism_village_id_fkey"
+            columns: ["village_id"]
+            isOneToOne: false
+            referencedRelation: "villages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_roles: {
+        Row: {
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
+      villages: {
+        Row: {
+          created_at: string
+          description: string | null
+          district: string
+          id: string
+          image_url: string | null
+          is_active: boolean
+          name: string
+          regency: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          district: string
+          id?: string
+          image_url?: string | null
+          is_active?: boolean
+          name: string
+          regency: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          district?: string
+          id?: string
+          image_url?: string | null
+          is_active?: boolean
+          name?: string
+          regency?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
+      is_admin: { Args: never; Returns: boolean }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "buyer"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +530,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "buyer"],
+    },
   },
 } as const
