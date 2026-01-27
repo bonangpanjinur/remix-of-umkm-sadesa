@@ -8,7 +8,8 @@ import {
   Settings, 
   TicketCheck,
   ChevronLeft,
-  ShieldCheck
+  ShieldCheck,
+  Receipt
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -23,13 +24,15 @@ interface AdminSidebarProps {
   pendingMerchants?: number;
   pendingVillages?: number;
   pendingCouriers?: number;
+  pendingOrders?: number;
 }
 
-export function AdminSidebar({ pendingMerchants = 0, pendingVillages = 0, pendingCouriers = 0 }: AdminSidebarProps) {
+export function AdminSidebar({ pendingMerchants = 0, pendingVillages = 0, pendingCouriers = 0, pendingOrders = 0 }: AdminSidebarProps) {
   const location = useLocation();
 
   const menuItems: SidebarItem[] = [
     { label: 'Dashboard', href: '/admin', icon: <LayoutDashboard className="h-4 w-4" /> },
+    { label: 'Pesanan', href: '/admin/orders', icon: <Receipt className="h-4 w-4" />, badge: pendingOrders },
     { label: 'Merchant', href: '/admin/merchants', icon: <Store className="h-4 w-4" />, badge: pendingMerchants },
     { label: 'Desa Wisata', href: '/admin/villages', icon: <MapPin className="h-4 w-4" />, badge: pendingVillages },
     { label: 'Kurir', href: '/admin/couriers', icon: <Bike className="h-4 w-4" />, badge: pendingCouriers },

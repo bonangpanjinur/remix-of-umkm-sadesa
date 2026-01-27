@@ -1,31 +1,56 @@
-import { useState, useEffect } from 'react';
-import { Store, MapPin, Bike, ShoppingBag, Receipt, Megaphone, Clock } from 'lucide-react';
+import { useState, useEffect, useMemo } from 'react';
+import { Store, MapPin, Bike, ShoppingBag, Receipt, Megaphone, Clock, TrendingUp, DollarSign } from 'lucide-react';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { StatsCard } from '@/components/admin/StatsCard';
 import { ApprovalCard } from '@/components/admin/ApprovalCard';
+import { SalesAreaChart, OrdersBarChart } from '@/components/admin/SalesChart';
 import { fetchAdminStats, fetchPendingMerchants, fetchPendingVillages, fetchPendingCouriers, approveMerchant, rejectMerchant, approveVillage, rejectVillage, approveCourier, rejectCourier } from '@/lib/adminApi';
 import type { AdminStats, Courier } from '@/types/admin';
 import type { Village, Merchant } from '@/types';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
+import { formatPrice } from '@/lib/utils';
+
+interface OrderData {
+  total: number;
+  created_at: string;
+  status: string;
+}
+
+interface SalesChartData {
+  date: string;
+  revenue: number;
+  orders: number;
+}
+
 export default function AdminDashboardPage() {
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [pendingMerchants, setPendingMerchants] = useState<Merchant[]>([]);
   const [pendingVillages, setPendingVillages] = useState<Village[]>([]);
   const [pendingCouriers, setPendingCouriers] = useState<Courier[]>([]);
+  const [orders, setOrders] = useState<OrderData[]>([]);
   const [loading, setLoading] = useState(true);
 
   const loadData = async () => {
     try {
-      const [statsData, merchants, villages, couriers] = await Promise.all([
+      // Fetch all data in parallel
+      const [statsData, merchants, villages, couriers, ordersResult] = await Promise.all([
         fetchAdminStats(),
         fetchPendingMerchants(),
         fetchPendingVillages(),
         fetchPendingCouriers(),
+        supabase
+          .from('orders')
+          .select('total, created_at, status')
+          .gte('created_at', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString())
+          .order('created_at', { ascending: true }),
       ]);
+      
       setStats(statsData);
       setPendingMerchants(merchants);
       setPendingVillages(villages);
       setPendingCouriers(couriers);
+      setOrders(ordersResult.data || []);
     } catch (error) {
       console.error('Error loading admin data:', error);
     } finally {
@@ -36,6 +61,43 @@ export default function AdminDashboardPage() {
   useEffect(() => {
     loadData();
   }, []);
+
+  // Calculate chart data from orders
+  const salesChartData = useMemo<SalesChartData[]>(() => {
+    const dateMap = new Map<string, { revenue: number; orders: number }>();
+    
+    orders.forEach((order) => {
+      const date = order.created_at.split('T')[0];
+      const existing = dateMap.get(date) || { revenue: 0, orders: 0 };
+      dateMap.set(date, {
+        revenue: existing.revenue + (order.status === 'DONE' ? order.total : 0),
+        orders: existing.orders + 1,
+      });
+    });
+
+    // Fill in missing dates for the last 14 days
+    const result: SalesChartData[] = [];
+    for (let i = 13; i >= 0; i--) {
+      const date = new Date(Date.now() - i * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+      const data = dateMap.get(date) || { revenue: 0, orders: 0 };
+      result.push({ date, ...data });
+    }
+    
+    return result;
+  }, [orders]);
+
+  // Calculate today's stats
+  const todayStats = useMemo(() => {
+    const today = new Date().toISOString().split('T')[0];
+    const todayOrders = orders.filter(o => o.created_at.startsWith(today));
+    const completedOrders = orders.filter(o => o.status === 'DONE');
+    
+    return {
+      todayOrders: todayOrders.length,
+      todayRevenue: todayOrders.filter(o => o.status === 'DONE').reduce((sum, o) => sum + o.total, 0),
+      totalRevenue: completedOrders.reduce((sum, o) => sum + o.total, 0),
+    };
+  }, [orders]);
 
   const handleApproveMerchant = async (id: string) => {
     const success = await approveMerchant(id);
@@ -107,7 +169,39 @@ export default function AdminDashboardPage() {
         </div>
       ) : (
         <>
-          {/* Stats Grid */}
+          {/* Revenue & Orders Summary */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+            <StatsCard
+              title="Pesanan Hari Ini"
+              value={todayStats.todayOrders}
+              icon={<Receipt className="h-5 w-5" />}
+            />
+            <StatsCard
+              title="Pendapatan Hari Ini"
+              value={formatPrice(todayStats.todayRevenue)}
+              icon={<DollarSign className="h-5 w-5" />}
+            />
+            <StatsCard
+              title="Total Pendapatan"
+              value={formatPrice(todayStats.totalRevenue)}
+              icon={<TrendingUp className="h-5 w-5" />}
+              description="30 hari terakhir"
+            />
+            <StatsCard
+              title="Pesanan Baru"
+              value={orders.filter(o => o.status === 'NEW').length}
+              icon={<Clock className="h-5 w-5" />}
+              description="Menunggu diproses"
+            />
+          </div>
+
+          {/* Charts */}
+          <div className="grid md:grid-cols-2 gap-6 mb-8">
+            <SalesAreaChart data={salesChartData} title="Pendapatan 14 Hari Terakhir" />
+            <OrdersBarChart data={salesChartData} title="Jumlah Pesanan 14 Hari Terakhir" />
+          </div>
+
+          {/* Entity Stats Grid */}
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
             <StatsCard
               title="Total Merchant"

@@ -1,14 +1,16 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Package, Receipt, TrendingUp, DollarSign, AlertCircle } from 'lucide-react';
+import { Package, Receipt, TrendingUp, DollarSign, AlertCircle, Settings } from 'lucide-react';
 import { MerchantLayout } from '@/components/merchant/MerchantLayout';
 import { StatsCard } from '@/components/admin/StatsCard';
+import { SalesAreaChart, OrdersBarChart } from '@/components/admin/SalesChart';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
+import { formatPrice } from '@/lib/utils';
 
 interface MerchantData {
   id: string;
@@ -16,6 +18,13 @@ interface MerchantData {
   is_open: boolean;
   status: string;
   registration_status: string;
+}
+
+interface OrderData {
+  id: string;
+  status: string;
+  total: number;
+  created_at: string;
 }
 
 interface Stats {
@@ -31,6 +40,7 @@ export default function MerchantDashboardPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [merchant, setMerchant] = useState<MerchantData | null>(null);
+  const [orders, setOrders] = useState<OrderData[]>([]);
   const [stats, setStats] = useState<Stats>({
     totalProducts: 0,
     activeProducts: 0,
@@ -74,18 +84,19 @@ export default function MerchantDashboardPage() {
         ]);
 
         const products = productsRes.data || [];
-        const orders = ordersRes.data || [];
+        const ordersData = ordersRes.data || [];
         const today = new Date().toDateString();
 
+        setOrders(ordersData);
         setStats({
           totalProducts: products.length,
           activeProducts: products.filter(p => p.is_active).length,
-          totalOrders: orders.length,
-          pendingOrders: orders.filter(o => o.status === 'NEW').length,
-          totalRevenue: orders
+          totalOrders: ordersData.length,
+          pendingOrders: ordersData.filter(o => o.status === 'NEW').length,
+          totalRevenue: ordersData
             .filter(o => o.status === 'DONE')
             .reduce((sum, o) => sum + o.total, 0),
-          todayOrders: orders.filter(o => 
+          todayOrders: ordersData.filter(o => 
             new Date(o.created_at).toDateString() === today
           ).length,
         });
@@ -98,6 +109,30 @@ export default function MerchantDashboardPage() {
 
     fetchData();
   }, [user]);
+
+  // Calculate chart data from orders
+  const salesChartData = useMemo(() => {
+    const dateMap = new Map<string, { revenue: number; orders: number }>();
+    
+    orders.forEach((order) => {
+      const date = order.created_at.split('T')[0];
+      const existing = dateMap.get(date) || { revenue: 0, orders: 0 };
+      dateMap.set(date, {
+        revenue: existing.revenue + (order.status === 'DONE' ? order.total : 0),
+        orders: existing.orders + 1,
+      });
+    });
+
+    // Fill in last 14 days
+    const result: { date: string; revenue: number; orders: number }[] = [];
+    for (let i = 13; i >= 0; i--) {
+      const date = new Date(Date.now() - i * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+      const data = dateMap.get(date) || { revenue: 0, orders: 0 };
+      result.push({ date, ...data });
+    }
+    
+    return result;
+  }, [orders]);
 
   const toggleStoreStatus = async (isOpen: boolean) => {
     if (!merchant) return;
@@ -151,8 +186,8 @@ export default function MerchantDashboardPage() {
     return (
       <MerchantLayout title="Dashboard" subtitle="Ringkasan toko Anda">
         <div className="flex flex-col items-center justify-center py-20 text-center">
-          <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mb-4">
-            <AlertCircle className="h-8 w-8 text-amber-600" />
+          <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mb-4">
+            <AlertCircle className="h-8 w-8 text-muted-foreground" />
           </div>
           <h2 className="font-bold text-lg mb-2">Menunggu Persetujuan</h2>
           <p className="text-muted-foreground max-w-md">
@@ -190,7 +225,7 @@ export default function MerchantDashboardPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         <StatsCard
           title="Total Produk"
           value={stats.totalProducts}
@@ -210,13 +245,19 @@ export default function MerchantDashboardPage() {
         />
         <StatsCard
           title="Total Pendapatan"
-          value={`Rp ${(stats.totalRevenue / 1000).toFixed(0)}K`}
+          value={formatPrice(stats.totalRevenue)}
           icon={<DollarSign className="h-5 w-5" />}
         />
       </div>
 
+      {/* Charts */}
+      <div className="grid md:grid-cols-2 gap-6 mb-8">
+        <SalesAreaChart data={salesChartData} title="Pendapatan 14 Hari Terakhir" />
+        <OrdersBarChart data={salesChartData} title="Jumlah Pesanan 14 Hari Terakhir" />
+      </div>
+
       {/* Quick Actions */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-3 gap-4">
         <Button 
           variant="outline" 
           className="h-auto py-4 flex flex-col items-center gap-2"
@@ -232,6 +273,14 @@ export default function MerchantDashboardPage() {
         >
           <Receipt className="h-6 w-6" />
           <span>Lihat Pesanan</span>
+        </Button>
+        <Button 
+          variant="outline" 
+          className="h-auto py-4 flex flex-col items-center gap-2"
+          onClick={() => navigate('/merchant/settings')}
+        >
+          <Settings className="h-6 w-6" />
+          <span>Pengaturan</span>
         </Button>
       </div>
     </MerchantLayout>

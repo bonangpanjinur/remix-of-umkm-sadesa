@@ -37,6 +37,7 @@ import AdminVillagesPage from "./pages/admin/AdminVillagesPage";
 import AdminCouriersPage from "./pages/admin/AdminCouriersPage";
 import AdminPromotionsPage from "./pages/admin/AdminPromotionsPage";
 import AdminCodesPage from "./pages/admin/AdminCodesPage";
+import AdminOrdersPage from "./pages/admin/AdminOrdersPage";
 
 // Verifikator Pages
 import VerifikatorDashboardPage from "./pages/verifikator/VerifikatorDashboardPage";
@@ -47,6 +48,7 @@ import VerifikatorMerchantsPage from "./pages/verifikator/VerifikatorMerchantsPa
 import MerchantDashboardPage from "./pages/merchant/MerchantDashboardPage";
 import MerchantProductsPage from "./pages/merchant/MerchantProductsPage";
 import MerchantOrdersPage from "./pages/merchant/MerchantOrdersPage";
+import MerchantSettingsPage from "./pages/merchant/MerchantSettingsPage";
 
 // Desa Pages
 import DesaDashboardPage from "./pages/desa/DesaDashboardPage";
@@ -149,6 +151,11 @@ const App = () => (
                   <AdminCodesPage />
                 </ProtectedRoute>
               } />
+              <Route path="/admin/orders" element={
+                <ProtectedRoute allowedRoles={['admin']}>
+                  <AdminOrdersPage />
+                </ProtectedRoute>
+              } />
 
               {/* Verifikator routes */}
               <Route path="/verifikator" element={
@@ -181,6 +188,11 @@ const App = () => (
               <Route path="/merchant/orders" element={
                 <ProtectedRoute allowedRoles={['merchant', 'admin']}>
                   <MerchantOrdersPage />
+                </ProtectedRoute>
+              } />
+              <Route path="/merchant/settings" element={
+                <ProtectedRoute allowedRoles={['merchant', 'admin']}>
+                  <MerchantSettingsPage />
                 </ProtectedRoute>
               } />
 
