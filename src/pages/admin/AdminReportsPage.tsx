@@ -207,15 +207,15 @@ export default function AdminReportsPage() {
 
   const getStatusBadge = (status: string) => {
     const styles: Record<string, string> = {
-      NEW: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300',
-      CONFIRMED: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300',
-      PROCESSING: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300',
-      READY: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300',
-      DELIVERING: 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900 dark:text-cyan-300',
-      DONE: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300',
-      CANCELLED: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300',
+      NEW: 'bg-info/10 text-info',
+      CONFIRMED: 'bg-warning/10 text-warning',
+      PROCESSING: 'bg-warning/10 text-warning',
+      READY: 'bg-pending/10 text-pending',
+      DELIVERING: 'bg-info/10 text-info',
+      DONE: 'bg-primary/10 text-primary',
+      CANCELLED: 'bg-destructive/10 text-destructive',
     };
-    return styles[status] || 'bg-gray-100 text-gray-800';
+    return styles[status] || 'bg-muted text-muted-foreground';
   };
 
   return (
@@ -354,8 +354,8 @@ export default function AdminReportsPage() {
                         <TableCell>
                           <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                             order.paymentStatus === 'PAID' 
-                              ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300' 
-                              : 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300'
+                              ? 'bg-primary/10 text-primary' 
+                              : 'bg-muted text-muted-foreground'
                           }`}>
                             {order.paymentStatus || 'COD'}
                           </span>

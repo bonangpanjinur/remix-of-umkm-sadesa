@@ -110,10 +110,10 @@ export default function AdminPromotionsPage() {
 
   const getStatusBadge = (isActive: boolean, isApproved: boolean) => {
     if (!isApproved) {
-      return <Badge variant="secondary" className="bg-amber-100 text-amber-700">Belum Disetujui</Badge>;
+      return <Badge variant="warning">Belum Disetujui</Badge>;
     }
     if (isActive) {
-      return <Badge className="bg-green-100 text-green-700">Aktif</Badge>;
+      return <Badge variant="success">Aktif</Badge>;
     }
     return <Badge variant="outline">Nonaktif</Badge>;
   };

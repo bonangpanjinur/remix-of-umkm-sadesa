@@ -119,8 +119,8 @@ export default function AdminPWASettingsPage() {
           </CardHeader>
           <CardContent>
             <div className="flex flex-wrap gap-3">
-              <Badge variant="default" className="flex items-center gap-1">
-                <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
+              <Badge variant="success" className="flex items-center gap-1">
+                <div className="w-2 h-2 bg-primary-foreground rounded-full animate-pulse" />
                 PWA Aktif
               </Badge>
               <Badge variant="secondary">Service Worker: Registered</Badge>

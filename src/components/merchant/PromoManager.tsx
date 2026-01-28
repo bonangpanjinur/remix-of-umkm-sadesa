@@ -171,7 +171,7 @@ export function PromoManager({ merchantId }: PromoManagerProps) {
           {/* Active Promos */}
           <div>
             <h4 className="font-medium mb-3 flex items-center gap-2">
-              <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+              <span className="w-2 h-2 bg-primary rounded-full animate-pulse" />
               Promo Aktif ({promoProducts.length})
             </h4>
             
@@ -188,7 +188,7 @@ export function PromoManager({ merchantId }: PromoManagerProps) {
                     <div 
                       key={product.id}
                       className={`flex items-center gap-3 p-3 rounded-lg border ${
-                        expired ? 'border-destructive/30 bg-destructive/5' : 'border-green-500/30 bg-green-500/5'
+                        expired ? 'border-destructive/30 bg-destructive/5' : 'border-primary/30 bg-primary/5'
                       }`}
                     >
                       <div className="w-12 h-12 rounded bg-muted overflow-hidden flex-shrink-0">
@@ -211,7 +211,7 @@ export function PromoManager({ merchantId }: PromoManagerProps) {
                           <span className="text-sm line-through text-muted-foreground">
                             {formatPrice(product.price)}
                           </span>
-                          <span className="text-sm font-bold text-green-600">
+                          <span className="text-sm font-bold text-primary">
                             {formatPrice(calculateDiscountedPrice(product.price, product.discount_percent))}
                           </span>
                         </div>
@@ -219,8 +219,7 @@ export function PromoManager({ merchantId }: PromoManagerProps) {
 
                       <div className="text-right">
                         <Badge 
-                          variant={expired ? 'destructive' : 'default'}
-                          className={!expired ? 'bg-green-500' : ''}
+                          variant={expired ? 'destructive' : 'success'}
                         >
                           {product.discount_percent}% OFF
                         </Badge>
@@ -320,10 +319,10 @@ export function PromoManager({ merchantId }: PromoManagerProps) {
                       <span className="line-through text-muted-foreground">
                         {formatPrice(product.price)}
                       </span>
-                      <span className="font-bold text-green-600">
+                      <span className="font-bold text-primary">
                         {formatPrice(calculateDiscountedPrice(product.price, discountPercent))}
                       </span>
-                      <Badge className="bg-green-500">{discountPercent}% OFF</Badge>
+                      <Badge variant="success">{discountPercent}% OFF</Badge>
                     </div>
                   );
                 })()}

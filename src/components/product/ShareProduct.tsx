@@ -109,20 +109,20 @@ export function ShareProduct({
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-48">
         <DropdownMenuItem onClick={shareToWhatsApp} className="gap-2 cursor-pointer">
-          <MessageCircle className="h-4 w-4 text-green-600" />
+          <MessageCircle className="h-4 w-4 text-primary" />
           WhatsApp
         </DropdownMenuItem>
         <DropdownMenuItem onClick={shareToFacebook} className="gap-2 cursor-pointer">
-          <Facebook className="h-4 w-4 text-blue-600" />
+          <Facebook className="h-4 w-4 text-info" />
           Facebook
         </DropdownMenuItem>
         <DropdownMenuItem onClick={shareToTwitter} className="gap-2 cursor-pointer">
-          <Twitter className="h-4 w-4 text-sky-500" />
+          <Twitter className="h-4 w-4 text-info" />
           Twitter / X
         </DropdownMenuItem>
         <DropdownMenuItem onClick={copyLink} className="gap-2 cursor-pointer">
           {copied ? (
-            <Check className="h-4 w-4 text-green-600" />
+            <Check className="h-4 w-4 text-primary" />
           ) : (
             <Link2 className="h-4 w-4" />
           )}

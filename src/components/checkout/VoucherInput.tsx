@@ -82,15 +82,15 @@ export function VoucherInput({
 
   if (appliedVoucher) {
     return (
-      <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-3">
+      <div className="bg-primary/5 border border-primary/20 rounded-lg p-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Check className="h-4 w-4 text-green-600" />
+            <Check className="h-4 w-4 text-primary" />
             <div>
-              <p className="text-sm font-medium text-green-800 dark:text-green-200">
+              <p className="text-sm font-medium text-primary">
                 {appliedVoucher.name}
               </p>
-              <p className="text-xs text-green-600 dark:text-green-400">
+              <p className="text-xs text-primary/80">
                 Hemat {formatPrice(appliedVoucher.discount)}
               </p>
             </div>
@@ -98,7 +98,7 @@ export function VoucherInput({
           <Button
             variant="ghost"
             size="icon"
-            className="h-6 w-6 text-green-600 hover:text-red-600"
+            className="h-6 w-6 text-primary hover:text-destructive"
             onClick={handleRemoveVoucher}
           >
             <X className="h-4 w-4" />

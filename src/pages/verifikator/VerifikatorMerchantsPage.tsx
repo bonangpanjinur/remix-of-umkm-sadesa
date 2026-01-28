@@ -105,9 +105,9 @@ export default function VerifikatorMerchantsPage() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'PENDING':
-        return <Badge variant="secondary" className="bg-amber-100 text-amber-800">Menunggu</Badge>;
+        return <Badge variant="warning">Menunggu</Badge>;
       case 'APPROVED':
-        return <Badge className="bg-primary/10 text-primary">Disetujui</Badge>;
+        return <Badge variant="success">Disetujui</Badge>;
       case 'REJECTED':
         return <Badge variant="destructive">Ditolak</Badge>;
       default:

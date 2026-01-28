@@ -135,7 +135,7 @@ export function PushNotificationSettings() {
       {subscribed && (
         <div className="mt-3 pt-3 border-t border-border">
           <p className="text-xs text-muted-foreground flex items-center gap-1">
-            <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+            <span className="w-2 h-2 bg-primary rounded-full animate-pulse" />
             Notifikasi aktif
           </p>
         </div>

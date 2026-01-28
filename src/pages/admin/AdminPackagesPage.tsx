@@ -198,7 +198,7 @@ export default function AdminPackagesPage() {
                   </div>
                   <div className="flex gap-1">
                     {pkg.is_active ? (
-                      <Badge className="bg-green-100 text-green-700">Aktif</Badge>
+                      <Badge variant="success">Aktif</Badge>
                     ) : (
                       <Badge variant="secondary">Nonaktif</Badge>
                     )}

@@ -106,7 +106,7 @@ export function QuotaStatusCard() {
   const isEmpty = status.remainingQuota <= 0;
 
   return (
-    <Card className={isEmpty ? 'border-destructive/50 bg-destructive/5' : isLow ? 'border-amber-500/50 bg-amber-50' : ''}>
+    <Card className={isEmpty ? 'border-destructive/50 bg-destructive/5' : isLow ? 'border-warning/50 bg-warning/5' : ''}>
       <CardContent className="pt-6">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
@@ -140,7 +140,7 @@ export function QuotaStatusCard() {
             )}
             
             {isLow && !isEmpty && (
-              <div className="flex items-center gap-2 text-amber-600 text-sm mb-3">
+              <div className="flex items-center gap-2 text-warning text-sm mb-3">
                 <AlertTriangle className="h-4 w-4" />
                 <span>Kuota hampir habis. Segera perpanjang!</span>
               </div>

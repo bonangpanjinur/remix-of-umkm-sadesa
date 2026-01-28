@@ -114,8 +114,8 @@ export default function InstallPage() {
             <CardContent className="p-4">
               {isInstalled ? (
                 <div className="text-center py-4">
-                  <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                    <Check className="h-8 w-8 text-green-600" />
+                  <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-3">
+                    <Check className="h-8 w-8 text-primary" />
                   </div>
                   <h3 className="font-semibold text-foreground mb-1">Aplikasi Sudah Terinstall!</h3>
                   <p className="text-sm text-muted-foreground mb-4">

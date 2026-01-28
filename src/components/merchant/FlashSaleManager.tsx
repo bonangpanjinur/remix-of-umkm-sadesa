@@ -245,7 +245,7 @@ export function FlashSaleManager({ merchantId }: FlashSaleManagerProps) {
                       </Badge>
                     </div>
                   </div>
-                  <Badge className={isActive ? 'bg-green-100 text-green-700' : 'bg-muted'}>
+                  <Badge variant={isActive ? 'success' : 'secondary'}>
                     {isActive ? 'Aktif' : sale.status}
                   </Badge>
                 </div>

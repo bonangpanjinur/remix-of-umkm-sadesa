@@ -55,8 +55,8 @@ export function NavigationButton({
       <DropdownMenuContent align="end" className="w-56">
         <DropdownMenuItem onClick={openGoogleMaps} className="cursor-pointer">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-green-100 dark:bg-green-900 rounded-full flex items-center justify-center">
-              <MapPin className="h-4 w-4 text-green-600 dark:text-green-400" />
+            <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
+              <MapPin className="h-4 w-4 text-primary" />
             </div>
             <div>
               <p className="font-medium">Google Maps</p>
@@ -68,8 +68,8 @@ export function NavigationButton({
         
         <DropdownMenuItem onClick={openWaze} className="cursor-pointer">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center">
-              <Navigation className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+            <div className="w-8 h-8 bg-info/10 rounded-full flex items-center justify-center">
+              <Navigation className="h-4 w-4 text-info" />
             </div>
             <div>
               <p className="font-medium">Waze</p>
@@ -81,8 +81,8 @@ export function NavigationButton({
 
         <DropdownMenuItem onClick={openAppleMaps} className="cursor-pointer">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center">
-              <MapPin className="h-4 w-4 text-gray-600 dark:text-gray-400" />
+            <div className="w-8 h-8 bg-muted rounded-full flex items-center justify-center">
+              <MapPin className="h-4 w-4 text-muted-foreground" />
             </div>
             <div>
               <p className="font-medium">Apple Maps</p>
@@ -94,8 +94,8 @@ export function NavigationButton({
 
         <DropdownMenuItem onClick={openOSM} className="cursor-pointer">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-orange-100 dark:bg-orange-900 rounded-full flex items-center justify-center">
-              <MapPin className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+            <div className="w-8 h-8 bg-warning/10 rounded-full flex items-center justify-center">
+              <MapPin className="h-4 w-4 text-warning" />
             </div>
             <div>
               <p className="font-medium">OpenStreetMap</p>

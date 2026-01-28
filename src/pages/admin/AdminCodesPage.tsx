@@ -172,7 +172,7 @@ export default function AdminCodesPage() {
           return <Badge variant="secondary">Habis</Badge>;
         }
         return item.is_active 
-          ? <Badge className="bg-green-100 text-green-700">Aktif</Badge>
+          ? <Badge variant="success">Aktif</Badge>
           : <Badge variant="outline">Nonaktif</Badge>;
       },
     },

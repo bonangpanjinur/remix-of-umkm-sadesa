@@ -185,9 +185,9 @@ export default function CourierDashboardPage() {
       case 'ASSIGNED':
         return <Badge variant="secondary">Ditugaskan</Badge>;
       case 'PICKED_UP':
-        return <Badge className="bg-amber-500">Diambil</Badge>;
+        return <Badge variant="warning">Diambil</Badge>;
       case 'ON_DELIVERY':
-        return <Badge className="bg-blue-500">Dalam Perjalanan</Badge>;
+        return <Badge variant="info">Dalam Perjalanan</Badge>;
       default:
         return <Badge variant="outline">{status}</Badge>;
     }
@@ -266,7 +266,7 @@ export default function CourierDashboardPage() {
           {/* Online/Offline Toggle */}
           <div className="flex items-center justify-between p-4 bg-secondary rounded-xl">
             <div className="flex items-center gap-3">
-              <div className={`w-3 h-3 rounded-full ${courier.is_available ? 'bg-green-500 animate-pulse' : 'bg-muted-foreground'}`} />
+              <div className={`w-3 h-3 rounded-full ${courier.is_available ? 'bg-primary animate-pulse' : 'bg-muted-foreground'}`} />
               <div>
                 <Label className="font-medium">
                   {courier.is_available ? 'Online' : 'Offline'}

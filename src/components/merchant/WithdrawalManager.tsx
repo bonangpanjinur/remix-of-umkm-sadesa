@@ -67,10 +67,10 @@ const BANKS = [
 ];
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.ComponentType<any> }> = {
-  'PENDING': { label: 'Menunggu', color: 'bg-yellow-500', icon: Clock },
-  'APPROVED': { label: 'Disetujui', color: 'bg-green-500', icon: CheckCircle },
+  'PENDING': { label: 'Menunggu', color: 'bg-warning', icon: Clock },
+  'APPROVED': { label: 'Disetujui', color: 'bg-primary', icon: CheckCircle },
   'REJECTED': { label: 'Ditolak', color: 'bg-destructive', icon: XCircle },
-  'COMPLETED': { label: 'Selesai', color: 'bg-blue-500', icon: CheckCircle },
+  'COMPLETED': { label: 'Selesai', color: 'bg-info', icon: CheckCircle },
 };
 
 export function WithdrawalManager({ merchantId }: WithdrawalManagerProps) {
@@ -211,21 +211,21 @@ export function WithdrawalManager({ merchantId }: WithdrawalManagerProps) {
         <CardContent className="space-y-6">
           {/* Balance Overview */}
           <div className="grid grid-cols-3 gap-4">
-            <div className="p-4 rounded-lg bg-green-500/10 border border-green-500/30">
+            <div className="p-4 rounded-lg bg-primary/10 border border-primary/30">
               <p className="text-xs text-muted-foreground mb-1">Saldo Tersedia</p>
-              <p className="text-xl font-bold text-green-600">
+              <p className="text-xl font-bold text-primary">
                 {formatPrice(balance.available_balance)}
               </p>
             </div>
-            <div className="p-4 rounded-lg bg-yellow-500/10 border border-yellow-500/30">
+            <div className="p-4 rounded-lg bg-warning/10 border border-warning/30">
               <p className="text-xs text-muted-foreground mb-1">Dalam Proses</p>
-              <p className="text-xl font-bold text-yellow-600">
+              <p className="text-xl font-bold text-warning">
                 {formatPrice(balance.pending_balance)}
               </p>
             </div>
-            <div className="p-4 rounded-lg bg-blue-500/10 border border-blue-500/30">
+            <div className="p-4 rounded-lg bg-info/10 border border-info/30">
               <p className="text-xs text-muted-foreground mb-1">Total Ditarik</p>
-              <p className="text-xl font-bold text-blue-600">
+              <p className="text-xl font-bold text-info">
                 {formatPrice(balance.total_withdrawn)}
               </p>
             </div>

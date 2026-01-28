@@ -372,8 +372,8 @@ export default function AdminFinancePage() {
                           <TableCell>
                             <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                               order.status === 'DONE' || order.status === 'DELIVERED'
-                                ? 'bg-green-100 text-green-700'
-                                : 'bg-gray-100 text-gray-700'
+                                ? 'bg-primary/10 text-primary'
+                                : 'bg-muted text-muted-foreground'
                             }`}>
                               {order.status}
                             </span>

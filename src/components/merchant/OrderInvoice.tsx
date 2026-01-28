@@ -54,18 +54,18 @@ export const OrderInvoice = forwardRef<HTMLDivElement, OrderInvoiceProps>(
         style={{ fontFamily: 'monospace' }}
       >
         {/* Header */}
-        <div className="text-center border-b border-dashed border-gray-400 pb-3 mb-3">
+        <div className="text-center border-b border-dashed border-border pb-3 mb-3">
           <h1 className="font-bold text-lg">{merchant.name}</h1>
           {merchant.address && (
-            <p className="text-xs text-gray-600">{merchant.address}</p>
+            <p className="text-xs text-muted-foreground">{merchant.address}</p>
           )}
           {merchant.phone && (
-            <p className="text-xs text-gray-600">{merchant.phone}</p>
+            <p className="text-xs text-muted-foreground">{merchant.phone}</p>
           )}
         </div>
 
         {/* Order Info */}
-        <div className="border-b border-dashed border-gray-400 pb-3 mb-3">
+        <div className="border-b border-dashed border-border pb-3 mb-3">
           <div className="flex justify-between">
             <span>No. Pesanan:</span>
             <span className="font-bold">#{order.id.slice(0, 8).toUpperCase()}</span>
@@ -81,7 +81,7 @@ export const OrderInvoice = forwardRef<HTMLDivElement, OrderInvoiceProps>(
         </div>
 
         {/* Customer Info */}
-        <div className="border-b border-dashed border-gray-400 pb-3 mb-3">
+        <div className="border-b border-dashed border-border pb-3 mb-3">
           <p className="font-bold">Pelanggan:</p>
           <p>{order.delivery_name || '-'}</p>
           <p className="text-xs">{order.delivery_phone || '-'}</p>
@@ -94,14 +94,14 @@ export const OrderInvoice = forwardRef<HTMLDivElement, OrderInvoiceProps>(
         </div>
 
         {/* Items */}
-        <div className="border-b border-dashed border-gray-400 pb-3 mb-3">
+        <div className="border-b border-dashed border-border pb-3 mb-3">
           <p className="font-bold mb-2">Item Pesanan:</p>
           {items.map((item) => (
             <div key={item.id} className="mb-2">
               <div className="flex justify-between">
                 <span className="flex-1">{item.product_name}</span>
               </div>
-              <div className="flex justify-between text-xs text-gray-600">
+              <div className="flex justify-between text-xs text-muted-foreground">
                 <span>{item.quantity} x {formatPrice(item.product_price)}</span>
                 <span>{formatPrice(item.subtotal)}</span>
               </div>
@@ -119,7 +119,7 @@ export const OrderInvoice = forwardRef<HTMLDivElement, OrderInvoiceProps>(
             <span>Ongkir</span>
             <span>{formatPrice(order.shipping_cost)}</span>
           </div>
-          <div className="flex justify-between font-bold text-base border-t border-gray-400 pt-2 mt-2">
+          <div className="flex justify-between font-bold text-base border-t border-border pt-2 mt-2">
             <span>TOTAL</span>
             <span>{formatPrice(order.total)}</span>
           </div>
@@ -127,16 +127,16 @@ export const OrderInvoice = forwardRef<HTMLDivElement, OrderInvoiceProps>(
 
         {/* Notes */}
         {order.notes && (
-          <div className="mt-3 pt-3 border-t border-dashed border-gray-400">
+          <div className="mt-3 pt-3 border-t border-dashed border-border">
             <p className="font-bold">Catatan:</p>
             <p className="text-xs">{order.notes}</p>
           </div>
         )}
 
         {/* Footer */}
-        <div className="text-center mt-4 pt-3 border-t border-dashed border-gray-400">
+        <div className="text-center mt-4 pt-3 border-t border-dashed border-border">
           <p className="text-xs">Terima kasih telah berbelanja!</p>
-          <p className="text-xs text-gray-500 mt-1">
+          <p className="text-xs text-muted-foreground mt-1">
             Powered by Desa Wisata UMKM
           </p>
         </div>

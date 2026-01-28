@@ -113,13 +113,13 @@ export default function NotificationsPage() {
       case 'order':
         return <Package className="h-5 w-5 text-primary" />;
       case 'withdrawal':
-        return <Wallet className="h-5 w-5 text-amber-500" />;
+        return <Wallet className="h-5 w-5 text-warning" />;
       case 'verification':
-        return <ShieldCheck className="h-5 w-5 text-blue-500" />;
+        return <ShieldCheck className="h-5 w-5 text-info" />;
       case 'success':
-        return <CheckCircle className="h-5 w-5 text-green-500" />;
+        return <CheckCircle className="h-5 w-5 text-primary" />;
       case 'warning':
-        return <AlertTriangle className="h-5 w-5 text-amber-500" />;
+        return <AlertTriangle className="h-5 w-5 text-warning" />;
       case 'error':
         return <XCircle className="h-5 w-5 text-destructive" />;
       default:

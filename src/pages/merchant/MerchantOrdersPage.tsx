@@ -169,30 +169,30 @@ export default function MerchantOrdersPage() {
   };
 
   const getStatusBadge = (status: string) => {
-    const statusMap: Record<string, { label: string; className: string }> = {
-      'NEW': { label: 'Baru', className: 'bg-blue-100 text-blue-700' },
-      'PENDING_CONFIRMATION': { label: 'Menunggu', className: 'bg-amber-100 text-amber-700' },
-      'PROCESSED': { label: 'Diproses', className: 'bg-cyan-100 text-cyan-700' },
-      'SENT': { label: 'Dikirim', className: 'bg-purple-100 text-purple-700' },
-      'DONE': { label: 'Selesai', className: 'bg-primary/10 text-primary' },
-      'CANCELED': { label: 'Dibatalkan', className: 'bg-destructive/10 text-destructive' },
+    const statusMap: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' | 'success' | 'warning' | 'info' | 'pending' }> = {
+      'NEW': { label: 'Baru', variant: 'info' },
+      'PENDING_CONFIRMATION': { label: 'Menunggu', variant: 'warning' },
+      'PROCESSED': { label: 'Diproses', variant: 'pending' },
+      'SENT': { label: 'Dikirim', variant: 'info' },
+      'DONE': { label: 'Selesai', variant: 'success' },
+      'CANCELED': { label: 'Dibatalkan', variant: 'destructive' },
     };
     
-    const config = statusMap[status] || { label: status, className: '' };
-    return <Badge className={config.className}>{config.label}</Badge>;
+    const config = statusMap[status] || { label: status, variant: 'outline' as const };
+    return <Badge variant={config.variant}>{config.label}</Badge>;
   };
 
   const getPaymentBadge = (status: string | null, method: string | null) => {
     if (method === 'COD') {
-      return <Badge variant="outline" className="bg-purple-100 text-purple-700">COD</Badge>;
+      return <Badge variant="pending">COD</Badge>;
     }
-    const statusMap: Record<string, { label: string; className: string }> = {
-      'PAID': { label: 'Lunas', className: 'bg-primary/10 text-primary' },
-      'PENDING': { label: 'Menunggu', className: 'bg-amber-100 text-amber-700' },
-      'UNPAID': { label: 'Belum Bayar', className: 'bg-destructive/10 text-destructive' },
+    const statusMap: Record<string, { label: string; variant: 'default' | 'success' | 'warning' | 'destructive' }> = {
+      'PAID': { label: 'Lunas', variant: 'success' },
+      'PENDING': { label: 'Menunggu', variant: 'warning' },
+      'UNPAID': { label: 'Belum Bayar', variant: 'destructive' },
     };
-    const config = statusMap[status || 'UNPAID'] || { label: status || '-', className: '' };
-    return <Badge variant="outline" className={config.className}>{config.label}</Badge>;
+    const config = statusMap[status || 'UNPAID'] || { label: status || '-', variant: 'outline' as const };
+    return <Badge variant={config.variant}>{config.label}</Badge>;
   };
 
   const columns = [
@@ -323,7 +323,7 @@ export default function MerchantOrdersPage() {
           {orders.length} pesanan
         </span>
         {newOrdersCount > 0 && (
-          <Badge className="bg-blue-100 text-blue-700">{newOrdersCount} baru</Badge>
+          <Badge variant="info">{newOrdersCount} baru</Badge>
         )}
       </div>
 

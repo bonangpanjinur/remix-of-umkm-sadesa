@@ -113,7 +113,7 @@ export function BulkActions({
             <Button
               size="sm"
               variant="outline"
-              className="gap-1 text-green-600 border-green-600 hover:bg-green-50"
+              className="gap-1 text-primary border-primary hover:bg-primary/10"
               onClick={() => handleBulkAction('approve')}
               disabled={loading}
             >

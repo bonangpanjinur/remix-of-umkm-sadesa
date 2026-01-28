@@ -164,9 +164,9 @@ export default function AdminRefundsPage() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'PENDING':
-        return <Badge variant="outline" className="bg-yellow-100 text-yellow-800 border-yellow-300">Menunggu</Badge>;
+        return <Badge variant="warning">Menunggu</Badge>;
       case 'APPROVED':
-        return <Badge variant="outline" className="bg-green-100 text-green-800 border-green-300">Disetujui</Badge>;
+        return <Badge variant="success">Disetujui</Badge>;
       case 'REJECTED':
         return <Badge variant="destructive">Ditolak</Badge>;
       default:
@@ -186,14 +186,14 @@ export default function AdminRefundsPage() {
         </div>
         <div className="bg-card border border-border rounded-lg p-4">
           <div className="flex items-center gap-2">
-            <Clock className="h-4 w-4 text-yellow-500" />
+            <Clock className="h-4 w-4 text-warning" />
             <p className="text-sm text-muted-foreground">Menunggu</p>
           </div>
-          <p className="text-2xl font-bold text-yellow-600">{pendingCount}</p>
+          <p className="text-2xl font-bold text-warning">{pendingCount}</p>
         </div>
         <div className="bg-card border border-border rounded-lg p-4">
           <p className="text-sm text-muted-foreground">Disetujui</p>
-          <p className="text-2xl font-bold text-green-600">{refunds.filter(r => r.status === 'APPROVED').length}</p>
+          <p className="text-2xl font-bold text-primary">{refunds.filter(r => r.status === 'APPROVED').length}</p>
         </div>
         <div className="bg-card border border-border rounded-lg p-4">
           <p className="text-sm text-muted-foreground">Ditolak</p>

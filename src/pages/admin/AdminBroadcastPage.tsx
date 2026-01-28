@@ -205,9 +205,9 @@ export default function AdminBroadcastPage() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'SENT':
-        return <Badge className="bg-green-100 text-green-700"><CheckCircle className="h-3 w-3 mr-1" />Terkirim</Badge>;
+        return <Badge variant="success"><CheckCircle className="h-3 w-3 mr-1" />Terkirim</Badge>;
       case 'SENDING':
-        return <Badge className="bg-amber-100 text-amber-700"><Clock className="h-3 w-3 mr-1" />Mengirim</Badge>;
+        return <Badge variant="warning"><Clock className="h-3 w-3 mr-1" />Mengirim</Badge>;
       case 'DRAFT':
         return <Badge variant="secondary">Draft</Badge>;
       case 'FAILED':

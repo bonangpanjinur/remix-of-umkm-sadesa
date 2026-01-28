@@ -38,8 +38,8 @@ export function WishlistButton({ productId, size = 'md', className }: WishlistBu
       className={cn(
         'rounded-full flex items-center justify-center transition-all',
         isWishlisted
-          ? 'bg-red-500 text-white'
-          : 'bg-background/80 backdrop-blur-sm text-muted-foreground hover:text-red-500',
+          ? 'bg-destructive text-destructive-foreground'
+          : 'bg-background/80 backdrop-blur-sm text-muted-foreground hover:text-destructive',
         sizeClasses[size],
         className
       )}
