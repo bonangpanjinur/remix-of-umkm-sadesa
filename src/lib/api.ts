@@ -30,32 +30,37 @@ const villageImages: Record<string, string> = {
 async function getMerchantsWithActiveQuota(): Promise<Set<string>> {
   const { data } = await supabase
     .from('merchant_subscriptions')
-    .select('merchant_id')
+    .select('merchant_id, transaction_quota, used_quota')
     .eq('status', 'ACTIVE')
-    .gte('expired_at', new Date().toISOString())
-    .gt('transaction_quota', supabase.rpc ? 0 : 0); // Ensuring quota > used_quota handled below
+    .gte('expired_at', new Date().toISOString());
 
   if (!data) return new Set();
 
   // Filter to only merchants with remaining quota
   const merchantIds: string[] = [];
   for (const sub of data) {
-    const { data: subDetail } = await supabase
-      .from('merchant_subscriptions')
-      .select('transaction_quota, used_quota')
-      .eq('merchant_id', sub.merchant_id)
-      .eq('status', 'ACTIVE')
-      .gte('expired_at', new Date().toISOString())
-      .order('expired_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (subDetail && subDetail.transaction_quota > subDetail.used_quota) {
+    if (sub.transaction_quota > sub.used_quota) {
       merchantIds.push(sub.merchant_id);
     }
   }
 
   return new Set(merchantIds);
+}
+
+// Check if a specific merchant has active quota
+export async function checkMerchantHasActiveQuota(merchantId: string): Promise<boolean> {
+  const { data } = await supabase
+    .from('merchant_subscriptions')
+    .select('transaction_quota, used_quota')
+    .eq('merchant_id', merchantId)
+    .eq('status', 'ACTIVE')
+    .gte('expired_at', new Date().toISOString())
+    .order('expired_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (!data) return false;
+  return data.transaction_quota > data.used_quota;
 }
 
 // Fetch products from database (only from merchants with active quota)

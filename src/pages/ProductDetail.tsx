@@ -10,10 +10,11 @@ import {
   Store,
   MapPin,
   BadgeCheck,
-  Clock
+  Clock,
+  AlertTriangle
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { fetchProduct } from '@/lib/api';
+import { fetchProduct, checkMerchantHasActiveQuota } from '@/lib/api';
 import { useCart } from '@/contexts/CartContext';
 import { formatPrice } from '@/lib/utils';
 import { WishlistButton } from '@/components/WishlistButton';
@@ -47,6 +48,7 @@ export default function ProductDetail() {
   const [product, setProduct] = useState<Product | null>(null);
   const [merchant, setMerchant] = useState<MerchantInfo | null>(null);
   const [loading, setLoading] = useState(true);
+  const [hasActiveQuota, setHasActiveQuota] = useState(true);
 
   useEffect(() => {
     async function loadData() {
@@ -91,6 +93,10 @@ export default function ProductDetail() {
               villageName: merchantData.villages?.name || null,
               isVerified: merchantData.is_verified || false,
             });
+            
+            // Check if merchant has active quota
+            const quotaActive = await checkMerchantHasActiveQuota(merchantData.id);
+            setHasActiveQuota(quotaActive);
           }
         }
       } catch (error) {
@@ -127,6 +133,16 @@ export default function ProductDetail() {
   }
 
   const handleAddToCart = () => {
+    // Check if merchant has active quota
+    if (!hasActiveQuota) {
+      toast({
+        title: 'Toko tidak dapat menerima pesanan',
+        description: 'Toko ini tidak memiliki kuota transaksi aktif',
+        variant: 'destructive',
+      });
+      return;
+    }
+    
     // Check if merchant is open
     if (merchantStatus && !merchantStatus.isCurrentlyOpen) {
       toast({
@@ -141,7 +157,7 @@ export default function ProductDetail() {
     navigate('/cart');
   };
 
-  const canOrder = merchantStatus?.isCurrentlyOpen !== false;
+  const canOrder = hasActiveQuota && merchantStatus?.isCurrentlyOpen !== false;
 
   return (
     <div className="mobile-shell bg-card flex flex-col min-h-screen relative">
@@ -209,8 +225,23 @@ export default function ProductDetail() {
             </div>
           </div>
 
+          {/* Merchant No Quota Banner */}
+          {merchant && !hasActiveQuota && (
+            <div className="mb-4 p-4 bg-destructive/10 border border-destructive/20 rounded-xl">
+              <div className="flex items-start gap-3">
+                <AlertTriangle className="h-5 w-5 text-destructive flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-bold text-destructive text-sm">Toko Tidak Dapat Menerima Pesanan</p>
+                  <p className="text-xs text-destructive/80 mt-1">
+                    Toko ini tidak memiliki kuota transaksi aktif. Silakan cari produk serupa dari toko lain.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Merchant Closed Banner */}
-          {merchant && !merchantStatus?.isCurrentlyOpen && (
+          {merchant && hasActiveQuota && !merchantStatus?.isCurrentlyOpen && (
             <div className="mb-4">
               <MerchantClosedBanner
                 isManuallyOpen={merchant.isOpen}
@@ -318,7 +349,12 @@ export default function ProductDetail() {
           size="lg"
           disabled={!canOrder}
         >
-          {canOrder ? (
+          {!hasActiveQuota ? (
+            <>
+              <AlertTriangle className="h-4 w-4 mr-2" />
+              Tidak Dapat Memesan
+            </>
+          ) : canOrder ? (
             <>
               <ShoppingCart className="h-4 w-4 mr-2" />
               Tambah ke Keranjang
