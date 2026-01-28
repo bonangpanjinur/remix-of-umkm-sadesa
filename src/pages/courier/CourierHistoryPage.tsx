@@ -95,16 +95,16 @@ export default function CourierHistoryPage() {
   const allDeliveries = deliveries;
 
   const getStatusBadge = (status: string) => {
-    const styles: Record<string, { className: string; label: string }> = {
-      DELIVERED: { className: 'bg-green-100 text-green-700', label: 'Terkirim' },
-      DONE: { className: 'bg-green-100 text-green-700', label: 'Selesai' },
-      CANCELLED: { className: 'bg-red-100 text-red-700', label: 'Dibatalkan' },
-      ASSIGNED: { className: 'bg-blue-100 text-blue-700', label: 'Ditugaskan' },
-      PICKED_UP: { className: 'bg-amber-100 text-amber-700', label: 'Diambil' },
-      ON_DELIVERY: { className: 'bg-cyan-100 text-cyan-700', label: 'Dalam Perjalanan' },
+    const styles: Record<string, { variant: 'success' | 'destructive' | 'info' | 'warning' | 'pending' | 'secondary'; label: string }> = {
+      DELIVERED: { variant: 'success', label: 'Terkirim' },
+      DONE: { variant: 'success', label: 'Selesai' },
+      CANCELLED: { variant: 'destructive', label: 'Dibatalkan' },
+      ASSIGNED: { variant: 'info', label: 'Ditugaskan' },
+      PICKED_UP: { variant: 'warning', label: 'Diambil' },
+      ON_DELIVERY: { variant: 'info', label: 'Dalam Perjalanan' },
     };
-    const style = styles[status] || { className: 'bg-gray-100 text-gray-700', label: status };
-    return <Badge className={style.className}>{style.label}</Badge>;
+    const style = styles[status] || { variant: 'secondary' as const, label: status };
+    return <Badge variant={style.variant}>{style.label}</Badge>;
   };
 
   const DeliveryCard = ({ delivery }: { delivery: DeliveryRecord }) => {

@@ -225,13 +225,13 @@ export default function AdminWithdrawalsPage() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'PENDING':
-        return <Badge variant="outline" className="bg-amber-500/10 text-amber-600 border-amber-500/30">Menunggu</Badge>;
+        return <Badge variant="pending">Menunggu</Badge>;
       case 'APPROVED':
-        return <Badge variant="outline" className="bg-blue-500/10 text-blue-600 border-blue-500/30">Disetujui</Badge>;
+        return <Badge variant="info">Disetujui</Badge>;
       case 'COMPLETED':
-        return <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/30">Selesai</Badge>;
+        return <Badge variant="success">Selesai</Badge>;
       case 'REJECTED':
-        return <Badge variant="outline" className="bg-destructive/10 text-destructive border-destructive/30">Ditolak</Badge>;
+        return <Badge variant="destructive">Ditolak</Badge>;
       default:
         return <Badge variant="secondary">{status}</Badge>;
     }
@@ -340,7 +340,7 @@ export default function AdminWithdrawalsPage() {
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="text-green-600 hover:text-green-700 hover:bg-green-50"
+                              className="text-success hover:text-success hover:bg-success/10"
                               onClick={() => {
                                 setSelectedWithdrawal(withdrawal);
                                 setShowApproveDialog(true);
@@ -365,7 +365,7 @@ export default function AdminWithdrawalsPage() {
                           <Button
                             variant="outline"
                             size="sm"
-                            className="text-green-600"
+                            className="text-success"
                             onClick={() => handleComplete(withdrawal)}
                           >
                             Konfirmasi Transfer
@@ -460,14 +460,14 @@ export default function AdminWithdrawalsPage() {
           </DialogHeader>
           {selectedWithdrawal && (
             <div className="space-y-4">
-              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                <p className="font-semibold text-green-800">
+              <div className="bg-success/10 border border-success/30 rounded-lg p-4">
+                <p className="font-semibold text-success">
                   {formatCurrency(selectedWithdrawal.amount)}
                 </p>
-                <p className="text-sm text-green-700">
+                <p className="text-sm text-success/80">
                   {selectedWithdrawal.bank_name} - {selectedWithdrawal.account_number}
                 </p>
-                <p className="text-sm text-green-700">
+                <p className="text-sm text-success/80">
                   a.n. {selectedWithdrawal.account_holder}
                 </p>
               </div>

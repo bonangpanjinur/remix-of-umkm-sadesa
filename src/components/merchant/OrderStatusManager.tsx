@@ -40,13 +40,13 @@ interface OrderStatusManagerProps {
 }
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.ComponentType<any> }> = {
-  'PENDING_CONFIRMATION': { label: 'Konfirmasi', color: 'bg-yellow-500', icon: Clock },
-  'NEW': { label: 'Baru', color: 'bg-blue-500', icon: Package },
-  'PROCESSED': { label: 'Diproses', color: 'bg-purple-500', icon: Package },
-  'SENT': { label: 'Dikirim', color: 'bg-orange-500', icon: Truck },
-  'DONE': { label: 'Selesai', color: 'bg-green-500', icon: CheckCircle },
+  'PENDING_CONFIRMATION': { label: 'Konfirmasi', color: 'bg-warning', icon: Clock },
+  'NEW': { label: 'Baru', color: 'bg-info', icon: Package },
+  'PROCESSED': { label: 'Diproses', color: 'bg-primary', icon: Package },
+  'SENT': { label: 'Dikirim', color: 'bg-warning', icon: Truck },
+  'DONE': { label: 'Selesai', color: 'bg-success', icon: CheckCircle },
   'CANCELED': { label: 'Batal', color: 'bg-destructive', icon: XCircle },
-  'REJECTED_BY_BUYER': { label: 'Ditolak Pembeli', color: 'bg-red-700', icon: XCircle },
+  'REJECTED_BY_BUYER': { label: 'Ditolak Pembeli', color: 'bg-destructive', icon: XCircle },
 };
 
 export function OrderStatusManager({ merchantId }: OrderStatusManagerProps) {

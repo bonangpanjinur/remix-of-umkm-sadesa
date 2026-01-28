@@ -147,9 +147,9 @@ export default function AdminBackupPage() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'completed':
-        return <Badge className="bg-green-100 text-green-700">Selesai</Badge>;
+        return <Badge variant="success">Selesai</Badge>;
       case 'in_progress':
-        return <Badge className="bg-blue-100 text-blue-700">Proses</Badge>;
+        return <Badge variant="info">Proses</Badge>;
       case 'failed':
         return <Badge variant="destructive">Gagal</Badge>;
       default:
@@ -184,13 +184,13 @@ export default function AdminBackupPage() {
         </Card>
 
         {/* Info Card */}
-        <Card className="bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800">
+        <Card className="bg-info/10 border-info/30">
           <CardContent className="p-4">
             <div className="flex items-start gap-3">
-              <RefreshCw className="h-5 w-5 text-blue-600 mt-0.5" />
+              <RefreshCw className="h-5 w-5 text-info mt-0.5" />
               <div>
-                <p className="font-medium text-blue-800 dark:text-blue-200">Backup Otomatis</p>
-                <p className="text-sm text-blue-600 dark:text-blue-400">
+                <p className="font-medium text-foreground">Backup Otomatis</p>
+                <p className="text-sm text-muted-foreground">
                   Database dibackup secara otomatis oleh sistem cloud setiap hari. 
                   Backup manual ini untuk kebutuhan ekspor data tambahan.
                 </p>
@@ -224,11 +224,11 @@ export default function AdminBackupPage() {
                   <CardContent className="p-4 flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       {backup.status === 'completed' ? (
-                        <CheckCircle className="h-5 w-5 text-green-600" />
+                        <CheckCircle className="h-5 w-5 text-success" />
                       ) : backup.status === 'failed' ? (
                         <XCircle className="h-5 w-5 text-destructive" />
                       ) : (
-                        <Loader2 className="h-5 w-5 animate-spin text-blue-600" />
+                        <Loader2 className="h-5 w-5 animate-spin text-info" />
                       )}
                       <div>
                         <p className="font-medium text-sm">

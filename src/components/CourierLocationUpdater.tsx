@@ -150,7 +150,7 @@ export function CourierLocationUpdater({ courierId, onLocationUpdate }: CourierL
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-            isTracking ? 'bg-green-100 text-green-600' : 'bg-muted text-muted-foreground'
+            isTracking ? 'bg-success/10 text-success' : 'bg-muted text-muted-foreground'
           }`}>
             {loading ? (
               <Loader2 className="h-5 w-5 animate-spin" />
@@ -182,7 +182,7 @@ export function CourierLocationUpdater({ courierId, onLocationUpdate }: CourierL
       )}
 
       {currentLocation && isTracking && (
-        <div className="flex items-center gap-2 text-green-600 text-sm bg-green-50 p-3 rounded-lg">
+        <div className="flex items-center gap-2 text-success text-sm bg-success/10 p-3 rounded-lg">
           <CheckCircle className="h-4 w-4 flex-shrink-0" />
           <span>
             Lokasi: {currentLocation.lat.toFixed(6)}, {currentLocation.lng.toFixed(6)}

@@ -204,13 +204,13 @@ export default function AdminVerifikatorWithdrawalsPage() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'PENDING':
-        return <Badge variant="outline" className="bg-amber-500/10 text-amber-600 border-amber-500/30"><Clock className="h-3 w-3 mr-1" /> Menunggu</Badge>;
+        return <Badge variant="pending"><Clock className="h-3 w-3 mr-1" /> Menunggu</Badge>;
       case 'APPROVED':
-        return <Badge variant="outline" className="bg-blue-500/10 text-blue-600 border-blue-500/30"><CheckCircle className="h-3 w-3 mr-1" /> Disetujui</Badge>;
+        return <Badge variant="info"><CheckCircle className="h-3 w-3 mr-1" /> Disetujui</Badge>;
       case 'COMPLETED':
-        return <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/30"><CheckCircle className="h-3 w-3 mr-1" /> Selesai</Badge>;
+        return <Badge variant="success"><CheckCircle className="h-3 w-3 mr-1" /> Selesai</Badge>;
       case 'REJECTED':
-        return <Badge variant="outline" className="bg-destructive/10 text-destructive border-destructive/30"><XCircle className="h-3 w-3 mr-1" /> Ditolak</Badge>;
+        return <Badge variant="destructive"><XCircle className="h-3 w-3 mr-1" /> Ditolak</Badge>;
       default:
         return <Badge variant="secondary">{status}</Badge>;
     }
@@ -229,8 +229,8 @@ export default function AdminVerifikatorWithdrawalsPage() {
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className="p-2 rounded-full bg-amber-500/10">
-                <Clock className="h-5 w-5 text-amber-500" />
+              <div className="p-2 rounded-full bg-warning/10">
+                <Clock className="h-5 w-5 text-warning" />
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Menunggu</p>
@@ -242,8 +242,8 @@ export default function AdminVerifikatorWithdrawalsPage() {
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className="p-2 rounded-full bg-blue-500/10">
-                <Upload className="h-5 w-5 text-blue-500" />
+              <div className="p-2 rounded-full bg-info/10">
+                <Upload className="h-5 w-5 text-info" />
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Perlu Transfer</p>
@@ -346,7 +346,7 @@ export default function AdminVerifikatorWithdrawalsPage() {
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="text-green-600 hover:text-green-700 hover:bg-green-50"
+                              className="text-success hover:text-success hover:bg-success/10"
                               onClick={() => handleApprove(withdrawal)}
                               disabled={processing}
                             >
@@ -367,7 +367,7 @@ export default function AdminVerifikatorWithdrawalsPage() {
                           <Button
                             variant="outline"
                             size="sm"
-                            className="text-green-600"
+                            className="text-success"
                             onClick={() => {
                               setSelectedWithdrawal(withdrawal);
                               setShowUploadDialog(true);

@@ -199,13 +199,13 @@ export default function AdminMerchantDetailPage() {
 
   const getStatusBadge = (status: string, regStatus: string) => {
     if (regStatus === 'PENDING') {
-      return <Badge variant="secondary" className="bg-amber-100 text-amber-700">Menunggu Verifikasi</Badge>;
+      return <Badge variant="warning">Menunggu Verifikasi</Badge>;
     }
     if (regStatus === 'REJECTED') {
       return <Badge variant="destructive">Ditolak</Badge>;
     }
     if (status === 'ACTIVE') {
-      return <Badge className="bg-green-100 text-green-700">Aktif</Badge>;
+      return <Badge variant="success">Aktif</Badge>;
     }
     return <Badge variant="outline">Nonaktif</Badge>;
   };
@@ -347,8 +347,8 @@ export default function AdminMerchantDetailPage() {
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-blue-100">
-                <Package className="h-5 w-5 text-blue-600" />
+              <div className="p-2 rounded-lg bg-info/10">
+                <Package className="h-5 w-5 text-info" />
               </div>
               <div>
                 <p className="text-2xl font-bold">{stats.activeProducts}</p>
@@ -361,8 +361,8 @@ export default function AdminMerchantDetailPage() {
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-green-100">
-                <ShoppingCart className="h-5 w-5 text-green-600" />
+              <div className="p-2 rounded-lg bg-success/10">
+                <ShoppingCart className="h-5 w-5 text-success" />
               </div>
               <div>
                 <p className="text-2xl font-bold">{stats.completedOrders}</p>
@@ -375,8 +375,8 @@ export default function AdminMerchantDetailPage() {
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-purple-100">
-                <TrendingUp className="h-5 w-5 text-purple-600" />
+              <div className="p-2 rounded-lg bg-primary/10">
+                <TrendingUp className="h-5 w-5 text-primary" />
               </div>
               <div>
                 <p className="text-lg font-bold">{formatCurrency(stats.totalRevenue)}</p>
@@ -389,8 +389,8 @@ export default function AdminMerchantDetailPage() {
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-orange-100">
-                <CreditCard className="h-5 w-5 text-orange-600" />
+              <div className="p-2 rounded-lg bg-warning/10">
+                <CreditCard className="h-5 w-5 text-warning" />
               </div>
               <div>
                 <p className="text-lg font-bold">{formatCurrency(merchant.available_balance || 0)}</p>
