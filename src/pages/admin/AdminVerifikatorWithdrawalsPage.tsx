@@ -469,9 +469,6 @@ export default function AdminVerifikatorWithdrawalsPage() {
                   onChange={(e) => setProofImageUrl(e.target.value)}
                   placeholder="URL gambar bukti transfer"
                 />
-                  onChange={setProofImageUrl}
-                  bucket="proof-images"
-                />
               </div>
 
               <div className="space-y-2">
