@@ -24,8 +24,8 @@ import {
 import type { Village } from '@/types';
 
 const merchantSchema = z.object({
-  // Referral code (required)
-  referralCode: z.string().min(3, 'Kode referral wajib diisi').max(50),
+  // Referral code (optional)
+  referralCode: z.string().max(50).optional(),
   
   // Business info
   name: z.string().min(3, 'Nama usaha minimal 3 karakter').max(100),
@@ -239,7 +239,8 @@ export default function RegisterMerchantPage() {
   }, [referralCode]);
 
   const onSubmit = async (data: MerchantFormData) => {
-    if (!referralInfo.isValid) {
+    // Only validate referral if code was entered
+    if (referralCode && referralCode.length > 0 && !referralInfo.isValid) {
       toast.error('Kode referral tidak valid');
       return;
     }
@@ -265,8 +266,8 @@ export default function RegisterMerchantPage() {
         classification_price: data.classificationPrice,
         business_category: data.businessCategory,
         business_description: data.businessDescription?.trim() || null,
-        verifikator_code: data.referralCode.toUpperCase(),
-        trade_group: referralInfo.tradeGroup,
+        verifikator_code: referralCode ? referralCode.toUpperCase() : null,
+        trade_group: referralInfo.tradeGroup || null,
         registration_status: 'PENDING',
         status: 'PENDING',
         order_mode: 'ADMIN_ASSISTED',
@@ -289,11 +290,12 @@ export default function RegisterMerchantPage() {
     let fieldsToValidate: (keyof MerchantFormData)[] = [];
     
     if (currentStep === 1) {
-      fieldsToValidate = ['referralCode'];
-      if (!referralInfo.isValid) {
-        toast.error('Masukkan kode referral yang valid');
+      // Referral is optional - only validate if entered
+      if (referralCode && referralCode.length > 0 && !referralInfo.isValid && !referralInfo.isLoading) {
+        toast.error('Kode referral tidak valid. Kosongkan jika tidak punya.');
         return;
       }
+      // No required fields for step 1 anymore
     } else if (currentStep === 2) {
       fieldsToValidate = ['name', 'businessCategory'];
     } else if (currentStep === 3) {
@@ -403,17 +405,17 @@ export default function RegisterMerchantPage() {
                   <div className="flex items-start gap-3">
                     <Shield className="h-5 w-5 text-accent-foreground flex-shrink-0 mt-0.5" />
                     <div>
-                      <p className="text-sm font-medium text-foreground mb-1">Kode Referral Verifikator</p>
+                      <p className="text-sm font-medium text-foreground mb-1">Kode Referral (Opsional)</p>
                       <p className="text-xs text-muted-foreground">
-                        Untuk mendaftar, Anda membutuhkan kode referral dari Verifikator. 
-                        Kode ini menentukan kelompok dagang Anda.
+                        Jika Anda memiliki kode referral dari Verifikator, masukkan di bawah ini. 
+                        Kode ini akan menentukan kelompok dagang Anda. Anda bisa melewati langkah ini jika tidak memiliki kode.
                       </p>
                     </div>
                   </div>
                 </div>
 
                 <div>
-                  <Label htmlFor="referralCode" className="text-sm font-medium">Kode Referral *</Label>
+                  <Label htmlFor="referralCode" className="text-sm font-medium">Kode Referral <span className="text-muted-foreground font-normal">(Opsional)</span></Label>
                   <div className="relative mt-2">
                     <Tag className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
