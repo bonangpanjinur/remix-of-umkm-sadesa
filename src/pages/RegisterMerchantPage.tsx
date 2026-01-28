@@ -835,7 +835,7 @@ export default function RegisterMerchantPage() {
                   type="button"
                   onClick={nextStep}
                   className="flex-1"
-                  disabled={currentStep === 1 && !referralInfo.isValid}
+                  disabled={currentStep === 1 && referralCode.length > 0 && !referralInfo.isValid && !referralInfo.isLoading}
                 >
                   Lanjutkan
                 </Button>
