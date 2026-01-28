@@ -1,12 +1,9 @@
-import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { MapPin, Navigation, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { calculateDistance } from '@/lib/codSecurity';
-import { Skeleton } from '@/components/ui/skeleton';
-import type { LatLng } from 'leaflet';
-
-// Lazy load the map component to avoid SSR issues with react-leaflet
-const LazyMapComponent = lazy(() => import('./LazyMap'));
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 interface LocationPickerProps {
   value: { lat: number; lng: number } | null;
@@ -14,17 +11,6 @@ interface LocationPickerProps {
   merchantLocation?: { lat: number; lng: number } | null;
   onDistanceChange?: (distanceKm: number) => void;
   disabled?: boolean;
-}
-
-function MapLoadingFallback() {
-  return (
-    <div className="h-full w-full flex items-center justify-center bg-muted">
-      <div className="text-center space-y-2">
-        <Loader2 className="h-6 w-6 animate-spin mx-auto text-primary" />
-        <p className="text-xs text-muted-foreground">Memuat peta...</p>
-      </div>
-    </div>
-  );
 }
 
 export function LocationPicker({
@@ -36,13 +22,6 @@ export function LocationPicker({
 }: LocationPickerProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [mapError, setMapError] = useState(false);
-  
-  // Default to Indonesia center
-  const defaultCenter: [number, number] = [-2.5489, 118.0149];
-  const center: [number, number] = value 
-    ? [value.lat, value.lng] 
-    : defaultCenter;
 
   // Calculate distance when location changes
   useEffect(() => {
@@ -56,11 +35,6 @@ export function LocationPicker({
       onDistanceChange(distance);
     }
   }, [value, merchantLocation, onDistanceChange]);
-
-  const handleMapClick = useCallback((latlng: LatLng) => {
-    if (disabled) return;
-    onChange({ lat: latlng.lat, lng: latlng.lng });
-  }, [disabled, onChange]);
 
   const handleGetCurrentLocation = useCallback(() => {
     if (!navigator.geolocation) {
@@ -121,42 +95,31 @@ export function LocationPicker({
         <p className="text-xs text-destructive">{error}</p>
       )}
 
-      <div className="rounded-lg overflow-hidden border border-border h-[200px]">
-        {mapError ? (
-          <div className="h-full w-full flex items-center justify-center bg-muted">
-            <div className="text-center space-y-2">
-              <MapPin className="h-6 w-6 mx-auto text-muted-foreground" />
-              <p className="text-xs text-muted-foreground">Gagal memuat peta</p>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={() => setMapError(false)}
-              >
-                Coba Lagi
-              </Button>
+      {/* Location status */}
+      <div className="rounded-lg border border-border p-4 bg-secondary/30">
+        {value ? (
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 text-primary">
+              <MapPin className="h-5 w-5" />
+              <span className="font-medium">Lokasi Terdeteksi</span>
             </div>
+            <p className="text-sm text-muted-foreground">
+              Koordinat: {value.lat.toFixed(6)}, {value.lng.toFixed(6)}
+            </p>
           </div>
         ) : (
-          <Suspense fallback={<MapLoadingFallback />}>
-            <LazyMapComponent
-              center={center}
-              value={value}
-              zoom={value ? 15 : 5}
-              onMapClick={handleMapClick}
-            />
-          </Suspense>
+          <div className="text-center py-4">
+            <MapPin className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
+            <p className="text-sm text-muted-foreground">
+              Klik tombol "Lokasi Saya" untuk menentukan titik pengiriman
+            </p>
+          </div>
         )}
       </div>
 
       <p className="text-xs text-muted-foreground">
-        Klik pada peta atau gunakan tombol "Lokasi Saya" untuk menentukan titik pengiriman
+        Gunakan tombol "Lokasi Saya" untuk mendeteksi lokasi pengiriman secara otomatis
       </p>
-
-      {value && (
-        <div className="text-xs text-muted-foreground bg-secondary/50 p-2 rounded">
-          Koordinat: {value.lat.toFixed(6)}, {value.lng.toFixed(6)}
-        </div>
-      )}
     </div>
   );
 }
