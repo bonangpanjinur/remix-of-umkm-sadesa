@@ -49,6 +49,7 @@ import AdminSettingsPage from "./pages/admin/AdminSettingsPage";
 import AdminMerchantDetailPage from "./pages/admin/AdminMerchantDetailPage";
 import AdminMerchantsPage from "./pages/admin/AdminMerchantsPage";
 import AdminVillagesPage from "./pages/admin/AdminVillagesPage";
+import AdminVillageDetailPage from "./pages/admin/AdminVillageDetailPage";
 import AdminCouriersPage from "./pages/admin/AdminCouriersPage";
 import AdminPromotionsPage from "./pages/admin/AdminPromotionsPage";
 import AdminCodesPage from "./pages/admin/AdminCodesPage";
@@ -230,6 +231,11 @@ const App = () => (
               <Route path="/admin/villages" element={
                 <ProtectedRoute allowedRoles={['admin']}>
                   <AdminVillagesPage />
+                </ProtectedRoute>
+              } />
+              <Route path="/admin/villages/:id" element={
+                <ProtectedRoute allowedRoles={['admin']}>
+                  <AdminVillageDetailPage />
                 </ProtectedRoute>
               } />
               <Route path="/admin/couriers" element={
