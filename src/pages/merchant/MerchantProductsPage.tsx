@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Package, Plus, Edit, Trash2, MoreHorizontal, ImageIcon, Layers, Images } from 'lucide-react';
+import { Package, Plus, Edit, Trash2, MoreHorizontal, ImageIcon, Layers, Images, Eye, ShoppingCart } from 'lucide-react';
 import { MerchantLayout } from '@/components/merchant/MerchantLayout';
 import { DataTable } from '@/components/admin/DataTable';
 import { Badge } from '@/components/ui/badge';
@@ -43,6 +43,8 @@ interface ProductRow {
   image_url: string | null;
   is_active: boolean;
   is_promo: boolean;
+  view_count: number | null;
+  order_count: number | null;
 }
 
 interface ProductForm {
@@ -255,6 +257,22 @@ export default function MerchantProductsPage() {
         <span className={item.stock === 0 ? 'text-destructive font-medium' : ''}>
           {item.stock}
         </span>
+      ),
+    },
+    {
+      key: 'stats',
+      header: 'Statistik',
+      render: (item: ProductRow) => (
+        <div className="flex items-center gap-3 text-xs text-muted-foreground">
+          <span className="flex items-center gap-1">
+            <Eye className="h-3 w-3" />
+            {(item.view_count || 0).toLocaleString()}
+          </span>
+          <span className="flex items-center gap-1">
+            <ShoppingCart className="h-3 w-3" />
+            {(item.order_count || 0).toLocaleString()}
+          </span>
+        </div>
       ),
     },
     {

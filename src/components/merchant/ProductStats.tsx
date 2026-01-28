@@ -22,7 +22,9 @@ export function ProductStats({ merchantId }: ProductStatsProps) {
   const [sortBy, setSortBy] = useState<'views' | 'orders'>('views');
 
   useEffect(() => {
-    fetchProductStats();
+    if (merchantId) {
+      fetchProductStats();
+    }
   }, [merchantId]);
 
   const fetchProductStats = async () => {
@@ -69,21 +71,21 @@ export function ProductStats({ merchantId }: ProductStatsProps) {
       <div className="grid grid-cols-3 gap-3">
         <Card>
           <CardContent className="p-4 text-center">
-            <Eye className="h-5 w-5 mx-auto text-blue-500 mb-1" />
+            <Eye className="h-5 w-5 mx-auto text-chart-2 mb-1" />
             <p className="text-2xl font-bold">{totalViews.toLocaleString()}</p>
             <p className="text-xs text-muted-foreground">Total Views</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4 text-center">
-            <ShoppingCart className="h-5 w-5 mx-auto text-green-500 mb-1" />
+            <ShoppingCart className="h-5 w-5 mx-auto text-chart-3 mb-1" />
             <p className="text-2xl font-bold">{totalOrders.toLocaleString()}</p>
             <p className="text-xs text-muted-foreground">Total Orders</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4 text-center">
-            <TrendingUp className="h-5 w-5 mx-auto text-purple-500 mb-1" />
+            <TrendingUp className="h-5 w-5 mx-auto text-chart-4 mb-1" />
             <p className="text-2xl font-bold">{conversionRate}%</p>
             <p className="text-xs text-muted-foreground">Konversi</p>
           </CardContent>

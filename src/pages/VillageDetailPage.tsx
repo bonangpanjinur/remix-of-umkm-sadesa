@@ -107,28 +107,34 @@ export default function VillageDetailPage() {
         }));
         setTourisms(mappedTourism);
 
-        // Fetch merchants with product counts
+        // Fetch merchants with product counts - optimized query
         const { data: merchantsData } = await supabase
           .from('merchants')
-          .select('id, name, image_url, business_category, rating_avg, rating_count, is_open, open_time, close_time')
+          .select('id, name, image_url, business_category, rating_avg, rating_count, is_open, open_time, close_time, is_verified, badge')
           .eq('village_id', id)
           .eq('status', 'ACTIVE')
           .eq('registration_status', 'APPROVED');
 
-        // Get product counts for each merchant
-        const merchantsWithCounts: MerchantData[] = [];
-        for (const merchant of merchantsData || []) {
-          const { count } = await supabase
-            .from('products')
-            .select('id', { count: 'exact', head: true })
-            .eq('merchant_id', merchant.id)
-            .eq('is_active', true);
-          
-          merchantsWithCounts.push({
-            ...merchant,
-            product_count: count || 0
-          });
-        }
+        // Get product counts for all merchants in one query
+        const merchantIds = (merchantsData || []).map(m => m.id);
+        const { data: productCounts } = merchantIds.length > 0 
+          ? await supabase
+              .from('products')
+              .select('merchant_id')
+              .in('merchant_id', merchantIds)
+              .eq('is_active', true)
+          : { data: [] };
+
+        // Count products per merchant
+        const countMap: Record<string, number> = {};
+        (productCounts || []).forEach(p => {
+          countMap[p.merchant_id] = (countMap[p.merchant_id] || 0) + 1;
+        });
+
+        const merchantsWithCounts: MerchantData[] = (merchantsData || []).map(merchant => ({
+          ...merchant,
+          product_count: countMap[merchant.id] || 0
+        }));
         setMerchants(merchantsWithCounts);
 
         // Stats
@@ -380,7 +386,7 @@ export default function VillageDetailPage() {
                             <div className="flex items-center gap-3 mt-2">
                               {merchant.rating_avg && merchant.rating_avg > 0 && (
                                 <div className="flex items-center gap-1 text-xs">
-                                  <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
+                                  <Star className="h-3 w-3 fill-warning text-warning" />
                                   <span className="font-medium">{merchant.rating_avg.toFixed(1)}</span>
                                   <span className="text-muted-foreground">({merchant.rating_count})</span>
                                 </div>

@@ -40,7 +40,9 @@ export function MerchantAnalyticsChart({ merchantId }: MerchantAnalyticsChartPro
   const [period, setPeriod] = useState<'7d' | '30d' | '90d'>('7d');
 
   useEffect(() => {
-    fetchAnalytics();
+    if (merchantId) {
+      fetchAnalytics();
+    }
   }, [merchantId, period]);
 
   const fetchAnalytics = async () => {
@@ -161,8 +163,8 @@ export function MerchantAnalyticsChart({ merchantId }: MerchantAnalyticsChartPro
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className="p-2 rounded-full bg-blue-500/10">
-                <ShoppingCart className="h-5 w-5 text-blue-500" />
+              <div className="p-2 rounded-full bg-chart-2/10">
+                <ShoppingCart className="h-5 w-5 text-chart-2" />
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">Pesanan</p>
@@ -174,8 +176,8 @@ export function MerchantAnalyticsChart({ merchantId }: MerchantAnalyticsChartPro
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className="p-2 rounded-full bg-green-500/10">
-                <Eye className="h-5 w-5 text-green-500" />
+              <div className="p-2 rounded-full bg-chart-3/10">
+                <Eye className="h-5 w-5 text-chart-3" />
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">Pengunjung</p>
@@ -187,8 +189,8 @@ export function MerchantAnalyticsChart({ merchantId }: MerchantAnalyticsChartPro
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className="p-2 rounded-full bg-amber-500/10">
-                <Package className="h-5 w-5 text-amber-500" />
+              <div className="p-2 rounded-full bg-chart-4/10">
+                <Package className="h-5 w-5 text-chart-4" />
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">Rata-rata Order</p>

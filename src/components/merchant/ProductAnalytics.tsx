@@ -35,7 +35,9 @@ export function ProductAnalytics({ merchantId }: ProductAnalyticsProps) {
   const [sortBy, setSortBy] = useState<'views' | 'orders' | 'conversion' | 'revenue'>('orders');
 
   useEffect(() => {
-    fetchAnalytics();
+    if (merchantId) {
+      fetchAnalytics();
+    }
   }, [merchantId]);
 
   const fetchAnalytics = async () => {
@@ -242,7 +244,7 @@ export function ProductAnalytics({ merchantId }: ProductAnalyticsProps) {
                     <TableCell className="text-center">
                       <Badge 
                         variant={product.conversion_rate >= 5 ? 'default' : 'secondary'}
-                        className={product.conversion_rate >= 5 ? 'bg-green-500' : ''}
+                        className={product.conversion_rate >= 5 ? 'bg-success text-success-foreground' : ''}
                       >
                         {product.conversion_rate >= 5 ? (
                           <ArrowUpRight className="h-3 w-3 mr-1" />
