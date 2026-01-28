@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { 
   ArrowLeft, 
@@ -12,15 +12,17 @@ import {
   Eye,
   Check,
   Calendar,
-  Map
+  Map,
+  Star,
+  Clock
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Card, CardContent } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';
 import { TourismCard } from '@/components/TourismCard';
-import { ProductCard } from '@/components/ProductCard';
 import { TourismMap } from '@/components/village/TourismMap';
-import type { Tourism, Product } from '@/types';
+import type { Tourism } from '@/types';
 
 interface VillageData {
   id: string;
@@ -37,15 +39,28 @@ interface VillageData {
   registered_at: string | null;
 }
 
+interface MerchantData {
+  id: string;
+  name: string;
+  image_url: string | null;
+  business_category: string | null;
+  rating_avg: number | null;
+  rating_count: number | null;
+  is_open: boolean;
+  open_time: string | null;
+  close_time: string | null;
+  product_count?: number;
+}
+
 export default function VillageDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [village, setVillage] = useState<VillageData | null>(null);
   const [tourisms, setTourisms] = useState<Tourism[]>([]);
-  const [products, setProducts] = useState<Product[]>([]);
+  const [merchants, setMerchants] = useState<MerchantData[]>([]);
   const [stats, setStats] = useState({ totalTourism: 0, totalMerchants: 0, totalViews: 0 });
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'tourism' | 'products'>('tourism');
+  const [activeTab, setActiveTab] = useState<'tourism' | 'merchants'>('tourism');
 
   useEffect(() => {
     async function loadData() {
@@ -89,47 +104,34 @@ export default function VillageDetailPage() {
         }));
         setTourisms(mappedTourism);
 
-        // Fetch merchants and their products
+        // Fetch merchants with product counts
         const { data: merchantsData } = await supabase
           .from('merchants')
-          .select('id, name')
+          .select('id, name, image_url, business_category, rating_avg, rating_count, is_open, open_time, close_time')
           .eq('village_id', id)
-          .eq('status', 'ACTIVE');
+          .eq('status', 'ACTIVE')
+          .eq('registration_status', 'APPROVED');
 
-        const merchantIds = (merchantsData || []).map(m => m.id);
-        
-        if (merchantIds.length > 0) {
-          const { data: productsData } = await supabase
+        // Get product counts for each merchant
+        const merchantsWithCounts: MerchantData[] = [];
+        for (const merchant of merchantsData || []) {
+          const { count } = await supabase
             .from('products')
-            .select(`
-              id, name, description, price, stock, image_url, category, is_active, is_promo,
-              merchant_id, merchants(name, village_id, villages(name))
-            `)
-            .in('merchant_id', merchantIds)
-            .eq('is_active', true)
-            .limit(10);
-
-          const mappedProducts: Product[] = (productsData || []).map(p => ({
-            id: p.id,
-            merchantId: p.merchant_id,
-            merchantName: (p.merchants as any)?.name || '',
-            merchantVillage: (p.merchants as any)?.villages?.name || '',
-            name: p.name,
-            description: p.description || '',
-            price: p.price,
-            stock: p.stock,
-            image: p.image_url || '/placeholder.svg',
-            category: p.category as any,
-            isActive: p.is_active,
-            isPromo: p.is_promo,
-          }));
-          setProducts(mappedProducts);
+            .select('id', { count: 'exact', head: true })
+            .eq('merchant_id', merchant.id)
+            .eq('is_active', true);
+          
+          merchantsWithCounts.push({
+            ...merchant,
+            product_count: count || 0
+          });
         }
+        setMerchants(merchantsWithCounts);
 
         // Stats
         setStats({
           totalTourism: mappedTourism.length,
-          totalMerchants: merchantIds.length,
+          totalMerchants: merchantsWithCounts.length,
           totalViews: mappedTourism.reduce((sum, t) => sum + (t.viewCount || 0), 0),
         });
 
@@ -314,13 +316,13 @@ export default function VillageDetailPage() {
               Wisata ({stats.totalTourism})
             </Button>
             <Button
-              variant={activeTab === 'products' ? 'default' : 'outline'}
+              variant={activeTab === 'merchants' ? 'default' : 'outline'}
               size="sm"
-              onClick={() => setActiveTab('products')}
+              onClick={() => setActiveTab('merchants')}
               className="flex-1"
             >
               <Store className="h-4 w-4 mr-2" />
-              Produk ({products.length})
+              Toko ({merchants.length})
             </Button>
           </div>
 
@@ -339,15 +341,61 @@ export default function VillageDetailPage() {
             </div>
           )}
 
-          {activeTab === 'products' && (
-            <div className="grid grid-cols-2 gap-3 pb-6">
-              {products.length > 0 ? (
-                products.map(product => (
-                  <ProductCard key={product.id} product={product} />
+          {activeTab === 'merchants' && (
+            <div className="space-y-3 pb-6">
+              {merchants.length > 0 ? (
+                merchants.map(merchant => (
+                  <Link key={merchant.id} to={`/merchant/${merchant.id}`}>
+                    <Card className="overflow-hidden hover:shadow-md transition-shadow">
+                      <CardContent className="p-3">
+                        <div className="flex gap-3">
+                          <div className="w-16 h-16 rounded-lg bg-muted overflow-hidden flex-shrink-0">
+                            <img 
+                              src={merchant.image_url || '/placeholder.svg'} 
+                              alt={merchant.name}
+                              className="w-full h-full object-cover"
+                            />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-start justify-between gap-2">
+                              <h3 className="font-semibold text-foreground truncate">{merchant.name}</h3>
+                              <Badge 
+                                variant={merchant.is_open ? 'default' : 'secondary'} 
+                                className="text-xs flex-shrink-0"
+                              >
+                                {merchant.is_open ? 'Buka' : 'Tutup'}
+                              </Badge>
+                            </div>
+                            {merchant.business_category && (
+                              <p className="text-xs text-muted-foreground mt-0.5">{merchant.business_category}</p>
+                            )}
+                            <div className="flex items-center gap-3 mt-2">
+                              {merchant.rating_avg && merchant.rating_avg > 0 && (
+                                <div className="flex items-center gap-1 text-xs">
+                                  <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
+                                  <span className="font-medium">{merchant.rating_avg.toFixed(1)}</span>
+                                  <span className="text-muted-foreground">({merchant.rating_count})</span>
+                                </div>
+                              )}
+                              <div className="text-xs text-muted-foreground">
+                                {merchant.product_count} produk
+                              </div>
+                              {merchant.open_time && merchant.close_time && (
+                                <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                  <Clock className="h-3 w-3" />
+                                  <span>{merchant.open_time}-{merchant.close_time}</span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </Link>
                 ))
               ) : (
-                <div className="col-span-2 text-center py-8 text-muted-foreground">
-                  Belum ada produk dari desa ini
+                <div className="text-center py-8 text-muted-foreground">
+                  Belum ada toko dari desa ini
                 </div>
               )}
             </div>
