@@ -411,9 +411,7 @@ export default function CheckoutPage() {
       setSuccess(true);
       toast({
         title: 'Pesanan berhasil dibuat!',
-        description: paymentMethod === 'COD' 
-          ? 'Konfirmasi pesanan via WhatsApp ke penjual' 
-          : 'Pesanan Anda sedang diproses',
+        description: 'Pesanan Anda telah masuk ke sistem dan sedang menunggu diproses',
       });
     } catch (error) {
       console.error('Checkout error:', error);
@@ -442,9 +440,7 @@ export default function CheckoutPage() {
             Pesanan Berhasil!
           </h1>
           <p className="text-muted-foreground mb-6">
-            {paymentMethod === 'COD' 
-              ? 'Konfirmasi pesanan Anda via WhatsApp ke penjual dalam 15 menit'
-              : 'Terima kasih, pesanan Anda sedang diproses'}
+            Pesanan Anda telah masuk ke sistem dan sedang menunggu konfirmasi dari penjual.
           </p>
           <div className="space-y-3">
             <Button onClick={() => navigate('/orders')} className="w-full">
