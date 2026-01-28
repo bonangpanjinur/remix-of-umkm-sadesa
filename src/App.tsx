@@ -10,6 +10,7 @@ import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { InstallBanner } from "@/components/pwa/InstallBanner";
 import { OfflineIndicator } from "@/components/pwa/OfflineIndicator";
 import { UpdatePrompt } from "@/components/pwa/UpdatePrompt";
+import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 
 // Pages
 import Index from "./pages/Index";
@@ -103,18 +104,19 @@ import NotificationsPage from "./pages/NotificationsPage";
 const queryClient = new QueryClient();
 
 const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <AuthProvider>
-        <WhitelabelProvider>
-          <CartProvider>
-            <Toaster />
-            <Sonner />
-            <OfflineIndicator />
-            <BrowserRouter>
-              <InstallBanner />
-              <UpdatePrompt />
-            <Routes>
+  <ErrorBoundary>
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <AuthProvider>
+          <WhitelabelProvider>
+            <CartProvider>
+              <Toaster />
+              <Sonner />
+              <OfflineIndicator />
+              <BrowserRouter>
+                <InstallBanner />
+                <UpdatePrompt />
+              <Routes>
               {/* Public routes */}
               <Route path="/" element={<Index />} />
               <Route path="/products" element={<ProductsPage />} />
@@ -440,6 +442,7 @@ const App = () => (
     </AuthProvider>
   </TooltipProvider>
 </QueryClientProvider>
+  </ErrorBoundary>
 );
 
 export default App;

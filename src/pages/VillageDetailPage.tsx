@@ -22,6 +22,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';
 import { TourismCard } from '@/components/TourismCard';
 import { TourismMap } from '@/components/village/TourismMap';
+import { VerifiedBadge } from '@/components/merchant/VerifiedBadge';
 import type { Tourism } from '@/types';
 
 interface VillageData {
@@ -50,6 +51,8 @@ interface MerchantData {
   open_time: string | null;
   close_time: string | null;
   product_count?: number;
+  is_verified?: boolean;
+  badge?: string | null;
 }
 
 export default function VillageDetailPage() {
@@ -358,7 +361,12 @@ export default function VillageDetailPage() {
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-start justify-between gap-2">
-                              <h3 className="font-semibold text-foreground truncate">{merchant.name}</h3>
+                              <div className="flex items-center gap-1.5">
+                                <h3 className="font-semibold text-foreground truncate">{merchant.name}</h3>
+                                {merchant.is_verified && (
+                                  <VerifiedBadge type="verified" size="sm" showLabel={false} />
+                                )}
+                              </div>
                               <Badge 
                                 variant={merchant.is_open ? 'default' : 'secondary'} 
                                 className="text-xs flex-shrink-0"

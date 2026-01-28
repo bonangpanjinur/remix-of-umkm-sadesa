@@ -1,10 +1,13 @@
 import { Link } from 'react-router-dom';
-import { Plus, Star } from 'lucide-react';
+import { Plus, Star, Zap } from 'lucide-react';
 import { motion } from 'framer-motion';
 import type { Product } from '@/types';
 import { useCart } from '@/contexts/CartContext';
 import { formatPrice, cn } from '@/lib/utils';
 import { WishlistButton } from '@/components/WishlistButton';
+import { useProductFlashSale } from '@/hooks/useFlashSales';
+import { FlashSaleBadge } from '@/components/FlashSaleTimer';
+import { OptimizedImage } from '@/components/ui/OptimizedImage';
 
 interface ProductCardProps {
   product: Product;
@@ -21,6 +24,7 @@ const categoryLabels: Record<string, { label: string; className: string }> = {
 
 export function ProductCard({ product, index = 0, showCategoryBadge = false }: ProductCardProps) {
   const { addToCart } = useCart();
+  const { flashSale } = useProductFlashSale(product.id);
 
   const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -29,6 +33,9 @@ export function ProductCard({ product, index = 0, showCategoryBadge = false }: P
   };
 
   const categoryInfo = categoryLabels[product.category] || { label: product.category, className: 'bg-muted text-muted-foreground' };
+
+  const displayPrice = flashSale ? flashSale.flashPrice : product.price;
+  const originalPrice = flashSale ? flashSale.originalPrice : null;
 
   return (
     <motion.div
@@ -42,11 +49,16 @@ export function ProductCard({ product, index = 0, showCategoryBadge = false }: P
       >
         {/* Badges Container */}
         <div className="absolute top-2 left-2 z-10 flex flex-col gap-1">
-          {product.isPromo && (
+          {flashSale ? (
+            <FlashSaleBadge 
+              endTime={flashSale.endTime} 
+              discountPercent={flashSale.discountPercent} 
+            />
+          ) : product.isPromo ? (
             <span className="bg-destructive text-destructive-foreground text-[8px] font-bold px-1.5 py-0.5 rounded">
               PROMO
             </span>
-          )}
+          ) : null}
           {showCategoryBadge && (
             <span className={cn("text-[8px] font-medium px-1.5 py-0.5 rounded", categoryInfo.className)}>
               {categoryInfo.label}
@@ -60,10 +72,12 @@ export function ProductCard({ product, index = 0, showCategoryBadge = false }: P
         </div>
         
         <div className="h-32 bg-muted overflow-hidden relative">
-          <img 
+          <OptimizedImage 
             src={product.image} 
             alt={product.name}
-            className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
+            className="w-full h-full group-hover:scale-105 transition duration-300"
+            aspectRatio="auto"
+            lazy
           />
         </div>
         
@@ -74,18 +88,28 @@ export function ProductCard({ product, index = 0, showCategoryBadge = false }: P
             className="text-[9px] text-muted-foreground mb-0.5 truncate flex items-center gap-1 hover:text-primary transition"
           >
             {product.merchantName}
-            <Star className="h-2 w-2 text-gold fill-gold" />
+            <Star className="h-2 w-2 text-amber-500 fill-amber-500" />
           </Link>
           <h3 className="font-bold text-xs text-card-foreground line-clamp-2 min-h-[2.5em]">
             {product.name}
           </h3>
           <div className="flex justify-between items-center mt-1.5">
-            <p className="text-primary font-bold text-xs">
-              {formatPrice(product.price)}
-            </p>
+            <div className="flex flex-col">
+              {originalPrice && (
+                <span className="text-[9px] text-muted-foreground line-through">
+                  {formatPrice(originalPrice)}
+                </span>
+              )}
+              <p className={cn(
+                "font-bold text-xs",
+                flashSale ? "text-destructive" : "text-primary"
+              )}>
+                {formatPrice(displayPrice)}
+              </p>
+            </div>
             <button
               onClick={handleAddToCart}
-              className="w-6 h-6 rounded-lg bg-brand-light text-primary flex items-center justify-center hover:bg-primary hover:text-primary-foreground transition"
+              className="w-6 h-6 rounded-lg bg-primary/10 text-primary flex items-center justify-center hover:bg-primary hover:text-primary-foreground transition"
             >
               <Plus className="h-3 w-3" />
             </button>

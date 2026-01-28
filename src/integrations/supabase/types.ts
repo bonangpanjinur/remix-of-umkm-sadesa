@@ -374,6 +374,76 @@ export type Database = {
           },
         ]
       }
+      flash_sales: {
+        Row: {
+          created_at: string
+          end_time: string
+          flash_price: number
+          id: string
+          merchant_id: string
+          original_price: number
+          product_id: string
+          reason: string | null
+          start_time: string
+          status: string
+          stock_available: number
+          stock_sold: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          end_time: string
+          flash_price: number
+          id?: string
+          merchant_id: string
+          original_price: number
+          product_id: string
+          reason?: string | null
+          start_time?: string
+          status?: string
+          stock_available?: number
+          stock_sold?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          end_time?: string
+          flash_price?: number
+          id?: string
+          merchant_id?: string
+          original_price?: number
+          product_id?: string
+          reason?: string | null
+          start_time?: string
+          status?: string
+          stock_available?: number
+          stock_sold?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "flash_sales_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "flash_sales_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "public_merchants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "flash_sales_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       group_members: {
         Row: {
           group_id: string
@@ -642,6 +712,7 @@ export type Database = {
           id: string
           image_url: string | null
           is_open: boolean
+          is_verified: boolean | null
           name: string
           open_time: string | null
           order_mode: string
@@ -659,6 +730,8 @@ export type Database = {
           trade_group: string | null
           updated_at: string
           user_id: string | null
+          verified_at: string | null
+          verified_by: string | null
           verifikator_code: string | null
           verifikator_id: string | null
           village_id: string | null
@@ -683,6 +756,7 @@ export type Database = {
           id?: string
           image_url?: string | null
           is_open?: boolean
+          is_verified?: boolean | null
           name: string
           open_time?: string | null
           order_mode?: string
@@ -700,6 +774,8 @@ export type Database = {
           trade_group?: string | null
           updated_at?: string
           user_id?: string | null
+          verified_at?: string | null
+          verified_by?: string | null
           verifikator_code?: string | null
           verifikator_id?: string | null
           village_id?: string | null
@@ -724,6 +800,7 @@ export type Database = {
           id?: string
           image_url?: string | null
           is_open?: boolean
+          is_verified?: boolean | null
           name?: string
           open_time?: string | null
           order_mode?: string
@@ -741,6 +818,8 @@ export type Database = {
           trade_group?: string | null
           updated_at?: string
           user_id?: string | null
+          verified_at?: string | null
+          verified_by?: string | null
           verifikator_code?: string | null
           verifikator_id?: string | null
           village_id?: string | null

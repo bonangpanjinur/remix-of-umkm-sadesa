@@ -18,6 +18,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ProductCard } from '@/components/ProductCard';
 import { supabase } from '@/integrations/supabase/client';
+import { VerifiedBadge } from '@/components/merchant/VerifiedBadge';
 import type { Product } from '@/types';
 
 interface MerchantData {
@@ -241,11 +242,14 @@ export default function MerchantProfilePage() {
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-1 flex-wrap">
                     <h1 className="text-xl font-bold text-foreground">{merchant.name}</h1>
-                    {merchant.badge && (
-                      <Badge variant={getBadgeVariant(merchant.badge)} className="text-xs">
-                        {merchant.badge === 'VERIFIED' && <Check className="h-3 w-3 mr-1" />}
-                        {getBadgeLabel(merchant.badge)}
-                      </Badge>
+                    {merchant.badge === 'VERIFIED' && (
+                      <VerifiedBadge type="verified" size="sm" />
+                    )}
+                    {merchant.badge === 'POPULAR' && (
+                      <VerifiedBadge type="popular" size="sm" />
+                    )}
+                    {merchant.badge === 'NEW' && (
+                      <VerifiedBadge type="new" size="sm" />
                     )}
                   </div>
                   
