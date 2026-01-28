@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Package, Receipt, TrendingUp, DollarSign, AlertCircle, Settings,
-  BarChart3, Star, Wallet, Percent, CreditCard
+  BarChart3, Star, Wallet, Percent, CreditCard, QrCode
 } from 'lucide-react';
 import { MerchantLayout } from '@/components/merchant/MerchantLayout';
 import { StatsCard } from '@/components/admin/StatsCard';
@@ -12,6 +12,7 @@ import { StockAlerts } from '@/components/merchant/StockAlerts';
 import { OrderStatusManager } from '@/components/merchant/OrderStatusManager';
 import { QuotaStatusCard } from '@/components/merchant/QuotaStatusCard';
 import { MerchantGroupCard } from '@/components/merchant/MerchantGroupCard';
+import { StoreQRCode } from '@/components/merchant/StoreQRCode';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
@@ -27,6 +28,7 @@ interface MerchantData {
   is_open: boolean;
   status: string;
   registration_status: string;
+  image_url: string | null;
 }
 
 interface OrderData {
@@ -52,7 +54,7 @@ export default function MerchantDashboardPage() {
       try {
         const { data: merchantData } = await supabase
           .from('merchants')
-          .select('id, name, is_open, status, registration_status')
+          .select('id, name, is_open, status, registration_status, image_url')
           .eq('user_id', user.id)
           .maybeSingle();
 
@@ -170,23 +172,30 @@ export default function MerchantDashboardPage() {
     <MerchantLayout title="Dashboard" subtitle="Ringkasan toko Anda">
       {/* Store Status Card */}
       <div className="bg-card rounded-xl border border-border p-5 mb-6">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between flex-wrap gap-4">
           <div>
             <h3 className="font-semibold text-lg">{merchant.name}</h3>
             <p className="text-sm text-muted-foreground">
               {merchant.is_open ? 'Toko sedang buka' : 'Toko sedang tutup'}
             </p>
           </div>
-          <div className="flex items-center gap-3">
-            <div className={`w-3 h-3 rounded-full ${merchant.is_open ? 'bg-green-500 animate-pulse' : 'bg-muted-foreground'}`} />
-            <Label className="font-medium">
-              {merchant.is_open ? 'Buka' : 'Tutup'}
-            </Label>
-            <Switch
-              checked={merchant.is_open}
-              onCheckedChange={toggleStoreStatus}
-              disabled={updatingStatus}
+          <div className="flex items-center gap-4 flex-wrap">
+            <StoreQRCode 
+              merchantId={merchant.id} 
+              merchantName={merchant.name}
+              merchantImage={merchant.image_url}
             />
+            <div className="flex items-center gap-3">
+              <div className={`w-3 h-3 rounded-full ${merchant.is_open ? 'bg-green-500 animate-pulse' : 'bg-muted-foreground'}`} />
+              <Label className="font-medium">
+                {merchant.is_open ? 'Buka' : 'Tutup'}
+              </Label>
+              <Switch
+                checked={merchant.is_open}
+                onCheckedChange={toggleStoreStatus}
+                disabled={updatingStatus}
+              />
+            </div>
           </div>
         </div>
       </div>
