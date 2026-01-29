@@ -59,9 +59,10 @@ const timeOptions = [
 ];
 
 const priceClassifications = [
-  { value: 'MURAH', label: 'Murah (< Rp 25.000)', icon: '💰' },
-  { value: 'SEDANG', label: 'Sedang (Rp 25.000 - Rp 75.000)', icon: '💵' },
-  { value: 'MAHAL', label: 'Premium (> Rp 75.000)', icon: '💎' },
+  { value: 'UNDER_5K', label: 'Sangat Murah (< Rp 5.000)', icon: '💰' },
+  { value: 'FROM_5K_TO_10K', label: 'Murah (Rp 5.000 - Rp 10.000)', icon: '💵' },
+  { value: 'FROM_10K_TO_20K', label: 'Sedang (Rp 10.000 - Rp 20.000)', icon: '💳' },
+  { value: 'ABOVE_20K', label: 'Premium (> Rp 20.000)', icon: '💎' },
 ];
 
 const businessCategories = [
