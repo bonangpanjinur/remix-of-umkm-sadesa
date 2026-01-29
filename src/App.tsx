@@ -72,6 +72,7 @@ import AdminScheduledBackupPage from "./pages/admin/AdminScheduledBackupPage";
 import AdminCategoriesPage from "./pages/admin/AdminCategoriesPage";
 import AdminVerifikatorWithdrawalsPage from "./pages/admin/AdminVerifikatorWithdrawalsPage";
 import AdminSEOPage from "./pages/admin/AdminSEOPage";
+import AdminHomepageLayoutPage from "./pages/admin/AdminHomepageLayoutPage";
 import CourierHistoryPage from "./pages/courier/CourierHistoryPage";
 // Verifikator Pages
 import VerifikatorDashboardPage from "./pages/verifikator/VerifikatorDashboardPage";
@@ -346,6 +347,11 @@ const App = () => (
               <Route path="/admin/verifikator-withdrawals" element={
                 <ProtectedRoute allowedRoles={['admin']}>
                   <AdminVerifikatorWithdrawalsPage />
+                </ProtectedRoute>
+              } />
+              <Route path="/admin/homepage-layout" element={
+                <ProtectedRoute allowedRoles={['admin']}>
+                  <AdminHomepageLayoutPage />
                 </ProtectedRoute>
               } />
 
