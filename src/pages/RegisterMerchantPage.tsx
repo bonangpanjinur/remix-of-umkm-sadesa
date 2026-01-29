@@ -18,9 +18,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { 
-  provinces, getCitiesByProvince, getDistrictsByCity, getSubdistrictsByDistrict,
-  type City, type District, type Subdistrict
-} from '@/data/indonesiaRegions';
+  fetchProvinces, fetchRegencies, fetchDistricts, fetchVillages,
+  type Region
+} from '@/lib/addressApi';
 import type { Village } from '@/types';
 
 const merchantSchema = z.object({
@@ -89,9 +89,12 @@ export default function RegisterMerchantPage() {
   const [selectedDistrict, setSelectedDistrict] = useState('');
   const [selectedSubdistrict, setSelectedSubdistrict] = useState('');
   
-  const [cities, setCities] = useState<City[]>([]);
-  const [districtsList, setDistrictsList] = useState<District[]>([]);
-  const [subdistrictsList, setSubdistrictsList] = useState<Subdistrict[]>([]);
+  const [provincesList, setProvincesList] = useState<Region[]>([]);
+  const [cities, setCities] = useState<Region[]>([]);
+  const [districtsList, setDistrictsList] = useState<Region[]>([]);
+  const [subdistrictsList, setSubdistrictsList] = useState<Region[]>([]);
+  
+  const [addressLoading, setAddressLoading] = useState(false);
   
   // Matched village
   const [matchedVillage, setMatchedVillage] = useState<Village | null>(null);
@@ -110,35 +113,84 @@ export default function RegisterMerchantPage() {
     resolver: zodResolver(merchantSchema),
   });
 
+  // Load provinces on mount
+  useEffect(() => {
+    const loadProvinces = async () => {
+      setAddressLoading(true);
+      try {
+        const data = await fetchProvinces();
+        setProvincesList(data);
+      } catch (error) {
+        console.error('Error loading provinces:', error);
+      } finally {
+        setAddressLoading(false);
+      }
+    };
+    loadProvinces();
+  }, []);
+
   // Watch for address changes
   useEffect(() => {
-    if (selectedProvince) {
-      setCities(getCitiesByProvince(selectedProvince));
-      setSelectedCity('');
-      setSelectedDistrict('');
-      setSelectedSubdistrict('');
-      setValue('city', '');
-      setValue('district', '');
-      setValue('subdistrict', '');
-    }
+    const loadCities = async () => {
+      if (selectedProvince) {
+        setAddressLoading(true);
+        try {
+          const data = await fetchRegencies(selectedProvince);
+          setCities(data);
+          setSelectedCity('');
+          setSelectedDistrict('');
+          setSelectedSubdistrict('');
+          setValue('city', '');
+          setValue('district', '');
+          setValue('subdistrict', '');
+        } catch (error) {
+          console.error('Error loading cities:', error);
+        } finally {
+          setAddressLoading(false);
+        }
+      }
+    };
+    loadCities();
   }, [selectedProvince, setValue]);
 
   useEffect(() => {
-    if (selectedCity) {
-      setDistrictsList(getDistrictsByCity(selectedCity));
-      setSelectedDistrict('');
-      setSelectedSubdistrict('');
-      setValue('district', '');
-      setValue('subdistrict', '');
-    }
+    const loadDistricts = async () => {
+      if (selectedCity) {
+        setAddressLoading(true);
+        try {
+          const data = await fetchDistricts(selectedCity);
+          setDistrictsList(data);
+          setSelectedDistrict('');
+          setSelectedSubdistrict('');
+          setValue('district', '');
+          setValue('subdistrict', '');
+        } catch (error) {
+          console.error('Error loading districts:', error);
+        } finally {
+          setAddressLoading(false);
+        }
+      }
+    };
+    loadDistricts();
   }, [selectedCity, setValue]);
 
   useEffect(() => {
-    if (selectedDistrict) {
-      setSubdistrictsList(getSubdistrictsByDistrict(selectedDistrict));
-      setSelectedSubdistrict('');
-      setValue('subdistrict', '');
-    }
+    const loadSubdistricts = async () => {
+      if (selectedDistrict) {
+        setAddressLoading(true);
+        try {
+          const data = await fetchVillages(selectedDistrict);
+          setSubdistrictsList(data);
+          setSelectedSubdistrict('');
+          setValue('subdistrict', '');
+        } catch (error) {
+          console.error('Error loading subdistricts:', error);
+        } finally {
+          setAddressLoading(false);
+        }
+      }
+    };
+    loadSubdistricts();
   }, [selectedDistrict, setValue]);
 
   // Check for matching village when subdistrict changes
@@ -151,7 +203,7 @@ export default function RegisterMerchantPage() {
 
       setVillageLoading(true);
       try {
-        const subdistrictName = subdistrictsList.find(s => s.id === selectedSubdistrict)?.name || '';
+        const subdistrictName = subdistrictsList.find(s => s.code === selectedSubdistrict)?.name || '';
         
         const { data, error } = await supabase
           .from('villages')
@@ -247,10 +299,10 @@ export default function RegisterMerchantPage() {
 
     setIsSubmitting(true);
     try {
-      const provinceName = provinces.find(p => p.id === data.province)?.name || '';
-      const cityName = cities.find(c => c.id === data.city)?.name || '';
-      const districtName = districtsList.find(d => d.id === data.district)?.name || '';
-      const subdistrictName = subdistrictsList.find(s => s.id === data.subdistrict)?.name || '';
+      const provinceName = provincesList.find(p => p.code === data.province)?.name || '';
+      const cityName = cities.find(c => c.code === data.city)?.name || '';
+      const districtName = districtsList.find(d => d.code === data.district)?.name || '';
+      const subdistrictName = subdistrictsList.find(s => s.code === data.subdistrict)?.name || '';
 
       const { error } = await supabase.from('merchants').insert({
         name: data.name.trim(),
@@ -295,105 +347,90 @@ export default function RegisterMerchantPage() {
         toast.error('Kode referral tidak valid. Kosongkan jika tidak punya.');
         return;
       }
-      // No required fields for step 1 anymore
+      setCurrentStep(2);
+      return;
     } else if (currentStep === 2) {
       fieldsToValidate = ['name', 'businessCategory'];
     } else if (currentStep === 3) {
       fieldsToValidate = ['province', 'city', 'district', 'subdistrict', 'addressDetail', 'phone'];
+    } else if (currentStep === 4) {
+      fieldsToValidate = ['openTime', 'closeTime', 'classificationPrice'];
     }
-    
-    const isValid = await trigger(fieldsToValidate);
-    if (isValid) {
-      setCurrentStep(prev => Math.min(prev + 1, 4));
+
+    const result = await trigger(fieldsToValidate);
+    if (result) {
+      if (currentStep < 4) {
+        setCurrentStep(currentStep + 1);
+      } else {
+        handleSubmit(onSubmit)();
+      }
     }
   };
 
   const prevStep = () => {
-    setCurrentStep(prev => Math.max(prev - 1, 1));
+    if (currentStep > 1) {
+      setCurrentStep(currentStep - 1);
+    } else {
+      navigate(-1);
+    }
   };
 
   if (isSuccess) {
     return (
-      <div className="mobile-shell bg-background flex flex-col min-h-screen">
-        <Header />
-        <div className="flex-1 flex items-center justify-center p-6">
-          <motion.div
-            initial={{ scale: 0.9, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            className="text-center max-w-sm"
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6 text-center">
+        <motion.div
+          initial={{ scale: 0.8, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          className="bg-card p-8 rounded-3xl shadow-sm border border-border max-w-md w-full"
+        >
+          <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-6">
+            <CheckCircle className="h-10 w-10 text-primary" />
+          </div>
+          <h1 className="text-2xl font-bold text-foreground mb-2">Pendaftaran Berhasil!</h1>
+          <p className="text-muted-foreground mb-8">
+            Data usaha Anda telah kami terima dan sedang dalam proses verifikasi. 
+            Kami akan menghubungi Anda melalui nomor WhatsApp yang terdaftar.
+          </p>
+          <Button 
+            onClick={() => navigate('/')} 
+            className="w-full rounded-xl py-6"
           >
-            <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-6">
-              <CheckCircle className="h-10 w-10 text-primary" />
-            </div>
-            <h1 className="text-xl font-bold text-foreground mb-2">
-              Pendaftaran Terkirim!
-            </h1>
-            <p className="text-muted-foreground text-sm mb-4">
-              Pendaftaran usaha Anda sedang dalam proses verifikasi.
-            </p>
-            {referralInfo.tradeGroup && (
-              <div className="bg-primary/10 rounded-xl p-4 mb-6">
-                <p className="text-xs text-muted-foreground mb-1">Kelompok Dagang:</p>
-                <p className="font-semibold text-foreground">{referralInfo.tradeGroup}</p>
-              </div>
-            )}
-            <Button onClick={() => navigate('/')} className="w-full">
-              Kembali ke Beranda
-            </Button>
-          </motion.div>
-        </div>
-        <BottomNav />
+            Kembali ke Beranda
+          </Button>
+        </motion.div>
       </div>
     );
   }
 
   return (
-    <div className="mobile-shell bg-background flex flex-col min-h-screen">
-      <Header />
+    <div className="min-h-screen bg-background pb-24">
+      <Header title="Daftar Merchant" showBack onBack={prevStep} />
       
-      <div className="flex-1 overflow-y-auto pb-24">
-        <div className="px-5 py-4">
-          {/* Back button */}
-          <button 
-            onClick={() => currentStep > 1 ? prevStep() : navigate(-1)}
-            className="flex items-center gap-2 text-muted-foreground text-sm mb-4 hover:text-foreground transition"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            {currentStep > 1 ? 'Langkah Sebelumnya' : 'Kembali'}
-          </button>
-
-          {/* Header */}
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="mb-6"
-          >
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-12 h-12 rounded-xl bg-accent/20 flex items-center justify-center">
-                <Store className="h-6 w-6 text-accent-foreground" />
-              </div>
-              <div>
-                <h1 className="text-xl font-bold text-foreground">Daftarkan Usaha</h1>
-                <p className="text-xs text-muted-foreground">
-                  Langkah {currentStep} dari 4
-                </p>
-              </div>
+      <main className="p-4 max-w-lg mx-auto">
+        <div className="bg-card rounded-2xl p-6 shadow-sm border border-border">
+          {/* Progress Indicator */}
+          <div className="flex items-center gap-3 mb-8">
+            <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center flex-shrink-0">
+              <Store className="h-6 w-6 text-primary" />
             </div>
-
-            {/* Progress bar */}
-            <div className="flex gap-2">
-              {[1, 2, 3, 4].map((step) => (
-                <div 
-                  key={step}
-                  className={`h-1.5 flex-1 rounded-full transition-all ${
-                    step <= currentStep ? 'bg-primary' : 'bg-muted'
-                  }`}
-                />
-              ))}
+            <div className="flex-1">
+              <h1 className="text-lg font-bold text-foreground leading-tight">Daftarkan Usaha</h1>
+              <p className="text-xs text-muted-foreground">Langkah {currentStep} dari 4</p>
             </div>
-          </motion.div>
+          </div>
 
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+          <div className="flex gap-1 mb-8">
+            {[1, 2, 3, 4].map((step) => (
+              <div 
+                key={step} 
+                className={`h-1.5 flex-1 rounded-full transition-all duration-300 ${
+                  step <= currentStep ? 'bg-primary' : 'bg-muted'
+                }`}
+              />
+            ))}
+          </div>
+
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
             {/* Step 1: Referral Code */}
             {currentStep === 1 && (
               <motion.div
@@ -401,81 +438,60 @@ export default function RegisterMerchantPage() {
                 animate={{ opacity: 1, x: 0 }}
                 className="space-y-5"
               >
-                <div className="bg-accent/10 border border-accent/20 rounded-xl p-4">
+                <div className="bg-primary/5 rounded-2xl p-4 border border-primary/10">
                   <div className="flex items-start gap-3">
-                    <Shield className="h-5 w-5 text-accent-foreground flex-shrink-0 mt-0.5" />
+                    <Shield className="h-5 w-5 text-primary mt-0.5" />
                     <div>
-                      <p className="text-sm font-medium text-foreground mb-1">Kode Referral (Opsional)</p>
-                      <p className="text-xs text-muted-foreground">
-                        Jika Anda memiliki kode referral dari Verifikator, masukkan di bawah ini. 
-                        Kode ini akan menentukan kelompok dagang Anda. Anda bisa melewati langkah ini jika tidak memiliki kode.
+                      <p className="text-sm font-semibold text-foreground">Punya Kode Referral?</p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Masukkan kode dari Verifikator atau Pengelola Desa Wisata untuk mendapatkan prioritas verifikasi.
                       </p>
                     </div>
                   </div>
                 </div>
 
                 <div>
-                  <Label htmlFor="referralCode" className="text-sm font-medium">Kode Referral <span className="text-muted-foreground font-normal">(Opsional)</span></Label>
-                  <div className="relative mt-2">
+                  <Label htmlFor="referralCode" className="text-xs">Kode Referral (opsional)</Label>
+                  <div className="relative mt-1.5">
                     <Tag className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
                       id="referralCode"
-                      placeholder="Masukkan kode referral"
+                      placeholder="CONTOH: DESAMART01"
+                      className={`pl-10 uppercase font-bold tracking-wider ${
+                        referralInfo.isValid ? 'border-primary bg-primary/5' : ''
+                      }`}
                       value={referralCode}
                       onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
-                      className="pl-10 pr-10 uppercase"
                     />
-                    {referralInfo.isLoading ? (
+                    {referralInfo.isLoading && (
                       <div className="absolute right-3 top-1/2 -translate-y-1/2">
                         <div className="animate-spin rounded-full h-4 w-4 border-2 border-primary border-t-transparent" />
                       </div>
-                    ) : referralInfo.isValid ? (
-                      <Check className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-primary" />
-                    ) : referralCode.length >= 3 ? (
-                      <AlertCircle className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-destructive" />
-                    ) : null}
+                    )}
+                    {referralInfo.isValid && !referralInfo.isLoading && (
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                        <CheckCircle className="h-4 w-4 text-primary" />
+                      </div>
+                    )}
                   </div>
-                  {errors.referralCode && (
-                    <p className="text-destructive text-xs mt-1">{errors.referralCode.message}</p>
+                  
+                  {referralInfo.isValid && (
+                    <motion.div 
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="mt-3 p-3 bg-primary/10 rounded-xl border border-primary/20"
+                    >
+                      <p className="text-xs font-bold text-primary">✓ Kode Valid: {referralInfo.tradeGroup}</p>
+                      <p className="text-[10px] text-primary/80 mt-0.5">{referralInfo.description}</p>
+                    </motion.div>
                   )}
-                </div>
-
-                {/* Referral info card */}
-                {referralInfo.isValid && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="bg-primary/10 border border-primary/20 rounded-xl p-4"
-                  >
-                    <div className="flex items-center gap-2 mb-2">
-                      <CheckCircle className="h-4 w-4 text-primary" />
-                      <p className="text-sm font-medium text-foreground">Kode Valid!</p>
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-xs text-muted-foreground">Kelompok Dagang:</p>
-                      <p className="text-sm font-semibold text-foreground">{referralInfo.tradeGroup}</p>
-                      {referralInfo.description && (
-                        <p className="text-xs text-muted-foreground mt-2">{referralInfo.description}</p>
-                      )}
-                    </div>
-                  </motion.div>
-                )}
-
-                {!referralInfo.isValid && referralCode.length >= 3 && !referralInfo.isLoading && (
-                  <div className="bg-destructive/10 border border-destructive/20 rounded-xl p-4">
-                    <div className="flex items-center gap-2">
-                      <AlertCircle className="h-4 w-4 text-destructive" />
-                      <p className="text-sm text-destructive">
-                        {referralInfo.description || 'Kode referral tidak ditemukan atau sudah tidak aktif'}
-                      </p>
-                    </div>
-                  </div>
-                )}
-
-                <div className="bg-muted/50 rounded-xl p-4">
-                  <p className="text-xs text-muted-foreground">
-                    <strong>Tidak punya kode?</strong> Tidak masalah! Anda bisa langsung lanjut tanpa kode referral. Kode ini opsional dan bisa ditambahkan nanti.
-                  </p>
+                  
+                  {referralCode && !referralInfo.isValid && !referralInfo.isLoading && referralCode.length >= 3 && (
+                    <p className="text-destructive text-[10px] mt-1.5 flex items-center gap-1">
+                      <AlertCircle className="h-3 w-3" />
+                      {referralInfo.description || 'Kode tidak ditemukan atau tidak aktif'}
+                    </p>
+                  )}
                 </div>
               </motion.div>
             )}
@@ -488,15 +504,15 @@ export default function RegisterMerchantPage() {
                 className="space-y-5"
               >
                 <h2 className="font-semibold text-sm text-foreground flex items-center gap-2">
-                  <Store className="h-4 w-4 text-primary" />
+                  <FileText className="h-4 w-4 text-primary" />
                   Informasi Usaha
                 </h2>
 
                 <div>
-                  <Label htmlFor="name" className="text-xs">Nama Usaha/Toko *</Label>
+                  <Label htmlFor="name" className="text-xs">Nama Usaha *</Label>
                   <Input
                     id="name"
-                    placeholder="Contoh: Warung Bu Siti"
+                    placeholder="Contoh: Warung Nasi Ibu Siti"
                     {...register('name')}
                     className="mt-1.5"
                   />
@@ -560,17 +576,18 @@ export default function RegisterMerchantPage() {
                   <div className="col-span-2">
                     <Label className="text-xs">Provinsi *</Label>
                     <Select 
+                      value={selectedProvince}
                       onValueChange={(value) => {
                         setSelectedProvince(value);
                         setValue('province', value);
                       }}
                     >
                       <SelectTrigger className="mt-1.5">
-                        <SelectValue placeholder="Pilih provinsi" />
+                        <SelectValue placeholder={addressLoading && provincesList.length === 0 ? "Memuat..." : "Pilih provinsi"} />
                       </SelectTrigger>
                       <SelectContent>
-                        {provinces.map((p) => (
-                          <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                        {provincesList.map((p) => (
+                          <SelectItem key={p.code} value={p.code}>{p.name}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
@@ -582,18 +599,19 @@ export default function RegisterMerchantPage() {
                   <div className="col-span-2">
                     <Label className="text-xs">Kabupaten/Kota *</Label>
                     <Select 
+                      value={selectedCity}
                       onValueChange={(value) => {
                         setSelectedCity(value);
                         setValue('city', value);
                       }}
-                      disabled={!selectedProvince}
+                      disabled={!selectedProvince || (addressLoading && cities.length === 0)}
                     >
                       <SelectTrigger className="mt-1.5">
-                        <SelectValue placeholder={selectedProvince ? "Pilih kabupaten/kota" : "Pilih provinsi dulu"} />
+                        <SelectValue placeholder={!selectedProvince ? "Pilih provinsi dulu" : (addressLoading && cities.length === 0 ? "Memuat..." : "Pilih kabupaten/kota")} />
                       </SelectTrigger>
                       <SelectContent>
                         {cities.map((c) => (
-                          <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                          <SelectItem key={c.code} value={c.code}>{c.name}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
@@ -605,18 +623,19 @@ export default function RegisterMerchantPage() {
                   <div>
                     <Label className="text-xs">Kecamatan *</Label>
                     <Select 
+                      value={selectedDistrict}
                       onValueChange={(value) => {
                         setSelectedDistrict(value);
                         setValue('district', value);
                       }}
-                      disabled={!selectedCity}
+                      disabled={!selectedCity || (addressLoading && districtsList.length === 0)}
                     >
                       <SelectTrigger className="mt-1.5">
-                        <SelectValue placeholder="Pilih kecamatan" />
+                        <SelectValue placeholder={!selectedCity ? "Pilih kota dulu" : (addressLoading && districtsList.length === 0 ? "Memuat..." : "Pilih kecamatan")} />
                       </SelectTrigger>
                       <SelectContent>
                         {districtsList.map((d) => (
-                          <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
+                          <SelectItem key={d.code} value={d.code}>{d.name}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
@@ -628,18 +647,19 @@ export default function RegisterMerchantPage() {
                   <div>
                     <Label className="text-xs">Kelurahan/Desa *</Label>
                     <Select 
+                      value={selectedSubdistrict}
                       onValueChange={(value) => {
                         setSelectedSubdistrict(value);
                         setValue('subdistrict', value);
                       }}
-                      disabled={!selectedDistrict}
+                      disabled={!selectedDistrict || (addressLoading && subdistrictsList.length === 0)}
                     >
                       <SelectTrigger className="mt-1.5">
-                        <SelectValue placeholder="Pilih kelurahan" />
+                        <SelectValue placeholder={!selectedDistrict ? "Pilih kecamatan dulu" : (addressLoading && subdistrictsList.length === 0 ? "Memuat..." : "Pilih kelurahan")} />
                       </SelectTrigger>
                       <SelectContent>
                         {subdistrictsList.map((s) => (
-                          <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                          <SelectItem key={s.code} value={s.code}>{s.name}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
@@ -770,26 +790,27 @@ export default function RegisterMerchantPage() {
                 </div>
 
                 <div className="pt-2">
-                  <h2 className="font-semibold text-sm text-foreground flex items-center gap-2 mb-3">
+                  <h2 className="font-semibold text-sm text-foreground flex items-center gap-2 mb-4">
                     <CreditCard className="h-4 w-4 text-primary" />
                     Klasifikasi Harga
                   </h2>
-
-                  <div className="space-y-2">
-                    {priceClassifications.map((classification) => (
+                  <div className="grid grid-cols-1 gap-3">
+                    {priceClassifications.map((item) => (
                       <button
-                        key={classification.value}
+                        key={item.value}
                         type="button"
-                        onClick={() => setValue('classificationPrice', classification.value)}
-                        className={`w-full flex items-center gap-3 p-3 rounded-xl border transition-all ${
-                          watch('classificationPrice') === classification.value
+                        onClick={() => setValue('classificationPrice', item.value)}
+                        className={`flex items-center gap-3 p-4 rounded-xl border transition-all ${
+                          watch('classificationPrice') === item.value
                             ? 'border-primary bg-primary/10'
                             : 'border-border hover:border-primary/50'
                         }`}
                       >
-                        <span className="text-xl">{classification.icon}</span>
-                        <span className="text-sm font-medium">{classification.label}</span>
-                        {watch('classificationPrice') === classification.value && (
+                        <span className="text-xl">{item.icon}</span>
+                        <div className="text-left">
+                          <p className="text-sm font-medium">{item.label}</p>
+                        </div>
+                        {watch('classificationPrice') === item.value && (
                           <Check className="h-4 w-4 text-primary ml-auto" />
                         )}
                       </button>
@@ -799,70 +820,37 @@ export default function RegisterMerchantPage() {
                     <p className="text-destructive text-xs mt-1">{errors.classificationPrice.message}</p>
                   )}
                 </div>
-
-                {/* Summary Card */}
-                <div className="bg-muted/50 rounded-xl p-4 mt-4">
-                  <p className="text-sm font-medium text-foreground mb-3">Ringkasan Pendaftaran</p>
-                  <div className="space-y-2 text-xs">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Kelompok Dagang:</span>
-                      <span className="font-medium">{referralInfo.tradeGroup}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Desa Wisata:</span>
-                      <span className="font-medium">{matchedVillage?.name || 'Belum ada'}</span>
-                    </div>
-                  </div>
-                </div>
               </motion.div>
             )}
 
-            {/* Navigation Buttons */}
             <div className="flex gap-3 pt-4">
-              {currentStep > 1 && (
-                <Button 
-                  type="button" 
-                  variant="outline"
-                  onClick={prevStep}
-                  className="flex-1"
-                >
-                  Sebelumnya
-                </Button>
-              )}
-              
-              {currentStep < 4 ? (
-                <Button 
-                  type="button"
-                  onClick={nextStep}
-                  className="flex-1"
-                  disabled={currentStep === 1 && referralCode.length > 0 && !referralInfo.isValid && !referralInfo.isLoading}
-                >
-                  Lanjutkan
-                </Button>
-              ) : (
-                <Button 
-                  type="submit"
-                  className="flex-1"
-                  disabled={isSubmitting}
-                >
-                  {isSubmitting ? (
-                    <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-primary-foreground border-t-transparent mr-2" />
-                      Mengirim...
-                    </>
-                  ) : (
-                    'Kirim Pendaftaran'
-                  )}
-                </Button>
-              )}
+              <Button
+                type="button"
+                variant="outline"
+                onClick={prevStep}
+                className="flex-1 rounded-xl py-6"
+              >
+                Kembali
+              </Button>
+              <Button
+                type="button"
+                onClick={nextStep}
+                disabled={isSubmitting || (currentStep === 1 && referralInfo.isLoading)}
+                className="flex-[2] rounded-xl py-6"
+              >
+                {isSubmitting ? (
+                  <div className="flex items-center gap-2">
+                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
+                    <span>Memproses...</span>
+                  </div>
+                ) : (
+                  currentStep === 4 ? 'Daftar Sekarang' : 'Lanjut'
+                )}
+              </Button>
             </div>
-
-            <p className="text-xs text-muted-foreground text-center">
-              Dengan mendaftar, Anda menyetujui syarat dan ketentuan yang berlaku
-            </p>
           </form>
         </div>
-      </div>
+      </main>
       
       <BottomNav />
     </div>
