@@ -5,7 +5,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { MapPin, User, Phone, Mail, ArrowLeft, CheckCircle, Building, MapPinned, FileText } from 'lucide-react';
-import { Header } from '@/components/layout/Header';
+import { PageHeader } from '@/components/layout/PageHeader';
 import { BottomNav } from '@/components/layout/BottomNav';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -176,7 +176,7 @@ export default function RegisterVillagePage() {
 
   return (
     <div className="min-h-screen bg-background pb-24">
-      <Header title="Daftar Desa Wisata" showBack onBack={() => navigate(-1)} />
+      <PageHeader title="Daftar Desa Wisata" showBack onBack={() => navigate(-1)} />
       
       <main className="p-4 max-w-lg mx-auto">
         <div className="bg-card rounded-2xl p-6 shadow-sm border border-border">

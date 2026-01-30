@@ -8,7 +8,7 @@ import {
   Store, Phone, MapPin, ArrowLeft, CheckCircle, Clock, CreditCard, 
   Tag, FileText, MapPinned, Building, Shield, AlertCircle, Check
 } from 'lucide-react';
-import { Header } from '@/components/layout/Header';
+import { PageHeader } from '@/components/layout/PageHeader';
 import { BottomNav } from '@/components/layout/BottomNav';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -318,7 +318,7 @@ export default function RegisterMerchantPage() {
 
   return (
     <div className="min-h-screen bg-background pb-24">
-      <Header title="Daftar Merchant" showBack onBack={() => navigate(-1)} />
+      <PageHeader title="Daftar Merchant" showBack onBack={() => navigate(-1)} />
       
       <main className="p-4 max-w-lg mx-auto">
         <div className="bg-card rounded-2xl p-6 shadow-sm border border-border">

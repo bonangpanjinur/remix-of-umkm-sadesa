@@ -63,7 +63,7 @@ export async function checkMerchantHasActiveQuota(merchantId: string): Promise<b
   return data.transaction_quota > data.used_quota;
 }
 
-// Fetch products from database (only from merchants with active quota)
+// Fetch products from database (include all, with availability status)
 export async function fetchProducts(): Promise<Product[]> {
   // First get merchants with active quota
   const merchantsWithQuota = await getMerchantsWithActiveQuota();
@@ -75,6 +75,9 @@ export async function fetchProducts(): Promise<Product[]> {
       merchants (
         id,
         name,
+        is_open,
+        open_time,
+        close_time,
         villages (
           name
         )
@@ -87,25 +90,38 @@ export async function fetchProducts(): Promise<Product[]> {
     return [];
   }
 
-  // Filter out products from merchants without active quota
-  const filteredData = (data || []).filter(p => 
-    merchantsWithQuota.has(p.merchant_id)
-  );
-
-  return filteredData.map(p => ({
-    id: p.id,
-    merchantId: p.merchant_id,
-    merchantName: p.merchants?.name || '',
-    merchantVillage: p.merchants?.villages?.name || '',
-    name: p.name,
-    description: p.description || '',
-    price: p.price,
-    stock: p.stock,
-    image: productImages[p.id] || p.image_url || productKeripik,
-    category: p.category as Product['category'],
-    isActive: p.is_active,
-    isPromo: p.is_promo,
-  }));
+  return (data || []).map(p => {
+    const hasQuota = merchantsWithQuota.has(p.merchant_id);
+    const merchant = p.merchants;
+    
+    // Check if merchant is currently open based on operating hours
+    let isMerchantOpen = merchant?.is_open ?? true;
+    if (isMerchantOpen && merchant?.open_time && merchant?.close_time) {
+      const now = new Date();
+      const currentTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+      isMerchantOpen = currentTime >= merchant.open_time && currentTime <= merchant.close_time;
+    }
+    
+    const isAvailable = hasQuota && isMerchantOpen;
+    
+    return {
+      id: p.id,
+      merchantId: p.merchant_id,
+      merchantName: merchant?.name || '',
+      merchantVillage: merchant?.villages?.name || '',
+      name: p.name,
+      description: p.description || '',
+      price: p.price,
+      stock: p.stock,
+      image: productImages[p.id] || p.image_url || productKeripik,
+      category: p.category as Product['category'],
+      isActive: p.is_active,
+      isPromo: p.is_promo,
+      isAvailable,
+      isMerchantOpen,
+      hasQuota,
+    };
+  });
 }
 
 // Fetch single product

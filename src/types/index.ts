@@ -60,6 +60,10 @@ export interface Product {
   category: ProductCategory;
   isActive: boolean;
   isPromo?: boolean;
+  // Availability fields
+  isAvailable?: boolean;
+  isMerchantOpen?: boolean;
+  hasQuota?: boolean;
 }
 
 export interface Tourism {
