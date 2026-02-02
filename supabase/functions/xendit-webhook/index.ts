@@ -56,16 +56,24 @@ serve(async (req) => {
     // Get Xendit settings
     const xenditSettings = await getXenditSettings(supabaseUrl, serviceRoleKey);
     
-    // Verify callback token if configured
-    if (xenditSettings?.callback_token) {
-      const callbackToken = req.headers.get("x-callback-token");
-      if (callbackToken !== xenditSettings.callback_token) {
-        console.error("Invalid callback token");
-        return new Response(
-          JSON.stringify({ error: "Unauthorized" }),
-          { headers: corsHeaders, status: 401 }
-        );
-      }
+    // SECURITY: Callback token validation is MANDATORY
+    // Reject all webhooks if token is not configured
+    if (!xenditSettings?.callback_token) {
+      console.error("Webhook callback token not configured in app_settings");
+      return new Response(
+        JSON.stringify({ error: "Webhook not configured" }),
+        { headers: corsHeaders, status: 503 }
+      );
+    }
+
+    // Verify callback token
+    const callbackToken = req.headers.get("x-callback-token");
+    if (!callbackToken || callbackToken !== xenditSettings.callback_token) {
+      console.error("Invalid or missing callback token");
+      return new Response(
+        JSON.stringify({ error: "Unauthorized" }),
+        { headers: corsHeaders, status: 401 }
+      );
     }
 
     const body: XenditInvoiceCallback = await req.json();

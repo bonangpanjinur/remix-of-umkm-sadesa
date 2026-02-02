@@ -2469,42 +2469,50 @@ export type Database = {
     Views: {
       public_couriers: {
         Row: {
-          current_lat: number | null
-          current_lng: number | null
-          first_name: string | null
+          current_lat_approx: number | null
+          current_lng_approx: number | null
           id: string | null
           is_available: boolean | null
-          last_location_update: string | null
           name: string | null
+          phone_masked: string | null
           photo_url: string | null
           status: string | null
           vehicle_type: string | null
+          village_id: string | null
         }
         Insert: {
-          current_lat?: number | null
-          current_lng?: number | null
-          first_name?: never
+          current_lat_approx?: never
+          current_lng_approx?: never
           id?: string | null
           is_available?: boolean | null
-          last_location_update?: string | null
           name?: string | null
+          phone_masked?: never
           photo_url?: string | null
           status?: string | null
           vehicle_type?: string | null
+          village_id?: string | null
         }
         Update: {
-          current_lat?: number | null
-          current_lng?: number | null
-          first_name?: never
+          current_lat_approx?: never
+          current_lng_approx?: never
           id?: string | null
           is_available?: boolean | null
-          last_location_update?: string | null
           name?: string | null
+          phone_masked?: never
           photo_url?: string | null
           status?: string | null
           vehicle_type?: string | null
+          village_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "couriers_village_id_fkey"
+            columns: ["village_id"]
+            isOneToOne: false
+            referencedRelation: "villages"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       public_merchants: {
         Row: {
@@ -2512,13 +2520,18 @@ export type Database = {
           business_category: string | null
           business_description: string | null
           city: string | null
-          classification_price: string | null
           close_time: string | null
+          district: string | null
           id: string | null
           image_url: string | null
           is_open: boolean | null
+          is_verified: boolean | null
+          location_lat_approx: number | null
+          location_lng_approx: number | null
           name: string | null
           open_time: string | null
+          order_mode: string | null
+          phone_masked: string | null
           province: string | null
           rating_avg: number | null
           rating_count: number | null
@@ -2529,13 +2542,18 @@ export type Database = {
           business_category?: string | null
           business_description?: string | null
           city?: string | null
-          classification_price?: string | null
           close_time?: string | null
+          district?: string | null
           id?: string | null
           image_url?: string | null
           is_open?: boolean | null
+          is_verified?: boolean | null
+          location_lat_approx?: never
+          location_lng_approx?: never
           name?: string | null
           open_time?: string | null
+          order_mode?: string | null
+          phone_masked?: never
           province?: string | null
           rating_avg?: number | null
           rating_count?: number | null
@@ -2546,13 +2564,18 @@ export type Database = {
           business_category?: string | null
           business_description?: string | null
           city?: string | null
-          classification_price?: string | null
           close_time?: string | null
+          district?: string | null
           id?: string | null
           image_url?: string | null
           is_open?: boolean | null
+          is_verified?: boolean | null
+          location_lat_approx?: never
+          location_lng_approx?: never
           name?: string | null
           open_time?: string | null
+          order_mode?: string | null
+          phone_masked?: never
           province?: string | null
           rating_avg?: number | null
           rating_count?: number | null
