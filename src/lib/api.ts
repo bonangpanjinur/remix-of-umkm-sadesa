@@ -38,7 +38,7 @@ async function getMerchantsWithActiveQuota(): Promise<Set<string>> {
   console.log('Merchant subscriptions result:', data);
   if (!data) return new Set();
 
-  // Filter to only merchants with remaining quota
+  // Filter to only merchants with remaining quota (at least 1 credit)
   const merchantIds: string[] = [];
   for (const sub of data) {
     if (sub.transaction_quota > sub.used_quota) {

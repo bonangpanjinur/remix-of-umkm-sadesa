@@ -60,6 +60,7 @@ import AdminRefundsPage from "./pages/admin/AdminRefundsPage";
 import AdminLogsPage from "./pages/admin/AdminLogsPage";
 import AdminWithdrawalsPage from "./pages/admin/AdminWithdrawalsPage";
 import AdminPackagesPage from "./pages/admin/AdminPackagesPage";
+import AdminQuotaSettingsPage from "./pages/admin/AdminQuotaSettingsPage";
 import AdminVerifikatorCommissionsPage from "./pages/admin/AdminVerifikatorCommissionsPage";
 import AdminFinancePage from "./pages/admin/AdminFinancePage";
 import AdminBannersPage from "./pages/admin/AdminBannersPage";
@@ -287,6 +288,11 @@ const App = () => (
               <Route path="/admin/packages" element={
                 <ProtectedRoute allowedRoles={['admin']}>
                   <AdminPackagesPage />
+                </ProtectedRoute>
+              } />
+              <Route path="/admin/quota-settings" element={
+                <ProtectedRoute allowedRoles={['admin']}>
+                  <AdminQuotaSettingsPage />
                 </ProtectedRoute>
               } />
               <Route path="/admin/verifikator-commissions" element={

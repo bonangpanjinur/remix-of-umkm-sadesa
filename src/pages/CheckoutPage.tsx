@@ -13,6 +13,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { formatPrice } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
 import { createPaymentInvoice, isXenditEnabled } from '@/lib/paymentApi';
+import { fetchQuotaTiers, calculateCreditCost } from '@/lib/quotaApi';
 import { CheckoutAddressForm, createEmptyCheckoutAddress, type CheckoutAddressData } from '@/components/checkout/CheckoutAddressForm';
 import { formatFullAddress } from '@/components/AddressSelector';
 import { fetchCODSettings, quickCODCheck, getBuyerCODStatus } from '@/lib/codSecurity';
@@ -363,16 +364,22 @@ export default function CheckoutPage() {
           throw itemsError;
         }
 
+        // Calculate credits to use based on product prices
+        const tiers = await fetchQuotaTiers();
+        const creditsToUse = merchantData.items.reduce((total, item) => {
+          return total + (calculateCreditCost(item.product.price, tiers) * item.quantity);
+        }, 0);
+
         // Use merchant quota after successful order
-        const quotaUsed = await useMerchantQuotaForOrder(merchantId);
+        const quotaUsed = await useMerchantQuotaForOrder(merchantId, creditsToUse);
         if (quotaUsed) {
           // Check remaining quota and send notification if low/empty
           const quotaStatus = quotaStatuses[merchantId];
           if (quotaStatus) {
-            const newRemaining = quotaStatus.remainingQuota - 1;
+            const newRemaining = quotaStatus.remainingQuota - creditsToUse;
             if (newRemaining <= 0) {
               await notifyMerchantLowQuota(merchantId, 0, 'empty');
-            } else if (newRemaining <= 5) {
+            } else if (newRemaining <= 10) { // Increased threshold for credit-based system
               await notifyMerchantLowQuota(merchantId, newRemaining, 'low');
             }
           }
