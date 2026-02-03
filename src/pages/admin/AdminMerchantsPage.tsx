@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Store, Eye, Check, X, MoreHorizontal } from 'lucide-react';
+import { Store, Eye, Check, X, MoreHorizontal, Plus } from 'lucide-react';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { DataTable } from '@/components/admin/DataTable';
 import { Badge } from '@/components/ui/badge';
@@ -14,6 +14,7 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { approveMerchant, rejectMerchant } from '@/lib/adminApi';
+import { MerchantAddDialog } from '@/components/admin/MerchantAddDialog';
 
 interface MerchantRow {
   id: string;
@@ -32,6 +33,7 @@ export default function AdminMerchantsPage() {
   const navigate = useNavigate();
   const [merchants, setMerchants] = useState<MerchantRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [addDialogOpen, setAddDialogOpen] = useState(false);
 
   const fetchMerchants = async () => {
     try {
@@ -186,9 +188,15 @@ export default function AdminMerchantsPage() {
 
   return (
     <AdminLayout title="Manajemen Merchant" subtitle="Kelola semua merchant yang terdaftar">
-      <div className="flex items-center gap-2 mb-4">
-        <Store className="h-5 w-5 text-primary" />
-        <span className="text-muted-foreground text-sm">{merchants.length} merchant terdaftar</span>
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <Store className="h-5 w-5 text-primary" />
+          <span className="text-muted-foreground text-sm">{merchants.length} merchant terdaftar</span>
+        </div>
+        <Button onClick={() => setAddDialogOpen(true)} className="gap-2">
+          <Plus className="h-4 w-4" />
+          Tambah Merchant
+        </Button>
       </div>
 
       <DataTable
@@ -199,6 +207,12 @@ export default function AdminMerchantsPage() {
         filters={filters}
         loading={loading}
         emptyMessage="Belum ada merchant terdaftar"
+      />
+
+      <MerchantAddDialog
+        open={addDialogOpen}
+        onOpenChange={setAddDialogOpen}
+        onSuccess={fetchMerchants}
       />
     </AdminLayout>
   );
