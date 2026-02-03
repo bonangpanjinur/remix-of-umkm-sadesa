@@ -77,20 +77,23 @@ export default function CourierDashboardPage() {
       // Fetch courier profile
       const { data: courierData, error: courierError } = await supabase
         .from('couriers')
-        .select('id, name, phone, is_available, vehicle_type, current_lat, current_lng')
+        .select('id, name, phone, is_available, vehicle_type, current_lat, current_lng, registration_status')
         .eq('user_id', user.id)
-        .eq('registration_status', 'APPROVED')
         .maybeSingle();
 
       if (courierError) throw courierError;
 
       if (!courierData) {
+        setLoading(false);
+        return;
+      }
+
+      if (courierData.registration_status !== 'APPROVED') {
         toast({
-          title: 'Akun kurir tidak ditemukan',
-          description: 'Anda belum terdaftar sebagai kurir atau masih menunggu persetujuan',
-          variant: 'destructive',
+          title: 'Akun dalam verifikasi',
+          description: 'Pendaftaran kurir Anda sedang diproses oleh admin',
         });
-        navigate('/account');
+        setLoading(false);
         return;
       }
 

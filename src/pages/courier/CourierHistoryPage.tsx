@@ -66,12 +66,11 @@ export default function CourierHistoryPage() {
     try {
       const { data: courier } = await supabase
         .from('couriers')
-        .select('id')
+        .select('id, registration_status')
         .eq('user_id', user.id)
-        .eq('registration_status', 'APPROVED')
         .maybeSingle();
 
-      if (!courier) {
+      if (!courier || courier.registration_status !== 'APPROVED') {
         navigate('/courier');
         return;
       }

@@ -10,6 +10,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { fetchProvinces, fetchRegencies, fetchDistricts, fetchVillages as fetchSubdistricts, Region } from '@/lib/addressApi';
 import { getSettingByKey } from '@/lib/adminApi';
 import { toast } from 'sonner';
+import { useAuth } from '@/contexts/AuthContext';
 
 const courierSchema = z.object({
   name: z.string().min(3, 'Nama minimal 3 karakter').max(100),
@@ -29,6 +30,7 @@ type CourierFormData = z.infer<typeof courierSchema>;
 
 export default function RegisterCourierPage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [isEnabled, setIsEnabled] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState(1);
@@ -186,9 +188,10 @@ export default function RegisterCourierPage() {
 
       // Insert courier data
       const { error } = await supabase.from('couriers').insert({
+        user_id: user?.id || null,
         name: formData.name,
         phone: formData.phone,
-        email: formData.email || null,
+        email: formData.email || user?.email || null,
         ktp_number: formData.ktpNumber,
         vehicle_type: formData.vehicleType,
         vehicle_plate: formData.vehiclePlate || null,
