@@ -33,9 +33,13 @@ export function useRealtimeOrders({
   const [loading, setLoading] = useState(true);
 
   const fetchOrders = useCallback(async () => {
-    if (!merchantId) return;
+    if (!merchantId) {
+      setLoading(false);
+      return;
+    }
 
     try {
+      setLoading(true);
       const { data, error } = await supabase
         .from('orders')
         .select('*')
