@@ -234,16 +234,16 @@ export default function AdminVillagesPage() {
     <AdminLayout 
       title="Manajemen Desa Wisata" 
       subtitle="Kelola semua desa wisata yang terdaftar"
-      rightElement={
+    >
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <MapPin className="h-5 w-5 text-primary" />
+          <span className="text-muted-foreground text-sm">{villages.length} desa terdaftar</span>
+        </div>
         <Button onClick={() => setAddDialogOpen(true)}>
           <Plus className="h-4 w-4 mr-2" />
           Tambah Desa
         </Button>
-      }
-    >
-      <div className="flex items-center gap-2 mb-4">
-        <MapPin className="h-5 w-5 text-primary" />
-        <span className="text-muted-foreground text-sm">{villages.length} desa terdaftar</span>
       </div>
 
       <DataTable

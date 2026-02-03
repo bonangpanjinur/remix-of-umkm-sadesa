@@ -9,9 +9,10 @@ interface AdminLayoutProps {
   children: ReactNode;
   title: string;
   subtitle?: string;
+  rightElement?: ReactNode;
 }
 
-export function AdminLayout({ children, title, subtitle }: AdminLayoutProps) {
+export function AdminLayout({ children, title, subtitle, rightElement }: AdminLayoutProps) {
   const [pendingMerchants, setPendingMerchants] = useState(0);
   const [pendingVillages, setPendingVillages] = useState(0);
   const [pendingCouriers, setPendingCouriers] = useState(0);
@@ -107,8 +108,13 @@ export function AdminLayout({ children, title, subtitle }: AdminLayoutProps) {
         <div className="flex-1 p-4 lg:p-6 overflow-y-auto">
           <div className="max-w-6xl mx-auto">
             <div className="mb-6 hidden lg:block">
-              <h1 className="text-2xl font-bold">{title}</h1>
-              {subtitle && <p className="text-muted-foreground text-sm">{subtitle}</p>}
+              <div className="flex items-center justify-between">
+                <div>
+                  <h1 className="text-2xl font-bold">{title}</h1>
+                  {subtitle && <p className="text-muted-foreground text-sm">{subtitle}</p>}
+                </div>
+                {rightElement && <div>{rightElement}</div>}
+              </div>
             </div>
             {children}
           </div>
