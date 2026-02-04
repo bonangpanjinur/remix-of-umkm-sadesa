@@ -209,10 +209,17 @@ CREATE TABLE IF NOT EXISTS public.merchant_subscriptions (
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
 );
 
--- Add foreign key for current_subscription_id
-ALTER TABLE public.merchants 
-ADD CONSTRAINT merchants_current_subscription_id_fkey 
-FOREIGN KEY (current_subscription_id) REFERENCES public.merchant_subscriptions(id);
+-- Add foreign key for current_subscription_id (only if not exists)
+DO $$ 
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'merchants_current_subscription_id_fkey'
+    ) THEN
+        ALTER TABLE public.merchants 
+        ADD CONSTRAINT merchants_current_subscription_id_fkey 
+        FOREIGN KEY (current_subscription_id) REFERENCES public.merchant_subscriptions(id);
+    END IF;
+END $$;
 
 -- Group members table
 CREATE TABLE IF NOT EXISTS public.group_members (
