@@ -2665,8 +2665,13 @@ export type Database = {
         Args: { p_group_id: string; p_month: number; p_year: number }
         Returns: number
       }
-      get_user_courier_id: { Args: { _user_id: string }; Returns: string }
-      get_user_merchant_id: { Args: { _user_id: string }; Returns: string }
+      get_quota_cost: { Args: { product_price: number }; Returns: number }
+      get_user_courier_id:
+        | { Args: never; Returns: string }
+        | { Args: { _user_id: string }; Returns: string }
+      get_user_merchant_id:
+        | { Args: never; Returns: string }
+        | { Args: { _user_id: string }; Returns: string }
       get_user_roles: { Args: { _user_id: string }; Returns: string[] }
       has_any_role: {
         Args: {
@@ -2690,10 +2695,10 @@ export type Database = {
         Returns: boolean
       }
       is_merchant: { Args: never; Returns: boolean }
-      is_order_merchant: {
-        Args: { _merchant_id: string; _user_id: string }
-        Returns: boolean
-      }
+      is_order_courier: { Args: { _order_id: string }; Returns: boolean }
+      is_order_merchant:
+        | { Args: { _order_id: string }; Returns: boolean }
+        | { Args: { _merchant_id: string; _user_id: string }; Returns: boolean }
       is_verifikator: { Args: never; Returns: boolean }
       process_verifikator_withdrawal: {
         Args: {
@@ -2717,7 +2722,12 @@ export type Database = {
         Args: { p_buyer_id: string; p_success: boolean }
         Returns: undefined
       }
-      use_merchant_quota: { Args: { p_merchant_id: string }; Returns: boolean }
+      use_merchant_quota:
+        | {
+            Args: { _merchant_id: string; _product_price: number }
+            Returns: boolean
+          }
+        | { Args: { p_merchant_id: string }; Returns: boolean }
     }
     Enums: {
       app_role:
