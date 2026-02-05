@@ -734,6 +734,9 @@ export type Database = {
           approved_by: string | null
           available_balance: number | null
           badge: string | null
+          bank_account_name: string | null
+          bank_account_number: string | null
+          bank_name: string | null
           business_category: string | null
           business_description: string | null
           city: string | null
@@ -754,6 +757,8 @@ export type Database = {
           name: string
           open_time: string | null
           order_mode: string
+          payment_cod_enabled: boolean | null
+          payment_transfer_enabled: boolean | null
           pending_balance: number | null
           phone: string | null
           province: string | null
@@ -780,6 +785,9 @@ export type Database = {
           approved_by?: string | null
           available_balance?: number | null
           badge?: string | null
+          bank_account_name?: string | null
+          bank_account_number?: string | null
+          bank_name?: string | null
           business_category?: string | null
           business_description?: string | null
           city?: string | null
@@ -800,6 +808,8 @@ export type Database = {
           name: string
           open_time?: string | null
           order_mode?: string
+          payment_cod_enabled?: boolean | null
+          payment_transfer_enabled?: boolean | null
           pending_balance?: number | null
           phone?: string | null
           province?: string | null
@@ -826,6 +836,9 @@ export type Database = {
           approved_by?: string | null
           available_balance?: number | null
           badge?: string | null
+          bank_account_name?: string | null
+          bank_account_number?: string | null
+          bank_name?: string | null
           business_category?: string | null
           business_description?: string | null
           city?: string | null
@@ -846,6 +859,8 @@ export type Database = {
           name?: string
           open_time?: string | null
           order_mode?: string
+          payment_cod_enabled?: boolean | null
+          payment_transfer_enabled?: boolean | null
           pending_balance?: number | null
           phone?: string | null
           province?: string | null

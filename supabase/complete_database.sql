@@ -161,6 +161,11 @@ CREATE TABLE IF NOT EXISTS public.merchants (
   total_withdrawn integer DEFAULT 0,
   cod_max_amount integer DEFAULT 75000,
   cod_max_distance_km numeric DEFAULT 3,
+  payment_cod_enabled boolean DEFAULT true,
+  payment_transfer_enabled boolean DEFAULT true,
+  bank_name text,
+  bank_account_number text,
+  bank_account_name text,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
@@ -1306,18 +1311,23 @@ INSERT INTO public.trade_groups (id, name, code, village_id, description, kas_am
 ON CONFLICT (id) DO NOTHING;
 
 -- Merchants
-INSERT INTO public.merchants (id, name, village_id, group_id, address, phone, business_category, business_description, open_time, close_time, status, registration_status, is_open, location_lat, location_lng, rating_avg, rating_count, badge, is_verified, image_url) VALUES
-  ('m1111111-1111-1111-1111-111111111111', 'Warung Bu Imas', '11111111-1111-1111-1111-111111111111', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'Jl. Raya Sukamaju No. 12', '081234500001', 'kuliner', 'Warung makan tradisional Sunda dengan resep turun temurun. Spesialis nasi liwet dan sayur asem.', '06:00', '21:00', 'ACTIVE', 'APPROVED', true, -6.7234, 106.8123, 4.8, 156, 'VERIFIED', true, 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=400'),
-  ('m2222222-2222-2222-2222-222222222222', 'Kerajinan Pak Udin', '22222222-2222-2222-2222-222222222222', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'Jl. Bojong Indah No. 5', '081234500002', 'kriya', 'Pengrajin anyaman bambu berkualitas tinggi. Produk handmade dengan sentuhan modern.', '08:00', '17:00', 'ACTIVE', 'APPROVED', true, -6.6912, 106.9456, 4.9, 89, 'POPULAR', true, 'https://images.unsplash.com/photo-1528396518501-b53b655eb9b3?w=400'),
-  ('m3333333-3333-3333-3333-333333333333', 'Kopi Cikanyere', '33333333-3333-3333-3333-333333333333', NULL, 'Perkebunan Kopi Cikanyere', '081234500003', 'kuliner', 'Kopi arabika premium langsung dari petani. Roasting fresh setiap minggu.', '07:00', '18:00', 'ACTIVE', 'APPROVED', true, -6.8234, 107.0123, 4.7, 234, 'VERIFIED', true, 'https://images.unsplash.com/photo-1511920170033-f8396924c348?w=400'),
-  ('m4444444-4444-4444-4444-444444444444', 'Sambal Neng Evi', '11111111-1111-1111-1111-111111111111', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'Jl. Sukamaju Dalam No. 8', '081234500004', 'kuliner', 'Aneka sambal tradisional khas Sunda. Pedas nikmat tahan lama.', '08:00', '20:00', 'ACTIVE', 'APPROVED', true, -6.7256, 106.8145, 4.6, 178, 'NEW', false, 'https://images.unsplash.com/photo-1534940519139-f860fb3c6e38?w=400'),
-  ('m5555555-5555-5555-5555-555555555555', 'Batik Cirebon Asli', '44444444-4444-4444-4444-444444444444', NULL, 'Jl. Ciburial Raya No. 20', '081234500005', 'fashion', 'Batik tulis asli Cirebon dengan motif khas mega mendung.', '09:00', '17:00', 'ACTIVE', 'APPROVED', true, -6.7456, 106.8789, 4.9, 67, 'VERIFIED', true, 'https://images.unsplash.com/photo-1558171813-4c088753af8f?w=400'),
-  ('m6666666-6666-6666-6666-666666666666', 'Keripik Singkong Makmur', '22222222-2222-2222-2222-222222222222', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'Jl. Bojong Tengah No. 15', '081234500006', 'kuliner', 'Keripik singkong renyah aneka rasa. Oleh-oleh khas Bogor.', '07:00', '19:00', 'ACTIVE', 'APPROVED', true, -6.6934, 106.9478, 4.5, 312, 'POPULAR', true, 'https://images.unsplash.com/photo-1621447504864-d8686e12698c?w=400')
+INSERT INTO public.merchants (id, name, village_id, group_id, address, phone, business_category, business_description, open_time, close_time, status, registration_status, is_open, location_lat, location_lng, rating_avg, rating_count, badge, is_verified, image_url, payment_cod_enabled, payment_transfer_enabled, bank_name, bank_account_number, bank_account_name) VALUES
+  ('m1111111-1111-1111-1111-111111111111', 'Warung Bu Imas', '11111111-1111-1111-1111-111111111111', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'Jl. Raya Sukamaju No. 12', '081234500001', 'kuliner', 'Warung makan tradisional Sunda dengan resep turun temurun. Spesialis nasi liwet dan sayur asem.', '06:00', '21:00', 'ACTIVE', 'APPROVED', true, -6.7234, 106.8123, 4.8, 156, 'VERIFIED', true, 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=400', true, true, 'BCA', '1234567890', 'Bu Imas'),
+  ('m2222222-2222-2222-2222-222222222222', 'Kerajinan Pak Udin', '22222222-2222-2222-2222-222222222222', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'Jl. Bojong Indah No. 5', '081234500002', 'kriya', 'Pengrajin anyaman bambu berkualitas tinggi. Produk handmade dengan sentuhan modern.', '08:00', '17:00', 'ACTIVE', 'APPROVED', true, -6.6912, 106.9456, 4.9, 89, 'POPULAR', true, 'https://images.unsplash.com/photo-1528396518501-b53b655eb9b3?w=400', true, true, 'BRI', '0987654321', 'Pak Udin'),
+  ('m3333333-3333-3333-3333-333333333333', 'Kopi Cikanyere', '33333333-3333-3333-3333-333333333333', NULL, 'Perkebunan Kopi Cikanyere', '081234500003', 'kuliner', 'Kopi arabika premium langsung dari petani. Roasting fresh setiap minggu.', '07:00', '18:00', 'ACTIVE', 'APPROVED', true, -6.8234, 107.0123, 4.7, 234, 'VERIFIED', true, 'https://images.unsplash.com/photo-1511920170033-f8396924c348?w=400', false, true, 'Mandiri', '1122334455', 'Kopi Cikanyere'),
+  ('m4444444-4444-4444-4444-444444444444', 'Sambal Neng Evi', '11111111-1111-1111-1111-111111111111', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'Jl. Sukamaju Dalam No. 8', '081234500004', 'kuliner', 'Aneka sambal tradisional khas Sunda. Pedas nikmat tahan lama.', '08:00', '20:00', 'ACTIVE', 'APPROVED', true, -6.7256, 106.8145, 4.6, 178, 'NEW', false, 'https://images.unsplash.com/photo-1534940519139-f860fb3c6e38?w=400', true, false, NULL, NULL, NULL),
+  ('m5555555-5555-5555-5555-555555555555', 'Batik Cirebon Asli', '44444444-4444-4444-4444-444444444444', NULL, 'Jl. Ciburial Raya No. 20', '081234500005', 'fashion', 'Batik tulis asli Cirebon dengan motif khas mega mendung.', '09:00', '17:00', 'ACTIVE', 'APPROVED', true, -6.7456, 106.8789, 4.9, 67, 'VERIFIED', true, 'https://images.unsplash.com/photo-1558171813-4c088753af8f?w=400', true, true, 'BNI', '5566778899', 'Batik Cirebon'),
+  ('m6666666-6666-6666-6666-666666666666', 'Keripik Singkong Makmur', '22222222-2222-2222-2222-222222222222', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'Jl. Bojong Tengah No. 15', '081234500006', 'kuliner', 'Keripik singkong renyah aneka rasa. Oleh-oleh khas Bogor.', '07:00', '19:00', 'ACTIVE', 'APPROVED', true, -6.6934, 106.9478, 4.5, 312, 'POPULAR', true, 'https://images.unsplash.com/photo-1621447504864-d8686e12698c?w=400', true, true, 'BCA', '9988776655', 'Keripik Makmur')
 ON CONFLICT (id) DO UPDATE SET 
   name = EXCLUDED.name,
   location_lat = EXCLUDED.location_lat,
   location_lng = EXCLUDED.location_lng,
-  image_url = EXCLUDED.image_url;
+  image_url = EXCLUDED.image_url,
+  payment_cod_enabled = EXCLUDED.payment_cod_enabled,
+  payment_transfer_enabled = EXCLUDED.payment_transfer_enabled,
+  bank_name = EXCLUDED.bank_name,
+  bank_account_number = EXCLUDED.bank_account_number,
+  bank_account_name = EXCLUDED.bank_account_name;
 
 -- Products
 INSERT INTO public.products (id, merchant_id, name, description, price, stock, image_url, category, is_active, is_promo, view_count, order_count) VALUES

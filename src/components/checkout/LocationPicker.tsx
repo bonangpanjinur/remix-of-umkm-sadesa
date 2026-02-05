@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { MapPin, Loader2, LocateFixed } from 'lucide-react';
+import { MapPin, Loader2, LocateFixed, Navigation } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { calculateDistance } from '@/lib/codSecurity';
 import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from 'react-leaflet';
@@ -18,7 +18,9 @@ interface LocationPickerProps {
   onChange: (location: { lat: number; lng: number }) => void;
   merchantLocation?: { lat: number; lng: number } | null;
   onDistanceChange?: (distanceKm: number) => void;
+  onLocationSelected?: (lat: number, lng: number) => void;
   disabled?: boolean;
+  externalCenter?: { lat: number; lng: number } | null;
 }
 
 // Component to handle map clicks
@@ -31,13 +33,15 @@ function MapClickHandler({ onLocationSelect }: { onLocationSelect: (lat: number,
   return null;
 }
 
-// Component to recenter map when value changes
-function MapUpdater({ lat, lng }: { lat: number; lng: number }) {
+// Component to recenter map when external center changes
+function MapCenterUpdater({ center, zoom }: { center: { lat: number; lng: number }; zoom?: number }) {
   const map = useMap();
   
   useEffect(() => {
-    map.setView([lat, lng], map.getZoom(), { animate: true });
-  }, [lat, lng, map]);
+    if (center) {
+      map.setView([center.lat, center.lng], zoom || map.getZoom(), { animate: true });
+    }
+  }, [center.lat, center.lng, zoom, map]);
   
   return null;
 }
@@ -47,14 +51,20 @@ export function LocationPicker({
   onChange,
   merchantLocation,
   onDistanceChange,
+  onLocationSelected,
   disabled,
+  externalCenter,
 }: LocationPickerProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number }>({ lat: -7.3274, lng: 108.2207 });
   
-  // Default center (Tasikmalaya)
-  const defaultCenter = { lat: -7.3274, lng: 108.2207 };
-  const mapCenter = value || defaultCenter;
+  // Update map center when external center changes (from address geocoding)
+  useEffect(() => {
+    if (externalCenter) {
+      setMapCenter(externalCenter);
+    }
+  }, [externalCenter]);
 
   // Calculate distance when location changes
   useEffect(() => {
@@ -80,10 +90,18 @@ export function LocationPicker({
 
     navigator.geolocation.getCurrentPosition(
       (position) => {
-        onChange({
+        const location = {
           lat: position.coords.latitude,
           lng: position.coords.longitude,
-        });
+        };
+        onChange(location);
+        setMapCenter(location);
+        
+        // Notify parent to update address based on coordinates
+        if (onLocationSelected) {
+          onLocationSelected(location.lat, location.lng);
+        }
+        
         setLoading(false);
       },
       (err) => {
@@ -97,13 +115,19 @@ export function LocationPicker({
         maximumAge: 0,
       }
     );
-  }, [onChange]);
+  }, [onChange, onLocationSelected]);
 
   const handleMapClick = useCallback((lat: number, lng: number) => {
     if (!disabled) {
-      onChange({ lat, lng });
+      const location = { lat, lng };
+      onChange(location);
+      
+      // Notify parent to update address based on coordinates
+      if (onLocationSelected) {
+        onLocationSelected(lat, lng);
+      }
     }
-  }, [onChange, disabled]);
+  }, [onChange, onLocationSelected, disabled]);
 
   return (
     <div className="space-y-3">
@@ -146,21 +170,11 @@ export function LocationPicker({
               width: 100% !important;
               z-index: 1;
             }
-            .leaflet-tile-pane {
-              z-index: 1;
-            }
-            .leaflet-overlay-pane {
-              z-index: 2;
-            }
-            .leaflet-marker-pane {
-              z-index: 3;
-            }
-            .leaflet-control-container {
-              z-index: 4;
-            }
-            .leaflet-tile {
-              position: absolute;
-            }
+            .leaflet-tile-pane { z-index: 1; }
+            .leaflet-overlay-pane { z-index: 2; }
+            .leaflet-marker-pane { z-index: 3; }
+            .leaflet-control-container { z-index: 4; }
+            .leaflet-tile { position: absolute; }
           `}
         </style>
         <MapContainer
@@ -175,14 +189,18 @@ export function LocationPicker({
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
           <MapClickHandler onLocationSelect={handleMapClick} />
+          <MapCenterUpdater center={mapCenter} />
           {value && (
-            <>
-              <Marker position={[value.lat, value.lng]} />
-              <MapUpdater lat={value.lat} lng={value.lng} />
-            </>
+            <Marker position={[value.lat, value.lng]} />
           )}
         </MapContainer>
       </div>
+
+      {/* Helper text */}
+      <p className="text-xs text-muted-foreground flex items-center gap-1">
+        <Navigation className="h-3 w-3" />
+        Klik pada peta atau gunakan "Lokasi Saya" untuk menentukan titik pengiriman
+      </p>
 
       {/* Location status */}
       <div className="rounded-lg border border-border p-3 bg-card">
@@ -198,7 +216,7 @@ export function LocationPicker({
           </div>
         ) : (
           <p className="text-sm text-muted-foreground text-center py-1">
-            Klik pada peta atau gunakan tombol "Lokasi Saya"
+            Belum ada lokasi dipilih
           </p>
         )}
       </div>
