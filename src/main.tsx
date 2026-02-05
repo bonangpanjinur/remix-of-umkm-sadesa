@@ -5,6 +5,12 @@ import { supabase } from "@/integrations/supabase/client";
 
 // Function to generate and inject dynamic manifest
 const injectDynamicManifest = async () => {
+  // Only attempt if Supabase URL is configured
+  if (!import.meta.env.VITE_SUPABASE_URL) {
+    console.warn("Skipping dynamic manifest: Supabase URL not configured");
+    return;
+  }
+
   try {
     const { data, error } = await supabase
       .from('app_settings')
@@ -13,7 +19,13 @@ const injectDynamicManifest = async () => {
       .eq('key', 'pwa_config')
       .single();
 
-    if (data && !error) {
+    if (error) {
+      // If table doesn't exist or other DB error, fail silently
+      console.warn("Dynamic manifest query failed:", error.message);
+      return;
+    }
+
+    if (data) {
       const config = data.value as any;
       const manifest = {
         name: config.appName || "DesaMart",
@@ -23,7 +35,7 @@ const injectDynamicManifest = async () => {
         display: "standalone",
         background_color: config.backgroundColor || "#ffffff",
         theme_color: config.themeColor || "#10b981",
-        icons: config.icons.map((icon: any) => ({
+        icons: (config.icons || []).map((icon: any) => ({
           src: icon.src,
           sizes: icon.sizes,
           type: icon.type,
@@ -50,7 +62,8 @@ const injectDynamicManifest = async () => {
       console.log("Dynamic manifest injected successfully");
     }
   } catch (err) {
-    console.error("Failed to inject dynamic manifest", err);
+    // Catch network errors or other unexpected failures
+    console.error("Failed to inject dynamic manifest:", err);
   }
 };
 
