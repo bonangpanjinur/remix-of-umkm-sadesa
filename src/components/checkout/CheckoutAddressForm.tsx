@@ -56,7 +56,7 @@ export function CheckoutAddressForm({
           .from('profiles')
           .select('*')
           .eq('user_id', user.id)
-          .single();
+          .maybeSingle();
 
         if (profile) {
           const profileHasAddress = profile.province_id || profile.city_id || profile.district_id;

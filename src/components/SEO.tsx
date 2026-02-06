@@ -15,7 +15,7 @@ export const SEO = () => {
           .from('seo_settings')
           .select('*')
           .eq('page_path', path)
-          .single();
+          .maybeSingle();
 
         if (error || !data) {
           // If no specific settings, we could either do nothing or use defaults

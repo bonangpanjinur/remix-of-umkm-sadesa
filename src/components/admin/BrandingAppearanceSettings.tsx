@@ -186,7 +186,8 @@ export function BrandingAppearanceSettings({ isSaving: externalIsSaving, onSave 
         .from('app_settings')
         .select('*')
         .eq('category', 'pwa')
-        .single();
+        .eq('key', 'pwa_config')
+        .maybeSingle();
 
       if (pwaData && pwaData.value) {
         setPwaSettings({ ...DEFAULT_PWA_SETTINGS, ...(pwaData.value as any) });
@@ -313,38 +314,43 @@ export function BrandingAppearanceSettings({ isSaving: externalIsSaving, onSave 
           .update(seoData)
           .eq('id', editingSeo.id);
         if (error) throw error;
-        toast.success('SEO settings diperbarui');
       } else {
         const { error } = await supabase
           .from('seo_settings')
-          .insert([seoData]);
+          .insert(seoData);
         if (error) throw error;
-        toast.success('SEO settings ditambahkan');
       }
 
+      await fetchAllSettings();
       setSeoDialogOpen(false);
       setEditingSeo(null);
-      setSeoFormData({
-        page_path: '', title: '', description: '', keywords: '',
-        og_image: '', og_title: '', og_description: '',
-        canonical_url: '', robots: 'index, follow',
-      });
-      
-      const { data } = await supabase.from('seo_settings').select('*').order('page_path');
-      setSeoSettings(data || []);
-    } catch (error: any) {
+      toast.success('Pengaturan SEO berhasil disimpan');
+    } catch (error) {
       console.error('Error saving SEO:', error);
-      toast.error(error.code === '23505' ? 'Path halaman sudah ada' : 'Gagal menyimpan SEO');
+      toast.error('Gagal menyimpan pengaturan SEO');
     } finally {
       setSaving(null);
     }
   };
 
-  const handleSaveLayout = async () => {
+  const handleDeleteSeo = async (id: string) => {
+    if (!confirm('Yakin ingin menghapus pengaturan SEO ini?')) return;
+    
+    try {
+      const { error } = await supabase.from('seo_settings').delete().eq('id', id);
+      if (error) throw error;
+      toast.success('Pengaturan SEO dihapus');
+      fetchAllSettings();
+    } catch (error) {
+      toast.error('Gagal menghapus pengaturan SEO');
+    }
+  };
+
+  const handleSaveHomepageLayout = async () => {
     setSaving('layout');
     try {
-      const settings: HomepageLayoutSettings = {
-        sections: homepageSections.map((s, index) => ({ ...s, order: index })),
+      const layoutSettings: HomepageLayoutSettings = {
+        sections: homepageSections,
         visible_categories: visibleCategories,
       };
 
@@ -353,257 +359,330 @@ export function BrandingAppearanceSettings({ isSaving: externalIsSaving, onSave 
         .upsert({
           key: 'homepage_layout',
           category: 'layout',
-          value: settings as any,
-          description: 'Homepage layout configuration',
+          value: layoutSettings as any,
+          description: 'Homepage layout and sections configuration',
           updated_at: new Date().toISOString(),
         }, { onConflict: 'key' });
 
       if (error) throw error;
-      toast.success('Pengaturan Layout berhasil disimpan');
+      toast.success('Layout beranda berhasil disimpan');
     } catch (error) {
       console.error('Error saving layout:', error);
-      toast.error('Gagal menyimpan pengaturan Layout');
+      toast.error('Gagal menyimpan layout beranda');
     } finally {
       setSaving(null);
     }
   };
 
-  const handleIconUpload = async (event: React.ChangeEvent<HTMLInputElement>, size: string) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    if (!file.type.includes('png') && !file.type.includes('jpeg')) {
-      toast.error('Hanya file PNG atau JPEG yang diperbolehkan');
-      return;
-    }
-
-    setUploading(size);
-    try {
-      const fileExt = file.name.split('.').pop();
-      const fileName = `pwa-icon-${size}-${Math.random().toString(36).substring(2)}.${fileExt}`;
-      const filePath = `pwa/${fileName}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from('public-assets')
-        .upload(filePath, file, { cacheControl: '3600', upsert: true });
-
-      if (uploadError) throw uploadError;
-
-      const { data: { publicUrl } } = supabase.storage
-        .from('public-assets')
-        .getPublicUrl(filePath);
-
-      const updatedIcons = pwaSettings.icons.map(icon => 
-        icon.sizes === size ? { ...icon, src: publicUrl, type: file.type } : icon
-      );
-
-      setPwaSettings(prev => ({ ...prev, icons: updatedIcons }));
-      toast.success(`Ikon ${size} berhasil diunggah`);
-    } catch (error: any) {
-      console.error('Error uploading icon:', error);
-      toast.error('Gagal mengunggah ikon');
-    } finally {
-      setUploading(null);
-    }
+  const moveSection = (fromIndex: number, toIndex: number) => {
+    const updated = [...homepageSections];
+    const [moved] = updated.splice(fromIndex, 1);
+    updated.splice(toIndex, 0, moved);
+    
+    // Update order property
+    const final = updated.map((s, i) => ({ ...s, order: i }));
+    setHomepageSections(final);
   };
 
-  if (loading) {
-    return (
-      <div className="flex justify-center py-12">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
+  const toggleSection = (id: string) => {
+    setHomepageSections(prev => prev.map(s => 
+      s.id === id ? { ...s, enabled: !s.enabled } : s
+    ));
+  };
+
+  const toggleCategory = (id: string) => {
+    setVisibleCategories(prev => 
+      prev.includes(id) ? prev.filter(c => c !== id) : [...prev, id]
     );
-  }
+  };
+
+  const filteredSeo = seoSettings.filter(s => 
+    s.page_path.toLowerCase().includes(seoSearchTerm.toLowerCase()) ||
+    s.title?.toLowerCase().includes(seoSearchTerm.toLowerCase())
+  );
 
   return (
     <div className="space-y-6">
-      <Tabs defaultValue="identity" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="identity">Identitas</TabsTrigger>
-          <TabsTrigger value="pwa">Mobile (PWA)</TabsTrigger>
+      <Tabs defaultValue="whitelabel">
+        <TabsList className="grid grid-cols-4 w-full">
+          <TabsTrigger value="whitelabel">Branding</TabsTrigger>
+          <TabsTrigger value="pwa">PWA</TabsTrigger>
           <TabsTrigger value="seo">SEO</TabsTrigger>
           <TabsTrigger value="layout">Layout</TabsTrigger>
         </TabsList>
 
-        {/* Identity Tab */}
-        <TabsContent value="identity" className="space-y-4">
-          <div className="grid gap-6 md:grid-cols-2">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2"><Type className="h-5 w-5" /> Identitas Brand</CardTitle>
-                <CardDescription>Ubah nama dan tagline website</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="siteName">Nama Website</Label>
-                  <Input id="siteName" value={siteName} onChange={(e) => setSiteName(e.target.value)} />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="siteTagline">Tagline</Label>
-                  <Input id="siteTagline" value={siteTagline} onChange={(e) => setSiteTagline(e.target.value)} />
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2"><ImageIcon className="h-5 w-5" /> Logo & Favicon</CardTitle>
-                <CardDescription>Upload logo dan favicon website</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label>Logo Website</Label>
-                  <ImageUpload value={logoUrl || ''} onChange={setLogoUrl} bucket="merchant-images" path="whitelabel/logo" />
-                </div>
-                <div className="space-y-2">
-                  <Label>Favicon</Label>
-                  <ImageUpload value={faviconUrl || ''} onChange={setFaviconUrl} bucket="merchant-images" path="whitelabel/favicon" />
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-          <Button onClick={handleSaveWhitelabel} disabled={saving === 'whitelabel'}>
-            {saving === 'whitelabel' ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
-            Simpan Identitas
-          </Button>
-        </TabsContent>
-
-        {/* PWA Tab */}
-        <TabsContent value="pwa" className="space-y-4">
+        <TabsContent value="whitelabel">
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2"><Globe className="h-5 w-5" /> Informasi PWA</CardTitle>
+              <CardTitle className="flex items-center gap-2">
+                <Palette className="h-5 w-5" />
+                Branding & Whitelabel
+              </CardTitle>
+              <CardDescription>Sesuaikan identitas situs Anda</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid gap-4 md:grid-cols-2">
+              <div className="grid md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Nama Situs</Label>
+                  <Input value={siteName} onChange={(e) => setSiteName(e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Tagline</Label>
+                  <Input value={siteTagline} onChange={(e) => setSiteTagline(e.target.value)} />
+                </div>
+              </div>
+              <div className="grid md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Logo URL</Label>
+                  <div className="flex gap-2">
+                    <Input value={logoUrl || ''} onChange={(e) => setLogoUrl(e.target.value)} />
+                    <ImageUpload onUploadSuccess={(url) => setLogoUrl(url)} />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label>Favicon URL</Label>
+                  <div className="flex gap-2">
+                    <Input value={faviconUrl || ''} onChange={(e) => setFaviconUrl(e.target.value)} />
+                    <ImageUpload onUploadSuccess={(url) => setFaviconUrl(url)} />
+                  </div>
+                </div>
+              </div>
+              <Button onClick={handleSaveWhitelabel} disabled={saving === 'whitelabel'} className="w-full">
+                {saving === 'whitelabel' ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
+                Simpan Branding
+              </Button>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="pwa">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <RefreshCw className="h-5 w-5" />
+                Progressive Web App (PWA)
+              </CardTitle>
+              <CardDescription>Konfigurasi aplikasi agar dapat diinstal di HP/Desktop</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Nama Aplikasi</Label>
                   <Input value={pwaSettings.appName} onChange={(e) => setPwaSettings({...pwaSettings, appName: e.target.value})} />
                 </div>
                 <div className="space-y-2">
-                  <Label>Nama Singkat</Label>
-                  <Input value={pwaSettings.shortName} maxLength={12} onChange={(e) => setPwaSettings({...pwaSettings, shortName: e.target.value})} />
+                  <Label>Nama Pendek</Label>
+                  <Input value={pwaSettings.shortName} onChange={(e) => setPwaSettings({...pwaSettings, shortName: e.target.value})} />
                 </div>
               </div>
               <div className="space-y-2">
                 <Label>Deskripsi PWA</Label>
                 <Textarea value={pwaSettings.description} onChange={(e) => setPwaSettings({...pwaSettings, description: e.target.value})} />
               </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2"><ImageIcon className="h-5 w-5" /> Ikon PWA</CardTitle>
-            </CardHeader>
-            <CardContent className="grid gap-6 md:grid-cols-2">
-              {pwaSettings.icons.map((icon, index) => (
-                <div key={index} className="flex items-center gap-4 p-4 border rounded-lg">
-                  <div className="w-16 h-16 bg-muted rounded flex items-center justify-center overflow-hidden border">
-                    {uploading === icon.sizes ? <Loader2 className="h-6 w-6 animate-spin" /> : <img src={icon.src} className="w-full h-full object-contain" />}
-                  </div>
-                  <div className="flex-1">
-                    <Label className="text-xs font-bold">{icon.sizes}</Label>
-                    <Input type="file" accept="image/png,image/jpeg" className="hidden" id={`pwa-icon-${icon.sizes}`} onChange={(e) => handleIconUpload(e, icon.sizes)} />
-                    <Button variant="outline" size="sm" className="w-full mt-1" asChild>
-                      <label htmlFor={`pwa-icon-${icon.sizes}`} className="cursor-pointer"><Upload className="h-3 w-3 mr-2" /> Ganti</label>
-                    </Button>
-                  </div>
+              <div className="grid md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Warna Tema (Hex)</Label>
+                  <Input type="color" className="h-10" value={pwaSettings.themeColor} onChange={(e) => setPwaSettings({...pwaSettings, themeColor: e.target.value})} />
                 </div>
-              ))}
+                <div className="space-y-2">
+                  <Label>Warna Background (Hex)</Label>
+                  <Input type="color" className="h-10" value={pwaSettings.backgroundColor} onChange={(e) => setPwaSettings({...pwaSettings, backgroundColor: e.target.value})} />
+                </div>
+              </div>
+              <div className="grid md:grid-cols-2 gap-4">
+                <div className="flex items-center justify-between p-3 border rounded-lg">
+                  <div className="space-y-0.5">
+                    <Label>Offline Mode</Label>
+                    <p className="text-xs text-muted-foreground">Aktifkan akses saat tanpa internet</p>
+                  </div>
+                  <Switch checked={pwaSettings.enableOffline} onCheckedChange={(val) => setPwaSettings({...pwaSettings, enableOffline: val})} />
+                </div>
+                <div className="flex items-center justify-between p-3 border rounded-lg">
+                  <div className="space-y-0.5">
+                    <Label>Install Prompt</Label>
+                    <p className="text-xs text-muted-foreground">Tampilkan ajakan instal aplikasi</p>
+                  </div>
+                  <Switch checked={pwaSettings.enableInstallPrompt} onCheckedChange={(val) => setPwaSettings({...pwaSettings, enableInstallPrompt: val})} />
+                </div>
+              </div>
+              <Button onClick={handleSavePWA} disabled={saving === 'pwa'} className="w-full">
+                {saving === 'pwa' ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
+                Simpan Konfigurasi PWA
+              </Button>
             </CardContent>
           </Card>
-          <Button onClick={handleSavePWA} disabled={saving === 'pwa'}>
-            {saving === 'pwa' ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
-            Simpan Pengaturan PWA
-          </Button>
         </TabsContent>
 
-        {/* SEO Tab */}
-        <TabsContent value="seo" className="space-y-4">
-          <div className="flex justify-between items-center">
-            <div className="relative w-64">
-              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input placeholder="Cari path..." className="pl-8" value={seoSearchTerm} onChange={(e) => setSeoSearchTerm(e.target.value)} />
-            </div>
-            <Button onClick={() => { setEditingSeo(null); setSeoDialogOpen(true); }}><Plus className="h-4 w-4 mr-2" /> Tambah SEO</Button>
-          </div>
-          <div className="grid gap-4">
-            {seoSettings.filter(s => s.page_path.includes(seoSearchTerm)).map(setting => (
-              <Card key={setting.id}>
-                <CardContent className="p-4 flex items-center justify-between">
-                  <div>
-                    <p className="font-bold text-sm">{setting.page_path}</p>
-                    <p className="text-xs text-muted-foreground">{setting.title || 'Tanpa Judul'}</p>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button variant="ghost" size="icon" onClick={() => {
-                      setEditingSeo(setting);
-                      setSeoFormData({
-                        page_path: setting.page_path, title: setting.title || '', description: setting.description || '',
-                        keywords: setting.keywords || '', og_image: setting.og_image || '', og_title: setting.og_title || '',
-                        og_description: setting.og_description || '', canonical_url: setting.canonical_url || '', robots: setting.robots,
-                      });
-                      setSeoDialogOpen(true);
-                    }}><Edit2 className="h-4 w-4" /></Button>
-                    <Button variant="ghost" size="icon" className="text-destructive" onClick={async () => {
-                      if (confirm('Hapus SEO ini?')) {
-                        await supabase.from('seo_settings').delete().eq('id', setting.id);
-                        fetchAllSettings();
-                      }
-                    }}><Trash2 className="h-4 w-4" /></Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </TabsContent>
-
-        {/* Layout Tab */}
-        <TabsContent value="layout" className="space-y-4">
+        <TabsContent value="seo">
           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2"><Layout className="h-5 w-5" /> Urutan Section Homepage</CardTitle>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <Globe className="h-5 w-5" />
+                  SEO & Meta Tags
+                </CardTitle>
+                <CardDescription>Optimalkan visibilitas di mesin pencari</CardDescription>
+              </div>
+              <Button onClick={() => { setEditingSeo(null); setSeoFormData({ page_path: '', title: '', description: '', keywords: '', og_image: '', og_title: '', og_description: '', canonical_url: '', robots: 'index, follow' }); setSeoDialogOpen(true); }}>
+                <Plus className="h-4 w-4 mr-2" /> Tambah SEO
+              </Button>
             </CardHeader>
-            <CardContent className="space-y-2">
-              {homepageSections.map((section, index) => (
-                <div key={section.id} className="flex items-center gap-3 p-3 border rounded-lg bg-card">
-                  <GripVertical className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm font-medium flex-1">{section.name}</span>
-                  <Switch checked={section.enabled} onCheckedChange={() => {
-                    const newSections = [...homepageSections];
-                    newSections[index].enabled = !newSections[index].enabled;
-                    setHomepageSections(newSections);
-                  }} />
-                </div>
-              ))}
+            <CardContent>
+              <div className="relative mb-4">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input placeholder="Cari path atau judul..." className="pl-9" value={seoSearchTerm} onChange={(e) => setSeoSearchTerm(e.target.value)} />
+              </div>
+              <div className="border rounded-lg overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead className="bg-muted">
+                    <tr>
+                      <th className="text-left p-3 font-medium">Path</th>
+                      <th className="text-left p-3 font-medium">Judul Halaman</th>
+                      <th className="text-right p-3 font-medium">Aksi</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {filteredSeo.length > 0 ? filteredSeo.map((item) => (
+                      <tr key={item.id} className="hover:bg-muted/50 transition-colors">
+                        <td className="p-3 font-mono text-xs">{item.page_path}</td>
+                        <td className="p-3 truncate max-w-[200px]">{item.title || '-'}</td>
+                        <td className="p-3 text-right">
+                          <div className="flex justify-end gap-1">
+                            <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => { setEditingSeo(item); setSeoFormData({ ...item, title: item.title || '', description: item.description || '', keywords: item.keywords || '', og_image: item.og_image || '', og_title: item.og_title || '', og_description: item.og_description || '', canonical_url: item.canonical_url || '' }); setSeoDialogOpen(true); }}>
+                              <Edit2 className="h-4 w-4" />
+                            </Button>
+                            <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive" onClick={() => handleDeleteSeo(item.id)}>
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    )) : (
+                      <tr><td colSpan={3} className="p-8 text-center text-muted-foreground">Tidak ada pengaturan SEO ditemukan</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </CardContent>
           </Card>
-          <Button onClick={handleSaveLayout} disabled={saving === 'layout'}>
-            {saving === 'layout' ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
-            Simpan Layout
-          </Button>
+        </TabsContent>
+
+        <TabsContent value="layout">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Layout className="h-5 w-5" />
+                Layout Beranda
+              </CardTitle>
+              <CardDescription>Atur urutan dan visibilitas bagian di halaman depan</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="space-y-3">
+                <Label>Urutan Bagian</Label>
+                <div className="space-y-2">
+                  {homepageSections.map((section, index) => (
+                    <div 
+                      key={section.id}
+                      draggable
+                      onDragStart={() => setDraggedIndex(index)}
+                      onDragOver={(e) => { e.preventDefault(); if (draggedIndex !== null && draggedIndex !== index) moveSection(draggedIndex, index); setDraggedIndex(index); }}
+                      onDragEnd={() => setDraggedIndex(null)}
+                      className={`flex items-center justify-between p-3 border rounded-lg bg-card cursor-move ${draggedIndex === index ? 'opacity-50 border-primary' : ''}`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <GripVertical className="h-4 w-4 text-muted-foreground" />
+                        <span className="font-medium">{section.name}</span>
+                      </div>
+                      <Switch checked={section.enabled} onCheckedChange={() => toggleSection(section.id)} />
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <Label>Kategori yang Ditampilkan</Label>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                  {ALL_CATEGORIES.map(cat => (
+                    <div key={cat.id} className="flex items-center space-x-2 p-2 border rounded-md">
+                      <Checkbox id={cat.id} checked={visibleCategories.includes(cat.id)} onCheckedChange={() => toggleCategory(cat.id)} />
+                      <Label htmlFor={cat.id} className="text-sm cursor-pointer">{cat.name}</Label>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <Button onClick={handleSaveHomepageLayout} disabled={saving === 'layout'} className="w-full">
+                {saving === 'layout' ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
+                Simpan Layout
+              </Button>
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
 
-      {/* SEO Dialog */}
       <Dialog open={seoDialogOpen} onOpenChange={setSeoDialogOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{editingSeo ? 'Edit SEO' : 'Tambah SEO'}</DialogTitle>
+            <DialogTitle>{editingSeo ? 'Edit SEO Settings' : 'Tambah SEO Settings'}</DialogTitle>
+            <DialogDescription>Masukkan meta tags untuk path halaman spesifik</DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto px-1">
-            <div className="space-y-2">
-              <Label>Path Halaman</Label>
-              <Input value={seoFormData.page_path} onChange={e => setSeoFormData({...seoFormData, page_path: e.target.value})} placeholder="/products" />
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label className="text-right">Path Halaman</Label>
+              <div className="col-span-3 space-y-1">
+                <Input placeholder="/produk/nama-produk" value={seoFormData.page_path} onChange={(e) => setSeoFormData({...seoFormData, page_path: e.target.value})} />
+                <p className="text-[10px] text-muted-foreground">Gunakan / untuk beranda</p>
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label>SEO Title</Label>
-              <Input value={seoFormData.title} onChange={e => setSeoFormData({...seoFormData, title: e.target.value})} />
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label className="text-right">Judul (Title)</Label>
+              <Input className="col-span-3" value={seoFormData.title} onChange={(e) => setSeoFormData({...seoFormData, title: e.target.value})} />
             </div>
-            <div className="space-y-2">
-              <Label>Meta Description</Label>
-              <Textarea value={seoFormData.description} onChange={e => setSeoFormData({...seoFormData, description: e.target.value})} />
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label className="text-right">Deskripsi</Label>
+              <Textarea className="col-span-3" value={seoFormData.description} onChange={(e) => setSeoFormData({...seoFormData, description: e.target.value})} />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label className="text-right">Keywords</Label>
+              <Input className="col-span-3" placeholder="umkm, desa wisata, produk lokal" value={seoFormData.keywords} onChange={(e) => setSeoFormData({...seoFormData, keywords: e.target.value})} />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label className="text-right">Robots</Label>
+              <Select value={seoFormData.robots} onValueChange={(val) => setSeoFormData({...seoFormData, robots: val})}>
+                <SelectTrigger className="col-span-3">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="index, follow">Index, Follow (Default)</SelectItem>
+                  <SelectItem value="noindex, nofollow">No Index, No Follow</SelectItem>
+                  <SelectItem value="index, nofollow">Index, No Follow</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="border-t pt-4 mt-2">
+              <h4 className="text-sm font-semibold mb-4 flex items-center gap-2"><Share2 className="h-4 w-4" /> Social Media (Open Graph)</h4>
+              <div className="space-y-4">
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label className="text-right">OG Image URL</Label>
+                  <div className="col-span-3 flex gap-2">
+                    <Input value={seoFormData.og_image} onChange={(e) => setSeoFormData({...seoFormData, og_image: e.target.value})} />
+                    <ImageUpload onUploadSuccess={(url) => setSeoFormData({...seoFormData, og_image: url})} />
+                  </div>
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label className="text-right">OG Title</Label>
+                  <Input className="col-span-3" placeholder="Biarkan kosong untuk pakai judul utama" value={seoFormData.og_title} onChange={(e) => setSeoFormData({...seoFormData, og_title: e.target.value})} />
+                </div>
+              </div>
             </div>
           </div>
-          <Button onClick={handleSaveSeo} disabled={saving === 'seo'}>Simpan SEO</Button>
+          <div className="flex justify-end gap-3 mt-4">
+            <Button variant="outline" onClick={() => setSeoDialogOpen(false)}>Batal</Button>
+            <Button onClick={handleSaveSeo} disabled={saving === 'seo'}>
+              {saving === 'seo' && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+              Simpan SEO
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

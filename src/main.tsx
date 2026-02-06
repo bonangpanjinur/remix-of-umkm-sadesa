@@ -17,7 +17,7 @@ const injectDynamicManifest = async () => {
       .select('value')
       .eq('category', 'pwa')
       .eq('key', 'pwa_config')
-      .single();
+      .maybeSingle();
 
     if (error) {
       // If table doesn't exist or other DB error, fail silently

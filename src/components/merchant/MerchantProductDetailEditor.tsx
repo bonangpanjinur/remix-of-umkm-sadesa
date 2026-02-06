@@ -81,7 +81,7 @@ export function MerchantProductDetailEditor({ productId, merchantId, onBack }: M
           .from('products')
           .select('*')
           .eq('id', productId)
-          .single(),
+          .maybeSingle(),
         supabase
           .from('categories' as any)
           .select('id, name, slug, icon')
@@ -92,19 +92,21 @@ export function MerchantProductDetailEditor({ productId, merchantId, onBack }: M
       if (productRes.error) throw productRes.error;
 
       const p = productRes.data;
-      setProduct(p);
-      setForm({
-        name: p.name || '',
-        description: p.description || '',
-        price: p.price?.toString() || '',
-        stock: p.stock?.toString() || '',
-        category: p.category || '',
-        is_active: p.is_active,
-        is_promo: p.is_promo,
-        discount_percent: p.discount_percent?.toString() || '',
-        discount_end_date: p.discount_end_date ? p.discount_end_date.split('T')[0] : '',
-        min_stock_alert: p.min_stock_alert?.toString() || '5',
-      });
+      if (p) {
+        setProduct(p);
+        setForm({
+          name: p.name || '',
+          description: p.description || '',
+          price: p.price?.toString() || '',
+          stock: p.stock?.toString() || '',
+          category: p.category || '',
+          is_active: p.is_active,
+          is_promo: p.is_promo,
+          discount_percent: p.discount_percent?.toString() || '',
+          discount_end_date: p.discount_end_date ? p.discount_end_date.split('T')[0] : '',
+          min_stock_alert: p.min_stock_alert?.toString() || '5',
+        });
+      }
 
       setCategories((categoriesRes.data || []) as unknown as Category[]);
     } catch (error) {
@@ -322,7 +324,6 @@ export function MerchantProductDetailEditor({ productId, merchantId, onBack }: M
                       value={form.discount_percent}
                       onChange={(e) => setForm(prev => ({ ...prev, discount_percent: e.target.value }))}
                       placeholder="10"
-                      max="100"
                     />
                   </div>
                   <div className="space-y-2">
@@ -348,8 +349,8 @@ export function MerchantProductDetailEditor({ productId, merchantId, onBack }: M
             <CardContent>
               <MultipleImageUpload
                 productId={productId}
-                merchantId={merchantId}
-                maxImages={5}
+                initialImages={product.image_url ? [product.image_url] : []}
+                onImagesChange={() => fetchData()}
               />
             </CardContent>
           </Card>
@@ -357,61 +358,36 @@ export function MerchantProductDetailEditor({ productId, merchantId, onBack }: M
 
         {/* Variants Tab */}
         <TabsContent value="variants">
-          <Card>
-            <CardHeader>
-              <CardTitle>Varian Produk</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ProductVariantManager
-                productId={productId}
-                basePrice={parseInt(form.price) || 0}
-              />
-            </CardContent>
-          </Card>
+          <ProductVariantManager productId={productId} />
         </TabsContent>
 
         {/* Stock Tab */}
         <TabsContent value="stock">
-          <div className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Pengaturan Stok</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Stok Saat Ini</Label>
-                    <Input
-                      type="number"
-                      value={form.stock}
-                      onChange={(e) => setForm(prev => ({ ...prev, stock: e.target.value }))}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Peringatan Stok Minimum</Label>
-                    <Input
-                      type="number"
-                      value={form.min_stock_alert}
-                      onChange={(e) => setForm(prev => ({ ...prev, min_stock_alert: e.target.value }))}
-                      placeholder="5"
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Anda akan mendapat notifikasi saat stok di bawah angka ini
-                    </p>
-                  </div>
+          <Card>
+            <CardHeader>
+              <CardTitle>Pengaturan Stok</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Stok Saat Ini</Label>
+                  <Input
+                    type="number"
+                    value={form.stock}
+                    onChange={(e) => setForm(prev => ({ ...prev, stock: e.target.value }))}
+                  />
                 </div>
-
-                {parseInt(form.stock) <= parseInt(form.min_stock_alert) && (
-                  <div className="flex items-center gap-2 p-3 bg-warning/10 rounded-lg border border-warning/30">
-                    <AlertTriangle className="h-5 w-5 text-warning" />
-                    <p className="text-sm text-warning">Stok produk ini sudah rendah!</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            <StockAlerts merchantId={merchantId} />
-          </div>
+                <div className="space-y-2">
+                  <Label>Alert Stok Menipis (Unit)</Label>
+                  <Input
+                    type="number"
+                    value={form.min_stock_alert}
+                    onChange={(e) => setForm(prev => ({ ...prev, min_stock_alert: e.target.value }))}
+                  />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
     </div>

@@ -53,7 +53,7 @@ export function QuickStats({ merchantId }: QuickStatsProps) {
         .from('merchants')
         .select('available_balance, pending_balance')
         .eq('id', merchantId)
-        .single();
+        .maybeSingle();
 
       const todayOrders = (orders || []).filter(o => o.created_at >= todayISO);
       

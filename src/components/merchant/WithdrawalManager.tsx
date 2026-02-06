@@ -101,10 +101,12 @@ export function WithdrawalManager({ merchantId }: WithdrawalManagerProps) {
         .from('merchants')
         .select('available_balance, pending_balance, total_withdrawn')
         .eq('id', merchantId)
-        .single();
+        .maybeSingle();
 
       if (merchantError) throw merchantError;
-      setBalance(merchantData);
+      if (merchantData) {
+        setBalance(merchantData);
+      }
 
       // Fetch withdrawal history
       const { data: withdrawalData, error: withdrawalError } = await supabase
