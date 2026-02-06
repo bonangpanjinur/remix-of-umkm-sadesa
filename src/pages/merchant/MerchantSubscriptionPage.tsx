@@ -230,17 +230,19 @@ export default function MerchantSubscriptionPage() {
 
       if (uploadError) throw uploadError;
 
-      const { data } = supabase.storage
+      const { data: publicUrlData } = supabase.storage
         .from('merchants')
         .getPublicUrl(filePath);
       
-      const publicUrl = data.publicUrl;
+      const publicUrl = publicUrlData.publicUrl;
 
+      // Update subscription with proof URL and status
       const { error: updateError } = await supabase
         .from('merchant_subscriptions')
         .update({ 
           payment_proof_url: publicUrl,
-          payment_status: 'PENDING_APPROVAL'
+          payment_status: 'PENDING_APPROVAL',
+          updated_at: new Date().toISOString()
         })
         .eq('id', subId);
 
