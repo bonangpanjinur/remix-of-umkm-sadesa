@@ -239,7 +239,7 @@ export default function RegisterVillagePage() {
               <div className="grid grid-cols-1 gap-4">
                 <div>
                   <Label className="text-xs">Provinsi *</Label>
-                  <Select onValueChange={(v) => { setSelectedProvince(v); setValue('province', v); }}>
+                  <Select onValueChange={(v) => { setSelectedProvince(v); setValue('province', v); }} value={selectedProvince || undefined}>
                     <SelectTrigger className="mt-1.5"><SelectValue placeholder="Pilih provinsi" /></SelectTrigger>
                     <SelectContent>{provincesList.map((p) => <SelectItem key={p.code} value={p.code}>{p.name}</SelectItem>)}</SelectContent>
                   </Select>
@@ -247,7 +247,7 @@ export default function RegisterVillagePage() {
                 </div>
                 <div>
                   <Label className="text-xs">Kabupaten/Kota *</Label>
-                  <Select onValueChange={(v) => { setSelectedRegency(v); setValue('regency', v); }} disabled={!selectedProvince}>
+                  <Select onValueChange={(v) => { setSelectedRegency(v); setValue('regency', v); }} disabled={!selectedProvince} value={selectedRegency || undefined}>
                     <SelectTrigger className="mt-1.5"><SelectValue placeholder={selectedProvince ? "Pilih kabupaten/kota" : "Pilih provinsi dulu"} /></SelectTrigger>
                     <SelectContent>{regenciesList.map((r) => <SelectItem key={r.code} value={r.code}>{r.name}</SelectItem>)}</SelectContent>
                   </Select>
@@ -256,7 +256,7 @@ export default function RegisterVillagePage() {
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <Label className="text-xs">Kecamatan *</Label>
-                    <Select onValueChange={(v) => { setSelectedDistrict(v); setValue('district', v); }} disabled={!selectedRegency}>
+                    <Select onValueChange={(v) => { setSelectedDistrict(v); setValue('district', v); }} disabled={!selectedRegency} value={selectedDistrict || undefined}>
                       <SelectTrigger className="mt-1.5"><SelectValue placeholder="Pilih kecamatan" /></SelectTrigger>
                       <SelectContent>{districtsList.map((d) => <SelectItem key={d.code} value={d.code}>{d.name}</SelectItem>)}</SelectContent>
                     </Select>

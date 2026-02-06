@@ -522,7 +522,7 @@ export default function RegisterMerchantPage() {
                     setSelectedCity(v);
                     setValue('city', v);
                   }}
-                  value={selectedCity}
+                  value={selectedCity || undefined}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Pilih kabupaten/kota" />
@@ -544,7 +544,7 @@ export default function RegisterMerchantPage() {
                     setSelectedDistrict(v);
                     setValue('district', v);
                   }}
-                  value={selectedDistrict}
+                  value={selectedDistrict || undefined}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Pilih kecamatan" />
@@ -566,7 +566,7 @@ export default function RegisterMerchantPage() {
                     setSelectedSubdistrict(v);
                     setValue('subdistrict', v);
                   }}
-                  value={selectedSubdistrict}
+                  value={selectedSubdistrict || undefined}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Pilih kelurahan/desa" />
