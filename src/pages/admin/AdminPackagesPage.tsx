@@ -214,7 +214,8 @@ export default function AdminPackagesPage() {
 
   const handleApproveRequest = async (request: PackageRequest) => {
     try {
-      // 1. Update subscription status
+      // Update subscription status to PAID and ACTIVE
+      // The DB trigger on_subscription_activation will handle merchant's current_subscription_id
       const { error: subError } = await supabase
         .from('merchant_subscriptions')
         .update({
@@ -227,17 +228,7 @@ export default function AdminPackagesPage() {
 
       if (subError) throw subError;
 
-      // 2. Update merchant's current_subscription_id
-      const { error: merchantError } = await supabase
-        .from('merchants')
-        .update({
-          current_subscription_id: request.id
-        })
-        .eq('id', request.merchant_id);
-
-      if (merchantError) throw merchantError;
-
-      toast.success('Permintaan paket berhasil disetujui');
+      toast.success('Permintaan paket berhasil disetujui. Kuota telah diaktifkan.');
       setRequestDialogOpen(false);
       fetchData();
     } catch (error) {
@@ -247,10 +238,16 @@ export default function AdminPackagesPage() {
   };
 
   const handleRejectRequest = async (request: PackageRequest) => {
+    if (!adminNotes) {
+      toast.error('Silakan masukkan alasan penolakan di catatan admin');
+      return;
+    }
+
     try {
       const { error } = await supabase
         .from('merchant_subscriptions')
         .update({
+          status: 'INACTIVE',
           payment_status: 'REJECTED',
           admin_notes: adminNotes
         })
@@ -665,7 +662,7 @@ export default function AdminPackagesPage() {
                   id="notes" 
                   value={adminNotes} 
                   onChange={(e) => setAdminNotes(e.target.value)}
-                  placeholder="Masukkan catatan..."
+                  placeholder="Masukkan alasan jika menolak..."
                   rows={2}
                 />
               </div>
