@@ -184,8 +184,14 @@ export default function MerchantProductsPage() {
         .eq('merchant_id', merchantId)
         .order('created_at', { ascending: false });
       setProducts(data || []);
-    } catch (error) {
-      toast.error('Gagal menyimpan produk');
+    } catch (error: any) {
+      console.error('Error saving product:', error);
+      const errorMessage = error.message || 'Gagal menyimpan produk';
+      if (errorMessage.includes('Bucket not found')) {
+        toast.error('Error: Bucket storage "products" tidak ditemukan. Silakan jalankan migrasi SQL.');
+      } else {
+        toast.error(errorMessage);
+      }
     } finally {
       setSaving(false);
     }
@@ -348,13 +354,11 @@ export default function MerchantProductsPage() {
       </div>
 
       <DataTable
-        data={products}
         columns={columns}
-        searchKeys={['name']}
-        searchPlaceholder="Cari nama produk..."
-        filters={filters}
+        data={products}
         loading={loading}
-        emptyMessage="Belum ada produk"
+        searchKey="name"
+        filters={filters}
       />
 
       {/* Product Dialog */}
@@ -368,15 +372,20 @@ export default function MerchantProductsPage() {
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label>Gambar Produk</Label>
-              <ImageUpload
-                bucket="product-images"
-                path={merchantId || 'temp'}
-                value={form.image_url}
-                onChange={(url) => setForm(prev => ({ ...prev, image_url: url }))}
-                aspectRatio="square"
-                maxSizeMB={5}
-                placeholder="Upload gambar produk"
-              />
+              <div className="space-y-2">
+                <ImageUpload
+                  bucket="products"
+                  path={`merchants/${merchantId}/products`}
+                  value={form.image_url}
+                  onChange={(url) => setForm({ ...form, image_url: url })}
+                  aspectRatio="square"
+                  maxSizeMB={5}
+                  placeholder="Upload gambar produk"
+                />
+                <p className="text-[10px] text-muted-foreground">
+                  Jika upload gagal, pastikan bucket 'products' sudah dibuat di Supabase Storage.
+                </p>
+              </div>
             </div>
             <div className="space-y-2">
               <Label>Nama Produk *</Label>
@@ -387,22 +396,30 @@ export default function MerchantProductsPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label>Deskripsi</Label>
-              <Textarea
-                value={form.description}
-                onChange={(e) => setForm(prev => ({ ...prev, description: e.target.value }))}
-                placeholder="Deskripsi produk"
-                rows={3}
-              />
+              <Label>Kategori</Label>
+              <Select
+                value={form.category}
+                onValueChange={(value) => setForm(prev => ({ ...prev, category: value }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Pilih kategori" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="kuliner">Kuliner</SelectItem>
+                  <SelectItem value="fashion">Fashion</SelectItem>
+                  <SelectItem value="kriya">Kriya</SelectItem>
+                  <SelectItem value="wisata">Wisata</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Harga *</Label>
+                <Label>Harga (Rp) *</Label>
                 <Input
                   type="number"
                   value={form.price}
                   onChange={(e) => setForm(prev => ({ ...prev, price: e.target.value }))}
-                  placeholder="0"
+                  placeholder="10000"
                 />
               </div>
               <div className="space-y-2">
@@ -416,38 +433,36 @@ export default function MerchantProductsPage() {
               </div>
             </div>
             <div className="space-y-2">
-              <Label>Kategori</Label>
-              <Select value={form.category} onValueChange={(v) => setForm(prev => ({ ...prev, category: v }))}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="kuliner">Kuliner</SelectItem>
-                  <SelectItem value="fashion">Fashion</SelectItem>
-                  <SelectItem value="kriya">Kriya</SelectItem>
-                  <SelectItem value="wisata">Wisata</SelectItem>
-                </SelectContent>
-              </Select>
+              <Label>Deskripsi</Label>
+              <Textarea
+                value={form.description}
+                onChange={(e) => setForm(prev => ({ ...prev, description: e.target.value }))}
+                placeholder="Deskripsi produk..."
+                rows={3}
+              />
             </div>
-            <div className="flex items-center justify-between">
+            <div className="flex items-center gap-6 pt-2">
               <div className="flex items-center gap-2">
                 <Switch
-                  id="is_active"
                   checked={form.is_active}
-                  onCheckedChange={(c) => setForm(prev => ({ ...prev, is_active: c }))}
+                  onCheckedChange={(checked) => setForm(prev => ({ ...prev, is_active: checked }))}
                 />
-                <Label htmlFor="is_active">Aktif</Label>
+                <Label>Aktif</Label>
               </div>
               <div className="flex items-center gap-2">
                 <Switch
-                  id="is_promo"
                   checked={form.is_promo}
-                  onCheckedChange={(c) => setForm(prev => ({ ...prev, is_promo: c }))}
+                  onCheckedChange={(checked) => setForm(prev => ({ ...prev, is_promo: checked }))}
                 />
-                <Label htmlFor="is_promo">Promo</Label>
+                <Label>Promo</Label>
               </div>
             </div>
-            <Button className="w-full" onClick={handleSave} disabled={saving}>
+          </div>
+          <div className="flex justify-end gap-3">
+            <Button variant="outline" onClick={() => setDialogOpen(false)}>
+              Batal
+            </Button>
+            <Button onClick={handleSave} disabled={saving}>
               {saving ? 'Menyimpan...' : 'Simpan'}
             </Button>
           </div>

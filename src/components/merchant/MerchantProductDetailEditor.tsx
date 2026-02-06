@@ -149,9 +149,14 @@ export function MerchantProductDetailEditor({ productId, merchantId, onBack }: M
       if (error) throw error;
 
       toast.success('Produk berhasil disimpan');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error saving product:', error);
-      toast.error('Gagal menyimpan produk');
+      const errorMessage = error.message || 'Gagal menyimpan produk';
+      if (errorMessage.includes('Bucket not found')) {
+        toast.error('Error: Bucket storage "products" tidak ditemukan. Silakan jalankan migrasi SQL.');
+      } else {
+        toast.error(errorMessage);
+      }
     } finally {
       setSaving(false);
     }
@@ -327,7 +332,7 @@ export function MerchantProductDetailEditor({ productId, merchantId, onBack }: M
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>Berakhir Pada</Label>
+                    <Label>Berlaku Hingga</Label>
                     <Input
                       type="date"
                       value={form.discount_end_date}
@@ -349,8 +354,8 @@ export function MerchantProductDetailEditor({ productId, merchantId, onBack }: M
             <CardContent>
               <MultipleImageUpload
                 productId={productId}
-                initialImages={product.image_url ? [product.image_url] : []}
-                onImagesChange={() => fetchData()}
+                merchantId={merchantId}
+                maxImages={5}
               />
             </CardContent>
           </Card>
@@ -358,17 +363,27 @@ export function MerchantProductDetailEditor({ productId, merchantId, onBack }: M
 
         {/* Variants Tab */}
         <TabsContent value="variants">
-          <ProductVariantManager productId={productId} />
+          <Card>
+            <CardHeader>
+              <CardTitle>Varian Produk</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ProductVariantManager
+                productId={productId}
+                basePrice={parseInt(form.price) || 0}
+              />
+            </CardContent>
+          </Card>
         </TabsContent>
 
         {/* Stock Tab */}
         <TabsContent value="stock">
           <Card>
             <CardHeader>
-              <CardTitle>Pengaturan Stok</CardTitle>
+              <CardTitle>Manajemen Stok</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid md:grid-cols-2 gap-4">
+            <CardContent className="space-y-6">
+              <div className="grid md:grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <Label>Stok Saat Ini</Label>
                   <Input
@@ -378,14 +393,19 @@ export function MerchantProductDetailEditor({ productId, merchantId, onBack }: M
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Alert Stok Menipis (Unit)</Label>
+                  <Label>Peringatan Stok Minimum</Label>
                   <Input
                     type="number"
                     value={form.min_stock_alert}
                     onChange={(e) => setForm(prev => ({ ...prev, min_stock_alert: e.target.value }))}
                   />
+                  <p className="text-xs text-muted-foreground">
+                    Dapatkan notifikasi saat stok di bawah angka ini
+                  </p>
                 </div>
               </div>
+
+              <StockAlerts productId={productId} />
             </CardContent>
           </Card>
         </TabsContent>
