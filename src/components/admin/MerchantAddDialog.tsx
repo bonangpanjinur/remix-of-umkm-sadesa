@@ -431,7 +431,12 @@ export function MerchantAddDialog({
                     checked={formData.is_verified}
                     onCheckedChange={(v) => setFormData({ ...formData, is_verified: v })}
                   />
-                  <Label>Terverifikasi</Label>            <div className="grid grid-cols-2 gap-4">
+                  <Label>Terverifikasi</Label>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="name">Nama Merchant *</Label>
                 <Input
@@ -463,7 +468,7 @@ export function MerchantAddDialog({
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-4 mt-4">
               <div className="space-y-2">
                 <Label htmlFor="phone">Nomor Telepon *</Label>
                 <Input
@@ -473,6 +478,24 @@ export function MerchantAddDialog({
                   placeholder="08xxxxxxxxxx"
                 />
               </div>
+              <div className="space-y-2">
+                <Label>Status Merchant</Label>
+                <Select
+                  value={formData.status}
+                  onValueChange={(v) => setFormData({ ...formData, status: v })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ACTIVE">Aktif</SelectItem>
+                    <SelectItem value="INACTIVE">Nonaktif</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 mt-4">
               <div className="space-y-2">
                 <Label htmlFor="category">Kategori Bisnis</Label>
                 <Select
@@ -488,40 +511,6 @@ export function MerchantAddDialog({
                         {cat.label}
                       </SelectItem>
                     ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>    <div className="grid grid-cols-2 gap-4 mt-4">
-              <div className="space-y-2">
-                <Label>Kategori Bisnis</Label>
-                <Select
-                  value={formData.business_category}
-                  onValueChange={(v) => setFormData({ ...formData, business_category: v })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {BUSINESS_CATEGORIES.map((cat) => (
-                      <SelectItem key={cat.value} value={cat.value}>
-                        {cat.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Status Merchant</Label>
-                <Select
-                  value={formData.status}
-                  onValueChange={(v) => setFormData({ ...formData, status: v })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="ACTIVE">Aktif</SelectItem>
-                    <SelectItem value="INACTIVE">Nonaktif</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
