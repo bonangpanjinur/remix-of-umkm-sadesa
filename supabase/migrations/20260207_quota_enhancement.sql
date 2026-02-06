@@ -127,7 +127,6 @@ SELECT 200001, NULL, 5, 'Produk Mahal', 3
 WHERE NOT EXISTS (SELECT 1 FROM public.quota_tiers WHERE min_price = 200001);
 
 -- 7. Membuat Storage Bucket 'merchants' jika belum ada
--- Catatan: Di Supabase, bucket dikelola melalui tabel storage.buckets
 INSERT INTO storage.buckets (id, name, public)
 SELECT 'merchants', 'merchants', true
 WHERE NOT EXISTS (
@@ -135,13 +134,8 @@ WHERE NOT EXISTS (
 );
 
 -- 8. Menambahkan Storage Policies untuk bucket 'merchants'
--- Hapus policy lama jika ada untuk menghindari duplikasi saat re-run
-DO $$ 
-BEGIN
-    DELETE FROM storage.policies WHERE bucket_id = 'merchants';
-END $$;
-
--- Policy: Merchant bisa upload bukti pembayaran ke folder payment-proofs
+-- Menggunakan DROP POLICY IF EXISTS untuk menghindari error jika policy sudah ada
+DROP POLICY IF EXISTS "Merchant upload proof" ON storage.objects;
 CREATE POLICY "Merchant upload proof"
 ON storage.objects FOR INSERT
 TO authenticated
@@ -150,13 +144,13 @@ WITH CHECK (
     (storage.foldername(name))[1] = 'payment-proofs'
 );
 
--- Policy: Semua orang bisa melihat bukti pembayaran (Public bucket)
+DROP POLICY IF EXISTS "Public view proof" ON storage.objects;
 CREATE POLICY "Public view proof"
 ON storage.objects FOR SELECT
 TO public
 USING (bucket_id = 'merchants');
 
--- Policy: Admin bisa mengelola semua file di bucket merchants
+DROP POLICY IF EXISTS "Admin manage merchants bucket" ON storage.objects;
 CREATE POLICY "Admin manage merchants bucket"
 ON storage.objects FOR ALL
 TO authenticated
