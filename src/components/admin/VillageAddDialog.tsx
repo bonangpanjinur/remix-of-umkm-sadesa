@@ -307,7 +307,7 @@ export function VillageAddDialog({
                 Gambar Utama
               </Label>
               <ImageUpload
-                bucket="village-images"
+                bucket="tourism-images"
                 path={`villages/${Date.now()}`}
                 value={formData.image_url}
                 onChange={(url) => setFormData({ ...formData, image_url: url || '' })}
