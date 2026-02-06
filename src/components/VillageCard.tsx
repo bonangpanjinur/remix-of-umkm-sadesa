@@ -9,7 +9,7 @@ interface VillageCardProps {
 export function VillageCard({ village }: VillageCardProps) {
   return (
     <Link
-      to={`/village/${village.id}`}
+      to={`/village/${village.name.toLowerCase().replace(/\s+/g, '-')}`}
       className="min-w-[200px] h-32 rounded-2xl overflow-hidden relative shadow-sm cursor-pointer group flex-shrink-0"
     >
       <img 

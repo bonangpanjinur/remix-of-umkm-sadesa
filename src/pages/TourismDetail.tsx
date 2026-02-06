@@ -116,7 +116,7 @@ export default function TourismDetail() {
               </h2>
               {villageId ? (
                 <Link 
-                  to={`/village/${villageId}`}
+                  to={`/village/${tourism.villageName.toLowerCase().replace(/\s+/g, '-')}`}
                   className="flex items-center gap-1.5 mt-2 group"
                 >
                   <MapPin className="h-3.5 w-3.5 text-primary" />

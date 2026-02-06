@@ -38,6 +38,8 @@ interface VillageData {
   contact_phone: string | null;
   contact_email: string | null;
   registered_at: string | null;
+  location_lat?: number | null;
+  location_lng?: number | null;
 }
 
 interface MerchantData {
@@ -69,15 +71,26 @@ export default function VillageDetailPage() {
     async function loadData() {
       if (!id) return;
       try {
-        // Fetch village
-        const { data: villageData, error: villageError } = await supabase
-          .from('villages')
-          .select('*')
-          .eq('id', id)
-          .single();
+        // Fetch village - support both ID and slug (name)
+        let query = supabase.from('villages').select('*');
+        
+        // Check if id is a UUID or a slug
+        const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+        
+        if (isUuid) {
+          query = query.eq('id', id);
+        } else {
+          // Replace hyphens with spaces for name search, or use a slug column if it exists
+          // For now, we'll try to match by name (case-insensitive)
+          const nameSearch = id.replace(/-/g, ' ');
+          query = query.ilike('name', nameSearch);
+        }
+        
+        const { data: villageData, error: villageError } = await query.single();
 
         if (villageError) throw villageError;
         setVillage(villageData);
+        const actualId = villageData.id;
 
         // Fetch tourism spots
         const { data: tourismData } = await supabase
@@ -87,7 +100,7 @@ export default function VillageDetailPage() {
             location_lat, location_lng, wa_link, sosmed_link, facilities,
             village_id, villages(name)
           `)
-          .eq('village_id', id)
+          .eq('village_id', actualId)
           .eq('is_active', true);
 
         const mappedTourism: Tourism[] = (tourismData || []).map(t => ({
@@ -111,7 +124,7 @@ export default function VillageDetailPage() {
         const { data: merchantsData } = await supabase
           .from('merchants')
           .select('id, name, image_url, business_category, rating_avg, rating_count, is_open, open_time, close_time, is_verified, badge')
-          .eq('village_id', id)
+          .eq('village_id', actualId)
           .eq('status', 'ACTIVE')
           .eq('registration_status', 'APPROVED');
 
@@ -302,16 +315,48 @@ export default function VillageDetailPage() {
             </div>
           )}
 
-          {/* Tourism Map */}
-          {tourisms.length > 0 && (
-            <div className="bg-card rounded-2xl p-4 shadow-sm border border-border mb-4">
-              <h3 className="font-semibold text-foreground mb-3 flex items-center gap-2">
+          {/* Village Location & Tourism Map */}
+          <div className="bg-card rounded-2xl p-4 shadow-sm border border-border mb-4">
+            <h3 className="font-semibold text-foreground mb-3 flex items-center justify-between">
+              <div className="flex items-center gap-2">
                 <Map className="h-4 w-4 text-primary" />
-                Peta Lokasi Wisata
-              </h3>
-              <TourismMap tourismSpots={tourisms} height="250px" />
-            </div>
-          )}
+                Lokasi Desa & Wisata
+              </div>
+              {village.location_lat && village.location_lng && (
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="text-[10px] h-7 px-2"
+                  onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${village.location_lat},${village.location_lng}`, '_blank')}
+                >
+                  <MapPin className="h-3 w-3 mr-1" />
+                  Buka di Maps
+                </Button>
+              )}
+            </h3>
+            
+            {/* If village has location, we show it on the map along with tourism spots */}
+            <TourismMap 
+              tourismSpots={[
+                ...(village.location_lat && village.location_lng ? [{
+                  id: 'village-loc',
+                  name: village.name,
+                  description: 'Lokasi Desa',
+                  image: village.image_url || '',
+                  locationLat: village.location_lat,
+                  locationLng: village.location_lng,
+                  villageId: village.id,
+                  villageName: village.name,
+                  isActive: true,
+                  facilities: [],
+                  waLink: '',
+                  viewCount: 0
+                }] : []),
+                ...tourisms
+              ]} 
+              height="250px" 
+            />
+          </div>
 
           {/* Tabs */}
           <div className="flex gap-2 mb-4">

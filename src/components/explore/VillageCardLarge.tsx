@@ -16,7 +16,7 @@ export function VillageCardLarge({ village, index = 0 }: VillageCardLargeProps) 
       transition={{ duration: 0.4, delay: index * 0.1 }}
     >
       <Link
-        to={`/village/${village.id}`}
+        to={`/village/${village.name.toLowerCase().replace(/\s+/g, '-')}`}
         className="block min-w-[260px] h-44 rounded-2xl overflow-hidden relative shadow-lg cursor-pointer group flex-shrink-0"
       >
         <img 
