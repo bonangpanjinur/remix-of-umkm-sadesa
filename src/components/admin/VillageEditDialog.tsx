@@ -78,24 +78,60 @@ export function VillageEditDialog({
 
   // Load provinces and initial data on dialog open
   useEffect(() => {
-    if (open && initialData) {
-      setFormData({
-        name: initialData.name || '',
-        province: initialData.province || '',
-        regency: initialData.regency || '',
-        district: initialData.district || '',
-        subdistrict: initialData.subdistrict || '',
-        description: initialData.description || '',
-        image_url: initialData.image_url || '',
-        location_lat: initialData.location_lat ?? null,
-        location_lng: initialData.location_lng ?? null,
-        contact_name: initialData.contact_name || '',
-        contact_phone: initialData.contact_phone || '',
-        contact_email: initialData.contact_email || '',
-        is_active: initialData.is_active ?? true,
-      });
-      loadProvinces();
-    }
+    const initData = async () => {
+      if (open && initialData) {
+        // Load provinces first to get the list
+        const provinces = await fetchProvinces();
+        setProvincesList(provinces);
+
+        // Find province code by name
+        const province = provinces.find(p => p.name === initialData.province);
+        const provinceCode = province?.code || '';
+
+        let regencyCode = '';
+        let districtCode = '';
+        let subdistrictCode = '';
+
+        if (provinceCode) {
+          const regencies = await fetchRegencies(provinceCode);
+          setRegenciesList(regencies);
+          const regency = regencies.find(r => r.name === initialData.regency);
+          regencyCode = regency?.code || '';
+
+          if (regencyCode) {
+            const districts = await fetchDistricts(regencyCode);
+            setDistrictsList(districts);
+            const district = districts.find(d => d.name === initialData.district);
+            districtCode = district?.code || '';
+
+            if (districtCode) {
+              const subdistricts = await fetchVillages(districtCode);
+              setSubdistrictsList(subdistricts);
+              const subdistrict = subdistricts.find(s => s.name === initialData.subdistrict);
+              subdistrictCode = subdistrict?.code || '';
+            }
+          }
+        }
+
+        setFormData({
+          name: initialData.name || '',
+          province: provinceCode,
+          regency: regencyCode,
+          district: districtCode,
+          subdistrict: subdistrictCode,
+          description: initialData.description || '',
+          image_url: initialData.image_url || '',
+          location_lat: initialData.location_lat ?? null,
+          location_lng: initialData.location_lng ?? null,
+          contact_name: initialData.contact_name || '',
+          contact_phone: initialData.contact_phone || '',
+          contact_email: initialData.contact_email || '',
+          is_active: initialData.is_active ?? true,
+        });
+      }
+    };
+
+    initData();
   }, [open, initialData]);
 
   // Load regencies when province changes
