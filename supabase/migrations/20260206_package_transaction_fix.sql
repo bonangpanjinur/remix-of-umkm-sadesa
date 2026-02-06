@@ -48,11 +48,6 @@ BEGIN
     SET current_subscription_id = NEW.id
     WHERE id = NEW.merchant_id;
     
-    -- Deactivate other active subscriptions for this merchant (optional, depending on business rule)
-    -- UPDATE public.merchant_subscriptions
-    -- SET status = 'INACTIVE'
-    -- WHERE merchant_id = NEW.merchant_id AND id <> NEW.id AND status = 'ACTIVE';
-    
   END IF;
   RETURN NEW;
 END;
@@ -64,30 +59,20 @@ CREATE TRIGGER on_subscription_activation
   FOR EACH ROW
   EXECUTE FUNCTION public.handle_subscription_activation();
 
--- STORAGE POLICIES for payment proofs
--- Ensure 'merchants' bucket exists and has correct policies
--- Note: These are usually set in the Supabase Dashboard, but adding them here for reference/migration
+-- STORAGE POLICIES (Correct syntax for Supabase)
+-- Allow authenticated users to upload files to 'merchants' bucket
+DROP POLICY IF EXISTS "Allow merchants to upload payment proofs" ON storage.objects;
+CREATE POLICY "Allow merchants to upload payment proofs"
+ON storage.objects FOR INSERT
+TO authenticated
+WITH CHECK (
+  bucket_id = 'merchants' AND 
+  (storage.foldername(name))[1] = 'payment-proofs'
+);
 
--- Allow merchants to upload their own payment proofs
--- Path: payment-proofs/{merchant_id}/{filename}
-DO $$ 
-BEGIN
-  -- Insert policy for uploads
-  INSERT INTO storage.policies (name, bucket_id, operation, definition, check_expression)
-  VALUES (
-    'Allow merchants to upload payment proofs',
-    'merchants',
-    'INSERT',
-    '(role = ''authenticated''::text)',
-    '(bucket_id = ''merchants''::text AND (storage.foldername(name))[1] = ''payment-proofs''::text)'
-  ) ON CONFLICT DO NOTHING;
-
-  -- Allow public/authenticated to read payment proofs (so admin can see them)
-  INSERT INTO storage.policies (name, bucket_id, operation, definition)
-  VALUES (
-    'Allow authenticated to read payment proofs',
-    'merchants',
-    'SELECT',
-    '(role = ''authenticated''::text)'
-  ) ON CONFLICT DO NOTHING;
-END $$;
+-- Allow authenticated users to view files in 'merchants' bucket
+DROP POLICY IF EXISTS "Allow authenticated to read payment proofs" ON storage.objects;
+CREATE POLICY "Allow authenticated to read payment proofs"
+ON storage.objects FOR SELECT
+TO authenticated
+USING (bucket_id = 'merchants');
