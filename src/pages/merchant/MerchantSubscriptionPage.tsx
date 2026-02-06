@@ -86,6 +86,8 @@ export default function MerchantSubscriptionPage() {
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [dragActive, setDragActive] = useState(false);
+  const [detailModalOpen, setDetailModalOpen] = useState(false);
+  const [selectedSubscriptionDetail, setSelectedSubscriptionDetail] = useState<Subscription | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const fetchData = async () => {
@@ -370,6 +372,11 @@ export default function MerchantSubscriptionPage() {
     }
   };
 
+  const openDetailModal = (subscription: Subscription) => {
+    setSelectedSubscriptionDetail(subscription);
+    setDetailModalOpen(true);
+  };
+
   if (loading) {
     return (
       <MerchantLayout title="Kuota Transaksi" subtitle="Kelola paket kuota transaksi Anda">
@@ -520,7 +527,7 @@ export default function MerchantSubscriptionPage() {
                 </thead>
                 <tbody>
                   {subscriptionHistory.map((sub) => (
-                    <tr key={sub.id} className="border-b hover:bg-muted/50">
+                    <tr key={sub.id} className="border-b hover:bg-muted/50 cursor-pointer" onClick={() => openDetailModal(sub)}>
                       <td className="py-3 px-2">{sub.package.name}</td>
                       <td className="py-3 px-2">{sub.transaction_quota}</td>
                       <td className="py-3 px-2">{formatPrice(sub.payment_amount)}</td>
@@ -839,3 +846,172 @@ export default function MerchantSubscriptionPage() {
     </MerchantLayout>
   );
 }
+
+      {/* Detail Modal */}
+      <Dialog open={detailModalOpen} onOpenChange={setDetailModalOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Package className="h-5 w-5" />
+              Detail Riwayat Pembelian
+            </DialogTitle>
+          </DialogHeader>
+          {selectedSubscriptionDetail && (
+            <div className="space-y-6">
+              {/* Package Info */}
+              <div className="bg-gradient-to-r from-primary/10 to-primary/5 p-6 rounded-lg border border-primary/20">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">Nama Paket</p>
+                    <p className="font-bold text-lg">{selectedSubscriptionDetail.package.name}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">Total Kuota</p>
+                    <p className="font-bold text-lg text-primary">{selectedSubscriptionDetail.transaction_quota}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">Kuota Digunakan</p>
+                    <p className="font-bold text-lg text-orange-600">{selectedSubscriptionDetail.used_quota}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">Sisa Kuota</p>
+                    <p className="font-bold text-lg text-green-600">{selectedSubscriptionDetail.transaction_quota - selectedSubscriptionDetail.used_quota}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Payment Details */}
+              <div className="space-y-3">
+                <h3 className="font-semibold text-sm">Detail Pembayaran</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
+                    <p className="text-xs text-slate-600 mb-1">Total Pembayaran</p>
+                    <p className="text-2xl font-bold text-primary">{formatPrice(selectedSubscriptionDetail.payment_amount)}</p>
+                  </div>
+                  <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
+                    <p className="text-xs text-slate-600 mb-1">Status Pembayaran</p>
+                    <div className="mt-2">{getPaymentStatusBadge(selectedSubscriptionDetail.payment_status)}</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Validity Details */}
+              <div className="space-y-3">
+                <h3 className="font-semibold text-sm">Periode Berlaku</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
+                    <p className="text-xs text-slate-600 mb-1">Tanggal Mulai</p>
+                    <p className="font-medium">{new Date(selectedSubscriptionDetail.started_at).toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+                  </div>
+                  <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
+                    <p className="text-xs text-slate-600 mb-1">Tanggal Berakhir</p>
+                    <p className="font-medium">{new Date(selectedSubscriptionDetail.expired_at).toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Package Details */}
+              <div className="space-y-3">
+                <h3 className="font-semibold text-sm">Informasi Paket</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
+                    <p className="text-xs text-slate-600 mb-1">Harga per Transaksi</p>
+                    <p className="font-medium">{formatPrice(selectedSubscriptionDetail.package.price_per_transaction)}</p>
+                  </div>
+                  <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
+                    <p className="text-xs text-slate-600 mb-1">Komisi Grup</p>
+                    <p className="font-medium">{selectedSubscriptionDetail.package.group_commission_percent}%</p>
+                  </div>
+                  <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
+                    <p className="text-xs text-slate-600 mb-1">Validitas</p>
+                    <p className="font-medium">{selectedSubscriptionDetail.package.validity_days} hari</p>
+                  </div>
+                  <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
+                    <p className="text-xs text-slate-600 mb-1">Status</p>
+                    <Badge variant={selectedSubscriptionDetail.status === 'ACTIVE' ? 'default' : 'secondary'}>
+                      {selectedSubscriptionDetail.status === 'ACTIVE' ? 'Aktif' : 'Nonaktif'}
+                    </Badge>
+                  </div>
+                </div>
+              </div>
+
+              {/* Usage Progress */}
+              <div className="space-y-3">
+                <h3 className="font-semibold text-sm">Penggunaan Kuota</h3>
+                <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
+                  <div className="flex justify-between items-center mb-2">
+                    <p className="text-sm font-medium">Progress Penggunaan</p>
+                    <p className="text-xs text-muted-foreground">
+                      {getQuotaPercentage(selectedSubscriptionDetail.used_quota, selectedSubscriptionDetail.transaction_quota).toFixed(0)}%
+                    </p>
+                  </div>
+                  <Progress 
+                    value={getQuotaPercentage(selectedSubscriptionDetail.used_quota, selectedSubscriptionDetail.transaction_quota)} 
+                    className="h-2"
+                  />
+                </div>
+              </div>
+
+              {/* Payment Proof */}
+              {selectedSubscriptionDetail.payment_proof_url && (
+                <div className="space-y-3">
+                  <h3 className="font-semibold text-sm">Bukti Pembayaran</h3>
+                  <div className="relative aspect-video border-2 border-slate-200 rounded-lg overflow-hidden bg-black/5 group">
+                    <img 
+                      src={selectedSubscriptionDetail.payment_proof_url} 
+                      alt="Bukti Pembayaran" 
+                      className="w-full h-full object-contain"
+                    />
+                    <a 
+                      href={selectedSubscriptionDetail.payment_proof_url} 
+                      target="_blank" 
+                      rel="noreferrer"
+                      className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity"
+                    >
+                      <Button variant="secondary" size="sm">
+                        <ExternalLink className="h-4 w-4 mr-2" />
+                        Lihat Full
+                      </Button>
+                    </a>
+                  </div>
+                </div>
+              )}
+
+              {/* Admin Notes */}
+              {selectedSubscriptionDetail.admin_notes && (
+                <Alert variant={selectedSubscriptionDetail.payment_status === 'REJECTED' ? 'destructive' : 'default'}>
+                  <Info className="h-4 w-4" />
+                  <AlertTitle>Catatan Admin</AlertTitle>
+                  <AlertDescription>
+                    {selectedSubscriptionDetail.admin_notes}
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              {/* Transaction Info */}
+              <div className="space-y-3 border-t pt-4">
+                <h3 className="font-semibold text-sm">Informasi Transaksi</h3>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">ID Transaksi</p>
+                    <p className="font-mono text-xs break-all">{selectedSubscriptionDetail.id}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">Tanggal Pesanan</p>
+                    <p className="text-xs">{new Date(selectedSubscriptionDetail.created_at).toLocaleString('id-ID')}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => setDetailModalOpen(false)}
+              className="w-full"
+            >
+              Tutup
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
