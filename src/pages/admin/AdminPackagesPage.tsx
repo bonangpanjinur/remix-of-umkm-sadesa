@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Package, Plus, Edit, Trash2, Info, CreditCard, Check, X, Eye, Upload } from 'lucide-react';
+import { Package, Plus, Edit, Trash2, Info, CreditCard, Check, X, Eye, Upload, ExternalLink } from 'lucide-react';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -78,6 +78,7 @@ export default function AdminPackagesPage() {
   const [editingPackage, setEditingPackage] = useState<TransactionPackage | null>(null);
   const [selectedRequest, setSelectedRequest] = useState<PackageRequest | null>(null);
   const [adminNotes, setAdminNotes] = useState('');
+  const [processing, setProcessing] = useState(false);
   
   const [formData, setFormData] = useState({
     name: '',
@@ -213,27 +214,27 @@ export default function AdminPackagesPage() {
   };
 
   const handleApproveRequest = async (request: PackageRequest) => {
+    setProcessing(true);
     try {
-      // Update subscription status to PAID and ACTIVE
-      // The DB trigger on_subscription_activation will handle merchant's current_subscription_id
-      const { error: subError } = await supabase
-        .from('merchant_subscriptions')
-        .update({
-          status: 'ACTIVE',
-          payment_status: 'PAID',
-          paid_at: new Date().toISOString(),
-          admin_notes: adminNotes
-        })
-        .eq('id', request.id);
+      const { data, error } = await supabase.rpc('approve_quota_subscription', {
+        p_subscription_id: request.id,
+        p_admin_notes: adminNotes
+      });
 
-      if (subError) throw subError;
-
-      toast.success('Permintaan paket berhasil disetujui. Kuota telah diaktifkan.');
-      setRequestDialogOpen(false);
-      fetchData();
+      if (error) throw error;
+      
+      if (data.success) {
+        toast.success(data.message);
+        setRequestDialogOpen(false);
+        fetchData();
+      } else {
+        toast.error(data.message);
+      }
     } catch (error) {
       console.error('Error approving request:', error);
       toast.error('Gagal menyetujui permintaan');
+    } finally {
+      setProcessing(false);
     }
   };
 
@@ -243,24 +244,27 @@ export default function AdminPackagesPage() {
       return;
     }
 
+    setProcessing(true);
     try {
-      const { error } = await supabase
-        .from('merchant_subscriptions')
-        .update({
-          status: 'INACTIVE',
-          payment_status: 'REJECTED',
-          admin_notes: adminNotes
-        })
-        .eq('id', request.id);
+      const { data, error } = await supabase.rpc('reject_quota_subscription', {
+        p_subscription_id: request.id,
+        p_admin_notes: adminNotes
+      });
 
       if (error) throw error;
 
-      toast.success('Permintaan paket berhasil ditolak');
-      setRequestDialogOpen(false);
-      fetchData();
+      if (data.success) {
+        toast.success(data.message);
+        setRequestDialogOpen(false);
+        fetchData();
+      } else {
+        toast.error(data.message);
+      }
     } catch (error) {
       console.error('Error rejecting request:', error);
       toast.error('Gagal menolak permintaan');
+    } finally {
+      setProcessing(false);
     }
   };
 
@@ -337,355 +341,363 @@ export default function AdminPackagesPage() {
   };
 
   return (
-    <AdminLayout title="Manajemen Paket" subtitle="Kelola paket transaksi dan permintaan dari merchant">
-      <Tabs defaultValue="packages" className="w-full">
-        <TabsList className="mb-6">
-          <TabsTrigger value="packages" className="flex items-center gap-2">
-            <Package className="h-4 w-4" />
-            Paket Transaksi
-          </TabsTrigger>
-          <TabsTrigger value="requests" className="flex items-center gap-2">
-            <CreditCard className="h-4 w-4" />
-            Permintaan Beli Paket
-            {requests.filter(r => r.payment_status === 'PENDING_APPROVAL').length > 0 && (
-              <span className="bg-primary text-primary-foreground text-[10px] rounded-full h-4 w-4 flex items-center justify-center ml-1">
-                {requests.filter(r => r.payment_status === 'PENDING_APPROVAL').length}
-              </span>
-            )}
-          </TabsTrigger>
-        </TabsList>
+    <AdminLayout title="Paket Transaksi" subtitle="Kelola paket kuota transaksi dan verifikasi pembayaran">
+      <div className="space-y-6">
+        <Tabs defaultValue="requests">
+          <TabsList className="grid w-full grid-cols-2 max-w-[400px]">
+            <TabsTrigger value="requests">Permintaan Paket</TabsTrigger>
+            <TabsTrigger value="packages">Daftar Paket</TabsTrigger>
+          </TabsList>
 
-        <TabsContent value="packages">
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
-            <div className="flex items-center gap-2">
-              <Package className="h-5 w-5 text-primary" />
-              <span className="text-muted-foreground text-sm">
-                {packages.length} paket tersedia
-              </span>
-            </div>
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={() => setSettingsDialogOpen(true)}>
+          <TabsContent value="requests" className="space-y-4 pt-4">
+            <div className="flex justify-end">
+              <Button variant="outline" size="sm" onClick={() => setSettingsDialogOpen(true)}>
                 <CreditCard className="h-4 w-4 mr-2" />
                 Pengaturan Pembayaran
               </Button>
+            </div>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Daftar Permintaan Paket</CardTitle>
+                <CardDescription>Verifikasi pembayaran dari merchant untuk aktivasi kuota</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {loading ? (
+                  <div className="flex justify-center py-10">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+                  </div>
+                ) : requests.length === 0 ? (
+                  <div className="text-center py-10 text-muted-foreground">
+                    Belum ada permintaan paket
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b">
+                          <th className="text-left py-3 px-4">Tanggal</th>
+                          <th className="text-left py-3 px-4">Merchant</th>
+                          <th className="text-left py-3 px-4">Paket</th>
+                          <th className="text-left py-3 px-4">Jumlah</th>
+                          <th className="text-left py-3 px-4">Status</th>
+                          <th className="text-right py-3 px-4">Aksi</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {requests.map((req) => (
+                          <tr key={req.id} className="border-b hover:bg-secondary/20">
+                            <td className="py-3 px-4">{new Date(req.created_at).toLocaleDateString('id-ID')}</td>
+                            <td className="py-3 px-4 font-medium">{req.merchant?.name}</td>
+                            <td className="py-3 px-4">{req.package?.name} ({req.package?.transaction_quota} Kuota)</td>
+                            <td className="py-3 px-4">{formatPrice(req.payment_amount)}</td>
+                            <td className="py-3 px-4">{getPaymentStatusBadge(req.payment_status)}</td>
+                            <td className="py-3 px-4 text-right">
+                              <Button 
+                                size="sm" 
+                                variant="outline"
+                                onClick={() => {
+                                  setSelectedRequest(req);
+                                  setAdminNotes(req.admin_notes || '');
+                                  setRequestDialogOpen(true);
+                                }}
+                              >
+                                <Eye className="h-4 w-4 mr-1" />
+                                Detail
+                              </Button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="packages" className="space-y-4 pt-4">
+            <div className="flex justify-between items-center">
+              <h3 className="text-lg font-medium">Paket Tersedia</h3>
               <Button onClick={() => { resetForm(); setDialogOpen(true); }}>
                 <Plus className="h-4 w-4 mr-2" />
                 Tambah Paket
               </Button>
             </div>
-          </div>
 
-          <Alert className="mb-6 border-primary/20 bg-primary/5">
-            <Info className="h-4 w-4 text-primary" />
-            <AlertTitle>Sinkronisasi Harga</AlertTitle>
-            <AlertDescription>
-              Harga yang diatur di sini akan otomatis tampil di sisi merchant. 
-              Pastikan harga paket sudah sesuai sebelum diaktifkan.
-            </AlertDescription>
-          </Alert>
-
-          {loading ? (
-            <div className="flex items-center justify-center py-20">
-              <div className="animate-spin rounded-full h-10 w-10 border-2 border-primary border-t-transparent" />
-            </div>
-          ) : (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {packages.map((pkg) => (
-                <Card key={pkg.id} className={!pkg.is_active ? 'opacity-60' : 'border-primary/10'}>
-                  <CardHeader className="pb-3">
+                <Card key={pkg.id} className={!pkg.is_active ? 'opacity-60' : ''}>
+                  <CardHeader className="pb-2">
                     <div className="flex justify-between items-start">
-                      <div>
-                        <CardTitle className="text-lg">{pkg.name}</CardTitle>
-                        <CardDescription>Paket Kuota Transaksi</CardDescription>
-                      </div>
-                      <Badge variant={pkg.is_active ? "success" : "secondary"}>
+                      <CardTitle className="text-lg">{pkg.name}</CardTitle>
+                      <Badge variant={pkg.is_active ? 'default' : 'secondary'}>
                         {pkg.is_active ? 'Aktif' : 'Nonaktif'}
                       </Badge>
                     </div>
+                    <CardDescription>{pkg.description || 'Tidak ada deskripsi'}</CardDescription>
                   </CardHeader>
-                  <CardContent>
-                    <div className="space-y-3 text-sm mb-4">
+                  <CardContent className="pb-2">
+                    <div className="space-y-1 text-sm">
                       <div className="flex justify-between">
-                        <span className="text-muted-foreground">Harga Paket</span>
-                        <span className="font-bold text-primary">{formatPrice(pkg.price_per_transaction)}</span>
+                        <span className="text-muted-foreground">Kuota:</span>
+                        <span className="font-medium">{pkg.transaction_quota} Transaksi</span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-muted-foreground">Total Kredit</span>
-                        <span className="font-bold">{pkg.transaction_quota} Kredit</span>
+                        <span className="text-muted-foreground">Harga:</span>
+                        <span className="font-medium">{formatPrice(pkg.price_per_transaction)}</span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-muted-foreground">Komisi Kelompok</span>
-                        <span className="font-bold">{pkg.group_commission_percent}%</span>
+                        <span className="text-muted-foreground">Masa Aktif:</span>
+                        <span className="font-medium">{pkg.validity_days} Hari</span>
                       </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Masa Aktif</span>
-                        <span className="font-medium">{pkg.validity_days === 0 ? 'Selamanya' : `${pkg.validity_days} hari`}</span>
-                      </div>
-                    </div>
-                    <div className="flex gap-2 pt-2 border-t">
-                      <Button variant="outline" size="sm" className="flex-1" onClick={() => handleEdit(pkg)}>
-                        <Edit className="h-4 w-4 mr-1" />
-                        Edit
-                      </Button>
-                      <Button variant="outline" size="sm" className="text-destructive hover:bg-destructive/5" onClick={() => handleDelete(pkg.id)}>
-                        <Trash2 className="h-4 w-4 mr-1" />
-                        Hapus
-                      </Button>
                     </div>
                   </CardContent>
+                  <CardFooter className="pt-2 flex justify-end gap-2">
+                    <Button size="sm" variant="outline" onClick={() => handleEdit(pkg)}>
+                      <Edit className="h-4 w-4 mr-1" />
+                      Edit
+                    </Button>
+                    <Button size="sm" variant="ghost" className="text-destructive" onClick={() => handleDelete(pkg.id)}>
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </CardFooter>
                 </Card>
               ))}
             </div>
-          )}
-        </TabsContent>
+          </TabsContent>
+        </Tabs>
 
-        <TabsContent value="requests">
-          <Card>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b bg-muted/50">
-                    <th className="text-left p-4 font-medium">Tanggal</th>
-                    <th className="text-left p-4 font-medium">Merchant</th>
-                    <th className="text-left p-4 font-medium">Paket</th>
-                    <th className="text-left p-4 font-medium">Total Bayar</th>
-                    <th className="text-left p-4 font-medium">Status</th>
-                    <th className="text-left p-4 font-medium">Aksi</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {requests.length === 0 ? (
-                    <tr>
-                      <td colSpan={6} className="p-8 text-center text-muted-foreground">
-                        Belum ada permintaan pembelian paket.
-                      </td>
-                    </tr>
-                  ) : (
-                    requests.map((req) => (
-                      <tr key={req.id} className="border-b last:border-0">
-                        <td className="p-4">{new Date(req.created_at).toLocaleDateString('id-ID')}</td>
-                        <td className="p-4 font-medium">{req.merchant?.name || 'Unknown'}</td>
-                        <td className="p-4">{req.package?.name}</td>
-                        <td className="p-4 font-bold">{formatPrice(req.payment_amount)}</td>
-                        <td className="p-4">{getPaymentStatusBadge(req.payment_status)}</td>
-                        <td className="p-4">
-                          <Button 
-                            size="sm" 
-                            variant="outline" 
-                            onClick={() => {
-                              setSelectedRequest(req);
-                              setAdminNotes(req.admin_notes || '');
-                              setRequestDialogOpen(true);
-                            }}
-                          >
-                            <Eye className="h-4 w-4 mr-1" />
-                            Detail
-                          </Button>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </Card>
-        </TabsContent>
-      </Tabs>
-
-      {/* Package Form Dialog */}
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>
-              {editingPackage ? 'Edit Paket' : 'Tambah Paket Baru'}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div>
-              <Label htmlFor="name">Nama Paket *</Label>
-              <Input
-                id="name"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                placeholder="Contoh: Paket Pemula"
-              />
-            </div>
-            <div>
-              <Label htmlFor="price_per_transaction">Harga Paket (Rp) *</Label>
-              <Input
-                id="price_per_transaction"
-                type="number"
-                value={formData.price_per_transaction}
-                onChange={(e) => setFormData({ ...formData, price_per_transaction: Number(e.target.value) })}
-              />
-            </div>
-            <div>
-              <Label htmlFor="transaction_quota">Total Kredit *</Label>
-              <Input
-                id="transaction_quota"
-                type="number"
-                value={formData.transaction_quota}
-                onChange={(e) => setFormData({ ...formData, transaction_quota: Number(e.target.value) })}
-              />
-            </div>
-            <div>
-              <Label htmlFor="group_commission_percent">Komisi Kelompok (%)</Label>
-              <Input
-                id="group_commission_percent"
-                type="number"
-                step="0.01"
-                value={formData.group_commission_percent}
-                onChange={(e) => setFormData({ ...formData, group_commission_percent: Number(e.target.value) })}
-              />
-            </div>
-            <div>
-              <Label htmlFor="validity_days">Masa Aktif (hari)</Label>
-              <Input
-                id="validity_days"
-                type="number"
-                value={formData.validity_days}
-                onChange={(e) => setFormData({ ...formData, validity_days: Number(e.target.value) })}
-              />
-            </div>
-            <div className="flex items-center gap-2 pt-2">
-              <Switch
-                id="is_active"
-                checked={formData.is_active}
-                onCheckedChange={(v) => setFormData({ ...formData, is_active: v })}
-              />
-              <Label htmlFor="is_active">Paket Aktif</Label>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>Batal</Button>
-            <Button onClick={handleSubmit} disabled={!formData.name}>Simpan</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Payment Settings Dialog */}
-      <Dialog open={settingsDialogOpen} onOpenChange={setSettingsDialogOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Pengaturan Pembayaran</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div>
-              <Label htmlFor="bank_name">Nama Bank</Label>
-              <Input
-                id="bank_name"
-                value={paymentSettings.bank_name}
-                onChange={(e) => setPaymentSettings({ ...paymentSettings, bank_name: e.target.value })}
-                placeholder="Contoh: BCA"
-              />
-            </div>
-            <div>
-              <Label htmlFor="account_number">Nomor Rekening</Label>
-              <Input
-                id="account_number"
-                value={paymentSettings.account_number}
-                onChange={(e) => setPaymentSettings({ ...paymentSettings, account_number: e.target.value })}
-                placeholder="1234567890"
-              />
-            </div>
-            <div>
-              <Label htmlFor="account_name">Atas Nama</Label>
-              <Input
-                id="account_name"
-                value={paymentSettings.account_name}
-                onChange={(e) => setPaymentSettings({ ...paymentSettings, account_name: e.target.value })}
-                placeholder="Admin Desa Digital"
-              />
-            </div>
-            <div>
-              <Label htmlFor="qris">Upload QRIS</Label>
-              <div className="flex items-center gap-4">
-                <Input 
-                  id="qris" 
-                  type="file" 
-                  accept="image/*" 
-                  onChange={handleQRISUpload}
-                  disabled={uploading}
-                />
-                {uploading && <div className="animate-spin h-5 w-5 border-2 border-primary border-t-transparent rounded-full" />}
-              </div>
-              {paymentSettings.qris_url && (
-                <div className="mt-2 p-2 border rounded bg-muted flex justify-center">
-                  <img src={paymentSettings.qris_url} alt="QRIS" className="h-32 object-contain" />
-                </div>
-              )}
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setSettingsDialogOpen(false)}>Batal</Button>
-            <Button onClick={handleUpdateSettings}>Simpan Pengaturan</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Request Detail Dialog */}
-      <Dialog open={requestDialogOpen} onOpenChange={setRequestDialogOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Detail Permintaan Paket</DialogTitle>
-          </DialogHeader>
-          {selectedRequest && (
-            <div className="space-y-4 py-2">
-              <div className="grid grid-cols-2 gap-2 text-sm">
-                <span className="text-muted-foreground">Merchant:</span>
-                <span className="font-medium">{selectedRequest.merchant?.name}</span>
-                <span className="text-muted-foreground">Paket:</span>
-                <span className="font-medium">{selectedRequest.package?.name}</span>
-                <span className="text-muted-foreground">Total Bayar:</span>
-                <span className="font-bold text-primary">{formatPrice(selectedRequest.payment_amount)}</span>
-                <span className="text-muted-foreground">Status:</span>
-                <span>{getPaymentStatusBadge(selectedRequest.payment_status)}</span>
-              </div>
-
-              {selectedRequest.payment_proof_url ? (
-                <div className="space-y-2">
-                  <Label>Bukti Pembayaran:</Label>
-                  <a href={selectedRequest.payment_proof_url} target="_blank" rel="noreferrer" className="block border rounded-lg overflow-hidden hover:opacity-90 transition-opacity">
-                    <img src={selectedRequest.payment_proof_url} alt="Bukti Pembayaran" className="w-full h-auto max-h-60 object-contain bg-black/5" />
-                    <div className="p-2 text-center text-xs bg-muted text-muted-foreground">Klik untuk memperbesar</div>
-                  </a>
-                </div>
-              ) : (
-                <div className="p-4 border border-dashed rounded-lg text-center text-muted-foreground text-sm">
-                  Belum ada bukti pembayaran diunggah
-                </div>
-              )}
-
+        {/* Dialog Add/Edit Package */}
+        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{editingPackage ? 'Edit Paket' : 'Tambah Paket Baru'}</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
               <div className="space-y-2">
-                <Label htmlFor="notes">Catatan Admin (Alasan tolak/info tambahan)</Label>
-                <Textarea 
-                  id="notes" 
-                  value={adminNotes} 
-                  onChange={(e) => setAdminNotes(e.target.value)}
-                  placeholder="Masukkan alasan jika menolak..."
-                  rows={2}
+                <Label htmlFor="name">Nama Paket</Label>
+                <Input 
+                  id="name" 
+                  value={formData.name} 
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  placeholder="Contoh: Paket UMKM Hemat"
                 />
               </div>
-
-              {selectedRequest.payment_status === 'PENDING_APPROVAL' && (
-                <div className="flex gap-2 pt-2">
-                  <Button variant="outline" className="flex-1 text-destructive" onClick={() => handleRejectRequest(selectedRequest)}>
-                    <X className="h-4 w-4 mr-2" />
-                    Tolak
-                  </Button>
-                  <Button className="flex-1 bg-green-600 hover:bg-green-700" onClick={() => handleApproveRequest(selectedRequest)}>
-                    <Check className="h-4 w-4 mr-2" />
-                    Setujui & Aktifkan
-                  </Button>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="quota">Kuota Transaksi</Label>
+                  <Input 
+                    id="quota" 
+                    type="number"
+                    value={formData.transaction_quota} 
+                    onChange={(e) => setFormData({ ...formData, transaction_quota: parseInt(e.target.value) })}
+                  />
                 </div>
-              )}
+                <div className="space-y-2">
+                  <Label htmlFor="price">Harga Paket (Rp)</Label>
+                  <Input 
+                    id="price" 
+                    type="number"
+                    value={formData.price_per_transaction} 
+                    onChange={(e) => setFormData({ ...formData, price_per_transaction: parseInt(e.target.value) })}
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="validity">Masa Aktif (Hari)</Label>
+                  <Input 
+                    id="validity" 
+                    type="number"
+                    value={formData.validity_days} 
+                    onChange={(e) => setFormData({ ...formData, validity_days: parseInt(e.target.value) })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="commission">Komisi Kas (%)</Label>
+                  <Input 
+                    id="commission" 
+                    type="number"
+                    value={formData.group_commission_percent} 
+                    onChange={(e) => setFormData({ ...formData, group_commission_percent: parseInt(e.target.value) })}
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="description">Deskripsi</Label>
+                <Textarea 
+                  id="description" 
+                  value={formData.description} 
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                />
+              </div>
+              <div className="flex items-center space-x-2">
+                <Switch 
+                  id="active" 
+                  checked={formData.is_active} 
+                  onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })}
+                />
+                <Label htmlFor="active">Paket Aktif</Label>
+              </div>
             </div>
-          )}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setRequestDialogOpen(false)}>Tutup</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setDialogOpen(false)}>Batal</Button>
+              <Button onClick={handleSubmit}>Simpan</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Dialog Request Detail */}
+        <Dialog open={requestDialogOpen} onOpenChange={setRequestDialogOpen}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Detail Permintaan Paket</DialogTitle>
+            </DialogHeader>
+            {selectedRequest && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 py-4">
+                <div className="space-y-4">
+                  <div>
+                    <Label className="text-muted-foreground">Merchant</Label>
+                    <p className="font-medium text-lg">{selectedRequest.merchant?.name}</p>
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground">Paket yang Dibeli</Label>
+                    <p className="font-medium">{selectedRequest.package?.name}</p>
+                    <p className="text-sm text-muted-foreground">{selectedRequest.package?.transaction_quota} Kuota Transaksi</p>
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground">Jumlah Pembayaran</Label>
+                    <p className="font-bold text-primary text-xl">{formatPrice(selectedRequest.payment_amount)}</p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="adminNotes">Catatan Admin (Wajib jika ditolak)</Label>
+                    <Textarea 
+                      id="adminNotes"
+                      placeholder="Masukkan catatan atau alasan penolakan..."
+                      value={adminNotes}
+                      onChange={(e) => setAdminNotes(e.target.value)}
+                    />
+                  </div>
+                </div>
+                <div className="space-y-4">
+                  <Label className="text-muted-foreground">Bukti Pembayaran</Label>
+                  <div className="border rounded-lg overflow-hidden bg-secondary/20 aspect-[3/4] flex items-center justify-center relative group">
+                    {selectedRequest.payment_proof_url ? (
+                      <>
+                        <img 
+                          src={selectedRequest.payment_proof_url} 
+                          alt="Bukti Pembayaran" 
+                          className="w-full h-full object-contain"
+                        />
+                        <a 
+                          href={selectedRequest.payment_proof_url} 
+                          target="_blank" 
+                          rel="noreferrer"
+                          className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity"
+                        >
+                          <Button variant="secondary" size="sm">
+                            <ExternalLink className="h-4 w-4 mr-2" />
+                            Buka Gambar
+                          </Button>
+                        </a>
+                      </>
+                    ) : (
+                      <div className="text-center p-6 text-muted-foreground">
+                        <Info className="h-10 w-10 mx-auto mb-2 opacity-20" />
+                        <p>Belum ada bukti pembayaran yang diunggah</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+            <DialogFooter className="flex justify-between items-center sm:justify-between">
+              <div className="text-sm text-muted-foreground">
+                Status: {selectedRequest && getPaymentStatusBadge(selectedRequest.payment_status)}
+              </div>
+              <div className="flex gap-2">
+                <Button 
+                  variant="outline" 
+                  className="text-destructive hover:bg-destructive/10"
+                  onClick={() => selectedRequest && handleRejectRequest(selectedRequest)}
+                  disabled={processing || !selectedRequest || selectedRequest.payment_status === 'PAID' || selectedRequest.payment_status === 'REJECTED'}
+                >
+                  <X className="h-4 w-4 mr-1" />
+                  Tolak
+                </Button>
+                <Button 
+                  onClick={() => selectedRequest && handleApproveRequest(selectedRequest)}
+                  disabled={processing || !selectedRequest || selectedRequest.payment_status === 'PAID' || selectedRequest.payment_status === 'REJECTED'}
+                >
+                  <Check className="h-4 w-4 mr-1" />
+                  Setujui & Aktifkan
+                </Button>
+              </div>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Dialog Payment Settings */}
+        <Dialog open={settingsDialogOpen} onOpenChange={setSettingsDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Pengaturan Pembayaran</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="bankName">Nama Bank</Label>
+                <Input 
+                  id="bankName" 
+                  value={paymentSettings.bank_name} 
+                  onChange={(e) => setPaymentSettings({ ...paymentSettings, bank_name: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="accNumber">Nomor Rekening</Label>
+                <Input 
+                  id="accNumber" 
+                  value={paymentSettings.account_number} 
+                  onChange={(e) => setPaymentSettings({ ...paymentSettings, account_number: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="accName">Nama Pemilik Rekening</Label>
+                <Input 
+                  id="accName" 
+                  value={paymentSettings.account_name} 
+                  onChange={(e) => setPaymentSettings({ ...paymentSettings, account_name: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>QRIS (Opsional)</Label>
+                <div className="flex items-center gap-4">
+                  {paymentSettings.qris_url && (
+                    <div className="h-16 w-16 border rounded overflow-hidden">
+                      <img src={paymentSettings.qris_url} alt="QRIS" className="h-full w-full object-cover" />
+                    </div>
+                  )}
+                  <div className="flex-1">
+                    <Input type="file" accept="image/*" onChange={handleQRISUpload} disabled={uploading} />
+                  </div>
+                </div>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setSettingsDialogOpen(false)}>Batal</Button>
+              <Button onClick={handleUpdateSettings}>Simpan Pengaturan</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
     </AdminLayout>
+  );
+}
+
+function CardFooter({ children, className = "" }: { children: React.ReactNode, className?: string }) {
+  return (
+    <div className={`p-6 pt-0 ${className}`}>
+      {children}
+    </div>
   );
 }

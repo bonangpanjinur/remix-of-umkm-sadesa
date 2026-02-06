@@ -16,7 +16,7 @@ export async function fetchQuotaTiers(): Promise<QuotaTier[]> {
       .from('quota_tiers')
       .select('*')
       .eq('is_active', true)
-      .order('sort_order', { ascending: true });
+      .order('min_price', { ascending: true });
 
     if (error) {
       console.error('Error fetching quota tiers:', error);
@@ -33,17 +33,16 @@ export async function fetchQuotaTiers(): Promise<QuotaTier[]> {
 
 function getDefaultTiers(): QuotaTier[] {
   return [
-    { id: '1', min_price: 0, max_price: 3000, credit_cost: 1 },
-    { id: '2', min_price: 3001, max_price: 5000, credit_cost: 2 },
-    { id: '3', min_price: 5001, max_price: 8000, credit_cost: 3 },
-    { id: '4', min_price: 8001, max_price: 15000, credit_cost: 4 },
-    { id: '5', min_price: 15001, max_price: null, credit_cost: 5 },
+    { id: '1', min_price: 0, max_price: 50000, credit_cost: 1, description: 'Tier 1' },
+    { id: '2', min_price: 50001, max_price: 200000, credit_cost: 2, description: 'Tier 2' },
+    { id: '3', min_price: 200001, max_price: null, credit_cost: 5, description: 'Tier 3' },
   ];
 }
 
 export function calculateCreditCost(price: number, tiers: QuotaTier[]): number {
-  // Sort tiers by min_price ascending
-  const sortedTiers = [...tiers].sort((a, b) => a.min_price - b.min_price);
+  // Find the tier that matches the price
+  // We sort by min_price DESC to find the most specific (highest) matching tier first
+  const sortedTiers = [...tiers].sort((a, b) => b.min_price - a.min_price);
   
   for (const tier of sortedTiers) {
     if (price >= tier.min_price && (tier.max_price === null || price <= tier.max_price)) {
@@ -51,14 +50,18 @@ export function calculateCreditCost(price: number, tiers: QuotaTier[]): number {
     }
   }
   
-  // Default to highest tier cost if price exceeds all tiers
-  return sortedTiers[sortedTiers.length - 1]?.credit_cost || 1;
+  // Default to 1 if no tier matches
+  return 1;
 }
 
 export async function calculateOrderCreditCost(items: { price: number; quantity: number }[]): Promise<number> {
   const tiers = await fetchQuotaTiers();
+  // Quota deduction is usually per order or per item. 
+  // According to requirement: "misal rentang harga produk minimal berapa ke maksimal berapa menggunakan atau pemakaian kuota yang habis 2 kuota"
+  // This implies we calculate cost based on the product price.
+  // If it's per unique product in the order:
   return items.reduce((total, item) => {
-    return total + (calculateCreditCost(item.price, tiers) * item.quantity);
+    return total + calculateCreditCost(item.price, tiers);
   }, 0);
 }
 

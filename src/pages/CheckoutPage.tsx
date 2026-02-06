@@ -444,9 +444,12 @@ export default function CheckoutPage() {
         }
 
         // Calculate credits to use based on product prices
+        // Requirement: "misal rentang harga produk minimal berapa ke maksimal berapa menggunakan atau pemakaian kuota yang habis 2 kuota"
+        // This is usually calculated per order item type (not multiplied by quantity, but per item in the order)
+        // or per order. Based on common practice in this app, we'll calculate per unique product in the order.
         const tiers = await fetchQuotaTiers();
         const creditsToUse = merchantData.items.reduce((total, item) => {
-          return total + (calculateCreditCost(item.product.price, tiers) * item.quantity);
+          return total + calculateCreditCost(item.product.price, tiers);
         }, 0);
 
         // Send notification to merchant about new order

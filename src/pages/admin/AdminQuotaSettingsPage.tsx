@@ -77,7 +77,8 @@ export default function AdminQuotaSettingsPage() {
           max_price: formData.max_price ? parseInt(formData.max_price) : null,
           credit_cost: formData.credit_cost,
           description: formData.description || null,
-          sort_order: tiers.length + 1
+          sort_order: tiers.length + 1,
+          is_active: true
         });
 
       if (error) throw error;
@@ -152,7 +153,7 @@ export default function AdminQuotaSettingsPage() {
     });
   };
 
-  const TierForm = ({ isEdit = false }: { isEdit?: boolean }) => (
+  const TierForm = () => (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
@@ -176,7 +177,7 @@ export default function AdminQuotaSettingsPage() {
       </div>
       
       <div className="space-y-2">
-        <Label>Jumlah Kredit yang Dihabiskan</Label>
+        <Label>Jumlah Kuota yang Dihabiskan</Label>
         <Input
           type="number"
           min={1}
@@ -203,8 +204,8 @@ export default function AdminQuotaSettingsPage() {
           <Info className="h-4 w-4 text-primary" />
           <AlertTitle className="text-foreground">Informasi</AlertTitle>
           <AlertDescription className="text-muted-foreground">
-            Tier kuota menentukan berapa kredit yang dihabiskan untuk setiap transaksi berdasarkan rentang harga produk.
-            Contoh: Jika pedagang menjual produk seharga Rp 4.000 dan tier Rp 3.001 - Rp 5.000 = 2 kredit, maka 2 kredit akan dipotong.
+            Tier kuota menentukan berapa kuota yang dihabiskan untuk setiap transaksi berdasarkan rentang harga produk.
+            Contoh: Jika produk seharga Rp 40.000 masuk dalam tier Rp 0 - Rp 50.000 dengan biaya 1 kuota, maka 1 kuota akan dipotong.
           </AlertDescription>
         </Alert>
 
@@ -216,7 +217,7 @@ export default function AdminQuotaSettingsPage() {
                 <div>
                   <CardTitle>Tier Biaya Kuota</CardTitle>
                   <CardDescription>
-                    Biaya kredit yang dipotong berdasarkan rentang harga produk
+                    Biaya kuota yang dipotong berdasarkan rentang harga produk
                   </CardDescription>
                 </div>
               </div>
@@ -263,7 +264,7 @@ export default function AdminQuotaSettingsPage() {
                   >
                     {editingTier?.id === tier.id ? (
                       <div className="flex-1 mr-4">
-                        <TierForm isEdit />
+                        <TierForm />
                         <div className="flex gap-2 mt-4">
                           <Button size="sm" onClick={handleUpdateTier} disabled={saving}>
                             <Save className="h-4 w-4 mr-1" />
@@ -278,17 +279,14 @@ export default function AdminQuotaSettingsPage() {
                     ) : (
                       <>
                         <div>
-                          <p className="font-medium">Tier {index + 1}</p>
+                          <p className="font-medium">Tier {index + 1}: {tier.description || 'Tanpa Deskripsi'}</p>
                           <p className="text-sm text-muted-foreground">
                             {formatPrice(tier.min_price)} - {tier.max_price ? formatPrice(tier.max_price) : 'Tidak terbatas'}
                           </p>
-                          {tier.description && (
-                            <p className="text-xs text-muted-foreground mt-1">{tier.description}</p>
-                          )}
                         </div>
                         <div className="flex items-center gap-4">
                           <div className="text-right">
-                            <p className="font-bold text-primary">{tier.credit_cost} Kredit</p>
+                            <p className="font-bold text-primary">{tier.credit_cost} Kuota</p>
                             <p className="text-xs text-muted-foreground">per transaksi</p>
                           </div>
                           <div className="flex gap-1">
