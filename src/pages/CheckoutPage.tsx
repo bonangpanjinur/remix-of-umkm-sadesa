@@ -499,11 +499,26 @@ export default function CheckoutPage() {
         title: 'Pesanan berhasil dibuat!',
         description: 'Pesanan Anda telah masuk ke sistem dan sedang menunggu diproses',
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Checkout error:', error);
+      
+      // Extract more specific error message
+      let errorMessage = 'Terjadi kesalahan, silakan coba lagi';
+      if (error?.message) {
+        if (error.message.includes('violates row-level security')) {
+          errorMessage = 'Anda tidak memiliki izin untuk membuat pesanan. Pastikan sudah login.';
+        } else if (error.message.includes('violates foreign key')) {
+          errorMessage = 'Data merchant atau produk tidak valid.';
+        } else if (error.message.includes('null value')) {
+          errorMessage = 'Data belum lengkap. Pastikan semua field terisi.';
+        } else {
+          errorMessage = error.message;
+        }
+      }
+      
       toast({
         title: 'Gagal membuat pesanan',
-        description: 'Terjadi kesalahan, silakan coba lagi',
+        description: errorMessage,
         variant: 'destructive',
       });
     } finally {
