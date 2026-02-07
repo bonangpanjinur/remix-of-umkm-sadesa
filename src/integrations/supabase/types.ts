@@ -1027,6 +1027,7 @@ export type Database = {
           payment_invoice_url: string | null
           payment_method: string | null
           payment_paid_at: string | null
+          payment_proof_url: string | null
           payment_status: string | null
           picked_up_at: string | null
           pod_image_url: string | null
@@ -1070,6 +1071,7 @@ export type Database = {
           payment_invoice_url?: string | null
           payment_method?: string | null
           payment_paid_at?: string | null
+          payment_proof_url?: string | null
           payment_status?: string | null
           picked_up_at?: string | null
           pod_image_url?: string | null
@@ -1113,6 +1115,7 @@ export type Database = {
           payment_invoice_url?: string | null
           payment_method?: string | null
           payment_paid_at?: string | null
+          payment_proof_url?: string | null
           payment_status?: string | null
           picked_up_at?: string | null
           pod_image_url?: string | null

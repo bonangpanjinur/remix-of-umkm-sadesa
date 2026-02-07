@@ -9,6 +9,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatPrice } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
+import { PaymentProofUpload } from '@/components/checkout/PaymentProofUpload';
 
 interface PaymentInfo {
   bankName: string;
@@ -25,6 +26,7 @@ interface OrderInfo {
   merchant_id: string;
   created_at: string;
   merchant_name?: string;
+  payment_proof_url?: string | null;
 }
 
 export default function PaymentConfirmationPage() {
@@ -47,7 +49,7 @@ export default function PaymentConfirmationPage() {
       // Fetch order
       const { data: orderData, error: orderError } = await supabase
         .from('orders')
-        .select('id, total, payment_method, payment_status, merchant_id, created_at')
+        .select('id, total, payment_method, payment_status, merchant_id, created_at, payment_proof_url')
         .eq('id', orderId!)
         .eq('buyer_id', user!.id)
         .single();
@@ -242,16 +244,30 @@ export default function PaymentConfirmationPage() {
           </motion.div>
         )}
 
-        {/* Instructions */}
+        {/* Upload Bukti Pembayaran */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
+          <Card>
+            <CardContent className="p-4">
+              <h3 className="font-bold text-sm mb-3">Upload Bukti Pembayaran</h3>
+              <PaymentProofUpload
+                orderId={order.id}
+                currentProofUrl={order.payment_proof_url}
+                onUploaded={(url) => setOrder(prev => prev ? { ...prev, payment_proof_url: url } : prev)}
+              />
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        {/* Instructions */}
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>
           <Card>
             <CardContent className="p-4">
               <h3 className="font-bold text-sm mb-3">Petunjuk Pembayaran</h3>
               <ol className="space-y-2 text-sm text-muted-foreground list-decimal list-inside">
                 <li>Transfer sesuai <strong className="text-foreground">nominal yang tertera</strong> (harus sama persis)</li>
                 <li>Pastikan transfer ke rekening yang benar</li>
-                <li>Setelah transfer, konfirmasi pembayaran Anda akan diverifikasi oleh penjual</li>
-                <li>Pesanan akan diproses setelah pembayaran dikonfirmasi</li>
+                <li><strong className="text-foreground">Upload bukti pembayaran</strong> di atas</li>
+                <li>Pesanan akan diproses setelah pembayaran dikonfirmasi oleh penjual</li>
               </ol>
             </CardContent>
           </Card>

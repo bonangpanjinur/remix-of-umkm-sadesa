@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Receipt, Check, X, Package, MoreHorizontal, User, MapPin, Phone, Truck, CreditCard, MessageSquare, Printer, RefreshCw, Wifi, Search, Download, TrendingUp, Clock, CheckCircle2 } from 'lucide-react';
+import { Receipt, Check, X, Package, MoreHorizontal, User, MapPin, Phone, Truck, CreditCard, MessageSquare, Printer, RefreshCw, Wifi, Search, Download, TrendingUp, Clock, CheckCircle2, ImageIcon } from 'lucide-react';
 import { MerchantLayout } from '@/components/merchant/MerchantLayout';
 import { DataTable } from '@/components/admin/DataTable';
 import { Badge } from '@/components/ui/badge';
@@ -49,6 +49,7 @@ interface OrderRow {
   total: number;
   notes: string | null;
   created_at: string;
+  payment_proof_url: string | null;
 }
 
 export default function MerchantOrdersPage() {
@@ -166,6 +167,7 @@ export default function MerchantOrdersPage() {
   const getStatusBadge = (status: string) => {
     const statusMap: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' | 'success' | 'warning' | 'info' | 'pending' }> = {
       'NEW': { label: 'Baru', variant: 'info' },
+      'PENDING_PAYMENT': { label: 'Menunggu Bayar', variant: 'warning' },
       'PENDING_CONFIRMATION': { label: 'Menunggu', variant: 'warning' },
       'PROCESSED': { label: 'Diproses', variant: 'pending' },
       'SENT': { label: 'Dikirim', variant: 'info' },
@@ -297,6 +299,8 @@ export default function MerchantOrdersPage() {
       label: 'Status',
       options: [
         { value: 'NEW', label: 'Baru' },
+        { value: 'PENDING_PAYMENT', label: 'Menunggu Bayar' },
+        { value: 'PENDING_CONFIRMATION', label: 'Menunggu Konfirmasi' },
         { value: 'PROCESSED', label: 'Diproses' },
         { value: 'SENT', label: 'Dikirim' },
         { value: 'DELIVERED', label: 'Sampai' },
@@ -512,6 +516,25 @@ export default function MerchantOrdersPage() {
                     <span className="text-muted-foreground">Catatan:</span>
                   </div>
                   <p>{selectedOrder.notes}</p>
+                </div>
+              )}
+
+              {/* Payment Proof */}
+              {selectedOrder.payment_proof_url && (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <ImageIcon className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm font-medium">Bukti Pembayaran</span>
+                  </div>
+                  <div className="relative rounded-lg overflow-hidden border border-border">
+                    <img
+                      src={selectedOrder.payment_proof_url}
+                      alt="Bukti pembayaran"
+                      className="w-full max-h-64 object-contain bg-secondary/30 cursor-pointer"
+                      onClick={() => window.open(selectedOrder.payment_proof_url!, '_blank')}
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground text-center">Klik gambar untuk memperbesar</p>
                 </div>
               )}
 

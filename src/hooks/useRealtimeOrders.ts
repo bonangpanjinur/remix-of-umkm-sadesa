@@ -16,6 +16,7 @@ interface OrderRow {
   total: number;
   notes: string | null;
   created_at: string;
+  payment_proof_url: string | null;
 }
 
 interface UseRealtimeOrdersOptions {

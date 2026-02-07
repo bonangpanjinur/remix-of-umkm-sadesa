@@ -33,6 +33,7 @@ interface Order {
   notes: string | null;
   created_at: string;
   confirmation_deadline: string | null;
+  payment_proof_url: string | null;
 }
 
 interface OrderStatusManagerProps {
@@ -279,6 +280,20 @@ export function OrderStatusManager({ merchantId }: OrderStatusManagerProps) {
                               <p className="text-xs mt-2 italic">
                                 Catatan: {order.notes}
                               </p>
+                            )}
+                            {order.payment_proof_url && (
+                              <div className="mt-2">
+                                <p className="text-xs font-medium mb-1">Bukti Pembayaran:</p>
+                                <img 
+                                  src={order.payment_proof_url} 
+                                  alt="Bukti pembayaran" 
+                                  className="w-full max-h-40 object-contain rounded border border-border cursor-pointer"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    window.open(order.payment_proof_url!, '_blank');
+                                  }}
+                                />
+                              </div>
                             )}
                           </div>
                         )}

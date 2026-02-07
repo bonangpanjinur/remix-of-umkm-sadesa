@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Receipt, ShoppingBag, Package, Truck, CheckCircle, XCircle, Clock, Star, X, RotateCcw } from 'lucide-react';
+import { Receipt, ShoppingBag, Package, Truck, CheckCircle, XCircle, Clock, Star, X, RotateCcw, CreditCard } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
 import { BottomNav } from '@/components/layout/BottomNav';
 import { Button } from '@/components/ui/button';
@@ -27,10 +27,14 @@ interface Order {
 
 const statusConfig: Record<string, { label: string; icon: React.ElementType; color: string }> = {
   NEW: { label: 'Pesanan Baru', icon: Clock, color: 'text-warning' },
+  PENDING_PAYMENT: { label: 'Menunggu Pembayaran', icon: CreditCard, color: 'text-warning' },
+  PENDING_CONFIRMATION: { label: 'Menunggu Konfirmasi', icon: Clock, color: 'text-warning' },
   PROCESSING: { label: 'Diproses', icon: Package, color: 'text-info' },
+  PROCESSED: { label: 'Diproses', icon: Package, color: 'text-info' },
   ASSIGNED: { label: 'Kurir Ditugaskan', icon: Truck, color: 'text-status-pending' },
   PICKED_UP: { label: 'Diambil', icon: Truck, color: 'text-warning' },
   ON_DELIVERY: { label: 'Dalam Perjalanan', icon: Truck, color: 'text-primary' },
+  SENT: { label: 'Dikirim', icon: Truck, color: 'text-primary' },
   DELIVERED: { label: 'Sampai Tujuan', icon: CheckCircle, color: 'text-info' },
   DONE: { label: 'Selesai', icon: CheckCircle, color: 'text-success' },
   CANCELED: { label: 'Dibatalkan', icon: XCircle, color: 'text-destructive' },
@@ -273,7 +277,7 @@ export default function OrdersPage() {
                         )}
                       </div>
                       <div className="flex items-center gap-2">
-                        {order.status === 'NEW' && (
+                        {(order.status === 'NEW' || order.status === 'PENDING_CONFIRMATION') && (
                           <Button 
                             size="sm" 
                             variant="outline"
@@ -284,6 +288,19 @@ export default function OrdersPage() {
                           >
                             <X className="h-3 w-3 mr-1" />
                             Batalkan
+                          </Button>
+                        )}
+                        {order.status === 'PENDING_PAYMENT' && (
+                          <Button 
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigate(`/payment/${order.id}`);
+                            }}
+                            className="h-8 px-2 text-[10px]"
+                          >
+                            <CreditCard className="h-3 w-3 mr-1" />
+                            Bayar
                           </Button>
                         )}
                         {order.status === 'DELIVERED' && (
