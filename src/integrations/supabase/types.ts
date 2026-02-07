@@ -744,6 +744,7 @@ export type Database = {
           close_time: string | null
           cod_max_amount: number | null
           cod_max_distance_km: number | null
+          cover_image_url: string | null
           created_at: string
           current_subscription_id: string | null
           district: string | null
@@ -795,6 +796,7 @@ export type Database = {
           close_time?: string | null
           cod_max_amount?: number | null
           cod_max_distance_km?: number | null
+          cover_image_url?: string | null
           created_at?: string
           current_subscription_id?: string | null
           district?: string | null
@@ -846,6 +848,7 @@ export type Database = {
           close_time?: string | null
           cod_max_amount?: number | null
           cod_max_distance_km?: number | null
+          cover_image_url?: string | null
           created_at?: string
           current_subscription_id?: string | null
           district?: string | null

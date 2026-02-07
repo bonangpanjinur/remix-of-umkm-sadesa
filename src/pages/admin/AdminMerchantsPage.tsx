@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Store, Eye, Check, X, MoreHorizontal, Plus, Trash2 } from 'lucide-react';
+import { Store, Eye, Check, X, MoreHorizontal, Plus, Trash2, User } from 'lucide-react';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { DataTable } from '@/components/admin/DataTable';
 import { Badge } from '@/components/ui/badge';
@@ -27,7 +27,11 @@ interface MerchantRow {
   registration_status: string;
   status: string;
   registered_at: string | null;
+  user_id: string | null;
   villages: { name: string } | null;
+  // Joined from profiles
+  ownerName: string | null;
+  ownerPhone: string | null;
 }
 
 export default function AdminMerchantsPage() {
@@ -40,11 +44,33 @@ export default function AdminMerchantsPage() {
     try {
       const { data, error } = await supabase
         .from('merchants')
-        .select('id, name, phone, city, district, business_category, registration_status, status, registered_at, villages(name)')
+        .select('id, name, phone, city, district, business_category, registration_status, status, registered_at, user_id, villages(name)')
         .order('registered_at', { ascending: false });
 
       if (error) throw error;
-      setMerchants(data || []);
+
+      // Fetch linked user profiles for merchants that have user_id
+      const userIds = (data || []).map(m => m.user_id).filter(Boolean) as string[];
+      let profilesMap: Record<string, { full_name: string | null; phone: string | null }> = {};
+
+      if (userIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('user_id, full_name, phone')
+          .in('user_id', userIds);
+
+        if (profiles) {
+          profilesMap = Object.fromEntries(
+            profiles.map(p => [p.user_id, { full_name: p.full_name, phone: p.phone }])
+          );
+        }
+      }
+
+      setMerchants((data || []).map(m => ({
+        ...m,
+        ownerName: m.user_id ? profilesMap[m.user_id]?.full_name || null : null,
+        ownerPhone: m.user_id ? profilesMap[m.user_id]?.phone || null : null,
+      })));
     } catch (error) {
       console.error('Error fetching merchants:', error);
       toast.error('Gagal memuat data merchant');
@@ -113,6 +139,25 @@ export default function AdminMerchantsPage() {
         <div>
           <p className="font-medium">{item.name}</p>
           <p className="text-xs text-muted-foreground">{item.business_category || '-'}</p>
+        </div>
+      ),
+    },
+    {
+      key: 'owner',
+      header: 'Pemilik (User)',
+      render: (item: MerchantRow) => (
+        <div className="text-sm">
+          {item.user_id ? (
+            <div className="flex items-center gap-1.5">
+              <User className="h-3.5 w-3.5 text-muted-foreground" />
+              <div>
+                <p className="font-medium text-xs">{item.ownerName || 'Tanpa Nama'}</p>
+                <p className="text-xs text-muted-foreground">{item.ownerPhone || item.user_id.slice(0, 8) + '...'}</p>
+              </div>
+            </div>
+          ) : (
+            <span className="text-xs text-muted-foreground italic">Belum terhubung</span>
+          )}
         </div>
       ),
     },

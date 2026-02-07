@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { 
   ArrowLeft, Store, MapPin, Phone, Clock, Star, Package, 
   ShoppingCart, Check, X, Edit, MoreHorizontal, Tag, Users,
-  Calendar, CreditCard, TrendingUp, Plus, Trash2
+  Calendar, CreditCard, TrendingUp, Plus, Trash2, User, ImageIcon
 } from 'lucide-react';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { Button } from '@/components/ui/button';
@@ -19,13 +19,16 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
+import { ImageUpload } from '@/components/ui/ImageUpload';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { approveMerchant, rejectMerchant, deleteMerchant } from '@/lib/adminApi';
 import { MerchantEditDialog } from '@/components/admin/MerchantEditDialog';
 import { AssignPackageDialog } from '@/components/admin/AssignPackageDialog';
+import { AdminAddProductDialog } from '@/components/admin/AdminAddProductDialog';
 import { MapContainer, TileLayer, Marker } from 'react-leaflet';
 import L from 'leaflet';
+import { formatPrice } from '@/lib/utils';
 
 // Fix for default marker icon
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -49,6 +52,7 @@ interface MerchantDetail {
   open_time: string | null;
   close_time: string | null;
   image_url: string | null;
+  cover_image_url: string | null;
   is_open: boolean;
   status: string;
   registration_status: string;
@@ -65,6 +69,7 @@ interface MerchantDetail {
   badge: string | null;
   order_mode: string;
   is_verified: boolean | null;
+  user_id: string | null;
   villages: { name: string } | null;
   location_lat: number | null;
   location_lng: number | null;
@@ -86,6 +91,22 @@ interface OrderSummary {
   created_at: string;
 }
 
+interface SubscriptionInfo {
+  id: string;
+  transaction_quota: number;
+  used_quota: number;
+  expired_at: string;
+  status: string;
+  payment_amount: number;
+  package_name: string;
+}
+
+interface UserProfile {
+  full_name: string | null;
+  phone: string | null;
+  avatar_url: string | null;
+}
+
 export default function AdminMerchantDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -95,6 +116,9 @@ export default function AdminMerchantDetailPage() {
   const [loading, setLoading] = useState(true);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [packageDialogOpen, setPackageDialogOpen] = useState(false);
+  const [addProductDialogOpen, setAddProductDialogOpen] = useState(false);
+  const [ownerProfile, setOwnerProfile] = useState<UserProfile | null>(null);
+  const [subscriptions, setSubscriptions] = useState<SubscriptionInfo[]>([]);
   const [stats, setStats] = useState({
     totalProducts: 0,
     activeProducts: 0,
@@ -119,68 +143,78 @@ export default function AdminMerchantDetailPage() {
         .single();
 
       if (merchantError) throw merchantError;
-      setMerchant(merchantData);
+      setMerchant(merchantData as MerchantDetail);
+
+      // Fetch owner profile if user_id exists
+      if (merchantData.user_id) {
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('full_name, phone, avatar_url')
+          .eq('user_id', merchantData.user_id)
+          .maybeSingle();
+        setOwnerProfile(profileData);
+      } else {
+        setOwnerProfile(null);
+      }
 
       // Fetch products
-      const { data: productsData, error: productsError } = await supabase
+      const { data: productsData } = await supabase
         .from('products')
         .select('id, name, price, stock, is_active, image_url')
         .eq('merchant_id', id)
         .order('created_at', { ascending: false })
         .limit(10);
-
-      if (!productsError && productsData) {
-        setProducts(productsData);
-      }
+      setProducts(productsData || []);
 
       // Fetch orders
-      const { data: ordersData, error: ordersError } = await supabase
+      const { data: ordersData } = await supabase
         .from('orders')
         .select('id, status, total, created_at')
         .eq('merchant_id', id)
         .order('created_at', { ascending: false })
         .limit(10);
+      setOrders(ordersData || []);
 
-      if (!ordersError && ordersData) {
-        setOrders(ordersData);
+      // Fetch subscriptions with package info
+      const { data: subsData } = await supabase
+        .from('merchant_subscriptions')
+        .select('id, transaction_quota, used_quota, expired_at, status, payment_amount, package_id')
+        .eq('merchant_id', id!)
+        .order('created_at', { ascending: false })
+        .limit(5);
+
+      if (subsData && subsData.length > 0) {
+        const packageIds = [...new Set(subsData.map(s => s.package_id))];
+        const { data: pkgData } = await supabase
+          .from('transaction_packages')
+          .select('id, name')
+          .in('id', packageIds);
+
+        const pkgMap = Object.fromEntries((pkgData || []).map(p => [p.id, p.name]));
+        setSubscriptions(subsData.map(s => ({
+          ...s,
+          package_name: pkgMap[s.package_id] || 'Paket Tidak Diketahui',
+        })));
+      } else {
+        setSubscriptions([]);
       }
 
       // Fetch stats
-      const { count: totalProducts } = await supabase
-        .from('products')
-        .select('*', { count: 'exact', head: true })
-        .eq('merchant_id', id);
+      const [totalProducts, activeProducts, totalOrders, completedOrders, revenueData] = await Promise.all([
+        supabase.from('products').select('*', { count: 'exact', head: true }).eq('merchant_id', id!),
+        supabase.from('products').select('*', { count: 'exact', head: true }).eq('merchant_id', id!).eq('is_active', true),
+        supabase.from('orders').select('*', { count: 'exact', head: true }).eq('merchant_id', id!),
+        supabase.from('orders').select('*', { count: 'exact', head: true }).eq('merchant_id', id!).eq('status', 'DONE'),
+        supabase.from('orders').select('total').eq('merchant_id', id!).eq('status', 'DONE'),
+      ]);
 
-      const { count: activeProducts } = await supabase
-        .from('products')
-        .select('*', { count: 'exact', head: true })
-        .eq('merchant_id', id)
-        .eq('is_active', true);
-
-      const { count: totalOrders } = await supabase
-        .from('orders')
-        .select('*', { count: 'exact', head: true })
-        .eq('merchant_id', id);
-
-      const { count: completedOrders } = await supabase
-        .from('orders')
-        .select('*', { count: 'exact', head: true })
-        .eq('merchant_id', id)
-        .eq('status', 'DONE');
-
-      const { data: revenueData } = await supabase
-        .from('orders')
-        .select('total')
-        .eq('merchant_id', id)
-        .eq('status', 'DONE');
-
-      const totalRevenue = revenueData?.reduce((sum, o) => sum + o.total, 0) || 0;
+      const totalRevenue = revenueData.data?.reduce((sum, o) => sum + o.total, 0) || 0;
 
       setStats({
-        totalProducts: totalProducts || 0,
-        activeProducts: activeProducts || 0,
-        totalOrders: totalOrders || 0,
-        completedOrders: completedOrders || 0,
+        totalProducts: totalProducts.count || 0,
+        activeProducts: activeProducts.count || 0,
+        totalOrders: totalOrders.count || 0,
+        completedOrders: completedOrders.count || 0,
         totalRevenue,
       });
     } catch (error) {
@@ -206,7 +240,6 @@ export default function AdminMerchantDetailPage() {
     if (!id) return;
     const reason = prompt('Alasan penolakan:');
     if (!reason) return;
-    
     const success = await rejectMerchant(id, reason);
     if (success) {
       toast.success('Merchant ditolak');
@@ -218,8 +251,7 @@ export default function AdminMerchantDetailPage() {
 
   const handleDelete = async () => {
     if (!id) return;
-    if (!confirm('Apakah Anda yakin ingin menghapus merchant ini? Semua data terkait akan ikut terhapus.')) return;
-    
+    if (!confirm('Apakah Anda yakin ingin menghapus merchant ini?')) return;
     const success = await deleteMerchant(id);
     if (success) {
       toast.success('Merchant berhasil dihapus');
@@ -229,16 +261,25 @@ export default function AdminMerchantDetailPage() {
     }
   };
 
+  const handleImageUpdate = async (field: 'image_url' | 'cover_image_url', url: string | null) => {
+    if (!id) return;
+    const { error } = await supabase
+      .from('merchants')
+      .update({ [field]: url, updated_at: new Date().toISOString() })
+      .eq('id', id);
+
+    if (error) {
+      toast.error('Gagal mengupdate gambar');
+    } else {
+      toast.success('Gambar berhasil diperbarui');
+      fetchMerchantData();
+    }
+  };
+
   const getStatusBadge = (status: string, regStatus: string) => {
-    if (regStatus === 'PENDING') {
-      return <Badge variant="warning">Menunggu Verifikasi</Badge>;
-    }
-    if (regStatus === 'REJECTED') {
-      return <Badge variant="destructive">Ditolak</Badge>;
-    }
-    if (status === 'ACTIVE') {
-      return <Badge variant="success">Aktif</Badge>;
-    }
+    if (regStatus === 'PENDING') return <Badge variant="warning">Menunggu Verifikasi</Badge>;
+    if (regStatus === 'REJECTED') return <Badge variant="destructive">Ditolak</Badge>;
+    if (status === 'ACTIVE') return <Badge variant="success">Aktif</Badge>;
     return <Badge variant="outline">Nonaktif</Badge>;
   };
 
@@ -272,10 +313,7 @@ export default function AdminMerchantDetailPage() {
   }
 
   return (
-    <AdminLayout 
-      title={merchant.name} 
-      subtitle={merchant.business_category || 'Merchant'}
-    >
+    <AdminLayout title={merchant.name} subtitle={merchant.business_category || 'Merchant'}>
       {/* Back button & actions */}
       <div className="flex items-center justify-between mb-6">
         <Button variant="ghost" onClick={() => navigate('/admin/merchants')}>
@@ -296,10 +334,6 @@ export default function AdminMerchantDetailPage() {
               </Button>
             </>
           )}
-          <Button variant="outline" size="sm" onClick={() => setPackageDialogOpen(true)}>
-            <Plus className="h-4 w-4 mr-1" />
-            Tambah Paket
-          </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="icon">
@@ -311,10 +345,13 @@ export default function AdminMerchantDetailPage() {
                 <Edit className="h-4 w-4 mr-2" />
                 Edit Data Merchant
               </DropdownMenuItem>
-              <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => setPackageDialogOpen(true)}>
                 <Package className="h-4 w-4 mr-2" />
-                Tambah Paket Transaksi
+                Tambah Paket Kuota
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setAddProductDialogOpen(true)}>
+                <Plus className="h-4 w-4 mr-2" />
+                Tambah Produk
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleDelete} className="text-destructive">
@@ -326,18 +363,54 @@ export default function AdminMerchantDetailPage() {
         </div>
       </div>
 
-      {/* Merchant Header Card */}
-      <Card className="mb-6">
-        <CardContent className="p-6">
-          <div className="flex gap-4">
-            <Avatar className="h-20 w-20 rounded-xl">
-              <AvatarImage src={merchant.image_url || ''} alt={merchant.name} />
-              <AvatarFallback className="rounded-xl bg-primary/10 text-primary text-xl">
-                <Store className="h-8 w-8" />
-              </AvatarFallback>
-            </Avatar>
+      {/* Cover Image & Profile Photo */}
+      <Card className="mb-6 overflow-hidden">
+        {/* Cover Image */}
+        <div className="relative h-40 bg-muted">
+          {merchant.cover_image_url ? (
+            <img src={merchant.cover_image_url} alt="Cover" className="w-full h-full object-cover" />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center bg-gradient-to-r from-primary/10 to-primary/5">
+              <ImageIcon className="h-10 w-10 text-muted-foreground/30" />
+            </div>
+          )}
+          <div className="absolute top-2 right-2">
+            <ImageUpload
+              bucket="merchant-images"
+              path={`covers/${merchant.id}`}
+              value={merchant.cover_image_url}
+              onChange={(url) => handleImageUpdate('cover_image_url', url)}
+              aspectRatio="wide"
+              placeholder="Upload foto sampul"
+              className="w-32 h-10 opacity-0 hover:opacity-100 transition-opacity"
+            />
+          </div>
+        </div>
 
-            <div className="flex-1">
+        <CardContent className="p-6 -mt-10 relative">
+          <div className="flex gap-4 items-end">
+            {/* Profile Image */}
+            <div className="relative">
+              <Avatar className="h-20 w-20 rounded-xl border-4 border-background shadow-md">
+                <AvatarImage src={merchant.image_url || ''} alt={merchant.name} />
+                <AvatarFallback className="rounded-xl bg-primary/10 text-primary text-xl">
+                  <Store className="h-8 w-8" />
+                </AvatarFallback>
+              </Avatar>
+              <div className="absolute -bottom-1 -right-1">
+                <ImageUpload
+                  bucket="merchant-images"
+                  path={`profiles/${merchant.id}`}
+                  value={merchant.image_url}
+                  onChange={(url) => handleImageUpdate('image_url', url)}
+                  aspectRatio="square"
+                  placeholder="📷"
+                  className="w-7 h-7 opacity-80 hover:opacity-100 rounded-full overflow-hidden"
+                />
+              </div>
+            </div>
+
+            <div className="flex-1 pt-10">
               <div className="flex items-start justify-between">
                 <div>
                   <h2 className="text-xl font-bold">{merchant.name}</h2>
@@ -364,6 +437,19 @@ export default function AdminMerchantDetailPage() {
                   <span>{merchant.rating_avg || 0} ({merchant.rating_count || 0} ulasan)</span>
                 </div>
               </div>
+            </div>
+          </div>
+
+          {/* Owner Info */}
+          <div className="mt-4 p-3 bg-muted/50 rounded-lg">
+            <div className="flex items-center gap-2 text-sm">
+              <User className="h-4 w-4 text-muted-foreground" />
+              <span className="font-medium">Pemilik:</span>
+              {ownerProfile ? (
+                <span>{ownerProfile.full_name || 'Tanpa Nama'} ({ownerProfile.phone || merchant.user_id?.slice(0, 8) + '...'})</span>
+              ) : (
+                <span className="text-muted-foreground italic">Belum terhubung ke user manapun</span>
+              )}
             </div>
           </div>
         </CardContent>
@@ -400,8 +486,8 @@ export default function AdminMerchantDetailPage() {
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-info/10 rounded-lg">
-                <TrendingUp className="h-4 w-4 text-info" />
+              <div className="p-2 bg-primary/10 rounded-lg">
+                <TrendingUp className="h-4 w-4 text-primary" />
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">Total Omzet</p>
@@ -431,6 +517,7 @@ export default function AdminMerchantDetailPage() {
           <TabsTrigger value="overview">Ikhtisar</TabsTrigger>
           <TabsTrigger value="products">Produk</TabsTrigger>
           <TabsTrigger value="orders">Pesanan</TabsTrigger>
+          <TabsTrigger value="subscription">Paket Kuota</TabsTrigger>
           <TabsTrigger value="finance">Keuangan</TabsTrigger>
         </TabsList>
 
@@ -478,38 +565,22 @@ export default function AdminMerchantDetailPage() {
                   <p className="text-sm font-medium col-span-2">{merchant.district || '-'}</p>
                 </div>
                 <div className="grid grid-cols-3 gap-1">
+                  <p className="text-sm text-muted-foreground">Kelurahan</p>
+                  <p className="text-sm font-medium col-span-2">{merchant.subdistrict || '-'}</p>
+                </div>
+                <div className="grid grid-cols-3 gap-1">
                   <p className="text-sm text-muted-foreground">Alamat</p>
                   <p className="text-sm col-span-2">{merchant.address || '-'}</p>
                 </div>
                 
-                {/* Map Display */}
                 {merchant.location_lat && merchant.location_lng && (
                   <div className="mt-4">
                     <p className="text-sm text-muted-foreground mb-2">Titik Lokasi</p>
-                    <div 
-                      className="relative rounded-lg border border-border overflow-hidden bg-muted"
-                      style={{ height: '180px', width: '100%' }}
-                    >
-                      <style>
-                        {`
-                          .detail-map-container .leaflet-container {
-                            height: 100% !important;
-                            width: 100% !important;
-                            z-index: 1;
-                          }
-                        `}
-                      </style>
+                    <div className="relative rounded-lg border border-border overflow-hidden bg-muted" style={{ height: '180px', width: '100%' }}>
+                      <style>{`.detail-map-container .leaflet-container { height: 100% !important; width: 100% !important; z-index: 1; }`}</style>
                       <div className="detail-map-container" style={{ height: '100%', width: '100%' }}>
-                        <MapContainer
-                          center={[merchant.location_lat, merchant.location_lng]}
-                          zoom={15}
-                          scrollWheelZoom={false}
-                          style={{ height: '100%', width: '100%' }}
-                          attributionControl={false}
-                        >
-                          <TileLayer
-                            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                          />
+                        <MapContainer center={[merchant.location_lat, merchant.location_lng]} zoom={15} scrollWheelZoom={false} style={{ height: '100%', width: '100%' }} attributionControl={false}>
+                          <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
                           <Marker position={[merchant.location_lat, merchant.location_lng]} />
                         </MapContainer>
                       </div>
@@ -527,15 +598,23 @@ export default function AdminMerchantDetailPage() {
         <TabsContent value="products">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle className="text-base">Produk Terbaru</CardTitle>
-              <Button variant="outline" size="sm" onClick={() => navigate(`/admin/merchants/${id}/products`)}>
-                Lihat Semua
+              <CardTitle className="text-base">Produk ({stats.totalProducts})</CardTitle>
+              <Button size="sm" onClick={() => setAddProductDialogOpen(true)} className="gap-1">
+                <Plus className="h-4 w-4" />
+                Tambah Produk
               </Button>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
                 {products.length === 0 ? (
-                  <p className="text-center py-8 text-muted-foreground">Belum ada produk.</p>
+                  <div className="text-center py-8">
+                    <Package className="h-10 w-10 mx-auto mb-2 text-muted-foreground/40" />
+                    <p className="text-muted-foreground mb-3">Belum ada produk.</p>
+                    <Button size="sm" variant="outline" onClick={() => setAddProductDialogOpen(true)}>
+                      <Plus className="h-4 w-4 mr-1" />
+                      Tambah Produk Pertama
+                    </Button>
+                  </div>
                 ) : (
                   products.map((product) => (
                     <div key={product.id} className="flex items-center justify-between p-2 border rounded-lg">
@@ -562,11 +641,8 @@ export default function AdminMerchantDetailPage() {
 
         <TabsContent value="orders">
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
+            <CardHeader>
               <CardTitle className="text-base">Pesanan Terbaru</CardTitle>
-              <Button variant="outline" size="sm" onClick={() => navigate(`/admin/merchants/${id}/orders`)}>
-                Lihat Semua
-              </Button>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
@@ -586,6 +662,56 @@ export default function AdminMerchantDetailPage() {
                   ))
                 )}
               </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="subscription">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle className="text-base">Riwayat Paket Kuota</CardTitle>
+              <Button size="sm" variant="outline" onClick={() => setPackageDialogOpen(true)} className="gap-1">
+                <Plus className="h-4 w-4" />
+                Tambah Paket
+              </Button>
+            </CardHeader>
+            <CardContent>
+              {subscriptions.length === 0 ? (
+                <div className="text-center py-8">
+                  <CreditCard className="h-10 w-10 mx-auto mb-2 text-muted-foreground/40" />
+                  <p className="text-muted-foreground">Belum ada paket kuota.</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {subscriptions.map((sub) => (
+                    <div key={sub.id} className={`p-4 border rounded-lg ${sub.status === 'ACTIVE' ? 'border-primary bg-primary/5' : ''}`}>
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <p className="font-medium">{sub.package_name}</p>
+                      <Badge variant={sub.status === 'ACTIVE' ? 'default' : 'secondary'} className="text-xs">
+                            {sub.status === 'ACTIVE' ? 'Aktif' : sub.status === 'COMPLETED' ? 'Selesai' : sub.status}
+                          </Badge>
+                        </div>
+                        <p className="font-semibold text-primary">{formatPrice(sub.payment_amount)}</p>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2 text-sm text-muted-foreground">
+                        <div>
+                          <span className="text-xs">Kuota</span>
+                          <p className="font-medium text-foreground">{sub.used_quota}/{sub.transaction_quota}</p>
+                        </div>
+                        <div>
+                          <span className="text-xs">Sisa</span>
+                          <p className="font-medium text-foreground">{sub.transaction_quota - sub.used_quota}</p>
+                        </div>
+                        <div>
+                          <span className="text-xs">Berakhir</span>
+                          <p className="font-medium text-foreground">{new Date(sub.expired_at).toLocaleDateString('id-ID')}</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -627,6 +753,7 @@ export default function AdminMerchantDetailPage() {
         merchantId={merchant.id}
         initialData={{
           name: merchant.name,
+          user_id: merchant.user_id,
           phone: merchant.phone,
           address: merchant.address,
           province: merchant.province,
@@ -643,6 +770,7 @@ export default function AdminMerchantDetailPage() {
           order_mode: merchant.order_mode,
           is_verified: merchant.is_verified,
           image_url: merchant.image_url,
+          cover_image_url: merchant.cover_image_url,
           location_lat: merchant.location_lat,
           location_lng: merchant.location_lng,
         }}
@@ -652,6 +780,14 @@ export default function AdminMerchantDetailPage() {
       <AssignPackageDialog
         open={packageDialogOpen}
         onOpenChange={setPackageDialogOpen}
+        merchantId={id || ''}
+        merchantName={merchant.name}
+        onSuccess={fetchMerchantData}
+      />
+
+      <AdminAddProductDialog
+        open={addProductDialogOpen}
+        onOpenChange={setAddProductDialogOpen}
         merchantId={id || ''}
         merchantName={merchant.name}
         onSuccess={fetchMerchantData}

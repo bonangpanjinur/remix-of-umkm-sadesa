@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Clock, Save, Image as ImageIcon } from 'lucide-react';
+import { Clock, Save } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -19,6 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { ImageUpload } from '@/components/ui/ImageUpload';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { AddressDropdowns } from './AddressDropdowns';
@@ -48,6 +49,7 @@ interface MerchantEditDialogProps {
     order_mode: string;
     is_verified: boolean | null;
     image_url: string | null;
+    cover_image_url?: string | null;
     location_lat?: number | null;
     location_lng?: number | null;
   };
@@ -103,7 +105,8 @@ export function MerchantEditDialog({
     badge: 'none',
     order_mode: 'ADMIN_ASSISTED',
     is_verified: false,
-    image_url: '',
+    image_url: null as string | null,
+    cover_image_url: null as string | null,
     location_lat: null as number | null,
     location_lng: null as number | null,
   });
@@ -132,7 +135,8 @@ export function MerchantEditDialog({
         badge: initialData.badge || 'none',
         order_mode: initialData.order_mode || 'ADMIN_ASSISTED',
         is_verified: initialData.is_verified ?? false,
-        image_url: initialData.image_url || '',
+        image_url: initialData.image_url || null,
+        cover_image_url: initialData.cover_image_url || null,
         location_lat: initialData.location_lat ?? null,
         location_lng: initialData.location_lng ?? null,
       });
@@ -204,6 +208,7 @@ export function MerchantEditDialog({
           order_mode: formData.order_mode,
           is_verified: formData.is_verified,
           image_url: formData.image_url || null,
+          cover_image_url: formData.cover_image_url || null,
           location_lat: formData.location_lat,
           location_lng: formData.location_lng,
           updated_at: new Date().toISOString(),
@@ -231,8 +236,38 @@ export function MerchantEditDialog({
         </DialogHeader>
 
         <div className="space-y-6 py-2">
-          {/* Basic Info */}
+          {/* Photo Uploads */}
           <div className="space-y-4">
+            <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wider">Foto Merchant</h3>
+            
+            <div className="space-y-3">
+              <div className="space-y-2">
+                <Label>Foto Sampul</Label>
+                <ImageUpload
+                  bucket="merchant-images"
+                  path={`covers/${merchantId}`}
+                  value={formData.cover_image_url}
+                  onChange={(url) => setFormData({ ...formData, cover_image_url: url })}
+                  aspectRatio="wide"
+                  placeholder="Upload foto sampul merchant"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Foto Profil</Label>
+                <ImageUpload
+                  bucket="merchant-images"
+                  path={`profiles/${merchantId}`}
+                  value={formData.image_url}
+                  onChange={(url) => setFormData({ ...formData, image_url: url })}
+                  aspectRatio="square"
+                  placeholder="Upload foto profil merchant"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Basic Info */}
+          <div className="space-y-4 border-t pt-4">
             <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wider">Informasi Dasar</h3>
             
             <div className="grid grid-cols-2 gap-4">
@@ -292,38 +327,6 @@ export function MerchantEditDialog({
                     ))}
                   </SelectContent>
                 </Select>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Kategori Bisnis</Label>
-                <Select
-                  value={formData.business_category}
-                  onValueChange={(v) => setFormData({ ...formData, business_category: v })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {BUSINESS_CATEGORIES.map((cat) => (
-                      <SelectItem key={cat.value} value={cat.value}>
-                        {cat.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label className="flex items-center gap-1">
-                  <ImageIcon className="h-3.5 w-3.5" />
-                  URL Gambar
-                </Label>
-                <Input
-                  value={formData.image_url}
-                  onChange={(e) => setFormData({ ...formData, image_url: e.target.value })}
-                  placeholder="https://example.com/image.jpg"
-                />
               </div>
             </div>
 
