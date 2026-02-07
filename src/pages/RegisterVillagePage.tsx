@@ -133,9 +133,8 @@ export default function RegisterVillagePage() {
         return;
       }
 
-      const { error } = await supabase.from('villages').insert({
+      const { data: villageData, error } = await supabase.from('villages').insert({
         name: data.name.trim(),
-        user_id: user.id,
         province: provinceName,
         regency: regencyName,
         district: districtName,
@@ -146,9 +145,18 @@ export default function RegisterVillagePage() {
         contact_email: data.contactEmail.trim().toLowerCase(),
         registration_status: 'PENDING',
         is_active: false,
-      });
+      }).select('id').single();
 
       if (error) throw error;
+
+      // Link user to village via user_villages table
+      if (villageData) {
+        await supabase.from('user_villages').insert({
+          user_id: user.id,
+          village_id: villageData.id,
+          role: 'admin',
+        });
+      }
       setIsSuccess(true);
       toast.success('Pendaftaran desa berhasil dikirim!');
     } catch (error: any) {
