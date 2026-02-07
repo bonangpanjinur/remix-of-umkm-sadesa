@@ -763,6 +763,7 @@ export type Database = {
           pending_balance: number | null
           phone: string | null
           province: string | null
+          qris_image_url: string | null
           rating_avg: number | null
           rating_count: number | null
           registered_at: string | null
@@ -815,6 +816,7 @@ export type Database = {
           pending_balance?: number | null
           phone?: string | null
           province?: string | null
+          qris_image_url?: string | null
           rating_avg?: number | null
           rating_count?: number | null
           registered_at?: string | null
@@ -867,6 +869,7 @@ export type Database = {
           pending_balance?: number | null
           phone?: string | null
           province?: string | null
+          qris_image_url?: string | null
           rating_avg?: number | null
           rating_count?: number | null
           registered_at?: string | null

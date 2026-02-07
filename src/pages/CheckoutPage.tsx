@@ -59,18 +59,34 @@ export default function CheckoutPage() {
   
   // Distance & COD state
   const [distanceKm, setDistanceKm] = useState<number | null>(null);
+  
+  // Shipping settings from admin
+  const [shippingSettings, setShippingSettings] = useState<{ base_fee: number; per_km_fee: number; min_fee: number; max_fee: number; free_shipping_min_order: number } | null>(null);
   const [codSettings, setCodSettings] = useState<Awaited<ReturnType<typeof fetchCODSettings>> | null>(null);
   const [codStatus, setCodStatus] = useState<Awaited<ReturnType<typeof getBuyerCODStatus>> | null>(null);
   const [codEligible, setCodEligible] = useState(true);
   const [codReason, setCodReason] = useState<string | null>(null);
 
   // Merchant payment settings
-  const [merchantPaymentSettings, setMerchantPaymentSettings] = useState<MerchantPaymentSettings | null>(null);
+  const [merchantPaymentSettings, setMerchantPaymentSettings] = useState<MerchantPaymentSettings & { qrisImageUrl: string | null } | null>(null);
 
   // Check if Xendit is enabled and load COD settings
   useEffect(() => {
     isXenditEnabled().then(setXenditAvailable);
     fetchCODSettings().then(setCodSettings);
+    // Load admin shipping settings
+    supabase.from('app_settings').select('value').eq('key', 'shipping_base_fee').single().then(({ data }) => {
+      if (data?.value) {
+        const v = data.value as Record<string, number>;
+        setShippingSettings({
+          base_fee: v.base_fee ?? 5000,
+          per_km_fee: v.per_km_fee ?? 2000,
+          min_fee: v.min_fee ?? 5000,
+          max_fee: v.max_fee ?? 50000,
+          free_shipping_min_order: v.free_shipping_min_order ?? 100000,
+        });
+      }
+    });
   }, []);
 
   // Load buyer COD status
@@ -89,16 +105,17 @@ export default function CheckoutPage() {
   const shippingCost = useMemo(() => {
     if (deliveryType === 'PICKUP') return 0;
     
-    // Base shipping calculation
-    const baseFee = 5000;
-    const perKmFee = 2000;
+    const baseFee = shippingSettings?.base_fee ?? 5000;
+    const perKmFee = shippingSettings?.per_km_fee ?? 2000;
+    const minFee = shippingSettings?.min_fee ?? 5000;
+    const maxFee = shippingSettings?.max_fee ?? 50000;
     
     if (distanceKm !== null && distanceKm > 0) {
-      return Math.min(50000, Math.max(baseFee, baseFee + Math.round(distanceKm * perKmFee)));
+      return Math.min(maxFee, Math.max(minFee, baseFee + Math.round(distanceKm * perKmFee)));
     }
     
     return baseFee;
-  }, [deliveryType, distanceKm]);
+  }, [deliveryType, distanceKm, shippingSettings]);
 
   // COD service fee
   const codServiceFee = paymentMethod === 'COD' && codSettings ? codSettings.serviceFee : 0;
@@ -191,7 +208,7 @@ export default function CheckoutPage() {
       // Get location and payment settings of first merchant (simplified - assumes single merchant checkout)
       const { data } = await supabase
         .from('merchants')
-        .select('location_lat, location_lng, payment_cod_enabled, payment_transfer_enabled, bank_name, bank_account_number, bank_account_name')
+        .select('location_lat, location_lng, payment_cod_enabled, payment_transfer_enabled, bank_name, bank_account_number, bank_account_name, qris_image_url')
         .eq('id', merchantIds[0])
         .single();
       
@@ -203,12 +220,34 @@ export default function CheckoutPage() {
           });
         }
         
+        // If merchant has no bank info, load admin defaults
+        let bankName = data.bank_name;
+        let bankAccountNumber = data.bank_account_number;
+        let bankAccountName = data.bank_account_name;
+        let qrisImageUrl = data.qris_image_url;
+        
+        if (!bankName || !bankAccountNumber) {
+          const { data: adminSettings } = await supabase
+            .from('app_settings')
+            .select('value')
+            .eq('key', 'admin_payment_info')
+            .single();
+          if (adminSettings?.value) {
+            const ap = adminSettings.value as Record<string, string>;
+            if (!bankName) bankName = ap.bank_name || null;
+            if (!bankAccountNumber) bankAccountNumber = ap.bank_account_number || null;
+            if (!bankAccountName) bankAccountName = ap.bank_account_name || null;
+            if (!qrisImageUrl) qrisImageUrl = ap.qris_image_url || null;
+          }
+        }
+        
         setMerchantPaymentSettings({
           codEnabled: data.payment_cod_enabled ?? true,
           transferEnabled: data.payment_transfer_enabled ?? true,
-          bankName: data.bank_name,
-          bankAccountNumber: data.bank_account_number,
-          bankAccountName: data.bank_account_name,
+          bankName,
+          bankAccountNumber,
+          bankAccountName,
+          qrisImageUrl,
         });
 
         // Set default payment method based on merchant settings
@@ -363,6 +402,7 @@ export default function CheckoutPage() {
 
     try {
       const fullAddress = formatFullAddress(addressData.address);
+      let lastCreatedOrderId: string | null = null;
 
       // Create order for each merchant
       for (const [merchantId, merchantData] of Object.entries(itemsByMerchant)) {
@@ -489,6 +529,7 @@ export default function CheckoutPage() {
         }
 
         setOrderId(orderData.id);
+        lastCreatedOrderId = orderData.id;
 
         // If online payment, create Xendit invoice
         if (paymentMethod === 'ONLINE' && xenditAvailable) {
@@ -516,12 +557,21 @@ export default function CheckoutPage() {
         }
       }
 
-      // Clear cart and show success
+      // Clear cart
       clearCart();
+      
+      // For TRANSFER payment, redirect to payment confirmation page  
+      if (paymentMethod === 'TRANSFER' && lastCreatedOrderId) {
+        navigate(`/payment/${lastCreatedOrderId}`);
+        return;
+      }
+      
       setSuccess(true);
       toast({
         title: 'Pesanan berhasil dibuat!',
-        description: 'Pesanan Anda telah masuk ke sistem dan sedang menunggu diproses',
+        description: paymentMethod === 'COD' 
+          ? 'Pesanan Anda menunggu konfirmasi dari penjual' 
+          : 'Pesanan Anda telah masuk ke sistem',
       });
     } catch (error: any) {
       console.error('Checkout error:', error);
@@ -815,6 +865,20 @@ export default function CheckoutPage() {
               <p className="text-sm font-bold">{merchantPaymentSettings.bankName}</p>
               <p className="text-sm font-mono">{merchantPaymentSettings.bankAccountNumber}</p>
               <p className="text-xs text-muted-foreground">a.n. {merchantPaymentSettings.bankAccountName}</p>
+            </div>
+          )}
+
+          {/* QRIS Info */}
+          {paymentMethod === 'TRANSFER' && merchantPaymentSettings?.qrisImageUrl && (
+            <div className="mt-3 p-3 bg-secondary/50 rounded-lg">
+              <p className="text-xs font-medium text-foreground mb-2">QRIS:</p>
+              <div className="flex justify-center p-2 bg-card rounded border">
+                <img
+                  src={merchantPaymentSettings.qrisImageUrl}
+                  alt="QRIS"
+                  className="max-w-[200px] w-full h-auto"
+                />
+              </div>
             </div>
           )}
 

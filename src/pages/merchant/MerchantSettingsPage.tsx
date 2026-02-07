@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Save, Store, Clock, MapPin, Phone, FileText, Loader2 } from 'lucide-react';
+import { Save, Store, Clock, MapPin, Phone, FileText, Loader2, CreditCard, QrCode } from 'lucide-react';
 import { MerchantLayout } from '@/components/merchant/MerchantLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -32,6 +32,12 @@ interface MerchantData {
   image_url: string | null;
   order_mode: string;
   classification_price: string | null;
+  bank_name: string | null;
+  bank_account_number: string | null;
+  bank_account_name: string | null;
+  qris_image_url: string | null;
+  payment_cod_enabled: boolean | null;
+  payment_transfer_enabled: boolean | null;
 }
 
 const BUSINESS_CATEGORIES = [
@@ -66,8 +72,14 @@ export default function MerchantSettingsPage() {
     close_time: '17:00',
     classification_price: '',
     order_mode: 'ADMIN_ASSISTED',
+    bank_name: '',
+    bank_account_number: '',
+    bank_account_name: '',
+    payment_cod_enabled: true,
+    payment_transfer_enabled: true,
   });
   const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [qrisImageUrl, setQrisImageUrl] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchMerchant = async () => {
@@ -94,8 +106,14 @@ export default function MerchantSettingsPage() {
             close_time: data.close_time || '17:00',
             classification_price: data.classification_price || '',
             order_mode: data.order_mode || 'ADMIN_ASSISTED',
+            bank_name: data.bank_name || '',
+            bank_account_number: data.bank_account_number || '',
+            bank_account_name: data.bank_account_name || '',
+            payment_cod_enabled: data.payment_cod_enabled ?? true,
+            payment_transfer_enabled: data.payment_transfer_enabled ?? true,
           });
           setImageUrl(data.image_url);
+          setQrisImageUrl(data.qris_image_url);
         }
       } catch (error) {
         console.error('Error:', error);
@@ -131,6 +149,12 @@ export default function MerchantSettingsPage() {
           classification_price: formData.classification_price,
           order_mode: formData.order_mode,
           image_url: imageUrl,
+          bank_name: formData.bank_name || null,
+          bank_account_number: formData.bank_account_number || null,
+          bank_account_name: formData.bank_account_name || null,
+          qris_image_url: qrisImageUrl,
+          payment_cod_enabled: formData.payment_cod_enabled,
+          payment_transfer_enabled: formData.payment_transfer_enabled,
         })
         .eq('id', merchant.id);
 
@@ -198,25 +222,13 @@ export default function MerchantSettingsPage() {
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="name">Nama Toko</Label>
-              <Input
-                id="name"
-                name="name"
-                value={formData.name}
-                onChange={handleChange}
-                required
-              />
+              <Input id="name" name="name" value={formData.name} onChange={handleChange} required />
             </div>
             
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="phone">No. Telepon</Label>
-                <Input
-                  id="phone"
-                  name="phone"
-                  type="tel"
-                  value={formData.phone}
-                  onChange={handleChange}
-                />
+                <Input id="phone" name="phone" type="tel" value={formData.phone} onChange={handleChange} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="business_category">Kategori Bisnis</Label>
@@ -224,14 +236,10 @@ export default function MerchantSettingsPage() {
                   value={formData.business_category} 
                   onValueChange={(value) => setFormData(prev => ({ ...prev, business_category: value }))}
                 >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Pilih kategori" />
-                  </SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder="Pilih kategori" /></SelectTrigger>
                   <SelectContent>
                     {BUSINESS_CATEGORIES.map((cat) => (
-                      <SelectItem key={cat.value} value={cat.value}>
-                        {cat.label}
-                      </SelectItem>
+                      <SelectItem key={cat.value} value={cat.value}>{cat.label}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -240,14 +248,7 @@ export default function MerchantSettingsPage() {
 
             <div className="space-y-2">
               <Label htmlFor="business_description">Deskripsi Toko</Label>
-              <Textarea
-                id="business_description"
-                name="business_description"
-                value={formData.business_description}
-                onChange={handleChange}
-                rows={3}
-                placeholder="Ceritakan tentang toko Anda..."
-              />
+              <Textarea id="business_description" name="business_description" value={formData.business_description} onChange={handleChange} rows={3} placeholder="Ceritakan tentang toko Anda..." />
             </div>
           </CardContent>
         </Card>
@@ -263,14 +264,7 @@ export default function MerchantSettingsPage() {
           <CardContent>
             <div className="space-y-2">
               <Label htmlFor="address">Alamat Lengkap</Label>
-              <Textarea
-                id="address"
-                name="address"
-                value={formData.address}
-                onChange={handleChange}
-                rows={2}
-                placeholder="Jalan, RT/RW, Desa..."
-              />
+              <Textarea id="address" name="address" value={formData.address} onChange={handleChange} rows={2} placeholder="Jalan, RT/RW, Desa..." />
             </div>
           </CardContent>
         </Card>
@@ -287,24 +281,110 @@ export default function MerchantSettingsPage() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="open_time">Jam Buka</Label>
-                <Input
-                  id="open_time"
-                  name="open_time"
-                  type="time"
-                  value={formData.open_time}
-                  onChange={handleChange}
-                />
+                <Input id="open_time" name="open_time" type="time" value={formData.open_time} onChange={handleChange} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="close_time">Jam Tutup</Label>
-                <Input
-                  id="close_time"
-                  name="close_time"
-                  type="time"
-                  value={formData.close_time}
-                  onChange={handleChange}
+                <Input id="close_time" name="close_time" type="time" value={formData.close_time} onChange={handleChange} />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Payment Settings */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <CreditCard className="h-5 w-5" />
+              Pengaturan Pembayaran
+            </CardTitle>
+            <CardDescription>Kelola rekening bank dan QRIS untuk menerima pembayaran</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {/* Payment Toggles */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between p-3 bg-secondary/50 rounded-lg">
+                <div>
+                  <p className="font-medium text-sm">COD (Bayar di Tempat)</p>
+                  <p className="text-xs text-muted-foreground">Terima pembayaran tunai saat pengiriman</p>
+                </div>
+                <Switch
+                  checked={formData.payment_cod_enabled}
+                  onCheckedChange={(v) => setFormData(prev => ({ ...prev, payment_cod_enabled: v }))}
                 />
               </div>
+              <div className="flex items-center justify-between p-3 bg-secondary/50 rounded-lg">
+                <div>
+                  <p className="font-medium text-sm">Transfer Bank & QRIS</p>
+                  <p className="text-xs text-muted-foreground">Terima pembayaran via transfer dan QRIS</p>
+                </div>
+                <Switch
+                  checked={formData.payment_transfer_enabled}
+                  onCheckedChange={(v) => setFormData(prev => ({ ...prev, payment_transfer_enabled: v }))}
+                />
+              </div>
+            </div>
+
+            {/* Bank Account Info */}
+            <div className="space-y-4 border-t pt-4">
+              <h4 className="font-medium text-sm flex items-center gap-2">
+                <CreditCard className="h-4 w-4" />
+                Rekening Bank
+              </h4>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Nama Bank</Label>
+                  <Input 
+                    name="bank_name" 
+                    value={formData.bank_name} 
+                    onChange={handleChange}
+                    placeholder="Contoh: BRI, BCA, Mandiri" 
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Nomor Rekening</Label>
+                  <Input 
+                    name="bank_account_number" 
+                    value={formData.bank_account_number} 
+                    onChange={handleChange}
+                    placeholder="Nomor rekening" 
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>Atas Nama</Label>
+                <Input 
+                  name="bank_account_name" 
+                  value={formData.bank_account_name} 
+                  onChange={handleChange}
+                  placeholder="Nama pemilik rekening" 
+                />
+              </div>
+              {!formData.bank_name && !formData.bank_account_number && (
+                <p className="text-xs text-muted-foreground bg-muted p-2 rounded">
+                  💡 Jika tidak diisi, akan menggunakan rekening admin sebagai default
+                </p>
+              )}
+            </div>
+
+            {/* QRIS */}
+            <div className="space-y-4 border-t pt-4">
+              <h4 className="font-medium text-sm flex items-center gap-2">
+                <QrCode className="h-4 w-4" />
+                QRIS
+              </h4>
+              <ImageUpload
+                value={qrisImageUrl}
+                onChange={setQrisImageUrl}
+                bucket="merchant-images"
+                path={`qris/${merchant.id}`}
+                placeholder="Upload gambar QRIS"
+              />
+              {!qrisImageUrl && (
+                <p className="text-xs text-muted-foreground bg-muted p-2 rounded">
+                  💡 Jika tidak diisi, akan menggunakan QRIS admin sebagai default
+                </p>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -321,14 +401,10 @@ export default function MerchantSettingsPage() {
                 value={formData.classification_price} 
                 onValueChange={(value) => setFormData(prev => ({ ...prev, classification_price: value }))}
               >
-                <SelectTrigger>
-                  <SelectValue placeholder="Pilih klasifikasi" />
-                </SelectTrigger>
+                <SelectTrigger><SelectValue placeholder="Pilih klasifikasi" /></SelectTrigger>
                 <SelectContent>
                   {PRICE_CLASSIFICATIONS.map((cls) => (
-                    <SelectItem key={cls.value} value={cls.value}>
-                      {cls.label}
-                    </SelectItem>
+                    <SelectItem key={cls.value} value={cls.value}>{cls.label}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -340,22 +416,10 @@ export default function MerchantSettingsPage() {
                 value={formData.order_mode} 
                 onValueChange={(value) => setFormData(prev => ({ ...prev, order_mode: value }))}
               >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
+                <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="ADMIN_ASSISTED">
-                    <div>
-                      <p className="font-medium">Dibantu Admin</p>
-                      <p className="text-xs text-muted-foreground">Pesanan diproses melalui admin pusat</p>
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="SELF_MANAGED">
-                    <div>
-                      <p className="font-medium">Kelola Sendiri</p>
-                      <p className="text-xs text-muted-foreground">Pesanan langsung masuk ke dashboard Anda</p>
-                    </div>
-                  </SelectItem>
+                  <SelectItem value="ADMIN_ASSISTED">Dibantu Admin</SelectItem>
+                  <SelectItem value="SELF_MANAGED">Kelola Sendiri</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -365,15 +429,9 @@ export default function MerchantSettingsPage() {
         {/* Submit */}
         <Button type="submit" className="w-full" disabled={saving}>
           {saving ? (
-            <>
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              Menyimpan...
-            </>
+            <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Menyimpan...</>
           ) : (
-            <>
-              <Save className="h-4 w-4 mr-2" />
-              Simpan Pengaturan
-            </>
+            <><Save className="h-4 w-4 mr-2" />Simpan Pengaturan</>
           )}
         </Button>
       </form>

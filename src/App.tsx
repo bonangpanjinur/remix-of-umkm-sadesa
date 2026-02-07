@@ -21,6 +21,7 @@ import TourismPage from "./pages/TourismPage";
 import TourismDetail from "./pages/TourismDetail";
 import CartPage from "./pages/CartPage";
 import CheckoutPage from "./pages/CheckoutPage";
+import PaymentConfirmationPage from "./pages/PaymentConfirmationPage";
 import ExplorePage from "./pages/ExplorePage";
 import SearchResultsPage from "./pages/SearchResultsPage";
 import OrdersPage from "./pages/OrdersPage";
@@ -170,6 +171,11 @@ const App = () => (
               <Route path="/checkout" element={
                 <ProtectedRoute>
                   <CheckoutPage />
+              </ProtectedRoute>
+              } />
+              <Route path="/payment/:orderId" element={
+                <ProtectedRoute>
+                  <PaymentConfirmationPage />
                 </ProtectedRoute>
               } />
               <Route path="/orders" element={

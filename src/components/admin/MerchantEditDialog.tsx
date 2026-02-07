@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Clock, Save } from 'lucide-react';
+import { Clock, Save, CreditCard, QrCode } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -52,6 +52,12 @@ interface MerchantEditDialogProps {
     cover_image_url?: string | null;
     location_lat?: number | null;
     location_lng?: number | null;
+    bank_name?: string | null;
+    bank_account_number?: string | null;
+    bank_account_name?: string | null;
+    qris_image_url?: string | null;
+    payment_cod_enabled?: boolean | null;
+    payment_transfer_enabled?: boolean | null;
   };
   onSuccess: () => void;
 }
@@ -109,6 +115,12 @@ export function MerchantEditDialog({
     cover_image_url: null as string | null,
     location_lat: null as number | null,
     location_lng: null as number | null,
+    bank_name: '',
+    bank_account_number: '',
+    bank_account_name: '',
+    qris_image_url: null as string | null,
+    payment_cod_enabled: true,
+    payment_transfer_enabled: true,
   });
 
   useEffect(() => {
@@ -139,6 +151,12 @@ export function MerchantEditDialog({
         cover_image_url: initialData.cover_image_url || null,
         location_lat: initialData.location_lat ?? null,
         location_lng: initialData.location_lng ?? null,
+        bank_name: initialData.bank_name || '',
+        bank_account_number: initialData.bank_account_number || '',
+        bank_account_name: initialData.bank_account_name || '',
+        qris_image_url: initialData.qris_image_url || null,
+        payment_cod_enabled: initialData.payment_cod_enabled ?? true,
+        payment_transfer_enabled: initialData.payment_transfer_enabled ?? true,
       });
       loadAvailableUsers(initialData.user_id);
     }
@@ -211,6 +229,12 @@ export function MerchantEditDialog({
           cover_image_url: formData.cover_image_url || null,
           location_lat: formData.location_lat,
           location_lng: formData.location_lng,
+          bank_name: formData.bank_name || null,
+          bank_account_number: formData.bank_account_number || null,
+          bank_account_name: formData.bank_account_name || null,
+          qris_image_url: formData.qris_image_url || null,
+          payment_cod_enabled: formData.payment_cod_enabled,
+          payment_transfer_enabled: formData.payment_transfer_enabled,
           updated_at: new Date().toISOString(),
         })
         .eq('id', merchantId);
@@ -470,6 +494,78 @@ export function MerchantEditDialog({
                 <Label>Terverifikasi</Label>
               </div>
             </div>
+          </div>
+
+          {/* Payment Settings */}
+          <div className="space-y-4 border-t pt-4">
+            <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+              <CreditCard className="h-4 w-4" />
+              Pengaturan Pembayaran
+            </h3>
+            
+            <div className="flex gap-6">
+              <div className="flex items-center gap-2">
+                <Switch
+                  checked={formData.payment_cod_enabled}
+                  onCheckedChange={(v) => setFormData({ ...formData, payment_cod_enabled: v })}
+                />
+                <Label>COD Aktif</Label>
+              </div>
+              <div className="flex items-center gap-2">
+                <Switch
+                  checked={formData.payment_transfer_enabled}
+                  onCheckedChange={(v) => setFormData({ ...formData, payment_transfer_enabled: v })}
+                />
+                <Label>Transfer Aktif</Label>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label>Nama Bank</Label>
+                <Input
+                  value={formData.bank_name}
+                  onChange={(e) => setFormData({ ...formData, bank_name: e.target.value })}
+                  placeholder="BRI, BCA, dll"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>No. Rekening</Label>
+                <Input
+                  value={formData.bank_account_number}
+                  onChange={(e) => setFormData({ ...formData, bank_account_number: e.target.value })}
+                  placeholder="Nomor rekening"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Atas Nama</Label>
+                <Input
+                  value={formData.bank_account_name}
+                  onChange={(e) => setFormData({ ...formData, bank_account_name: e.target.value })}
+                  placeholder="Nama pemilik"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="flex items-center gap-1">
+                <QrCode className="h-3.5 w-3.5" />
+                QRIS
+              </Label>
+              <ImageUpload
+                bucket="merchant-images"
+                path={`qris/${merchantId}`}
+                value={formData.qris_image_url}
+                onChange={(url) => setFormData({ ...formData, qris_image_url: url })}
+                placeholder="Upload gambar QRIS merchant"
+              />
+            </div>
+
+            {!formData.bank_name && !formData.bank_account_number && (
+              <p className="text-xs text-muted-foreground bg-muted p-2 rounded">
+                💡 Jika kosong, akan menggunakan rekening & QRIS admin sebagai default
+              </p>
+            )}
           </div>
         </div>
 

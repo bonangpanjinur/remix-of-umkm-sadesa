@@ -93,6 +93,7 @@ export default function AdminSettingsPage() {
   const platformFee = getSetting('platform_fee')?.value as unknown as PlatformFeeSettings | undefined;
   const shippingZones = getSetting('shipping_zones')?.value as unknown as ShippingZonesSettings | undefined;
   const codSettings = getSetting('cod_settings')?.value as unknown as CODSettings | undefined;
+  const adminPaymentInfo = getSetting('admin_payment_info')?.value as unknown as { bank_name: string; bank_account_number: string; bank_account_name: string; qris_image_url: string } | undefined;
 
   return (
     <div className="flex min-h-screen bg-background">
@@ -301,6 +302,36 @@ export default function AdminSettingsPage() {
 
               {/* Payment & API Tab */}
               <TabsContent value="payment" className="space-y-6">
+                {/* Admin Default Payment Info */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <CreditCard className="h-5 w-5" />
+                      Rekening & QRIS Default Admin
+                    </CardTitle>
+                    <CardDescription>
+                      Rekening dan QRIS ini digunakan untuk merchant yang belum mengatur pembayaran sendiri
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <AdminPaymentInfoForm
+                      initialValues={adminPaymentInfo}
+                      onSave={async (values) => {
+                        setSaving('admin_payment_info');
+                        const success = await updateAppSetting('admin_payment_info', values as unknown as Record<string, unknown>);
+                        if (success) {
+                          toast.success('Rekening default berhasil disimpan');
+                          loadSettings();
+                        } else {
+                          toast.error('Gagal menyimpan');
+                        }
+                        setSaving(null);
+                      }}
+                      isSaving={saving === 'admin_payment_info'}
+                    />
+                  </CardContent>
+                </Card>
+
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
@@ -510,6 +541,54 @@ function CODSettingsForm({ initialValues, onSave, isSaving }: { initialValues?: 
     <form onSubmit={handleSubmit} className="space-y-6">
       <div className="flex items-center justify-between p-4 bg-secondary/50 rounded-lg"><div><p className="font-medium text-sm">Aktifkan Fitur COD</p></div><Switch checked={enabled} onCheckedChange={setEnabled} /></div>
       {enabled && <div className="grid gap-4 md:grid-cols-2"><div className="space-y-2"><Label>Maksimal Nominal COD (Rp)</Label><Input type="number" value={maxAmount} onChange={(e) => setMaxAmount(e.target.value)} /></div><div className="space-y-2"><Label>Maksimal Jarak (KM)</Label><Input type="number" value={maxDistance} onChange={(e) => setMaxDistance(e.target.value)} /></div></div>}
+      <Button type="submit" disabled={isSaving}><Save className="h-4 w-4 mr-2" /> {isSaving ? 'Menyimpan...' : 'Simpan'}</Button>
+    </form>
+  );
+}
+
+interface AdminPaymentInfoValues {
+  bank_name: string;
+  bank_account_number: string;
+  bank_account_name: string;
+  qris_image_url: string;
+}
+
+function AdminPaymentInfoForm({ initialValues, onSave, isSaving }: { initialValues?: AdminPaymentInfoValues; onSave: (values: AdminPaymentInfoValues) => Promise<void>; isSaving: boolean; }) {
+  const [bankName, setBankName] = useState(initialValues?.bank_name || '');
+  const [bankAccountNumber, setBankAccountNumber] = useState(initialValues?.bank_account_number || '');
+  const [bankAccountName, setBankAccountName] = useState(initialValues?.bank_account_name || '');
+  const [qrisImageUrl, setQrisImageUrl] = useState(initialValues?.qris_image_url || '');
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSave({ bank_name: bankName, bank_account_number: bankAccountNumber, bank_account_name: bankAccountName, qris_image_url: qrisImageUrl });
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="grid gap-4 md:grid-cols-3">
+        <div className="space-y-2">
+          <Label>Nama Bank</Label>
+          <Input value={bankName} onChange={(e) => setBankName(e.target.value)} placeholder="BRI, BCA, Mandiri" />
+        </div>
+        <div className="space-y-2">
+          <Label>Nomor Rekening</Label>
+          <Input value={bankAccountNumber} onChange={(e) => setBankAccountNumber(e.target.value)} placeholder="Nomor rekening admin" />
+        </div>
+        <div className="space-y-2">
+          <Label>Atas Nama</Label>
+          <Input value={bankAccountName} onChange={(e) => setBankAccountName(e.target.value)} placeholder="Nama pemilik" />
+        </div>
+      </div>
+      <div className="space-y-2">
+        <Label>QRIS Admin (URL Gambar)</Label>
+        <Input value={qrisImageUrl} onChange={(e) => setQrisImageUrl(e.target.value)} placeholder="https://... URL gambar QRIS" />
+        {qrisImageUrl && (
+          <div className="mt-2 p-2 bg-secondary/50 rounded-lg flex justify-center">
+            <img src={qrisImageUrl} alt="QRIS Preview" className="max-w-[150px] h-auto" />
+          </div>
+        )}
+      </div>
       <Button type="submit" disabled={isSaving}><Save className="h-4 w-4 mr-2" /> {isSaving ? 'Menyimpan...' : 'Simpan'}</Button>
     </form>
   );
