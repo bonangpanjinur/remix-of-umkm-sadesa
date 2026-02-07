@@ -1650,6 +1650,71 @@ export type Database = {
         }
         Relationships: []
       }
+      quota_usage_logs: {
+        Row: {
+          created_at: string
+          credits_used: number
+          id: string
+          merchant_id: string
+          notes: string | null
+          order_id: string | null
+          order_total: number
+          remaining_quota: number
+          subscription_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          credits_used?: number
+          id?: string
+          merchant_id: string
+          notes?: string | null
+          order_id?: string | null
+          order_total?: number
+          remaining_quota?: number
+          subscription_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          credits_used?: number
+          id?: string
+          merchant_id?: string
+          notes?: string | null
+          order_id?: string | null
+          order_total?: number
+          remaining_quota?: number
+          subscription_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quota_usage_logs_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quota_usage_logs_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "public_merchants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quota_usage_logs_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quota_usage_logs_subscription_id_fkey"
+            columns: ["subscription_id"]
+            isOneToOne: false
+            referencedRelation: "merchant_subscriptions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       rate_limits: {
         Row: {
           action: string

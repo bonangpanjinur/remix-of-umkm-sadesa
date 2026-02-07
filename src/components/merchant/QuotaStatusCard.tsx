@@ -8,111 +8,40 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-
-interface QuotaStatus {
-  hasActiveSubscription: boolean;
-  remainingQuota: number;
-  totalQuota: number;
-  usedQuota: number;
-  expiresAt: string | null;
-  packageName: string | null;
-  type: 'free' | 'premium';
-}
+import { fetchMerchantQuotaInfo, type MerchantQuotaInfo } from '@/lib/quotaHelpers';
 
 export function QuotaStatusCard() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [status, setStatus] = useState<QuotaStatus | null>(null);
+  const [status, setStatus] = useState<MerchantQuotaInfo | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchQuotaStatus = async () => {
       if (!user) return;
-
       try {
-        // Get merchant
         const { data: merchant } = await supabase
           .from('merchants')
           .select('id')
           .eq('user_id', user.id)
           .maybeSingle();
+        if (!merchant) { setLoading(false); return; }
 
-        if (!merchant) {
-          setLoading(false);
-          return;
-        }
-
-        // Get active subscriptions
-        const { data: subscriptions } = await supabase
-          .from('merchant_subscriptions')
-          .select(`
-            transaction_quota,
-            used_quota,
-            expired_at,
-            package:transaction_packages(name)
-          `)
-          .eq('merchant_id', merchant.id)
-          .eq('status', 'ACTIVE')
-          .gte('expired_at', new Date().toISOString())
-          .order('expired_at', { ascending: true });
-
-        // Calculate usage from orders table for current month
-        const startOfMonth = new Date();
-        startOfMonth.setDate(1);
-        startOfMonth.setHours(0, 0, 0, 0);
-
-        const { count: ordersCount } = await supabase
-          .from('orders')
-          .select('*', { count: 'exact', head: true })
-          .eq('merchant_id', merchant.id)
-          .gte('created_at', startOfMonth.toISOString());
-
-        const currentUsage = ordersCount || 0;
-
-        if (subscriptions && subscriptions.length > 0) {
-          const totalQuota = subscriptions.reduce((sum, sub) => sum + sub.transaction_quota, 0);
-          const usedQuota = subscriptions.reduce((sum, sub) => sum + sub.used_quota, 0);
-          const firstSub = subscriptions[0];
-          const pkg = firstSub.package as { name: string } | null;
-          
-          setStatus({
-            hasActiveSubscription: true,
-            remainingQuota: Math.max(0, totalQuota - usedQuota),
-            totalQuota: totalQuota,
-            usedQuota: usedQuota,
-            expiresAt: firstSub.expired_at,
-            packageName: pkg?.name || (subscriptions.length > 1 ? `${pkg?.name} (+${subscriptions.length - 1})` : pkg?.name) || 'Premium',
-            type: 'premium'
-          });
-        } else {
-          // Fallback to Free Tier
-          const freeLimit = 100;
-          setStatus({
-            hasActiveSubscription: false,
-            remainingQuota: Math.max(0, freeLimit - currentUsage),
-            totalQuota: freeLimit,
-            usedQuota: currentUsage,
-            expiresAt: null,
-            packageName: 'Free Tier',
-            type: 'free'
-          });
-        }
+        const info = await fetchMerchantQuotaInfo(merchant.id);
+        setStatus(info);
       } catch (error) {
         console.error('Error fetching quota status:', error);
       } finally {
         setLoading(false);
       }
     };
-
     fetchQuotaStatus();
   }, [user]);
 
   if (loading) {
     return (
       <Card>
-        <CardHeader className="pb-2">
-          <Skeleton className="h-5 w-32" />
-        </CardHeader>
+        <CardHeader className="pb-2"><Skeleton className="h-5 w-32" /></CardHeader>
         <CardContent>
           <Skeleton className="h-4 w-full mb-4" />
           <Skeleton className="h-8 w-full mb-2" />

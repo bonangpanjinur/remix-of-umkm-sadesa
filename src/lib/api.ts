@@ -26,43 +26,95 @@ const villageImages: Record<string, string> = {
   '22222222-2222-2222-2222-222222222222': villageSukamaju,
 };
 
-// Helper to get merchant IDs with active quota
+const FREE_TIER_LIMIT = 100;
+
+// Helper to get merchant IDs with active quota (subscriptions OR free tier)
 async function getMerchantsWithActiveQuota(): Promise<Set<string>> {
-  console.log('Checking merchants with active quota...');
-  const { data } = await supabase
+  // Get all active merchants
+  const { data: allMerchants } = await supabase
+    .from('merchants')
+    .select('id')
+    .eq('status', 'ACTIVE')
+    .eq('registration_status', 'APPROVED');
+
+  if (!allMerchants) return new Set();
+
+  // Get all active subscriptions
+  const { data: activeSubs } = await supabase
     .from('merchant_subscriptions')
     .select('merchant_id, transaction_quota, used_quota')
     .eq('status', 'ACTIVE')
     .gte('expired_at', new Date().toISOString());
 
-  console.log('Merchant subscriptions result:', data);
-  if (!data) return new Set();
-
-  // Filter to only merchants with remaining quota (at least 1 credit)
-  const merchantIds: string[] = [];
-  for (const sub of data) {
-    if (sub.transaction_quota > sub.used_quota) {
-      merchantIds.push(sub.merchant_id);
+  // Build a map of merchant -> aggregate remaining quota from subscriptions
+  const subQuotaMap = new Map<string, number>();
+  if (activeSubs) {
+    for (const sub of activeSubs) {
+      const remaining = sub.transaction_quota - sub.used_quota;
+      const current = subQuotaMap.get(sub.merchant_id) || 0;
+      subQuotaMap.set(sub.merchant_id, current + remaining);
     }
   }
 
-  return new Set(merchantIds);
+  // Get order counts for free tier calculation (current month)
+  const startOfMonth = new Date();
+  startOfMonth.setDate(1);
+  startOfMonth.setHours(0, 0, 0, 0);
+
+  const merchantIds = new Set<string>();
+  
+  for (const m of allMerchants) {
+    if (subQuotaMap.has(m.id)) {
+      // Has subscription - check remaining quota
+      if ((subQuotaMap.get(m.id) || 0) > 0) {
+        merchantIds.add(m.id);
+      }
+    } else {
+      // No subscription - use free tier
+      // For performance, we assume free tier has quota unless we verify
+      // We'll check individual merchants' order counts
+      const { count } = await supabase
+        .from('orders')
+        .select('*', { count: 'exact', head: true })
+        .eq('merchant_id', m.id)
+        .gte('created_at', startOfMonth.toISOString());
+
+      if ((count || 0) < FREE_TIER_LIMIT) {
+        merchantIds.add(m.id);
+      }
+    }
+  }
+
+  return merchantIds;
 }
 
 // Check if a specific merchant has active quota
 export async function checkMerchantHasActiveQuota(merchantId: string): Promise<boolean> {
+  // First check subscriptions
   const { data } = await supabase
     .from('merchant_subscriptions')
     .select('transaction_quota, used_quota')
     .eq('merchant_id', merchantId)
     .eq('status', 'ACTIVE')
-    .gte('expired_at', new Date().toISOString())
-    .order('expired_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
+    .gte('expired_at', new Date().toISOString());
 
-  if (!data) return false;
-  return data.transaction_quota > data.used_quota;
+  if (data && data.length > 0) {
+    const totalRemaining = data.reduce((sum, sub) => sum + (sub.transaction_quota - sub.used_quota), 0);
+    return totalRemaining > 0;
+  }
+
+  // Fallback: free tier - check monthly order count
+  const startOfMonth = new Date();
+  startOfMonth.setDate(1);
+  startOfMonth.setHours(0, 0, 0, 0);
+
+  const { count } = await supabase
+    .from('orders')
+    .select('*', { count: 'exact', head: true })
+    .eq('merchant_id', merchantId)
+    .gte('created_at', startOfMonth.toISOString());
+
+  return (count || 0) < FREE_TIER_LIMIT;
 }
 
 // Fetch products from database (include all, with availability status and location)

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Package, CreditCard, AlertTriangle, Clock, TrendingUp, Upload, CheckCircle2, XCircle, Info, ExternalLink, X, FileCheck, History } from 'lucide-react';
+import { Package, CreditCard, AlertTriangle, Clock, TrendingUp, Upload, CheckCircle2, XCircle, Info, ExternalLink, X, FileCheck, History, ShoppingCart } from 'lucide-react';
 import { MerchantLayout } from '@/components/merchant/MerchantLayout';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -30,6 +30,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { formatPrice } from '@/lib/utils';
+import { fetchMerchantQuotaInfo, fetchQuotaUsageLogs, type MerchantQuotaInfo, type QuotaUsageLog } from '@/lib/quotaHelpers';
 
 interface Subscription {
   id: string;
@@ -52,15 +53,7 @@ interface Subscription {
   };
 }
 
-interface QuotaLog {
-  id: string;
-  action_type: string;
-  previous_quota: number;
-  change_amount: number;
-  new_quota: number;
-  notes: string;
-  created_at: string;
-}
+// QuotaLog is now imported from quotaHelpers
 
 interface TransactionPackage {
   id: string;
@@ -82,9 +75,10 @@ interface PaymentSettings {
 export default function MerchantSubscriptionPage() {
   const { user } = useAuth();
   const [merchant, setMerchant] = useState<{ id: string } | null>(null);
+  const [currentQuotaInfo, setCurrentQuotaInfo] = useState<MerchantQuotaInfo | null>(null);
   const [currentSubscription, setCurrentSubscription] = useState<Subscription | null>(null);
   const [subscriptionHistory, setSubscriptionHistory] = useState<Subscription[]>([]);
-  const [quotaLogs, setQuotaLogs] = useState<QuotaLog[]>([]);
+  const [quotaUsageLogs, setQuotaUsageLogs] = useState<QuotaUsageLog[]>([]);
   const [availablePackages, setAvailablePackages] = useState<TransactionPackage[]>([]);
   const [loading, setLoading] = useState(true);
   const [buyDialogOpen, setBuyDialogOpen] = useState(false);
@@ -120,7 +114,11 @@ export default function MerchantSubscriptionPage() {
 
       setMerchant(merchantData);
 
-      // Get current active subscription
+      // Get centralized quota info (same as dashboard)
+      const quotaInfo = await fetchMerchantQuotaInfo(merchantData.id);
+      setCurrentQuotaInfo(quotaInfo);
+
+      // Get current active subscription for detailed display
       if (merchantData.current_subscription_id) {
         const { data: subData } = await supabase
           .from('merchant_subscriptions')
@@ -166,8 +164,9 @@ export default function MerchantSubscriptionPage() {
         
       setAvailablePackages((packagesData || []) as TransactionPackage[]);
 
-      // Skip quota logs since the table doesn't exist yet
-      setQuotaLogs([]);
+      // Get quota usage logs
+      const logs = await fetchQuotaUsageLogs(merchantData.id);
+      setQuotaUsageLogs(logs);
 
       // Get payment settings
       const { data: settingsData } = await supabase
@@ -392,17 +391,17 @@ export default function MerchantSubscriptionPage() {
             <CardDescription>Pantau penggunaan kuota Anda</CardDescription>
           </CardHeader>
           <CardContent>
-            {currentSubscription ? (
+            {currentQuotaInfo ? (
               <div className="space-y-6">
                 <div className="flex justify-between items-end">
                   <div>
                     <p className="text-sm text-muted-foreground mb-1">Paket Aktif</p>
-                    <p className="text-2xl font-bold">{currentSubscription.package.name}</p>
+                    <p className="text-2xl font-bold">{currentQuotaInfo.packageName}</p>
                   </div>
                   <div className="text-right">
                     <p className="text-sm text-muted-foreground mb-1">Sisa Kuota</p>
                     <p className="text-3xl font-bold text-primary">
-                      {currentSubscription.transaction_quota - currentSubscription.used_quota} 
+                      {currentQuotaInfo.remainingQuota} 
                       <span className="text-sm font-normal text-muted-foreground ml-1">Kredit</span>
                     </p>
                   </div>
@@ -566,33 +565,37 @@ export default function MerchantSubscriptionPage() {
           <Card>
             <CardHeader>
               <CardTitle className="text-lg flex items-center gap-2">
-                <TrendingUp className="h-5 w-5" />
-                Riwayat Kuota
+                <ShoppingCart className="h-5 w-5" />
+                Riwayat Penggunaan Kuota
               </CardTitle>
+              <CardDescription>Detail pemakaian kuota per pesanan</CardDescription>
             </CardHeader>
             <CardContent>
-              {quotaLogs.length > 0 ? (
+              {quotaUsageLogs.length > 0 ? (
                 <div className="overflow-x-auto">
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead className="px-2">Aksi</TableHead>
-                        <TableHead className="px-2">+/-</TableHead>
+                        <TableHead className="px-2">Pesanan</TableHead>
+                        <TableHead className="px-2">Harga</TableHead>
+                        <TableHead className="px-2">Kuota</TableHead>
                         <TableHead className="px-2">Sisa</TableHead>
                         <TableHead className="px-2">Tanggal</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {quotaLogs.map((log) => (
+                      {quotaUsageLogs.map((log) => (
                         <TableRow key={log.id} className="text-xs">
-                          <TableCell className="px-2 font-medium">
-                            {log.action_type === 'PURCHASE' ? 'Beli' : 
-                             log.action_type === 'USAGE' ? 'Pakai' : 'Sesuai'}
+                          <TableCell className="px-2 font-mono text-xs">
+                            {log.order_id ? `#${log.order_id.slice(0, 8)}` : '-'}
                           </TableCell>
-                          <TableCell className={`px-2 ${log.change_amount > 0 ? "text-green-600" : "text-red-600"}`}>
-                            {log.change_amount > 0 ? `+${log.change_amount}` : log.change_amount}
+                          <TableCell className="px-2">
+                            {formatPrice(log.order_total)}
                           </TableCell>
-                          <TableCell className="px-2 font-bold">{log.new_quota}</TableCell>
+                          <TableCell className="px-2 text-destructive font-bold">
+                            -{log.credits_used}
+                          </TableCell>
+                          <TableCell className="px-2 font-bold">{log.remaining_quota}</TableCell>
                           <TableCell className="px-2 text-muted-foreground">
                             {new Date(log.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}
                           </TableCell>
@@ -602,7 +605,7 @@ export default function MerchantSubscriptionPage() {
                   </Table>
                 </div>
               ) : (
-                <div className="text-center py-8 text-muted-foreground">Belum ada riwayat kuota.</div>
+                <div className="text-center py-8 text-muted-foreground">Belum ada riwayat penggunaan kuota.</div>
               )}
             </CardContent>
           </Card>
