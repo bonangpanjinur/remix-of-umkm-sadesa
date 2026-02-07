@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { Loader2, MapPin, ExternalLink } from 'lucide-react';
+import { Loader2, MapPin, ExternalLink, Home } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
 import type { Tourism } from '@/types';
@@ -20,7 +20,7 @@ L.Icon.Default.mergeOptions({
   shadowUrl: markerShadow,
 });
 
-// Custom tourism icon
+// Blue icon for tourism spots
 const tourismIcon = new L.Icon({
   iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png',
   shadowUrl: markerShadow,
@@ -30,55 +30,81 @@ const tourismIcon = new L.Icon({
   shadowSize: [41, 41],
 });
 
+// Red icon for village center
+const villageIcon = new L.Icon({
+  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
+  shadowUrl: markerShadow,
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+  shadowSize: [41, 41],
+});
+
+export interface VillageCenter {
+  name: string;
+  lat: number;
+  lng: number;
+  image?: string;
+}
+
 interface TourismMapProps {
   tourismSpots: Tourism[];
+  villageCenter?: VillageCenter | null;
   height?: string;
 }
 
-function MapBoundsUpdater({ spots }: { spots: Tourism[] }) {
+function MapBoundsUpdater({ spots, villageCenter }: { spots: Tourism[]; villageCenter?: VillageCenter | null }) {
   const map = useMap();
 
   useEffect(() => {
-    if (spots.length === 0) return;
+    const allPoints: [number, number][] = [];
 
-    const validSpots = spots.filter(
-      (s) => s.locationLat && s.locationLng && s.locationLat !== 0 && s.locationLng !== 0
-    );
+    if (villageCenter && villageCenter.lat !== 0 && villageCenter.lng !== 0) {
+      allPoints.push([villageCenter.lat, villageCenter.lng]);
+    }
 
-    if (validSpots.length === 0) return;
+    spots.forEach((s) => {
+      if (s.locationLat && s.locationLng && s.locationLat !== 0 && s.locationLng !== 0) {
+        allPoints.push([s.locationLat, s.locationLng]);
+      }
+    });
 
-    if (validSpots.length === 1) {
-      map.setView([validSpots[0].locationLat, validSpots[0].locationLng], 14);
+    if (allPoints.length === 0) return;
+
+    if (allPoints.length === 1) {
+      map.setView(allPoints[0], 14);
     } else {
-      const bounds = L.latLngBounds(
-        validSpots.map((s) => [s.locationLat, s.locationLng] as [number, number])
-      );
+      const bounds = L.latLngBounds(allPoints);
       map.fitBounds(bounds, { padding: [30, 30] });
     }
-  }, [spots, map]);
+  }, [spots, villageCenter, map]);
 
   return null;
 }
 
-export function TourismMap({ tourismSpots, height = '300px' }: TourismMapProps) {
+export function TourismMap({ tourismSpots, villageCenter, height = '300px' }: TourismMapProps) {
   const [loading, setLoading] = useState(true);
 
   const validSpots = tourismSpots.filter(
     (s) => s.locationLat && s.locationLng && s.locationLat !== 0 && s.locationLng !== 0
   );
 
+  const hasVillageCenter = villageCenter && villageCenter.lat !== 0 && villageCenter.lng !== 0;
+  const hasAnyPoint = validSpots.length > 0 || hasVillageCenter;
+
   // Default center (Indonesia)
-  const defaultCenter: [number, number] = validSpots.length > 0
-    ? [validSpots[0].locationLat, validSpots[0].locationLng]
-    : [-6.2088, 106.8456];
+  const defaultCenter: [number, number] = hasVillageCenter
+    ? [villageCenter!.lat, villageCenter!.lng]
+    : validSpots.length > 0
+      ? [validSpots[0].locationLat, validSpots[0].locationLng]
+      : [-6.2088, 106.8456];
 
   useEffect(() => {
-    // Small delay to ensure smooth loading
     const timer = setTimeout(() => setLoading(false), 300);
     return () => clearTimeout(timer);
   }, []);
 
-  if (validSpots.length === 0) {
+  if (!hasAnyPoint) {
     return (
       <div
         className="flex items-center justify-center bg-muted rounded-xl text-muted-foreground"
@@ -115,8 +141,24 @@ export function TourismMap({ tourismSpots, height = '300px' }: TourismMapProps) 
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
-        <MapBoundsUpdater spots={validSpots} />
+        <MapBoundsUpdater spots={validSpots} villageCenter={villageCenter} />
 
+        {/* Village Center Marker (Red) */}
+        {hasVillageCenter && (
+          <Marker
+            position={[villageCenter!.lat, villageCenter!.lng]}
+            icon={villageIcon}
+          >
+            <Popup>
+              <div className="text-sm min-w-[180px]">
+                <p className="font-bold mb-1">📍 {villageCenter!.name}</p>
+                <p className="text-xs text-muted-foreground">Pusat Desa Wisata</p>
+              </div>
+            </Popup>
+          </Marker>
+        )}
+
+        {/* Tourism Spots Markers (Blue) */}
         {validSpots.map((spot) => (
           <Marker
             key={spot.id}
@@ -125,12 +167,12 @@ export function TourismMap({ tourismSpots, height = '300px' }: TourismMapProps) 
           >
             <Popup>
               <div className="text-sm min-w-[180px]">
-                <p className="font-bold text-foreground mb-1">{spot.name}</p>
-                <p className="text-muted-foreground text-xs line-clamp-2 mb-2">
+                <p className="font-bold mb-1">{spot.name}</p>
+                <p className="text-xs line-clamp-2 mb-2">
                   {spot.description}
                 </p>
-                {spot.viewCount && (
-                  <p className="text-xs text-muted-foreground mb-2">
+                {spot.viewCount != null && spot.viewCount > 0 && (
+                  <p className="text-xs mb-2">
                     👁 {spot.viewCount.toLocaleString('id-ID')} views
                   </p>
                 )}
@@ -146,10 +188,18 @@ export function TourismMap({ tourismSpots, height = '300px' }: TourismMapProps) 
         ))}
       </MapContainer>
 
-      {/* Spot count badge */}
-      <div className="absolute bottom-3 left-3 z-[1000] bg-background/90 backdrop-blur-sm px-3 py-1.5 rounded-full text-sm font-medium shadow-md border border-border">
-        <MapPin className="h-3.5 w-3.5 inline mr-1.5 text-primary" />
-        {validSpots.length} lokasi wisata
+      {/* Legend & count badge */}
+      <div className="absolute bottom-3 left-3 z-[1000] bg-background/90 backdrop-blur-sm px-3 py-1.5 rounded-full text-xs font-medium shadow-md border border-border flex items-center gap-3">
+        {hasVillageCenter && (
+          <span className="flex items-center gap-1">
+            <span className="w-2.5 h-2.5 rounded-full bg-red-500 inline-block" />
+            Desa
+          </span>
+        )}
+        <span className="flex items-center gap-1">
+          <span className="w-2.5 h-2.5 rounded-full bg-blue-500 inline-block" />
+          {validSpots.length} Wisata
+        </span>
       </div>
     </div>
   );

@@ -34,27 +34,27 @@ interface ShopFilterSheetProps {
   activeFilterCount: number;
 }
 
-const CATEGORIES = [
-  { id: 'kuliner', name: 'Kuliner' },
-  { id: 'fashion', name: 'Fashion' },
-  { id: 'kriya', name: 'Kriya' },
-];
+interface CategoryOption {
+  id: string;
+  name: string;
+}
 
 export function ShopFilterSheet({ filters, onFiltersChange, activeFilterCount }: ShopFilterSheetProps) {
   const [open, setOpen] = useState(false);
   const [villages, setVillages] = useState<Village[]>([]);
+  const [dynamicCategories, setDynamicCategories] = useState<CategoryOption[]>([]);
   const [localFilters, setLocalFilters] = useState<ShopFilters>(filters);
 
   useEffect(() => {
-    async function fetchVillages() {
-      const { data } = await supabase
-        .from('villages')
-        .select('id, name')
-        .eq('is_active', true)
-        .order('name');
-      setVillages(data || []);
+    async function fetchData() {
+      const [villagesRes, categoriesRes] = await Promise.all([
+        supabase.from('villages').select('id, name').eq('is_active', true).order('name'),
+        supabase.from('categories').select('id, name, slug').eq('is_active', true).order('sort_order'),
+      ]);
+      setVillages(villagesRes.data || []);
+      setDynamicCategories((categoriesRes.data || []).map(c => ({ id: c.slug, name: c.name })));
     }
-    fetchVillages();
+    fetchData();
   }, []);
 
   useEffect(() => {
@@ -185,7 +185,7 @@ export function ShopFilterSheet({ filters, onFiltersChange, activeFilterCount }:
             <div className="space-y-3">
               <Label className="text-sm font-semibold">Kategori Produk</Label>
               <div className="flex flex-wrap gap-2">
-                {CATEGORIES.map((cat) => (
+                {dynamicCategories.map((cat) => (
                   <Button
                     key={cat.id}
                     variant={localFilters.categories.includes(cat.id) ? 'default' : 'outline'}

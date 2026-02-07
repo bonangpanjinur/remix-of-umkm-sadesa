@@ -128,7 +128,7 @@ export type OrderMode = 'SELF' | 'ADMIN_ASSISTED';
 
 export type MerchantBadge = 'VERIFIED' | 'POPULAR' | 'NEW';
 
-export type ProductCategory = 'kuliner' | 'fashion' | 'kriya' | 'wisata';
+export type ProductCategory = string;
 
 export type OrderStatus = 'NEW' | 'PROCESSED' | 'SENT' | 'DONE' | 'CANCELED';
 

@@ -337,23 +337,12 @@ export default function VillageDetailPage() {
             
             {/* If village has location, we show it on the map along with tourism spots */}
             <TourismMap 
-              tourismSpots={[
-                ...(village.location_lat && village.location_lng ? [{
-                  id: 'village-loc',
-                  name: village.name,
-                  description: 'Lokasi Desa',
-                  image: village.image_url || '',
-                  locationLat: village.location_lat,
-                  locationLng: village.location_lng,
-                  villageId: village.id,
-                  villageName: village.name,
-                  isActive: true,
-                  facilities: [],
-                  waLink: '',
-                  viewCount: 0
-                }] : []),
-                ...tourisms
-              ]} 
+              tourismSpots={tourisms}
+              villageCenter={
+                village.location_lat && village.location_lng
+                  ? { name: village.name, lat: village.location_lat, lng: village.location_lng, image: village.image_url || undefined }
+                  : null
+              }
               height="250px" 
             />
           </div>

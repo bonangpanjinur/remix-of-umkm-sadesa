@@ -85,9 +85,7 @@ export const productSchema = z.object({
   description: z.string().trim().max(2000, 'Deskripsi maksimal 2000 karakter').optional(),
   price: z.number().min(100, 'Harga minimal Rp 100').max(100000000, 'Harga maksimal Rp 100.000.000'),
   stock: z.number().min(0, 'Stok tidak boleh negatif').max(99999, 'Stok maksimal 99999'),
-  category: z.enum(['kuliner', 'fashion', 'kriya', 'wisata'], {
-    errorMap: () => ({ message: 'Kategori tidak valid' }),
-  }),
+  category: z.string().min(1, 'Kategori harus dipilih'),
   isActive: z.boolean().default(true),
   isPromo: z.boolean().default(false),
 });

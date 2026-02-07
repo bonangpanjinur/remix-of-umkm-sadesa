@@ -83,7 +83,7 @@ export function MerchantProductDetailEditor({ productId, merchantId, onBack }: M
           .eq('id', productId)
           .maybeSingle(),
         supabase
-          .from('categories' as any)
+          .from('categories')
           .select('id, name, slug, icon')
           .eq('is_active', true)
           .order('sort_order'),

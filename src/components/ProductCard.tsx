@@ -22,6 +22,8 @@ const categoryLabels: Record<string, { label: string; className: string }> = {
   wisata: { label: 'Wisata', className: 'bg-success/10 text-success dark:bg-success/20' },
 };
 
+const defaultCategoryStyle = { className: 'bg-muted text-muted-foreground' };
+
 export function ProductCard({ product, index = 0, showCategoryBadge = false }: ProductCardProps) {
   const { addToCart } = useCart();
   const { flashSale } = useProductFlashSale(product.id);

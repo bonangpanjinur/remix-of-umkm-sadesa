@@ -1,8 +1,8 @@
 import { Link } from 'react-router-dom';
-import { UtensilsCrossed, Shirt, Shapes, MapPin } from 'lucide-react';
+import { UtensilsCrossed, Shirt, Shapes, MapPin, Package } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-const icons = {
+const icons: Record<string, React.ComponentType<{ className?: string }>> = {
   utensils: UtensilsCrossed,
   shirt: Shirt,
   shapes: Shapes,
@@ -12,12 +12,12 @@ const icons = {
 interface CategoryIconProps {
   id: string;
   name: string;
-  icon: keyof typeof icons;
+  icon: string;
   colorClass: string;
 }
 
 export function CategoryIcon({ id, name, icon, colorClass }: CategoryIconProps) {
-  const Icon = icons[icon];
+  const Icon = icons[icon] || Package;
   
   return (
     <Link

@@ -5,6 +5,7 @@ import { Header } from '@/components/layout/Header';
 import { BottomNav } from '@/components/layout/BottomNav';
 import { FloatingCartButton } from '@/components/layout/FloatingCartButton';
 import { CategoryIcon } from '@/components/CategoryIcon';
+import { useCategories } from '@/hooks/useCategories';
 import { VillageCard } from '@/components/VillageCard';
 import { ProductCard } from '@/components/ProductCard';
 import { HeroCarousel, type BannerSlide } from '@/components/home/HeroCarousel';
@@ -13,7 +14,6 @@ import {
   fetchProducts, 
   fetchVillages, 
   fetchTourism,
-  categories 
 } from '@/lib/api';
 import { fetchBannerPromotions } from '@/lib/promotions';
 import { useHomepageLayout } from '@/hooks/useHomepageLayout';
@@ -35,6 +35,7 @@ const Index = () => {
   } = useHomepageLayout();
 
   const { location: userLocation, loading: locationLoading } = useUserLocation();
+  const { getHomepageCategories } = useCategories();
 
   useEffect(() => {
     async function loadData() {
@@ -87,8 +88,9 @@ const Index = () => {
   // Sort tourism by proximity first, then by view count
   const popularTourism = sortedTourism;
   
-  // Filter categories based on admin settings
-  const visibleCategories = categories.filter(cat => isCategoryVisible(cat.id));
+  // Filter categories based on admin settings - now dynamic from database
+  const homepageCategories = getHomepageCategories();
+  const visibleCategories = homepageCategories.filter(cat => isCategoryVisible(cat.id));
 
   // Build sections in order based on admin settings
   const enabledSections = getEnabledSections();

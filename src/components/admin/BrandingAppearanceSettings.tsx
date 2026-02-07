@@ -108,12 +108,7 @@ const DEFAULT_HOMEPAGE_SECTIONS: HomepageSection[] = [
   { id: 'villages', name: 'Jelajahi Desa', enabled: true, order: 5 },
 ];
 
-const ALL_CATEGORIES = [
-  { id: 'kuliner', name: 'Kuliner' },
-  { id: 'fashion', name: 'Fashion' },
-  { id: 'kriya', name: 'Kriya' },
-  { id: 'wisata', name: 'Wisata' },
-];
+// Categories are now loaded dynamically from the database
 
 interface BrandingAppearanceSettingsProps {
   isSaving?: string | null;
@@ -152,7 +147,8 @@ export function BrandingAppearanceSettings({ isSaving: externalIsSaving, onSave 
 
   // Homepage Layout State
   const [homepageSections, setHomepageSections] = useState<HomepageSection[]>(DEFAULT_HOMEPAGE_SECTIONS);
-  const [visibleCategories, setVisibleCategories] = useState<string[]>(ALL_CATEGORIES.map(c => c.id));
+  const [visibleCategories, setVisibleCategories] = useState<string[]>([]);
+  const [allCategories, setAllCategories] = useState<{id: string; name: string}[]>([]);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
 
   // Loading & Saving State
@@ -200,17 +196,25 @@ export function BrandingAppearanceSettings({ isSaving: externalIsSaving, onSave 
         .order('page_path');
       setSeoSettings(seoData || []);
 
-      // Fetch Homepage Layout
-      const { data: layoutData } = await supabase
-        .from('app_settings')
-        .select('value')
-        .eq('key', 'homepage_layout')
-        .maybeSingle();
+      // Fetch Homepage Layout and Dynamic Categories in parallel
+      const [layoutRes, categoriesRes] = await Promise.all([
+        supabase.from('app_settings').select('value').eq('key', 'homepage_layout').maybeSingle(),
+        supabase.from('categories').select('id, name, slug').eq('is_active', true).order('sort_order'),
+      ]);
 
-      if (layoutData?.value) {
-        const settings = layoutData.value as unknown as HomepageLayoutSettings;
+      const cats = (categoriesRes.data || []).map(c => ({ id: c.slug, name: c.name }));
+      setAllCategories(cats);
+
+      if (layoutRes.data?.value) {
+        const settings = layoutRes.data.value as unknown as HomepageLayoutSettings;
         if (settings.sections) setHomepageSections(settings.sections.sort((a, b) => a.order - b.order));
-        if (settings.visible_categories) setVisibleCategories(settings.visible_categories);
+        if (settings.visible_categories) {
+          setVisibleCategories(settings.visible_categories);
+        } else {
+          setVisibleCategories(cats.map(c => c.id));
+        }
+      } else {
+        setVisibleCategories(cats.map(c => c.id));
       }
     } catch (error) {
       console.error('Error fetching settings:', error);
@@ -602,7 +606,7 @@ export function BrandingAppearanceSettings({ isSaving: externalIsSaving, onSave 
               <div className="space-y-3">
                 <Label>Kategori yang Ditampilkan</Label>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                  {ALL_CATEGORIES.map(cat => (
+                  {allCategories.map(cat => (
                     <div key={cat.id} className="flex items-center space-x-2 p-2 border rounded-md">
                       <Checkbox id={cat.id} checked={visibleCategories.includes(cat.id)} onCheckedChange={() => toggleCategory(cat.id)} />
                       <Label htmlFor={cat.id} className="text-sm cursor-pointer">{cat.name}</Label>

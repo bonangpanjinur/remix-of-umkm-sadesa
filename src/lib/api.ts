@@ -330,7 +330,8 @@ export async function fetchTourismById(id: string): Promise<Tourism | null> {
   };
 }
 
-// Categories (static)
+// Categories - now dynamic from database, see useCategories hook
+// Keeping static fallback for backward compatibility
 export const categories = [
   { id: 'kuliner', name: 'Kuliner', icon: 'utensils', colorClass: 'category-kuliner' },
   { id: 'fashion', name: 'Fashion', icon: 'shirt', colorClass: 'category-fashion' },

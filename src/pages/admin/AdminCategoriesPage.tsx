@@ -59,7 +59,7 @@ export default function AdminCategoriesPage() {
   const fetchCategories = async () => {
     try {
       const { data, error } = await supabase
-        .from('categories' as any)
+        .from('categories')
         .select('*')
         .order('sort_order', { ascending: true });
 
@@ -123,7 +123,7 @@ export default function AdminCategoriesPage() {
       
       if (editingCategory) {
         const { error } = await supabase
-          .from('categories' as any)
+          .from('categories')
           .update({
             name: form.name,
             slug,
@@ -139,7 +139,7 @@ export default function AdminCategoriesPage() {
       } else {
         const maxOrder = Math.max(0, ...categories.map(c => c.sort_order));
         const { error } = await supabase
-          .from('categories' as any)
+          .from('categories')
           .insert({
             name: form.name,
             slug,
@@ -172,7 +172,7 @@ export default function AdminCategoriesPage() {
 
     try {
       const { error } = await supabase
-        .from('categories' as any)
+        .from('categories')
         .delete()
         .eq('id', category.id);
 
@@ -192,7 +192,7 @@ export default function AdminCategoriesPage() {
   const handleToggleActive = async (category: Category) => {
     try {
       const { error } = await supabase
-        .from('categories' as any)
+        .from('categories')
         .update({ is_active: !category.is_active })
         .eq('id', category.id);
 

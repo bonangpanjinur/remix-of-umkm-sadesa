@@ -116,7 +116,7 @@ export default function MerchantProductsPage() {
             .eq('merchant_id', merchant.id)
             .order('created_at', { ascending: false }),
           supabase
-            .from('categories' as any)
+            .from('categories')
             .select('id, name, slug, icon')
             .eq('is_active', true)
             .order('sort_order'),
@@ -418,7 +418,7 @@ export default function MerchantProductsPage() {
               <Label className="text-base font-semibold">Gambar Produk</Label>
               <div className="space-y-2">
                 <ImageUpload
-                  bucket="products"
+                  bucket="product-images"
                   path={`merchants/${merchantId}/products`}
                   value={form.image_url}
                   onChange={(url) => setForm({ ...form, image_url: url })}
