@@ -22,6 +22,7 @@ import { supabase } from '../integrations/supabase/client';
 import { VerifiedBadge } from '../components/merchant/VerifiedBadge';
 import { MerchantClosedBanner, MerchantStatusBadge } from '../components/merchant/MerchantClosedBanner';
 import { getMerchantOperatingStatus, formatTime } from '../lib/merchantOperatingHours';
+import { checkMerchantHasActiveQuota } from '../lib/api';
 import type { Product } from '../types';
 
 interface MerchantData {
@@ -65,6 +66,7 @@ export default function MerchantProfilePage() {
   const [reviews, setReviews] = useState<ReviewData[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'products' | 'reviews'>('products');
+  const [hasActiveQuota, setHasActiveQuota] = useState(true);
 
   useEffect(() => {
     async function loadData() {
@@ -82,6 +84,19 @@ export default function MerchantProfilePage() {
 
         if (merchantError) throw merchantError;
         setMerchant(merchantData);
+
+        // Check merchant quota
+        const quotaActive = await checkMerchantHasActiveQuota(id);
+        setHasActiveQuota(quotaActive);
+
+        // Determine if merchant is currently open
+        const merchantStatus = getMerchantOperatingStatus(
+          merchantData.is_open,
+          merchantData.open_time,
+          merchantData.close_time
+        );
+        const isMerchantOpen = merchantStatus.isCurrentlyOpen;
+        const isAvailable = quotaActive && isMerchantOpen;
 
         // Fetch products
         const { data: productsData } = await supabase
@@ -104,6 +119,9 @@ export default function MerchantProfilePage() {
           category: p.category as any,
           isActive: p.is_active,
           isPromo: p.is_promo,
+          isAvailable,
+          isMerchantOpen,
+          hasQuota: quotaActive,
         }));
         setProducts(mappedProducts);
 
@@ -318,6 +336,18 @@ export default function MerchantProfilePage() {
                 </div>
               )}
             </div>
+
+            {/* Merchant Closed / No Quota Banner */}
+            {merchant && (!hasActiveQuota || !getMerchantOperatingStatus(merchant.is_open, merchant.open_time, merchant.close_time).isCurrentlyOpen) && (
+              <div className="mb-4">
+                <MerchantClosedBanner
+                  isManuallyOpen={merchant.is_open}
+                  openTime={merchant.open_time}
+                  closeTime={merchant.close_time}
+                  merchantName={merchant.name}
+                />
+              </div>
+            )}
 
             {/* Tabs */}
             <div className="flex gap-2 mb-4">
