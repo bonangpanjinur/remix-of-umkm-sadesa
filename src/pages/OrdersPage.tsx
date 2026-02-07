@@ -9,6 +9,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useCart } from '@/contexts/CartContext';
 import { supabase } from '@/integrations/supabase/client';
 import { formatPrice } from '@/lib/utils';
+import { toast } from 'sonner';
 import { OrderCancelDialog } from '@/components/order/OrderCancelDialog';
 import { RefundRequestDialog } from '@/components/order/RefundRequestDialog';
 
@@ -30,7 +31,7 @@ const statusConfig: Record<string, { label: string; icon: React.ElementType; col
   ASSIGNED: { label: 'Kurir Ditugaskan', icon: Truck, color: 'text-status-pending' },
   PICKED_UP: { label: 'Diambil', icon: Truck, color: 'text-warning' },
   ON_DELIVERY: { label: 'Dalam Perjalanan', icon: Truck, color: 'text-primary' },
-  DELIVERED: { label: 'Terkirim', icon: CheckCircle, color: 'text-success' },
+  DELIVERED: { label: 'Sampai Tujuan', icon: CheckCircle, color: 'text-info' },
   DONE: { label: 'Selesai', icon: CheckCircle, color: 'text-success' },
   CANCELED: { label: 'Dibatalkan', icon: XCircle, color: 'text-destructive' },
   REFUNDED: { label: 'Refund', icon: RotateCcw, color: 'text-destructive' },
@@ -118,6 +119,24 @@ export default function OrdersPage() {
 
   const handleOrderCancelled = () => {
     fetchOrders(); // Refresh orders list
+  };
+
+  const handleCompleteOrder = async (orderId: string) => {
+    try {
+      const { error } = await supabase
+        .from('orders')
+        .update({ status: 'DONE', updated_at: new Date().toISOString() })
+        .eq('id', orderId)
+        .eq('buyer_id', user!.id)
+        .eq('status', 'DELIVERED');
+
+      if (error) throw error;
+      toast.success('Pesanan telah diselesaikan');
+      fetchOrders();
+    } catch (error) {
+      console.error('Error completing order:', error);
+      toast.error('Gagal menyelesaikan pesanan');
+    }
   };
 
   if (authLoading) {
@@ -267,8 +286,19 @@ export default function OrdersPage() {
                             Batalkan
                           </Button>
                         )}
-                        {(order.status === 'DONE' || order.status === 'DELIVERED') && (
+                        {order.status === 'DELIVERED' && (
                           <div className="flex gap-2">
+                            <Button 
+                              size="sm" 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleCompleteOrder(order.id);
+                              }}
+                              className="h-8 px-2 text-[10px]"
+                            >
+                              <CheckCircle className="h-3 w-3 mr-1" />
+                              Selesaikan
+                            </Button>
                             <Button 
                               size="sm" 
                               variant="outline"
@@ -281,19 +311,21 @@ export default function OrdersPage() {
                               <RotateCcw className="h-3 w-3 mr-1" />
                               Refund
                             </Button>
-                            <Button 
-                              size="sm" 
-                              variant="outline"
-                              className="h-8 px-2 text-[10px]"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                navigate(`/orders/${order.id}/review`);
-                              }}
-                            >
-                              <Star className="h-3 w-3 mr-1" />
-                              Ulasan
-                            </Button>
                           </div>
+                        )}
+                        {order.status === 'DONE' && (
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            className="h-8 px-2 text-[10px]"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigate(`/orders/${order.id}/review`);
+                            }}
+                          >
+                            <Star className="h-3 w-3 mr-1" />
+                            Ulasan
+                          </Button>
                         )}
                         <p className="font-bold text-primary">{formatPrice(order.total)}</p>
                       </div>

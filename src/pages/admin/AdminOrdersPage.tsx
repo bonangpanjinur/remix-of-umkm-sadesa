@@ -174,6 +174,7 @@ export default function AdminOrdersPage() {
       'CONFIRMED': { label: 'Dikonfirmasi', variant: 'info' },
       'PROCESSED': { label: 'Diproses', variant: 'warning' },
       'SENT': { label: 'Dikirim', variant: 'pending' },
+      'DELIVERED': { label: 'Sampai', variant: 'warning' },
       'DONE': { label: 'Selesai', variant: 'success' },
       'CANCELLED': { label: 'Dibatalkan', variant: 'destructive' },
     };
@@ -307,12 +308,7 @@ export default function AdminOrdersPage() {
                 Kirim
               </DropdownMenuItem>
             )}
-            {item.status === 'SENT' && (
-              <DropdownMenuItem onClick={() => updateOrderStatus(item.id, 'DONE')}>
-                <CheckCircle2 className="h-4 w-4 mr-2" />
-                Selesaikan
-              </DropdownMenuItem>
-            )}
+            {/* Pesanan hanya bisa diselesaikan oleh pembeli atau sistem otomatis */}
             {['NEW', 'PROCESSED'].includes(item.status) && (
               <DropdownMenuItem 
                 onClick={() => updateOrderStatus(item.id, 'CANCELLED')}

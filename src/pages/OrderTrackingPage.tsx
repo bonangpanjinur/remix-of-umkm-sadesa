@@ -8,13 +8,16 @@ import {
   Phone, 
   User,
   RefreshCw,
-  Truck
+  Truck,
+  CheckCircle,
+  RotateCcw
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { DeliveryStatusCard } from '@/components/courier/DeliveryStatusCard';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { toast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
+import { RefundRequestDialog } from '@/components/order/RefundRequestDialog';
 
 interface OrderDetails {
   id: string;
@@ -31,6 +34,9 @@ interface OrderDetails {
   delivered_at: string | null;
   notes: string | null;
   courier_id: string | null;
+  merchant_id: string | null;
+  buyer_id: string | null;
+  pod_image_url: string | null;
 }
 
 interface CourierInfo {
@@ -47,6 +53,8 @@ export default function OrderTrackingPage() {
   const [order, setOrder] = useState<OrderDetails | null>(null);
   const [courier, setCourier] = useState<CourierInfo | null>(null);
   const [loading, setLoading] = useState(true);
+  const [completing, setCompleting] = useState(false);
+  const [refundDialogOpen, setRefundDialogOpen] = useState(false);
 
   useEffect(() => {
     if (!authLoading && user && orderId) {
@@ -96,10 +104,7 @@ export default function OrderTrackingPage() {
       if (orderError) throw orderError;
       
       if (!orderData) {
-        toast({
-          title: 'Pesanan tidak ditemukan',
-          variant: 'destructive',
-        });
+        toast.error('Pesanan tidak ditemukan');
         navigate('/orders');
         return;
       }
@@ -112,10 +117,7 @@ export default function OrderTrackingPage() {
       }
     } catch (error) {
       console.error('Error fetching order:', error);
-      toast({
-        title: 'Gagal memuat data pesanan',
-        variant: 'destructive',
-      });
+      toast.error('Gagal memuat data pesanan');
     } finally {
       setLoading(false);
     }
@@ -130,6 +132,28 @@ export default function OrderTrackingPage() {
 
     if (!courierError && courierData) {
       setCourier(courierData);
+    }
+  };
+
+  const handleCompleteOrder = async () => {
+    if (!order || !user) return;
+    setCompleting(true);
+    try {
+      const { error } = await supabase
+        .from('orders')
+        .update({ status: 'DONE', updated_at: new Date().toISOString() })
+        .eq('id', order.id)
+        .eq('buyer_id', user.id)
+        .eq('status', 'DELIVERED');
+
+      if (error) throw error;
+      toast.success('Pesanan telah diselesaikan');
+      fetchOrderDetails();
+    } catch (error) {
+      console.error('Error completing order:', error);
+      toast.error('Gagal menyelesaikan pesanan');
+    } finally {
+      setCompleting(false);
     }
   };
 
@@ -265,6 +289,66 @@ export default function OrderTrackingPage() {
             </div>
           </div>
         </motion.div>
+
+        {/* Buyer Actions for DELIVERED orders */}
+        {order.status === 'DELIVERED' && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.4 }}
+            className="space-y-3"
+          >
+            {/* Proof of Delivery Photo */}
+            {order.pod_image_url && (
+              <div className="bg-card rounded-2xl p-4 border border-border">
+                <h3 className="font-medium text-sm text-muted-foreground mb-3">Bukti Pengiriman</h3>
+                <img 
+                  src={order.pod_image_url} 
+                  alt="Bukti pengiriman" 
+                  className="w-full h-48 object-cover rounded-xl border border-border"
+                />
+              </div>
+            )}
+
+            <div className="bg-card rounded-2xl p-4 border border-border space-y-3">
+              <p className="text-sm text-muted-foreground text-center">
+                Pesanan telah sampai. Silakan selesaikan pesanan atau ajukan refund jika ada masalah.
+              </p>
+              <p className="text-xs text-muted-foreground text-center">
+                Pesanan akan otomatis diselesaikan dalam 24 jam jika tidak ada tindakan.
+              </p>
+              <div className="flex gap-2">
+                <Button 
+                  className="flex-1"
+                  onClick={handleCompleteOrder}
+                  disabled={completing}
+                >
+                  <CheckCircle className="h-4 w-4 mr-2" />
+                  {completing ? 'Memproses...' : 'Selesaikan Pesanan'}
+                </Button>
+                <Button 
+                  variant="outline"
+                  onClick={() => setRefundDialogOpen(true)}
+                >
+                  <RotateCcw className="h-4 w-4 mr-2" />
+                  Refund
+                </Button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+
+        {/* Refund Dialog */}
+        {order.status === 'DELIVERED' && (
+          <RefundRequestDialog
+            orderId={order.id}
+            orderTotal={order.total}
+            merchantId={order.merchant_id || ''}
+            open={refundDialogOpen}
+            onOpenChange={setRefundDialogOpen}
+            onSuccess={fetchOrderDetails}
+          />
+        )}
       </div>
     </div>
   );

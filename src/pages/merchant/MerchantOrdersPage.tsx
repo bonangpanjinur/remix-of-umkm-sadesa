@@ -169,6 +169,7 @@ export default function MerchantOrdersPage() {
       'PENDING_CONFIRMATION': { label: 'Menunggu', variant: 'warning' },
       'PROCESSED': { label: 'Diproses', variant: 'pending' },
       'SENT': { label: 'Dikirim', variant: 'info' },
+      'DELIVERED': { label: 'Sampai', variant: 'warning' },
       'DONE': { label: 'Selesai', variant: 'success' },
       'CANCELED': { label: 'Dibatalkan', variant: 'destructive' },
     };
@@ -283,12 +284,7 @@ export default function MerchantOrdersPage() {
                 )}
               </DropdownMenuItem>
             )}
-            {item.status === 'SENT' && (
-              <DropdownMenuItem onClick={() => handleUpdateStatus(item.id, 'DONE')}>
-                <Check className="h-4 w-4 mr-2" />
-                Selesai
-              </DropdownMenuItem>
-            )}
+            {/* DELIVERED → DONE hanya oleh pembeli atau sistem otomatis */}
           </DropdownMenuContent>
         </DropdownMenu>
       ),
@@ -303,6 +299,7 @@ export default function MerchantOrdersPage() {
         { value: 'NEW', label: 'Baru' },
         { value: 'PROCESSED', label: 'Diproses' },
         { value: 'SENT', label: 'Dikirim' },
+        { value: 'DELIVERED', label: 'Sampai' },
         { value: 'DONE', label: 'Selesai' },
         { value: 'CANCELED', label: 'Dibatalkan' },
       ],
@@ -564,6 +561,14 @@ export default function MerchantOrdersPage() {
                   <Truck className="h-4 w-4 mr-2" />
                   Kirim
                 </Button>
+              )}
+              {/* Pesanan hanya bisa diselesaikan oleh pembeli atau otomatis oleh sistem */}
+              {selectedOrder.status === 'DELIVERED' && (
+                <div className="w-full bg-muted/50 rounded-lg p-3 text-center">
+                  <p className="text-xs text-muted-foreground">
+                    Menunggu pembeli menyelesaikan pesanan (otomatis selesai dalam 24 jam)
+                  </p>
+                </div>
               )}
             </div>
           )}

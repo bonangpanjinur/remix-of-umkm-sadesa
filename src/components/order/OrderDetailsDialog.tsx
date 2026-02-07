@@ -279,15 +279,7 @@ export function OrderDetailsDialog({
                 Kirim
               </Button>
             )}
-            {order.status === 'SENT' && (
-              <Button 
-                className="flex-1"
-                onClick={() => onUpdateStatus(order.id, 'DONE')}
-              >
-                <Check className="h-4 w-4 mr-2" />
-                Selesai
-              </Button>
-            )}
+            {/* Pesanan hanya bisa diselesaikan oleh pembeli atau otomatis oleh sistem */}
             {order.delivery_type === 'INTERNAL' && !order.courier_id && (
               <Button 
                 variant="outline"

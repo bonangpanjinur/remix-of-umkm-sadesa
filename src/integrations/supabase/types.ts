@@ -998,6 +998,7 @@ export type Database = {
       orders: {
         Row: {
           assigned_at: string | null
+          auto_complete_at: string | null
           buyer_distance_km: number | null
           buyer_id: string
           cod_confirmed_at: string | null
@@ -1040,6 +1041,7 @@ export type Database = {
         }
         Insert: {
           assigned_at?: string | null
+          auto_complete_at?: string | null
           buyer_distance_km?: number | null
           buyer_id: string
           cod_confirmed_at?: string | null
@@ -1082,6 +1084,7 @@ export type Database = {
         }
         Update: {
           assigned_at?: string | null
+          auto_complete_at?: string | null
           buyer_distance_km?: number | null
           buyer_id?: string
           cod_confirmed_at?: string | null
@@ -2663,6 +2666,7 @@ export type Database = {
         Returns: Json
       }
       auto_cancel_pending_orders: { Args: never; Returns: undefined }
+      auto_complete_delivered_orders: { Args: never; Returns: number }
       check_cod_eligibility: {
         Args: {
           p_buyer_id: string

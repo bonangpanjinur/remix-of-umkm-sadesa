@@ -44,6 +44,7 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.
   'NEW': { label: 'Baru', color: 'bg-info', icon: Package },
   'PROCESSED': { label: 'Diproses', color: 'bg-primary', icon: Package },
   'SENT': { label: 'Dikirim', color: 'bg-warning', icon: Truck },
+  'DELIVERED': { label: 'Sampai', color: 'bg-info', icon: CheckCircle },
   'DONE': { label: 'Selesai', color: 'bg-success', icon: CheckCircle },
   'CANCELED': { label: 'Batal', color: 'bg-destructive', icon: XCircle },
   'REJECTED_BY_BUYER': { label: 'Ditolak Pembeli', color: 'bg-destructive', icon: XCircle },
@@ -154,7 +155,7 @@ export function OrderStatusManager({ merchantId }: OrderStatusManagerProps) {
       case 'processing':
         return orders.filter(o => o.status === 'PROCESSED');
       case 'shipping':
-        return orders.filter(o => o.status === 'SENT');
+        return orders.filter(o => ['SENT', 'DELIVERED'].includes(o.status));
       case 'completed':
         return orders.filter(o => ['DONE', 'CANCELED', 'REJECTED_BY_BUYER'].includes(o.status));
       default:
@@ -167,7 +168,7 @@ export function OrderStatusManager({ merchantId }: OrderStatusManagerProps) {
       'PENDING_CONFIRMATION': 'PROCESSED',
       'NEW': 'PROCESSED',
       'PROCESSED': 'SENT',
-      'SENT': 'DONE',
+      // SENT → DELIVERED is done by courier, DELIVERED → DONE is done by buyer/system
     };
     return flow[currentStatus] || null;
   };
@@ -177,7 +178,6 @@ export function OrderStatusManager({ merchantId }: OrderStatusManagerProps) {
       'PENDING_CONFIRMATION': 'Terima & Proses',
       'NEW': 'Proses Pesanan',
       'PROCESSED': 'Kirim Pesanan',
-      'SENT': 'Selesaikan',
     };
     return labels[currentStatus] || '';
   };
