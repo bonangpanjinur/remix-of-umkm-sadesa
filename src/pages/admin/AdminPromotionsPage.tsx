@@ -10,6 +10,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { AddPromotionDialog } from '@/components/admin/AddPromotionDialog';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -29,6 +30,7 @@ interface PromotionRow {
 export default function AdminPromotionsPage() {
   const [promotions, setPromotions] = useState<PromotionRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [addDialogOpen, setAddDialogOpen] = useState(false);
 
   const fetchPromotions = async () => {
     try {
@@ -216,7 +218,7 @@ export default function AdminPromotionsPage() {
           <Megaphone className="h-5 w-5 text-primary" />
           <span className="text-muted-foreground text-sm">{promotions.length} promosi</span>
         </div>
-        <Button>
+        <Button onClick={() => setAddDialogOpen(true)}>
           <Plus className="h-4 w-4 mr-2" />
           Tambah Promosi
         </Button>
@@ -230,6 +232,12 @@ export default function AdminPromotionsPage() {
         filters={filters}
         loading={loading}
         emptyMessage="Belum ada promosi"
+      />
+
+      <AddPromotionDialog
+        open={addDialogOpen}
+        onOpenChange={setAddDialogOpen}
+        onSuccess={fetchPromotions}
       />
     </AdminLayout>
   );

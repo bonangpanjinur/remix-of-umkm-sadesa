@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { TicketCheck, Plus, Copy, MoreHorizontal, Users } from 'lucide-react';
+import { useState, useEffect, useMemo } from 'react';
+import { TicketCheck, Plus, Copy, MoreHorizontal, Users, Search } from 'lucide-react';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { DataTable } from '@/components/admin/DataTable';
 import { Badge } from '@/components/ui/badge';
@@ -17,11 +17,17 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
+import { cn } from '@/lib/utils';
 
 interface CodeRow {
   id: string;
@@ -34,11 +40,19 @@ interface CodeRow {
   created_at: string;
 }
 
+interface TradeGroup {
+  id: string;
+  name: string;
+}
+
 export default function AdminCodesPage() {
   const { user } = useAuth();
   const [codes, setCodes] = useState<CodeRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [tradeGroups, setTradeGroups] = useState<TradeGroup[]>([]);
+  const [tradeGroupSearch, setTradeGroupSearch] = useState('');
+  const [tradeGroupPopoverOpen, setTradeGroupPopoverOpen] = useState(false);
   const [newCode, setNewCode] = useState({
     code: '',
     trade_group: '',
@@ -63,9 +77,31 @@ export default function AdminCodesPage() {
     }
   };
 
+  const fetchTradeGroups = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('trade_groups')
+        .select('id, name')
+        .eq('is_active', true)
+        .order('name', { ascending: true });
+
+      if (error) throw error;
+      setTradeGroups(data || []);
+    } catch (error) {
+      console.error('Error fetching trade groups:', error);
+    }
+  };
+
   useEffect(() => {
     fetchCodes();
+    fetchTradeGroups();
   }, []);
+
+  const filteredTradeGroups = useMemo(() => {
+    if (!tradeGroupSearch) return tradeGroups;
+    const q = tradeGroupSearch.toLowerCase();
+    return tradeGroups.filter(g => g.name.toLowerCase().includes(q));
+  }, [tradeGroups, tradeGroupSearch]);
 
   const generateRandomCode = () => {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
@@ -97,6 +133,7 @@ export default function AdminCodesPage() {
       toast.success('Kode berhasil dibuat');
       setDialogOpen(false);
       setNewCode({ code: '', trade_group: '', description: '', max_usage: '' });
+      setTradeGroupSearch('');
       fetchCodes();
     } catch (error: unknown) {
       const err = error as { code?: string };
@@ -235,14 +272,71 @@ export default function AdminCodesPage() {
                   </Button>
                 </div>
               </div>
+
+              {/* Searchable trade group dropdown */}
               <div className="space-y-2">
                 <Label>Kelompok Dagang</Label>
-                <Input
-                  value={newCode.trade_group}
-                  onChange={(e) => setNewCode(prev => ({ ...prev, trade_group: e.target.value }))}
-                  placeholder="Nama kelompok dagang"
-                />
+                <Popover open={tradeGroupPopoverOpen} onOpenChange={setTradeGroupPopoverOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      className="w-full justify-between font-normal"
+                    >
+                      {newCode.trade_group || 'Pilih atau ketik kelompok dagang...'}
+                      <Search className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-full p-0" align="start">
+                    <div className="p-2">
+                      <Input
+                        value={tradeGroupSearch}
+                        onChange={(e) => setTradeGroupSearch(e.target.value)}
+                        placeholder="Cari kelompok dagang..."
+                        className="mb-2"
+                      />
+                      <div className="max-h-48 overflow-y-auto space-y-0.5">
+                        {filteredTradeGroups.length > 0 ? (
+                          filteredTradeGroups.map((g) => (
+                            <button
+                              key={g.id}
+                              className={cn(
+                                "w-full text-left px-3 py-2 text-sm rounded-md hover:bg-accent hover:text-accent-foreground transition-colors",
+                                newCode.trade_group === g.name && "bg-primary/10 text-primary font-medium"
+                              )}
+                              onClick={() => {
+                                setNewCode(prev => ({ ...prev, trade_group: g.name }));
+                                setTradeGroupPopoverOpen(false);
+                                setTradeGroupSearch('');
+                              }}
+                            >
+                              {g.name}
+                            </button>
+                          ))
+                        ) : (
+                          <p className="text-sm text-muted-foreground px-3 py-2">
+                            Tidak ditemukan. Ketik manual di bawah.
+                          </p>
+                        )}
+                      </div>
+                      {/* Manual input fallback */}
+                      {tradeGroupSearch && !filteredTradeGroups.some(g => g.name.toLowerCase() === tradeGroupSearch.toLowerCase()) && (
+                        <button
+                          className="w-full text-left px-3 py-2 text-sm rounded-md hover:bg-accent mt-1 border-t border-border text-primary"
+                          onClick={() => {
+                            setNewCode(prev => ({ ...prev, trade_group: tradeGroupSearch }));
+                            setTradeGroupPopoverOpen(false);
+                            setTradeGroupSearch('');
+                          }}
+                        >
+                          Gunakan "{tradeGroupSearch}"
+                        </button>
+                      )}
+                    </div>
+                  </PopoverContent>
+                </Popover>
               </div>
+
               <div className="space-y-2">
                 <Label>Deskripsi (Opsional)</Label>
                 <Input

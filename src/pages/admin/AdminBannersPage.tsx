@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Image, Plus, Trash2, Edit, MoreHorizontal, Eye, EyeOff, ArrowUp, ArrowDown, Upload } from 'lucide-react';
+import { Image, Plus, Trash2, Edit, MoreHorizontal, Eye, EyeOff, ArrowUp, ArrowDown } from 'lucide-react';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -249,20 +249,10 @@ export default function AdminBannersPage() {
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => moveOrder(banner.id, 'up')}
-                    disabled={index === 0}
-                  >
+                  <Button variant="ghost" size="icon" onClick={() => moveOrder(banner.id, 'up')} disabled={index === 0}>
                     <ArrowUp className="h-4 w-4" />
                   </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => moveOrder(banner.id, 'down')}
-                    disabled={index === banners.length - 1}
-                  >
+                  <Button variant="ghost" size="icon" onClick={() => moveOrder(banner.id, 'down')} disabled={index === banners.length - 1}>
                     <ArrowDown className="h-4 w-4" />
                   </Button>
                   
@@ -279,15 +269,9 @@ export default function AdminBannersPage() {
                       </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => toggleActive(banner.id, banner.is_active)}>
                         {banner.is_active ? (
-                          <>
-                            <EyeOff className="h-4 w-4 mr-2" />
-                            Nonaktifkan
-                          </>
+                          <><EyeOff className="h-4 w-4 mr-2" />Nonaktifkan</>
                         ) : (
-                          <>
-                            <Eye className="h-4 w-4 mr-2" />
-                            Aktifkan
-                          </>
+                          <><Eye className="h-4 w-4 mr-2" />Aktifkan</>
                         )}
                       </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => deleteBanner(banner.id)} className="text-destructive">
@@ -303,71 +287,76 @@ export default function AdminBannersPage() {
         </div>
       )}
 
-      {/* Dialog */}
+      {/* Improved Dialog - compact layout */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{editingBanner ? 'Edit Banner' : 'Tambah Banner'}</DialogTitle>
+            <DialogTitle>{editingBanner ? 'Edit Banner' : 'Tambah Banner Baru'}</DialogTitle>
           </DialogHeader>
 
-          <div className="space-y-4">
-            <div>
-              <Label>Judul *</Label>
-              <Input
-                value={formData.title}
-                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                placeholder="Judul banner"
-              />
-            </div>
-
-            <div>
-              <Label>Subtitle</Label>
-              <Textarea
-                value={formData.subtitle}
-                onChange={(e) => setFormData({ ...formData, subtitle: e.target.value })}
-                placeholder="Deskripsi singkat"
-                rows={2}
-              />
-            </div>
-
-            <div>
-              <Label>Gambar</Label>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Left: Image upload */}
+            <div className="space-y-2">
+              <Label>Gambar Banner</Label>
               <ImageUpload
-                value={formData.image_url}
+                value={formData.image_url || null}
                 onChange={(url) => setFormData({ ...formData, image_url: url || '' })}
                 bucket="promotions"
                 path="banners"
+                aspectRatio="video"
+                placeholder="Upload gambar banner (16:9)"
               />
             </div>
 
-            <div>
-              <Label>Link URL</Label>
-              <Input
-                value={formData.link_url}
-                onChange={(e) => setFormData({ ...formData, link_url: e.target.value })}
-                placeholder="/products atau URL eksternal"
-              />
-            </div>
+            {/* Right: Form fields */}
+            <div className="space-y-3">
+              <div>
+                <Label>Judul *</Label>
+                <Input
+                  value={formData.title}
+                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                  placeholder="Judul banner"
+                />
+              </div>
 
-            <div>
-              <Label>Tanggal Berakhir (opsional)</Label>
-              <Input
-                type="date"
-                value={formData.end_date}
-                onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
-              />
-            </div>
+              <div>
+                <Label>Subtitle</Label>
+                <Input
+                  value={formData.subtitle}
+                  onChange={(e) => setFormData({ ...formData, subtitle: e.target.value })}
+                  placeholder="Deskripsi singkat"
+                />
+              </div>
 
-            <div className="flex items-center gap-3">
-              <Switch
-                checked={formData.is_active}
-                onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })}
-              />
-              <Label>Aktif</Label>
+              <div>
+                <Label>Link URL</Label>
+                <Input
+                  value={formData.link_url}
+                  onChange={(e) => setFormData({ ...formData, link_url: e.target.value })}
+                  placeholder="/products atau URL"
+                />
+              </div>
+
+              <div>
+                <Label>Tanggal Berakhir</Label>
+                <Input
+                  type="date"
+                  value={formData.end_date}
+                  onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
+                />
+              </div>
+
+              <div className="flex items-center gap-3 pt-1">
+                <Switch
+                  checked={formData.is_active}
+                  onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })}
+                />
+                <Label className="cursor-pointer">Aktif</Label>
+              </div>
             </div>
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="mt-2">
             <Button variant="outline" onClick={() => setDialogOpen(false)}>Batal</Button>
             <Button onClick={handleSubmit}>Simpan</Button>
           </DialogFooter>

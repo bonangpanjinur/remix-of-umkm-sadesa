@@ -1,6 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 
-export type StorageBucket = 'products' | 'product-images' | 'tourism-images' | 'profile-images' | 'merchant-images' | 'promotions' | 'pod-images' | 'village-images' | 'payment-proofs';
+export type StorageBucket = 'products' | 'product-images' | 'tourism-images' | 'profile-images' | 'merchant-images' | 'promotions' | 'pod-images' | 'village-images' | 'payment-proofs' | 'admin-assets';
 
 interface UploadOptions {
   bucket: StorageBucket;

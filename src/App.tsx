@@ -69,7 +69,7 @@ import AdminBannersPage from "./pages/admin/AdminBannersPage";
 import AdminBroadcastPage from "./pages/admin/AdminBroadcastPage";
 import AdminRolesPage from "./pages/admin/AdminRolesPage";
 import AdminBackupPage from "./pages/admin/AdminBackupPage";
-import AdminScheduledBackupPage from "./pages/admin/AdminScheduledBackupPage";
+// AdminScheduledBackupPage is now merged into AdminBackupPage
 import AdminCategoriesPage from "./pages/admin/AdminCategoriesPage";
 import AdminVerifikatorWithdrawalsPage from "./pages/admin/AdminVerifikatorWithdrawalsPage";
 import CourierHistoryPage from "./pages/courier/CourierHistoryPage";
@@ -360,7 +360,7 @@ const App = () => (
               } />
               <Route path="/admin/scheduled-backup" element={
                 <ProtectedRoute allowedRoles={['admin']}>
-                  <AdminScheduledBackupPage />
+                  <AdminBackupPage />
                 </ProtectedRoute>
               } />
               <Route path="/admin/verifikator-withdrawals" element={

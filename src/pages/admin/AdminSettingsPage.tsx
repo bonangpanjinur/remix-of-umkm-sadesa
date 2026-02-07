@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Save, ToggleLeft, Globe, CreditCard, AlertCircle, Truck, Percent, Plus, Trash2, ShieldCheck, Palette } from 'lucide-react';
+import { ImageUpload } from '@/components/ui/ImageUpload';
 import { AdminSidebar } from '@/components/admin/AdminSidebar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -581,13 +582,16 @@ function AdminPaymentInfoForm({ initialValues, onSave, isSaving }: { initialValu
         </div>
       </div>
       <div className="space-y-2">
-        <Label>QRIS Admin (URL Gambar)</Label>
-        <Input value={qrisImageUrl} onChange={(e) => setQrisImageUrl(e.target.value)} placeholder="https://... URL gambar QRIS" />
-        {qrisImageUrl && (
-          <div className="mt-2 p-2 bg-secondary/50 rounded-lg flex justify-center">
-            <img src={qrisImageUrl} alt="QRIS Preview" className="max-w-[150px] h-auto" />
-          </div>
-        )}
+        <Label>Gambar QRIS Admin</Label>
+        <ImageUpload
+          value={qrisImageUrl || null}
+          onChange={(url) => setQrisImageUrl(url || '')}
+          bucket="admin-assets"
+          path="qris"
+          aspectRatio="square"
+          placeholder="Upload gambar QRIS"
+          maxSizeMB={3}
+        />
       </div>
       <Button type="submit" disabled={isSaving}><Save className="h-4 w-4 mr-2" /> {isSaving ? 'Menyimpan...' : 'Simpan'}</Button>
     </form>
