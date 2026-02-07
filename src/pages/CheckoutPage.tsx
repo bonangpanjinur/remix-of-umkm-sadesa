@@ -333,7 +333,7 @@ export default function CheckoutPage() {
     if (!canProceedCheckout) {
       toast({
         title: 'Tidak dapat melanjutkan',
-        description: 'Beberapa toko tidak memiliki kuota transaksi aktif',
+        description: 'Beberapa toko tidak memiliki kuota aktif',
         variant: 'destructive',
       });
       return;

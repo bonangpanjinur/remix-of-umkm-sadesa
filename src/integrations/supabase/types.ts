@@ -2679,6 +2679,10 @@ export type Database = {
         }
         Returns: Json
       }
+      deduct_merchant_quota: {
+        Args: { p_credits: number; p_merchant_id: string }
+        Returns: boolean
+      }
       generate_monthly_kas: {
         Args: { p_group_id: string; p_month: number; p_year: number }
         Returns: number

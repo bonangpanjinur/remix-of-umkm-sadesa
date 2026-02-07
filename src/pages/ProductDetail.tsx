@@ -137,7 +137,7 @@ export default function ProductDetail() {
     if (!hasActiveQuota) {
       toast({
         title: 'Toko tidak dapat menerima pesanan',
-        description: 'Toko ini tidak memiliki kuota transaksi aktif',
+        description: 'Toko ini tidak memiliki kuota aktif',
         variant: 'destructive',
       });
       return;
@@ -233,7 +233,7 @@ export default function ProductDetail() {
                 <div>
                   <p className="font-bold text-destructive text-sm">Toko Tidak Dapat Menerima Pesanan</p>
                   <p className="text-xs text-destructive/80 mt-1">
-                    Toko ini tidak memiliki kuota transaksi aktif. Silakan cari produk serupa dari toko lain.
+                    Toko ini tidak memiliki kuota aktif. Silakan cari produk serupa dari toko lain.
                   </p>
                 </div>
               </div>

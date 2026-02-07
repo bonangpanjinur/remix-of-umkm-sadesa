@@ -96,7 +96,7 @@ export function MerchantSidebar() {
     { label: 'Jadwal Promo', href: '/merchant/scheduled-promo', icon: <Calendar className="h-4 w-4" /> },
     { label: 'Voucher', href: '/merchant/vouchers', icon: <Ticket className="h-4 w-4" /> },
     { label: 'Statistik Pengunjung', href: '/merchant/visitor-stats', icon: <Eye className="h-4 w-4" /> },
-    { label: 'Kuota Transaksi', href: '/merchant/subscription', icon: <CreditCard className="h-4 w-4" /> },
+    { label: 'Kuota', href: '/merchant/subscription', icon: <CreditCard className="h-4 w-4" /> },
     { label: 'Analitik', href: '/merchant/analytics', icon: <BarChart3 className="h-4 w-4" /> },
     { label: 'Ulasan', href: '/merchant/reviews', icon: <Star className="h-4 w-4" />, badge: unrepliedReviews },
     { label: 'Promo', href: '/merchant/promo', icon: <Percent className="h-4 w-4" /> },

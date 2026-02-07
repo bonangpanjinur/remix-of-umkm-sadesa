@@ -113,7 +113,7 @@ export function AssignPackageDialog({
     setLoading(true);
     try {
       const startDate = new Date();
-      const totalPrice = selectedPkg.transaction_quota * selectedPkg.price_per_transaction;
+      const totalPrice = selectedPkg.price_per_transaction;
       // If validity_days is 0, set a very far future date or handle in DB
       const expiredAt = selectedPkg.validity_days === 0 
         ? addDays(startDate, 36500) // 100 years as "forever"
@@ -194,7 +194,7 @@ export function AssignPackageDialog({
             Tambah Paket Transaksi
           </DialogTitle>
           <DialogDescription>
-            Tambahkan paket kuota transaksi untuk <strong>{merchantName}</strong>
+            Tambahkan paket kuota untuk <strong>{merchantName}</strong>
           </DialogDescription>
         </DialogHeader>
 
@@ -243,7 +243,7 @@ export function AssignPackageDialog({
                           <Badge variant="secondary">{pkg.transaction_quota} Kredit</Badge>
                         </div>
                         <p className="text-sm text-muted-foreground mt-1">
-                          {formatPrice(pkg.transaction_quota * pkg.price_per_transaction)} • {pkg.validity_days === 0 ? 'Tanpa Masa Aktif' : `${pkg.validity_days} hari`}
+                          {formatPrice(pkg.price_per_transaction)} • {pkg.validity_days === 0 ? 'Tanpa Masa Aktif' : `${pkg.validity_days} hari`}
                         </p>
                         {pkg.description && (
                           <p className="text-xs text-muted-foreground mt-1">{pkg.description}</p>
@@ -276,8 +276,8 @@ export function AssignPackageDialog({
                     <span>{selectedPackage.validity_days === 0 ? 'Selamanya' : `${selectedPackage.validity_days} hari`}</span>
                   </div>
                   <div className="flex justify-between font-medium pt-2 border-t">
-                    <span>Total Harga</span>
-                    <span>{formatPrice(selectedPackage.transaction_quota * selectedPackage.price_per_transaction)}</span>
+                    <span>Harga Paket</span>
+                    <span>{formatPrice(selectedPackage.price_per_transaction)}</span>
                   </div>
                 </div>
               </div>

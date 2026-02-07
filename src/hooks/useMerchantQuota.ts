@@ -161,13 +161,12 @@ export function useMerchantQuota(merchantIds: string[]) {
   };
 }
 
-// Function to use merchant quota after successful order
+// Function to use merchant quota after successful order (tier-based credits)
 export async function useMerchantQuotaForOrder(merchantId: string, credits: number = 1, orderId?: string): Promise<boolean> {
   try {
-    // PHASE 1: Use improved RPC with orderId validation
-    // Use the base use_merchant_quota RPC (single-arg version)
-    const { data, error } = await supabase.rpc('use_merchant_quota', {
+    const { data, error } = await supabase.rpc('deduct_merchant_quota', {
       p_merchant_id: merchantId,
+      p_credits: credits,
     });
 
     if (error) {
@@ -199,12 +198,12 @@ export async function notifyMerchantLowQuota(
     if (!merchant?.user_id) return;
 
     const title = type === 'empty' 
-      ? 'Kuota Transaksi Habis!' 
-      : 'Kuota Transaksi Hampir Habis';
+      ? 'Kuota Habis!' 
+      : 'Kuota Hampir Habis';
     
     const message = type === 'empty'
-      ? 'Kuota transaksi Anda habis. Toko Anda tidak dapat menerima pesanan baru. Segera beli paket kuota untuk melanjutkan.'
-      : `Kuota transaksi Anda tersisa ${remainingQuota}. Segera beli paket kuota agar toko tetap bisa menerima pesanan.`;
+      ? 'Kuota Anda habis. Toko Anda tidak dapat menerima pesanan baru. Segera beli paket kuota untuk melanjutkan.'
+      : `Kuota Anda tersisa ${remainingQuota}. Segera beli paket kuota agar toko tetap bisa menerima pesanan.`;
 
     await supabase.rpc('send_notification', {
       p_user_id: merchant.user_id,

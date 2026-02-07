@@ -305,19 +305,58 @@ export default function AdminTransactionQuotaPage() {
   const handleApproveRequest = async (request: PackageRequest) => {
     setProcessing(true);
     try {
-      // Directly update the subscription status
+      // 1. Check if merchant already has an active subscription
+      const { data: activeSubs } = await supabase
+        .from('merchant_subscriptions')
+        .select('id, transaction_quota, used_quota')
+        .eq('merchant_id', request.merchant_id)
+        .eq('status', 'ACTIVE')
+        .gt('expired_at', new Date().toISOString())
+        .order('expired_at', { ascending: false })
+        .limit(1);
+
+      let accumulatedQuota = request.package?.transaction_quota || 0;
+
+      if (activeSubs && activeSubs.length > 0) {
+        const activeSub = activeSubs[0];
+        const remainingQuota = activeSub.transaction_quota - activeSub.used_quota;
+        
+        // Accumulate remaining quota from old subscription
+        if (remainingQuota > 0) {
+          accumulatedQuota += remainingQuota;
+        }
+
+        // Mark old subscription as COMPLETED
+        await supabase
+          .from('merchant_subscriptions')
+          .update({ status: 'COMPLETED', updated_at: new Date().toISOString() })
+          .eq('id', activeSub.id);
+      }
+
+      // 2. Activate the new subscription with accumulated quota
       const { error } = await supabase
         .from('merchant_subscriptions')
         .update({
           status: 'ACTIVE',
           payment_status: 'PAID',
           paid_at: new Date().toISOString(),
+          transaction_quota: accumulatedQuota,
+          used_quota: 0,
         })
         .eq('id', request.id);
 
       if (error) throw error;
+
+      // 3. Update merchant's current_subscription_id
+      await supabase
+        .from('merchants')
+        .update({
+          current_subscription_id: request.id,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', request.merchant_id);
       
-      toast.success('Permintaan berhasil disetujui dan kuota diaktifkan');
+      toast.success(`Permintaan disetujui. Kuota aktif: ${accumulatedQuota} kredit`);
       setRequestDialogOpen(false);
       fetchData();
     } catch (error) {
@@ -465,12 +504,12 @@ export default function AdminTransactionQuotaPage() {
   };
 
   return (
-    <AdminLayout title="Paket Kuota Transaksi" subtitle="Kelola paket, pengaturan kuota, dan verifikasi permintaan">
+    <AdminLayout title="Paket Kuota" subtitle="Kelola paket, pengaturan kuota, dan verifikasi permintaan">
       <div className="space-y-6">
         <Tabs defaultValue="requests">
           <TabsList className="grid w-full grid-cols-3 max-w-[600px]">
             <TabsTrigger value="requests">Manajemen Permintaan</TabsTrigger>
-            <TabsTrigger value="packages">Paket Transaksi</TabsTrigger>
+            <TabsTrigger value="packages">Paket Kuota</TabsTrigger>
             <TabsTrigger value="tiers">Pengaturan Kuota</TabsTrigger>
           </TabsList>
 
@@ -568,7 +607,7 @@ export default function AdminTransactionQuotaPage() {
                     <div className="space-y-1 text-sm">
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Kuota:</span>
-                        <span className="font-medium">{pkg.transaction_quota} Transaksi</span>
+                        <span className="font-medium">{pkg.transaction_quota} Kredit</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Harga:</span>
@@ -685,7 +724,7 @@ export default function AdminTransactionQuotaPage() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="pkg-quota">Kuota Transaksi</Label>
+                  <Label htmlFor="pkg-quota">Jumlah Kuota</Label>
                   <Input id="pkg-quota" type="number" value={packageFormData.transaction_quota} onChange={(e) => setPackageFormData({ ...packageFormData, transaction_quota: parseInt(e.target.value) })} />
                 </div>
                 <div className="space-y-2">
@@ -768,7 +807,7 @@ export default function AdminTransactionQuotaPage() {
                   <div>
                     <Label className="text-muted-foreground">Paket yang Dibeli</Label>
                     <p className="font-medium">{selectedRequest.package?.name}</p>
-                    <p className="text-sm text-muted-foreground">{selectedRequest.package?.transaction_quota} Kuota Transaksi</p>
+                    <p className="text-sm text-muted-foreground">{selectedRequest.package?.transaction_quota} Kuota</p>
                   </div>
                   <div>
                     <Label className="text-muted-foreground">Jumlah Pembayaran</Label>

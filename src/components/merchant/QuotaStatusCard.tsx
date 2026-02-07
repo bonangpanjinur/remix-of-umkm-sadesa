@@ -142,7 +142,7 @@ export function QuotaStatusCard() {
       <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
         <CardTitle className="text-sm font-medium flex items-center gap-2">
           <Package className="h-4 w-4 text-muted-foreground" />
-          Kuota Transaksi
+          Kuota
         </CardTitle>
         <Badge variant={status.type === 'premium' ? 'default' : 'secondary'}>
           {status.packageName}
@@ -165,7 +165,7 @@ export function QuotaStatusCard() {
               indicatorClassName={getProgressColor()}
             />
             <p className="text-xs text-right text-muted-foreground font-medium">
-              Sisa: {status.remainingQuota} transaksi
+              Sisa: {status.remainingQuota} kuota
             </p>
           </div>
 

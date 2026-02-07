@@ -99,8 +99,8 @@ export function QuotaAlertBanner() {
       <div className="flex-1">
         <AlertTitle className={`text-base font-bold ${isCritical ? 'text-destructive' : 'text-yellow-700 dark:text-yellow-500'}`}>
           {isCritical 
-            ? 'PENTING: Kuota Transaksi Habis!' 
-            : 'Peringatan: Kuota Transaksi Hampir Habis'}
+            ? 'PENTING: Kuota Habis!' 
+            : 'Peringatan: Kuota Hampir Habis'}
         </AlertTitle>
         <AlertDescription className="mt-2">
           <p className={`text-sm mb-3 ${isCritical ? 'text-destructive/90' : 'text-yellow-700/90 dark:text-yellow-500/90'}`}>
@@ -110,7 +110,7 @@ export function QuotaAlertBanner() {
               </>
             ) : (
               <>
-                Penggunaan kuota transaksi Anda telah mencapai <strong>{Math.round(usagePercentage)}%</strong>. Sisa <strong>{status.remainingQuota}</strong> transaksi lagi sebelum toko Anda berhenti menerima pesanan.
+                Penggunaan kuota Anda telah mencapai <strong>{Math.round(usagePercentage)}%</strong>. Sisa <strong>{status.remainingQuota}</strong> kuota lagi sebelum toko Anda berhenti menerima pesanan.
               </>
             )}
           </p>

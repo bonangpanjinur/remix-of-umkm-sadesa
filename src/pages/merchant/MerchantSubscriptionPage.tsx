@@ -380,7 +380,7 @@ export default function MerchantSubscriptionPage() {
   };
 
   return (
-    <MerchantLayout title="Paket Kuota Transaksi" subtitle="Kelola kuota transaksi untuk menerima pesanan">
+    <MerchantLayout title="Paket Kuota" subtitle="Kelola kuota untuk menerima pesanan">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         {/* Current Status Card */}
         <Card className="md:col-span-2">
@@ -389,7 +389,7 @@ export default function MerchantSubscriptionPage() {
               <TrendingUp className="h-5 w-5 text-primary" />
               Status Kuota Saat Ini
             </CardTitle>
-            <CardDescription>Pantau penggunaan kuota transaksi Anda</CardDescription>
+            <CardDescription>Pantau penggunaan kuota Anda</CardDescription>
           </CardHeader>
           <CardContent>
             {currentSubscription ? (
@@ -443,7 +443,7 @@ export default function MerchantSubscriptionPage() {
                 <AlertTriangle className="h-12 w-12 text-yellow-500 mb-4" />
                 <h3 className="text-lg font-semibold mb-2">Tidak Ada Paket Aktif</h3>
                 <p className="text-muted-foreground max-w-xs mb-6">
-                  Anda belum memiliki paket kuota transaksi aktif. Beli paket di bawah untuk mulai menerima pesanan.
+                  Anda belum memiliki paket kuota aktif. Beli paket di bawah untuk mulai menerima pesanan.
                 </p>
               </div>
             )}
@@ -460,7 +460,7 @@ export default function MerchantSubscriptionPage() {
               <div className="h-5 w-5 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
                 <span className="text-[10px] font-bold text-primary">1</span>
               </div>
-              <p>Setiap pesanan yang masuk akan memotong 1 kredit kuota transaksi.</p>
+              <p>Setiap pesanan memotong kuota berdasarkan rentang harga produk (lihat tier biaya kuota).</p>
             </div>
             <div className="flex gap-3">
               <div className="h-5 w-5 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
@@ -486,7 +486,7 @@ export default function MerchantSubscriptionPage() {
             <CardHeader className="pb-2">
               <Badge className="w-fit mb-2" variant="secondary">{pkg.transaction_quota} Kredit</Badge>
               <CardTitle>{pkg.name}</CardTitle>
-              <CardDescription className="line-clamp-2 h-10">{pkg.description || 'Paket kuota transaksi standar'}</CardDescription>
+              <CardDescription className="line-clamp-2 h-10">{pkg.description || 'Paket kuota standar'}</CardDescription>
             </CardHeader>
             <CardContent className="flex-grow pb-4">
               <div className="mb-4">
@@ -496,7 +496,7 @@ export default function MerchantSubscriptionPage() {
               <ul className="space-y-2 text-sm mb-6">
                 <li className="flex items-center gap-2">
                   <CheckCircle2 className="h-4 w-4 text-green-500" />
-                  <span>{pkg.transaction_quota} Kredit Transaksi</span>
+                  <span>{pkg.transaction_quota} Kredit Kuota</span>
                 </li>
                 <li className="flex items-center gap-2">
                   <CheckCircle2 className="h-4 w-4 text-green-500" />
@@ -621,8 +621,8 @@ export default function MerchantSubscriptionPage() {
                 <p className="text-sm text-muted-foreground mb-1">Paket Dipilih</p>
                 <p className="text-lg font-bold">{selectedPackage.name}</p>
                 <div className="grid grid-cols-2 gap-4 mt-3 text-sm">
-                  <div>
-                    <p className="text-muted-foreground">Kuota Transaksi</p>
+                   <div>
+                    <p className="text-muted-foreground">Kuota</p>
                     <p className="font-bold text-primary">{selectedPackage.transaction_quota}</p>
                   </div>
                   <div>

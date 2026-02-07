@@ -55,7 +55,7 @@ export function AdminSidebar({ pendingMerchants = 0, pendingVillages = 0, pendin
     { label: 'Merchant', href: '/admin/merchants', icon: <Store className="h-4 w-4" />, badge: pendingMerchants },
     { label: 'Desa Wisata', href: '/admin/villages', icon: <MapPin className="h-4 w-4" />, badge: pendingVillages },
     { label: 'Kurir', href: '/admin/couriers', icon: <Bike className="h-4 w-4" />, badge: pendingCouriers },
-    { label: 'Paket Kuota Transaksi', href: '/admin/transaction-quota', icon: <Package className="h-4 w-4" /> },
+    { label: 'Paket Kuota', href: '/admin/transaction-quota', icon: <Package className="h-4 w-4" /> },
     { label: 'Kategori Produk', href: '/admin/categories', icon: <Tags className="h-4 w-4" /> },
     { label: 'Komisi Verifikator', href: '/admin/verifikator-commissions', icon: <Percent className="h-4 w-4" />, badge: pendingVerifikatorWithdrawals },
     { label: 'WD Verifikator', href: '/admin/verifikator-withdrawals', icon: <Wallet className="h-4 w-4" /> },
