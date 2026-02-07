@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { MapPin, User, Loader2 } from 'lucide-react';
+import { MapPin, User, Loader2, BookMarked, ChevronDown } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Button } from '@/components/ui/button';
 import { AddressSelector, type AddressData, formatFullAddress, createEmptyAddressData } from '@/components/AddressSelector';
 import { LocationPicker } from './LocationPicker';
 import { supabase } from '@/integrations/supabase/client';
@@ -9,6 +10,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { PhoneInput } from '@/components/ui/PhoneInput';
 import { useGeocoding, reverseGeocode } from '@/hooks/useGeocoding';
 import { fetchProvinces, fetchRegencies, fetchDistricts, fetchVillages } from '@/lib/addressApi';
+import { useSavedAddresses, type SavedAddress } from '@/hooks/useSavedAddresses';
+import { AddressCard } from '@/components/address/AddressCard';
 
 export interface CheckoutAddressData {
   name: string;
@@ -45,6 +48,8 @@ export function CheckoutAddressForm({
   const [reverseGeocodingLoading, setReverseGeocodingLoading] = useState(false);
   const { loading: geocodingLoading, getCoordinatesFromAddress } = useGeocoding();
   const isUpdatingFromMap = useRef(false);
+  const [showSavedAddresses, setShowSavedAddresses] = useState(false);
+  const { addresses: savedAddresses, loading: savedAddressesLoading } = useSavedAddresses();
 
   // Load profile data on mount
   useEffect(() => {
@@ -195,6 +200,48 @@ export function CheckoutAddressForm({
     onChange({ ...value, location });
   };
 
+  // Handle selecting a saved address
+  const handleSelectSavedAddress = useCallback(async (address: SavedAddress) => {
+    const addressData: AddressData = {
+      province: address.province_id || '',
+      provinceName: address.province_name || '',
+      city: address.city_id || '',
+      cityName: address.city_name || '',
+      district: address.district_id || '',
+      districtName: address.district_name || '',
+      village: address.village_id || '',
+      villageName: address.village_name || '',
+      detail: address.address_detail || '',
+    };
+
+    const location = address.lat && address.lng ? { lat: address.lat, lng: address.lng } : value.location;
+
+    onChange({
+      name: address.recipient_name,
+      phone: address.phone,
+      address: addressData,
+      location,
+      fullAddress: address.full_address || formatFullAddress(addressData),
+    });
+
+    // Update map center if coordinates exist
+    if (address.lat && address.lng) {
+      setMapCenter({ lat: address.lat, lng: address.lng });
+    } else if (addressData.district && addressData.districtName) {
+      const coords = await getCoordinatesFromAddress(
+        addressData.districtName,
+        addressData.villageName,
+        addressData.cityName,
+        addressData.provinceName
+      );
+      if (coords) {
+        setMapCenter({ lat: coords.lat, lng: coords.lng });
+      }
+    }
+
+    setShowSavedAddresses(false);
+  }, [value, onChange, getCoordinatesFromAddress]);
+
   // Handle when user selects location on map or uses "Lokasi Saya" - reverse geocode
   const handleLocationSelected = useCallback(async (lat: number, lng: number) => {
     isUpdatingFromMap.current = true;
@@ -282,6 +329,36 @@ export function CheckoutAddressForm({
 
   return (
     <div className="space-y-6">
+      {/* Saved Address Picker */}
+      {savedAddresses.length > 0 && (
+        <div className="space-y-3">
+          <button
+            type="button"
+            onClick={() => setShowSavedAddresses(!showSavedAddresses)}
+            className="w-full flex items-center justify-between p-3 bg-primary/5 border border-primary/20 rounded-lg hover:bg-primary/10 transition"
+          >
+            <div className="flex items-center gap-2">
+              <BookMarked className="h-4 w-4 text-primary" />
+              <span className="text-sm font-medium text-primary">Pilih Alamat Tersimpan</span>
+            </div>
+            <ChevronDown className={`h-4 w-4 text-primary transition-transform ${showSavedAddresses ? 'rotate-180' : ''}`} />
+          </button>
+          
+          {showSavedAddresses && (
+            <div className="space-y-2 max-h-60 overflow-y-auto">
+              {savedAddresses.map((addr) => (
+                <AddressCard
+                  key={addr.id}
+                  address={addr}
+                  selectable
+                  onSelect={handleSelectSavedAddress}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Contact Info */}
       <div className="space-y-4">
         <div className="flex items-center gap-2">

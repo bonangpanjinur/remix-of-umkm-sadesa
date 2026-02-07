@@ -27,7 +27,7 @@ export function ProductCardHorizontal({ product, index = 0 }: ProductCardHorizon
 
   // Get unavailability reason
   const getUnavailableReason = () => {
-    if (!hasQuota) return 'Kuota Habis';
+    if (!hasQuota) return 'Toko Tutup';
     if (!isMerchantOpen) return 'Toko Tutup';
     return 'Tidak Tersedia';
   };

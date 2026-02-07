@@ -1001,6 +1001,10 @@ export type Database = {
           auto_complete_at: string | null
           buyer_distance_km: number | null
           buyer_id: string
+          cancellation_reason: string | null
+          cancellation_type: string | null
+          cancelled_at: string | null
+          cancelled_by: string | null
           cod_confirmed_at: string | null
           cod_rejected_at: string | null
           cod_rejection_reason: string | null
@@ -1045,6 +1049,10 @@ export type Database = {
           auto_complete_at?: string | null
           buyer_distance_km?: number | null
           buyer_id: string
+          cancellation_reason?: string | null
+          cancellation_type?: string | null
+          cancelled_at?: string | null
+          cancelled_by?: string | null
           cod_confirmed_at?: string | null
           cod_rejected_at?: string | null
           cod_rejection_reason?: string | null
@@ -1089,6 +1097,10 @@ export type Database = {
           auto_complete_at?: string | null
           buyer_distance_km?: number | null
           buyer_id?: string
+          cancellation_reason?: string | null
+          cancellation_type?: string | null
+          cancelled_at?: string | null
+          cancelled_by?: string | null
           cod_confirmed_at?: string | null
           cod_rejected_at?: string | null
           cod_rejection_reason?: string | null

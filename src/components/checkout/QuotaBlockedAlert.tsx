@@ -17,10 +17,10 @@ export function QuotaBlockedAlert({ blockedMerchants, onRemoveMerchantItems }: Q
   return (
     <Alert variant="destructive" className="mb-4">
       <AlertTriangle className="h-4 w-4" />
-      <AlertTitle>Beberapa Toko Tidak Dapat Menerima Pesanan</AlertTitle>
+      <AlertTitle>Beberapa Toko Sedang Tutup</AlertTitle>
       <AlertDescription className="mt-3">
         <p className="text-sm mb-3">
-          Toko berikut tidak memiliki kuota aktif dan tidak dapat menerima pesanan saat ini:
+          Toko berikut sedang tutup dan tidak dapat menerima pesanan saat ini:
         </p>
         
         <div className="space-y-2">
