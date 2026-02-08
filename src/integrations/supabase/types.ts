@@ -756,6 +756,7 @@ export type Database = {
           location_lat: number | null
           location_lng: number | null
           name: string
+          notification_sound_enabled: boolean | null
           open_time: string | null
           order_mode: string
           payment_cod_enabled: boolean | null
@@ -809,6 +810,7 @@ export type Database = {
           location_lat?: number | null
           location_lng?: number | null
           name: string
+          notification_sound_enabled?: boolean | null
           open_time?: string | null
           order_mode?: string
           payment_cod_enabled?: boolean | null
@@ -862,6 +864,7 @@ export type Database = {
           location_lat?: number | null
           location_lng?: number | null
           name?: string
+          notification_sound_enabled?: boolean | null
           open_time?: string | null
           order_mode?: string
           payment_cod_enabled?: boolean | null

@@ -274,6 +274,7 @@ export default function ProductDetail() {
                       isManuallyOpen={merchant.isOpen}
                       openTime={merchant.openTime}
                       closeTime={merchant.closeTime}
+                      hasQuota={hasActiveQuota}
                     />
                   </div>
                   <div className="flex items-center gap-2 text-[10px] text-muted-foreground mt-0.5">

@@ -21,12 +21,14 @@ interface OrderRow {
 
 interface UseRealtimeOrdersOptions {
   merchantId: string | null;
+  soundEnabled?: boolean;
   onNewOrder?: (order: OrderRow) => void;
   onOrderUpdate?: (order: OrderRow) => void;
 }
 
 export function useRealtimeOrders({ 
   merchantId, 
+  soundEnabled = true,
   onNewOrder,
   onOrderUpdate 
 }: UseRealtimeOrdersOptions) {
@@ -79,8 +81,10 @@ export function useRealtimeOrders({
           const newOrder = payload.new as OrderRow;
           setOrders((prev) => [newOrder, ...prev]);
           
-          // Play notification sound for new orders
-          playNotificationSound();
+          // Play notification sound for new orders if enabled
+          if (soundEnabled) {
+            playNotificationSound();
+          }
           
           toast.info('Pesanan baru masuk!', {
             description: `Pesanan dari ${newOrder.delivery_name || 'Pelanggan'}`,

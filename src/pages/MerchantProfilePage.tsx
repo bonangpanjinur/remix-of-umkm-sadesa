@@ -283,6 +283,7 @@ export default function MerchantProfilePage() {
                   isManuallyOpen={merchant.is_open}
                   openTime={merchant.open_time}
                   closeTime={merchant.close_time}
+                  hasQuota={hasActiveQuota}
                   size="md"
                 />
               </div>
@@ -345,6 +346,7 @@ export default function MerchantProfilePage() {
                   openTime={merchant.open_time}
                   closeTime={merchant.close_time}
                   merchantName={merchant.name}
+                  hasQuota={hasActiveQuota}
                 />
               </div>
             )}

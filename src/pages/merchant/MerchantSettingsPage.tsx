@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Save, Store, Clock, MapPin, Phone, FileText, Loader2, CreditCard, QrCode } from 'lucide-react';
+import { Save, Store, Clock, MapPin, Phone, FileText, Loader2, CreditCard, QrCode, Bell } from 'lucide-react';
 import { MerchantLayout } from '@/components/merchant/MerchantLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -38,6 +38,7 @@ interface MerchantData {
   qris_image_url: string | null;
   payment_cod_enabled: boolean | null;
   payment_transfer_enabled: boolean | null;
+  notification_sound_enabled: boolean | null;
 }
 
 const BUSINESS_CATEGORIES = [
@@ -77,6 +78,7 @@ export default function MerchantSettingsPage() {
     bank_account_name: '',
     payment_cod_enabled: true,
     payment_transfer_enabled: true,
+    notification_sound_enabled: true,
   });
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [qrisImageUrl, setQrisImageUrl] = useState<string | null>(null);
@@ -111,6 +113,7 @@ export default function MerchantSettingsPage() {
             bank_account_name: data.bank_account_name || '',
             payment_cod_enabled: data.payment_cod_enabled ?? true,
             payment_transfer_enabled: data.payment_transfer_enabled ?? true,
+            notification_sound_enabled: data.notification_sound_enabled ?? true,
           });
           setImageUrl(data.image_url);
           setQrisImageUrl(data.qris_image_url);
@@ -155,6 +158,7 @@ export default function MerchantSettingsPage() {
           qris_image_url: qrisImageUrl,
           payment_cod_enabled: formData.payment_cod_enabled,
           payment_transfer_enabled: formData.payment_transfer_enabled,
+          notification_sound_enabled: formData.notification_sound_enabled,
         })
         .eq('id', merchant.id);
 
@@ -385,6 +389,29 @@ export default function MerchantSettingsPage() {
                   💡 Jika tidak diisi, akan menggunakan QRIS admin sebagai default
                 </p>
               )}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Notification Settings */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Bell className="h-5 w-5" />
+              Notifikasi
+            </CardTitle>
+            <CardDescription>Atur suara notifikasi pesanan masuk</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-between p-3 bg-secondary/50 rounded-lg">
+              <div>
+                <p className="font-medium text-sm">Suara Notifikasi Pesanan Baru</p>
+                <p className="text-xs text-muted-foreground">Bunyikan suara saat pesanan baru masuk</p>
+              </div>
+              <Switch
+                checked={formData.notification_sound_enabled}
+                onCheckedChange={(v) => setFormData(prev => ({ ...prev, notification_sound_enabled: v }))}
+              />
             </div>
           </CardContent>
         </Card>

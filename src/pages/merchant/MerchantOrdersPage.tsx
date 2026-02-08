@@ -56,6 +56,7 @@ export default function MerchantOrdersPage() {
   const { user } = useAuth();
   const [merchantId, setMerchantId] = useState<string | null>(null);
   const [merchantName, setMerchantName] = useState<string>('');
+  const [soundEnabled, setSoundEnabled] = useState(true);
   const [selectedOrder, setSelectedOrder] = useState<OrderRow | null>(null);
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
@@ -73,13 +74,14 @@ export default function MerchantOrdersPage() {
       try {
         const { data: merchant } = await supabase
           .from('merchants')
-          .select('id, name')
+          .select('id, name, notification_sound_enabled')
           .eq('user_id', user.id)
           .maybeSingle();
 
         if (merchant) {
           setMerchantId(merchant.id);
           setMerchantName(merchant.name);
+          setSoundEnabled(merchant.notification_sound_enabled ?? true);
         }
       } catch (error) {
         console.error('Error:', error);
@@ -97,6 +99,7 @@ export default function MerchantOrdersPage() {
 
   const { orders, loading, updateOrderStatus, refetch } = useRealtimeOrders({
     merchantId,
+    soundEnabled,
     onNewOrder: handleNewOrder,
   });
 
