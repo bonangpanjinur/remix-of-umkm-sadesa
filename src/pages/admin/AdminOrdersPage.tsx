@@ -8,7 +8,8 @@ import {
   AlertCircle, 
   TrendingUp, 
   Clock, 
-  CheckCircle2
+  CheckCircle2,
+  Check
 } from 'lucide-react';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { DataTable } from '@/components/admin/DataTable';
@@ -40,6 +41,7 @@ interface OrderRow {
   id: string;
   status: string;
   payment_status: string | null;
+  payment_proof_url: string | null;
   delivery_type: string;
   delivery_name: string | null;
   delivery_phone: string | null;
@@ -132,6 +134,29 @@ export default function AdminOrdersPage() {
     }
   };
 
+  const verifyPayment = async (orderId: string) => {
+    try {
+      const { error } = await supabase
+        .from('orders')
+        .update({ 
+          payment_status: 'PAID',
+          payment_paid_at: new Date().toISOString(),
+          status: 'PROCESSED',
+          confirmed_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', orderId);
+
+      if (error) throw error;
+      
+      toast.success('Pembayaran berhasil diverifikasi');
+      setDetailDialogOpen(false);
+      fetchOrders();
+    } catch (error) {
+      toast.error('Gagal memverifikasi pembayaran');
+    }
+  };
+
   const openAssignDialog = (order: OrderRow) => {
     setSelectedOrder(order);
     setCourierAssignDialogOpen(true);
@@ -171,12 +196,15 @@ export default function AdminOrdersPage() {
   const getStatusBadge = (status: string) => {
     const statusMap: Record<string, { label: string; variant: 'default' | 'info' | 'warning' | 'success' | 'destructive' | 'pending' }> = {
       'NEW': { label: 'Baru', variant: 'info' },
+      'PENDING_PAYMENT': { label: 'Menunggu Bayar', variant: 'warning' },
+      'PENDING_CONFIRMATION': { label: 'Menunggu Konfirmasi', variant: 'warning' },
       'CONFIRMED': { label: 'Dikonfirmasi', variant: 'info' },
       'PROCESSED': { label: 'Diproses', variant: 'warning' },
       'SENT': { label: 'Dikirim', variant: 'pending' },
       'DELIVERED': { label: 'Sampai', variant: 'warning' },
       'DONE': { label: 'Selesai', variant: 'success' },
       'CANCELLED': { label: 'Dibatalkan', variant: 'destructive' },
+      'CANCELED': { label: 'Dibatalkan', variant: 'destructive' },
     };
     
     const config = statusMap[status] || { label: status, variant: 'default' as const };
@@ -287,7 +315,20 @@ export default function AdminOrdersPage() {
               </DropdownMenuItem>
             )}
             <DropdownMenuSeparator />
-            {item.status === 'NEW' && (
+            {/* Payment verification */}
+            {item.status === 'PENDING_PAYMENT' && item.payment_proof_url && (
+              <DropdownMenuItem onClick={() => verifyPayment(item.id)}>
+                <Check className="h-4 w-4 mr-2" />
+                Verifikasi Pembayaran
+              </DropdownMenuItem>
+            )}
+            {item.status === 'PENDING_PAYMENT' && !item.payment_proof_url && (
+              <DropdownMenuItem disabled className="text-muted-foreground">
+                <Clock className="h-4 w-4 mr-2" />
+                Menunggu Bukti Bayar
+              </DropdownMenuItem>
+            )}
+            {(item.status === 'NEW' || item.status === 'PENDING_CONFIRMATION') && (
               <>
                 <DropdownMenuItem onClick={() => updateOrderStatus(item.id, 'PROCESSED')}>
                   <Package className="h-4 w-4 mr-2" />
@@ -309,7 +350,7 @@ export default function AdminOrdersPage() {
               </DropdownMenuItem>
             )}
             {/* Pesanan hanya bisa diselesaikan oleh pembeli atau sistem otomatis */}
-            {['NEW', 'PROCESSED'].includes(item.status) && (
+            {['NEW', 'PROCESSED', 'PENDING_PAYMENT'].includes(item.status) && (
               <DropdownMenuItem 
                 onClick={() => updateOrderStatus(item.id, 'CANCELLED')}
                 className="text-destructive"
@@ -330,9 +371,12 @@ export default function AdminOrdersPage() {
       label: 'Status',
       options: [
         { value: 'NEW', label: 'Baru' },
+        { value: 'PENDING_PAYMENT', label: 'Menunggu Bayar' },
+        { value: 'PENDING_CONFIRMATION', label: 'Menunggu Konfirmasi' },
         { value: 'CONFIRMED', label: 'Dikonfirmasi' },
         { value: 'PROCESSED', label: 'Diproses' },
         { value: 'SENT', label: 'Dikirim' },
+        { value: 'DELIVERED', label: 'Sampai' },
         { value: 'DONE', label: 'Selesai' },
         { value: 'CANCELLED', label: 'Dibatalkan' },
       ],
@@ -409,6 +453,7 @@ export default function AdminOrdersPage() {
         order={selectedOrder}
         orderItems={orderItems}
         onUpdateStatus={updateOrderStatus}
+        onVerifyPayment={verifyPayment}
         onOpenAssignCourier={openAssignDialog}
         getStatusBadge={getStatusBadge}
         getPaymentBadge={getPaymentBadge}

@@ -100,6 +100,7 @@ export default function CourierHistoryPage() {
       CANCELLED: { variant: 'destructive', label: 'Dibatalkan' },
       ASSIGNED: { variant: 'info', label: 'Ditugaskan' },
       PICKED_UP: { variant: 'warning', label: 'Diambil' },
+      SENT: { variant: 'info', label: 'Dalam Perjalanan' },
       ON_DELIVERY: { variant: 'info', label: 'Dalam Perjalanan' },
     };
     const style = styles[status] || { variant: 'secondary' as const, label: status };

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Package, Clock, Truck, CheckCircle, XCircle, MessageCircle, Phone } from 'lucide-react';
+import { Package, Clock, Truck, CheckCircle, XCircle, MessageCircle, Phone, CreditCard, ImageIcon } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -42,6 +42,7 @@ interface OrderStatusManagerProps {
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.ComponentType<any> }> = {
   'PENDING_CONFIRMATION': { label: 'Konfirmasi', color: 'bg-warning', icon: Clock },
+  'PENDING_PAYMENT': { label: 'Menunggu Bayar', color: 'bg-warning', icon: CreditCard },
   'NEW': { label: 'Baru', color: 'bg-info', icon: Package },
   'PROCESSED': { label: 'Diproses', color: 'bg-primary', icon: Package },
   'SENT': { label: 'Dikirim', color: 'bg-warning', icon: Truck },
@@ -112,6 +113,33 @@ export function OrderStatusManager({ merchantId }: OrderStatusManagerProps) {
     }
   };
 
+  const verifyPayment = async (orderId: string) => {
+    setUpdating(true);
+    try {
+      const { error } = await supabase
+        .from('orders')
+        .update({ 
+          payment_status: 'PAID',
+          payment_paid_at: new Date().toISOString(),
+          status: 'PROCESSED',
+          confirmed_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', orderId);
+
+      if (error) throw error;
+
+      setOrders(prev => prev.map(o => 
+        o.id === orderId ? { ...o, status: 'PROCESSED', payment_status: 'PAID' } : o
+      ));
+      toast.success('Pembayaran berhasil diverifikasi');
+    } catch (error) {
+      toast.error('Gagal memverifikasi pembayaran');
+    } finally {
+      setUpdating(false);
+    }
+  };
+
   const rejectOrder = async () => {
     if (!selectedOrder) return;
     setUpdating(true);
@@ -152,7 +180,7 @@ export function OrderStatusManager({ merchantId }: OrderStatusManagerProps) {
   const filterOrders = (status: string) => {
     switch (status) {
       case 'pending':
-        return orders.filter(o => ['PENDING_CONFIRMATION', 'NEW'].includes(o.status));
+        return orders.filter(o => ['PENDING_CONFIRMATION', 'NEW', 'PENDING_PAYMENT'].includes(o.status));
       case 'processing':
         return orders.filter(o => o.status === 'PROCESSED');
       case 'shipping':
@@ -342,7 +370,26 @@ export function OrderStatusManager({ merchantId }: OrderStatusManagerProps) {
                                 Batalkan
                               </Button>
                               
-                              {nextStatus && (
+                              {/* Payment verification button */}
+                              {order.status === 'PENDING_PAYMENT' && order.payment_proof_url && (
+                                <Button
+                                  size="sm"
+                                  onClick={() => verifyPayment(order.id)}
+                                  disabled={updating}
+                                  className="bg-primary"
+                                >
+                                  <CheckCircle className="h-4 w-4 mr-1" />
+                                  Verifikasi Bayar
+                                </Button>
+                              )}
+
+                              {order.status === 'PENDING_PAYMENT' && !order.payment_proof_url && (
+                                <Badge variant="outline" className="text-xs">
+                                  Menunggu Bukti Bayar
+                                </Badge>
+                              )}
+                              
+                              {order.status !== 'PENDING_PAYMENT' && nextStatus && (
                                 <Button
                                   size="sm"
                                   onClick={() => updateOrderStatus(order.id, nextStatus)}

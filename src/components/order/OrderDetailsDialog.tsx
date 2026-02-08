@@ -7,7 +7,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { formatPrice } from '@/lib/utils';
-import { User, Phone, MapPin, CreditCard, Check, X, Truck, Printer } from 'lucide-react';
+import { User, Phone, MapPin, CreditCard, Check, X, Truck, Printer, ImageIcon, CheckCircle } from 'lucide-react';
 
 interface OrderItem {
   id: string;
@@ -21,6 +21,7 @@ interface OrderRow {
   id: string;
   status: string;
   payment_status: string | null;
+  payment_proof_url?: string | null;
   delivery_type: string;
   delivery_name: string | null;
   delivery_phone: string | null;
@@ -40,6 +41,7 @@ interface OrderDetailsDialogProps {
   order: OrderRow | null;
   orderItems: OrderItem[];
   onUpdateStatus: (orderId: string, newStatus: string) => void;
+  onVerifyPayment?: (orderId: string) => void;
   onOpenAssignCourier: (order: OrderRow) => void;
   getStatusBadge: (status: string) => React.ReactNode;
   getPaymentBadge: (paymentStatus: string | null) => React.ReactNode;
@@ -51,6 +53,7 @@ export function OrderDetailsDialog({
   order,
   orderItems,
   onUpdateStatus,
+  onVerifyPayment,
   onOpenAssignCourier,
   getStatusBadge,
   getPaymentBadge,
@@ -234,6 +237,25 @@ export function OrderDetailsDialog({
             </div>
           )}
 
+          {/* Payment Proof */}
+          {order.payment_proof_url && (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <ImageIcon className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm font-medium">Bukti Pembayaran</span>
+              </div>
+              <div className="relative rounded-lg overflow-hidden border border-border">
+                <img
+                  src={order.payment_proof_url}
+                  alt="Bukti pembayaran"
+                  className="w-full max-h-64 object-contain bg-secondary/30 cursor-pointer"
+                  onClick={() => window.open(order.payment_proof_url!, '_blank')}
+                />
+              </div>
+              <p className="text-xs text-muted-foreground text-center">Klik gambar untuk memperbesar</p>
+            </div>
+          )}
+
           {/* Totals */}
           <div className="border-t border-border pt-4 space-y-2">
             <div className="flex justify-between text-sm">
@@ -252,7 +274,35 @@ export function OrderDetailsDialog({
 
           {/* Action Buttons */}
           <div className="flex flex-wrap gap-2 pt-2">
-            {order.status === 'NEW' && (
+            {/* Payment verification for PENDING_PAYMENT */}
+            {order.status === 'PENDING_PAYMENT' && onVerifyPayment && (
+              <div className="w-full space-y-2">
+                {order.payment_proof_url ? (
+                  <Button 
+                    className="w-full"
+                    onClick={() => onVerifyPayment(order.id)}
+                  >
+                    <CheckCircle className="h-4 w-4 mr-2" />
+                    Verifikasi Pembayaran
+                  </Button>
+                ) : (
+                  <div className="w-full bg-muted/50 rounded-lg p-3 text-center">
+                    <p className="text-xs text-muted-foreground">
+                      Menunggu pembeli mengunggah bukti pembayaran
+                    </p>
+                  </div>
+                )}
+                <Button 
+                  variant="destructive"
+                  className="w-full"
+                  onClick={() => onUpdateStatus(order.id, 'CANCELLED')}
+                >
+                  <X className="h-4 w-4 mr-2" />
+                  Tolak Pesanan
+                </Button>
+              </div>
+            )}
+            {(order.status === 'NEW' || order.status === 'PENDING_CONFIRMATION') && (
               <>
                 <Button 
                   className="flex-1"

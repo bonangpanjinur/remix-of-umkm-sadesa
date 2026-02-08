@@ -153,6 +153,30 @@ export default function MerchantOrdersPage() {
     }
   };
 
+  const handleVerifyPayment = async (orderId: string) => {
+    try {
+      const { error } = await supabase
+        .from('orders')
+        .update({ 
+          payment_status: 'PAID', 
+          payment_paid_at: new Date().toISOString(),
+          status: 'PROCESSED',
+          confirmed_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', orderId);
+
+      if (error) throw error;
+      
+      toast.success('Pembayaran berhasil diverifikasi');
+      setDetailDialogOpen(false);
+      refetch();
+    } catch (error) {
+      console.error('Error verifying payment:', error);
+      toast.error('Gagal memverifikasi pembayaran');
+    }
+  };
+
   const openRejectDialog = (order: OrderRow) => {
     setSelectedOrder(order);
     setRejectDialogOpen(true);
@@ -259,7 +283,20 @@ export default function MerchantOrdersPage() {
               Cetak Struk
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            {item.status === 'NEW' && (
+            {/* Payment verification for PENDING_PAYMENT orders */}
+            {item.status === 'PENDING_PAYMENT' && item.payment_proof_url && (
+              <DropdownMenuItem onClick={() => handleVerifyPayment(item.id)}>
+                <Check className="h-4 w-4 mr-2" />
+                Verifikasi Pembayaran
+              </DropdownMenuItem>
+            )}
+            {item.status === 'PENDING_PAYMENT' && !item.payment_proof_url && (
+              <DropdownMenuItem disabled className="text-muted-foreground">
+                <Clock className="h-4 w-4 mr-2" />
+                Menunggu Bukti Bayar
+              </DropdownMenuItem>
+            )}
+            {(item.status === 'NEW' || item.status === 'PENDING_CONFIRMATION') && (
               <>
                 <DropdownMenuItem onClick={() => handleUpdateStatus(item.id, 'PROCESSED')}>
                   <Check className="h-4 w-4 mr-2" />
@@ -555,7 +592,39 @@ export default function MerchantOrdersPage() {
               </div>
 
               {/* Actions */}
-              {selectedOrder.status === 'NEW' && (
+              {/* Payment Verification for PENDING_PAYMENT */}
+              {selectedOrder.status === 'PENDING_PAYMENT' && (
+                <div className="space-y-3">
+                  {selectedOrder.payment_proof_url ? (
+                    <Button 
+                      className="w-full"
+                      onClick={() => handleVerifyPayment(selectedOrder.id)}
+                    >
+                      <Check className="h-4 w-4 mr-2" />
+                      Verifikasi Pembayaran
+                    </Button>
+                  ) : (
+                    <div className="w-full bg-muted/50 rounded-lg p-3 text-center">
+                      <p className="text-xs text-muted-foreground">
+                        Menunggu pembeli mengunggah bukti pembayaran
+                      </p>
+                    </div>
+                  )}
+                  <Button 
+                    variant="destructive"
+                    className="w-full"
+                    onClick={() => {
+                      setDetailDialogOpen(false);
+                      openRejectDialog(selectedOrder);
+                    }}
+                  >
+                    <X className="h-4 w-4 mr-2" />
+                    Tolak Pesanan
+                  </Button>
+                </div>
+              )}
+              {/* Actions for NEW / PENDING_CONFIRMATION */}
+              {(selectedOrder.status === 'NEW' || selectedOrder.status === 'PENDING_CONFIRMATION') && (
                 <div className="flex gap-2">
                   <Button 
                     className="flex-1"

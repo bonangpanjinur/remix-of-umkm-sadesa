@@ -136,7 +136,7 @@ export async function getAvailableCouriers(
       .from('orders')
       .select('courier_id')
       .in('courier_id', courierIds)
-      .in('status', ['ASSIGNED', 'PICKED_UP', 'ON_DELIVERY']);
+      .in('status', ['ASSIGNED', 'PICKED_UP', 'SENT']);
 
     const orderCounts: Record<string, number> = {};
     activeOrders?.forEach((o) => {

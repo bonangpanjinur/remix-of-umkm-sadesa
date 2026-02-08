@@ -104,7 +104,7 @@ export default function CourierDashboardPage() {
         .from('orders')
         .select('*')
         .eq('courier_id', courierData.id)
-        .in('status', ['ASSIGNED', 'PICKED_UP', 'ON_DELIVERY'])
+        .in('status', ['ASSIGNED', 'PICKED_UP', 'SENT'])
         .order('created_at', { ascending: false });
 
       if (ordersError) throw ordersError;
@@ -189,7 +189,7 @@ export default function CourierDashboardPage() {
         return <Badge variant="secondary">Ditugaskan</Badge>;
       case 'PICKED_UP':
         return <Badge variant="warning">Diambil</Badge>;
-      case 'ON_DELIVERY':
+      case 'SENT':
         return <Badge variant="info">Dalam Perjalanan</Badge>;
       default:
         return <Badge variant="outline">{status}</Badge>;
@@ -201,8 +201,8 @@ export default function CourierDashboardPage() {
       case 'ASSIGNED':
         return { label: 'Ambil Pesanan', nextStatus: 'PICKED_UP', needsPOD: false };
       case 'PICKED_UP':
-        return { label: 'Mulai Antar', nextStatus: 'ON_DELIVERY', needsPOD: false };
-      case 'ON_DELIVERY':
+        return { label: 'Mulai Antar', nextStatus: 'SENT', needsPOD: false };
+      case 'SENT':
         return { label: 'Selesai + Foto', nextStatus: 'DELIVERED', needsPOD: true };
       default:
         return null;

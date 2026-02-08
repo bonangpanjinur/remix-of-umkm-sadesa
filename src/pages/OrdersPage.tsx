@@ -239,12 +239,12 @@ export default function OrdersPage() {
                     transition={{ delay: index * 0.05 }}
                     className="bg-card rounded-xl p-4 border border-border shadow-sm"
                     onClick={() => {
-                      if (order.courier_id && ['ASSIGNED', 'PICKED_UP', 'ON_DELIVERY'].includes(order.status)) {
+                      if (order.courier_id && ['ASSIGNED', 'PICKED_UP', 'SENT', 'ON_DELIVERY'].includes(order.status)) {
                         navigate(`/orders/${order.id}/tracking`);
                       }
                     }}
                     role={order.courier_id ? 'button' : undefined}
-                    style={{ cursor: order.courier_id && ['ASSIGNED', 'PICKED_UP', 'ON_DELIVERY'].includes(order.status) ? 'pointer' : 'default' }}
+                    style={{ cursor: order.courier_id && ['ASSIGNED', 'PICKED_UP', 'SENT', 'ON_DELIVERY'].includes(order.status) ? 'pointer' : 'default' }}
                   >
                     <div className="flex justify-between items-start mb-3">
                       <div>
@@ -270,7 +270,7 @@ export default function OrdersPage() {
                         <p className="text-xs text-muted-foreground">
                           {order.items_count} item • {order.delivery_type === 'INTERNAL' ? 'Kurir Desa' : 'Ambil Sendiri'}
                         </p>
-                        {order.courier_id && ['ASSIGNED', 'PICKED_UP', 'ON_DELIVERY'].includes(order.status) && (
+                        {order.courier_id && ['ASSIGNED', 'PICKED_UP', 'SENT', 'ON_DELIVERY'].includes(order.status) && (
                           <p className="text-xs text-primary font-medium mt-1">
                             Tap untuk lacak kurir →
                           </p>
