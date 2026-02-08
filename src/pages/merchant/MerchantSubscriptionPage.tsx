@@ -410,11 +410,11 @@ export default function MerchantSubscriptionPage() {
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
                     <span>Progres Penggunaan</span>
-                    <span>{getQuotaPercentage(currentSubscription.used_quota, currentSubscription.transaction_quota).toFixed(0)}%</span>
+                    <span>{getQuotaPercentage(currentQuotaInfo.usedQuota, currentQuotaInfo.totalQuota).toFixed(0)}%</span>
                   </div>
-                  <Progress value={getQuotaPercentage(currentSubscription.used_quota, currentSubscription.transaction_quota)} className="h-2" />
+                  <Progress value={getQuotaPercentage(currentQuotaInfo.usedQuota, currentQuotaInfo.totalQuota)} className="h-2" />
                   <p className="text-xs text-muted-foreground">
-                    Terpakai {currentSubscription.used_quota} dari {currentSubscription.transaction_quota} kredit
+                    Terpakai {currentQuotaInfo.usedQuota} dari {currentQuotaInfo.totalQuota} kredit
                   </p>
                 </div>
 
@@ -424,7 +424,9 @@ export default function MerchantSubscriptionPage() {
                     <div>
                       <p className="text-xs text-muted-foreground">Berlaku Hingga</p>
                       <p className="text-sm font-medium">
-                        {new Date(currentSubscription.expired_at).toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric' })}
+                        {currentQuotaInfo.expiresAt
+                          ? new Date(currentQuotaInfo.expiresAt).toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric' })
+                          : currentQuotaInfo.type === 'free' ? 'Reset setiap bulan' : '-'}
                       </p>
                     </div>
                   </div>
@@ -432,7 +434,7 @@ export default function MerchantSubscriptionPage() {
                     <CheckCircle2 className="h-4 w-4 text-green-500" />
                     <div>
                       <p className="text-xs text-muted-foreground">Status</p>
-                      <p className="text-sm font-medium">Aktif</p>
+                      <p className="text-sm font-medium">{currentQuotaInfo.type === 'premium' ? 'Aktif' : 'Free Tier'}</p>
                     </div>
                   </div>
                 </div>
