@@ -67,9 +67,9 @@ interface TransactionPackage {
 
 interface PaymentSettings {
   bank_name: string;
-  account_number: string;
-  account_name: string;
-  qris_url: string;
+  bank_account_number: string;
+  bank_account_name: string;
+  qris_image_url: string;
 }
 
 export default function MerchantSubscriptionPage() {
@@ -168,11 +168,11 @@ export default function MerchantSubscriptionPage() {
       const logs = await fetchQuotaUsageLogs(merchantData.id);
       setQuotaUsageLogs(logs);
 
-      // Get payment settings
+      // Get payment settings from main admin settings
       const { data: settingsData } = await supabase
         .from('app_settings')
         .select('value')
-        .eq('key', 'payment_settings')
+        .eq('key', 'admin_payment_info')
         .maybeSingle();
       
       if (settingsData) {
@@ -683,35 +683,35 @@ export default function MerchantSubscriptionPage() {
                 <div className="space-y-4">
                   <h3 className="font-semibold text-sm">Metode Pembayaran</h3>
                   
-                  {/* Bank Transfer */}
-                  <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
-                    <div className="flex items-start justify-between mb-3">
-                      <div>
-                        <p className="text-sm font-medium text-slate-900">Transfer Bank</p>
-                        <Badge variant="outline" className="mt-1">{paymentSettings.bank_name}</Badge>
-                      </div>
-                    </div>
-                    <div className="space-y-3">
-                      <div className="bg-white p-3 rounded border border-slate-200">
-                        <p className="text-xs text-slate-600 mb-1">Nomor Rekening</p>
-                        <p className="text-lg font-mono font-bold text-slate-900 tracking-wider">{paymentSettings.account_number}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-slate-600 mb-1">Nama Penerima</p>
-                        <p className="font-medium text-slate-900">{paymentSettings.account_name}</p>
-                      </div>
-                    </div>
-                  </div>
+                   {/* Bank Transfer */}
+                   <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
+                     <div className="flex items-start justify-between mb-3">
+                       <div>
+                         <p className="text-sm font-medium text-slate-900">Transfer Bank</p>
+                         <Badge variant="outline" className="mt-1">{paymentSettings.bank_name}</Badge>
+                       </div>
+                     </div>
+                     <div className="space-y-3">
+                       <div className="bg-white p-3 rounded border border-slate-200">
+                         <p className="text-xs text-slate-600 mb-1">Nomor Rekening</p>
+                         <p className="text-lg font-mono font-bold text-slate-900 tracking-wider">{paymentSettings.bank_account_number}</p>
+                       </div>
+                       <div>
+                         <p className="text-xs text-slate-600 mb-1">Nama Penerima</p>
+                         <p className="font-medium text-slate-900">{paymentSettings.bank_account_name}</p>
+                       </div>
+                     </div>
+                   </div>
 
-                  {/* QRIS */}
-                  {paymentSettings.qris_url && (
-                    <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
-                      <p className="text-sm font-medium text-slate-900 mb-3">Atau Scan QRIS</p>
-                      <div className="flex justify-center bg-white p-4 rounded border border-slate-200">
-                        <img src={paymentSettings.qris_url} alt="QRIS" className="w-40 h-40 object-contain" />
-                      </div>
-                    </div>
-                  )}
+                   {/* QRIS */}
+                   {paymentSettings.qris_image_url && (
+                     <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
+                       <p className="text-sm font-medium text-slate-900 mb-3">Atau Scan QRIS</p>
+                       <div className="flex justify-center bg-white p-4 rounded border border-slate-200">
+                         <img src={paymentSettings.qris_image_url} alt="QRIS" className="w-40 h-40 object-contain" />
+                       </div>
+                     </div>
+                   )}
                 </div>
               ) : (
                 <Alert>
