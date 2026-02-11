@@ -165,12 +165,26 @@ export async function fetchProducts(): Promise<Product[]> {
     const merchant = p.merchants;
     
     // Check if merchant is currently open based on operating hours
-    let isMerchantOpen = merchant?.is_open ?? true;
-    if (isMerchantOpen && merchant?.open_time && merchant?.close_time) {
-      const now = new Date();
-      const currentTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
-      isMerchantOpen = currentTime >= merchant.open_time && currentTime <= merchant.close_time;
+    // Use the same logic as in merchantOperatingHours.ts for consistency
+    const isManuallyOpen = merchant?.is_open ?? true;
+    const openTime = merchant?.open_time || '08:00';
+    const closeTime = merchant?.close_time || '17:00';
+    
+    const now = new Date();
+    const currentTimeMinutes = now.getHours() * 60 + now.getMinutes();
+    const [openHours, openMinutes] = openTime.split(':').map(Number);
+    const [closeHours, closeMinutes] = closeTime.split(':').map(Number);
+    const openTimeMinutes = openHours * 60 + openMinutes;
+    const closeTimeMinutes = closeHours * 60 + closeMinutes;
+    
+    let isWithinHours = false;
+    if (closeTimeMinutes < openTimeMinutes) {
+      isWithinHours = currentTimeMinutes >= openTimeMinutes || currentTimeMinutes <= closeTimeMinutes;
+    } else {
+      isWithinHours = currentTimeMinutes >= openTimeMinutes && currentTimeMinutes <= closeTimeMinutes;
     }
+    
+    const isMerchantOpen = isManuallyOpen && isWithinHours;
     
     const isAvailable = hasQuota && isMerchantOpen && p.is_active;
 
@@ -237,6 +251,31 @@ export async function fetchProduct(id: string): Promise<Product | null> {
     return null;
   }
 
+  // Check merchant quota
+  const hasQuota = await checkMerchantHasActiveQuota(data.merchant_id);
+  
+  // Check if merchant is currently open
+  const isManuallyOpen = data.merchants?.is_open ?? true;
+  const openTime = data.merchants?.open_time || '08:00';
+  const closeTime = data.merchants?.close_time || '17:00';
+  
+  const now = new Date();
+  const currentTimeMinutes = now.getHours() * 60 + now.getMinutes();
+  const [openHours, openMinutes] = openTime.split(':').map(Number);
+  const [closeHours, closeMinutes] = closeTime.split(':').map(Number);
+  const openTimeMinutes = openHours * 60 + openMinutes;
+  const closeTimeMinutes = closeHours * 60 + closeMinutes;
+  
+  let isWithinHours = false;
+  if (closeTimeMinutes < openTimeMinutes) {
+    isWithinHours = currentTimeMinutes >= openTimeMinutes || currentTimeMinutes <= closeTimeMinutes;
+  } else {
+    isWithinHours = currentTimeMinutes >= openTimeMinutes && currentTimeMinutes <= closeTimeMinutes;
+  }
+  
+  const isMerchantOpen = isManuallyOpen && isWithinHours;
+  const isAvailable = hasQuota && isMerchantOpen && data.is_active;
+
   return {
     id: data.id,
     merchantId: data.merchant_id,
@@ -250,6 +289,9 @@ export async function fetchProduct(id: string): Promise<Product | null> {
     category: data.category as Product['category'],
     isActive: data.is_active,
     isPromo: data.is_promo,
+    isAvailable,
+    isMerchantOpen,
+    hasQuota,
   };
 }
 

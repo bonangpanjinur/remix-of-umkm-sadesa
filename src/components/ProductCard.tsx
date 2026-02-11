@@ -28,8 +28,10 @@ export function ProductCard({ product, index = 0, showCategoryBadge = false }: P
   const { addToCart } = useCart();
   const { flashSale } = useProductFlashSale(product.id);
 
-  // Check availability - default to true for backwards compatibility
-  const isAvailable = product.isAvailable !== false;
+  // Check availability - ensure we use the values from the product object
+  // If the API says it's available, it's available. 
+  // We only show the "Closed" overlay if isAvailable is explicitly false.
+  const isAvailable = product.isAvailable === true;
   const isMerchantOpen = product.isMerchantOpen !== false;
   const hasQuota = product.hasQuota !== false;
 
