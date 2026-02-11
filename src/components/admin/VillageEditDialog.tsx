@@ -42,6 +42,7 @@ interface VillageEditDialogProps {
     contact_phone: string | null;
     contact_email: string | null;
     is_active: boolean;
+    user_id?: string | null; // Added user_id to initialData
   };
   onSuccess: () => void;
 }
@@ -115,15 +116,16 @@ export function VillageEditDialog({
 
       const adminDesaIds = roleData.map(r => r.user_id);
 
-      // Step 2: Ambil semua user yang sudah terhubung dengan desa lain
-      const { data: linkedData, error: linkedError } = await supabase
-        .from('user_villages')
+      // Step 2: Ambil semua user yang sudah terhubung dengan desa lain (di tabel villages)
+      const { data: linkedVillages, error: linkedError } = await supabase
+        .from('villages')
         .select('user_id')
-        .neq('village_id', villageId); // Kecuali desa ini sendiri
+        .neq('id', villageId)
+        .not('user_id', 'is', null);
 
       if (linkedError) throw linkedError;
       
-      const linkedUserIds = new Set(linkedData?.map(l => l.user_id) || []);
+      const linkedUserIds = new Set(linkedVillages?.map(v => v.user_id) || []);
 
       // Step 3: Filter adminDesaIds yang belum terhubung (atau terhubung dengan desa ini)
       const availableIds = adminDesaIds.filter(id => !linkedUserIds.has(id));
@@ -167,32 +169,30 @@ export function VillageEditDialog({
     });
 
     resolveAddressCodes(initialData.province, initialData.regency, initialData.district, initialData.subdistrict);
-    loadCurrentOwner();
+    
+    // Set selectedUserId from initialData.user_id if available
+    if (initialData.user_id) {
+      setSelectedUserId(initialData.user_id);
+      loadOwnerProfile(initialData.user_id);
+    } else {
+      setSelectedUserId('none_value');
+      setCurrentOwner(null);
+    }
   }, [open, initialData, villageId]);
 
-  // --- Owner logic ---
-  const loadCurrentOwner = async () => {
+  const loadOwnerProfile = async (userId: string) => {
     try {
-      const { data: userVillage } = await supabase
-        .from('user_villages')
-        .select('user_id')
-        .eq('village_id', villageId)
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('user_id, full_name, phone, email')
+        .eq('user_id', userId)
         .maybeSingle();
-
-      if (userVillage?.user_id) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('user_id, full_name, phone, email')
-          .eq('user_id', userVillage.user_id)
-          .maybeSingle();
-        setCurrentOwner(profile || { user_id: userVillage.user_id, full_name: null, phone: null });
-        setSelectedUserId(userVillage.user_id);
-      } else {
-        setCurrentOwner(null);
-        setSelectedUserId('none_value');
+      
+      if (profile) {
+        setCurrentOwner(profile);
       }
     } catch (error) {
-      console.error('Error loading current owner:', error);
+      console.error('Error loading owner profile:', error);
     }
   };
 
@@ -345,7 +345,9 @@ export function VillageEditDialog({
 
     setLoading(true);
     try {
-      // 1. Update data desa di tabel villages
+      const newOwnerId = selectedUserId === 'none_value' ? null : selectedUserId;
+
+      // 1. Update data desa di tabel villages, termasuk field user_id
       const { error: villageError } = await supabase
         .from('villages')
         .update({
@@ -362,38 +364,34 @@ export function VillageEditDialog({
           contact_phone: formData.contact_phone || null,
           contact_email: formData.contact_email || null,
           is_active: formData.is_active,
+          user_id: newOwnerId, // This is the crucial part for the relation
           updated_at: new Date().toISOString(),
         })
         .eq('id', villageId);
 
       if (villageError) throw villageError;
 
-      // 2. Handle user_villages assignment
-      const currentOwnerId = currentOwner?.user_id;
-      const newOwnerId = selectedUserId === 'none_value' ? null : selectedUserId;
+      // 2. Handle user_villages assignment (Optional, keeping for backward compatibility if needed)
+      const currentOwnerId = initialData.user_id;
 
       if (newOwnerId !== currentOwnerId) {
         // Hapus link lama jika ada
         if (currentOwnerId) {
-          const { error: deleteError } = await supabase
+          await supabase
             .from('user_villages')
             .delete()
             .eq('village_id', villageId);
-          
-          if (deleteError) throw deleteError;
         }
 
         // Tambah link baru jika dipilih
         if (newOwnerId) {
-          const { error: upsertError } = await supabase
+          await supabase
             .from('user_villages')
             .upsert({
               user_id: newOwnerId,
               village_id: villageId,
               role: 'admin',
             }, { onConflict: 'user_id,village_id' });
-
-          if (upsertError) throw upsertError;
 
           // Pastikan user memiliki role admin_desa
           const { data: existingRole } = await supabase
@@ -404,11 +402,9 @@ export function VillageEditDialog({
             .maybeSingle();
 
           if (!existingRole) {
-            const { error: roleInsertError } = await supabase
+            await supabase
               .from('user_roles')
               .insert({ user_id: newOwnerId, role: 'admin_desa' });
-            
-            if (roleInsertError) throw roleInsertError;
           }
         }
       }
