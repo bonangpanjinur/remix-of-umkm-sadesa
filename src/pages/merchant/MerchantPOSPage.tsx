@@ -22,6 +22,8 @@ import { toast } from 'sonner';
 import { formatPrice } from '@/lib/utils';
 import { POSInvoice, printPOSInvoice } from '@/components/merchant/POSInvoice';
 import { Link } from 'react-router-dom';
+import { calculateCreditCost } from '@/lib/quotaApi';
+import { fetchQuotaTiers } from '@/lib/quotaApi';
 
 interface ProductItem {
   id: string;
@@ -160,7 +162,7 @@ export default function MerchantPOSPage() {
   const changeAmount = Math.max(0, (parseInt(paymentAmount) || 0) - cartTotal);
 
   const handleCheckout = async () => {
-    if (cart.length === 0) return;
+    if (cart.length === 0 || !merchantId || !user) return;
     setProcessing(true);
     try {
       const txNumber = `POS-${Date.now().toString(36).toUpperCase()}`;
@@ -172,10 +174,87 @@ export default function MerchantPOSPage() {
         subtotal: c.subtotal,
       }));
 
+      // 1. Calculate quota credit cost for this transaction
+      const tiers = await fetchQuotaTiers();
+      let totalCredits = 0;
+      for (const item of cart) {
+        const creditCost = calculateCreditCost(item.product.price, tiers);
+        totalCredits += creditCost * item.quantity;
+      }
+
+      // 2. Deduct merchant quota
+      const { data: quotaOk, error: quotaError } = await supabase.rpc('deduct_merchant_quota', {
+        p_merchant_id: merchantId,
+        p_credits: totalCredits,
+      });
+
+      if (quotaError || quotaOk !== true) {
+        toast.error('Kuota transaksi tidak mencukupi. Silakan beli paket kuota terlebih dahulu.');
+        setProcessing(false);
+        return;
+      }
+
+      // 3. Create order record (handled_by = 'POS', status = 'DONE')
+      const { data: orderData, error: orderError } = await supabase
+        .from('orders')
+        .insert({
+          buyer_id: user.id,
+          merchant_id: merchantId,
+          subtotal: cartTotal,
+          shipping_cost: 0,
+          total: cartTotal,
+          status: 'DONE',
+          delivery_type: 'PICKUP',
+          handled_by: 'POS',
+          payment_method: paymentMethod,
+          payment_status: 'PAID',
+          payment_paid_at: new Date().toISOString(),
+          delivered_at: new Date().toISOString(),
+          notes: notes ? `[POS] ${notes}` : `[POS] Transaksi kasir ${txNumber}`,
+          delivery_name: customerName || 'Pelanggan POS',
+        })
+        .select('id')
+        .single();
+
+      if (orderError) throw orderError;
+
+      // 4. Create order_items
+      const orderItems = cart.map(c => ({
+        order_id: orderData.id,
+        product_id: c.product.id,
+        product_name: c.product.name,
+        product_price: c.product.price,
+        quantity: c.quantity,
+        subtotal: c.subtotal,
+      }));
+
+      const { error: itemsError } = await supabase
+        .from('order_items')
+        .insert(orderItems);
+
+      if (itemsError) {
+        console.error('Error creating order items:', itemsError);
+      }
+
+      // 5. Log quota usage
+      try {
+        await supabase.from('quota_usage_logs').insert({
+          merchant_id: merchantId,
+          order_id: orderData.id,
+          order_total: cartTotal,
+          credits_used: totalCredits,
+          remaining_quota: 0, // will be updated by trigger or next fetch
+          notes: `POS: ${txNumber}`,
+        });
+      } catch (logErr) {
+        console.error('Quota log error (non-blocking):', logErr);
+      }
+
+      // 6. Create POS transaction record
       const { data, error } = await supabase
         .from('pos_transactions')
         .insert({
-          merchant_id: merchantId!,
+          merchant_id: merchantId,
           transaction_number: txNumber,
           customer_name: customerName || null,
           items: items as any,
@@ -192,7 +271,7 @@ export default function MerchantPOSPage() {
 
       if (error) throw error;
 
-      // Update product stock
+      // 7. Update product stock
       for (const item of cart) {
         await supabase
           .from('products')
@@ -216,7 +295,7 @@ export default function MerchantPOSPage() {
       setNotes('');
       setPaymentAmount('');
       setReceiptOpen(true);
-      toast.success('Transaksi berhasil!');
+      toast.success(`Transaksi berhasil! Kuota terpakai: ${totalCredits} kredit`);
     } catch (err: any) {
       toast.error(err.message || 'Gagal memproses transaksi');
     } finally {
