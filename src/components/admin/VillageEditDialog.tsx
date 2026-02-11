@@ -22,7 +22,7 @@ import {
 import { reverseGeocode } from '@/hooks/useGeocoding';
 import { ImageUpload } from '@/components/ui/ImageUpload';
 import { AdminLocationPicker } from './AdminLocationPicker';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 interface VillageEditDialogProps {
   open: boolean;
@@ -68,6 +68,7 @@ export function VillageEditDialog({
 }: VillageEditDialogProps) {
   const [loading, setLoading] = useState(false);
   const [loadingAddr, setLoadingAddr] = useState(false);
+  const queryClient = useQueryClient();
   
   // Owner state
   const [currentOwner, setCurrentOwner] = useState<OwnerInfo | null>(null);
@@ -344,7 +345,8 @@ export function VillageEditDialog({
 
     setLoading(true);
     try {
-      const { error } = await supabase
+      // 1. Update data desa di tabel villages
+      const { error: villageError } = await supabase
         .from('villages')
         .update({
           name: formData.name.trim(),
@@ -364,26 +366,36 @@ export function VillageEditDialog({
         })
         .eq('id', villageId);
 
-      if (error) throw error;
+      if (villageError) throw villageError;
 
-      // Handle user_villages assignment
+      // 2. Handle user_villages assignment
       const currentOwnerId = currentOwner?.user_id;
       const newOwnerId = selectedUserId === 'none_value' ? null : selectedUserId;
 
       if (newOwnerId !== currentOwnerId) {
-        // Remove old link
+        // Hapus link lama jika ada
         if (currentOwnerId) {
-          await supabase.from('user_villages').delete().eq('village_id', villageId);
+          const { error: deleteError } = await supabase
+            .from('user_villages')
+            .delete()
+            .eq('village_id', villageId);
+          
+          if (deleteError) throw deleteError;
         }
-        // Add new link
-        if (newOwnerId) {
-          await supabase.from('user_villages').upsert({
-            user_id: newOwnerId,
-            village_id: villageId,
-            role: 'admin',
-          }, { onConflict: 'user_id,village_id' });
 
-          // Ensure user has admin_desa role
+        // Tambah link baru jika dipilih
+        if (newOwnerId) {
+          const { error: upsertError } = await supabase
+            .from('user_villages')
+            .upsert({
+              user_id: newOwnerId,
+              village_id: villageId,
+              role: 'admin',
+            }, { onConflict: 'user_id,village_id' });
+
+          if (upsertError) throw upsertError;
+
+          // Pastikan user memiliki role admin_desa
           const { data: existingRole } = await supabase
             .from('user_roles')
             .select('id')
@@ -392,17 +404,26 @@ export function VillageEditDialog({
             .maybeSingle();
 
           if (!existingRole) {
-            await supabase.from('user_roles').insert({ user_id: newOwnerId, role: 'admin_desa' });
+            const { error: roleInsertError } = await supabase
+              .from('user_roles')
+              .insert({ user_id: newOwnerId, role: 'admin_desa' });
+            
+            if (roleInsertError) throw roleInsertError;
           }
         }
       }
 
       toast.success('Data desa berhasil diperbarui');
+      
+      // Invalidate queries untuk refresh data di UI
+      queryClient.invalidateQueries({ queryKey: ["admin-villages"] });
+      queryClient.invalidateQueries({ queryKey: ["profiles-for-selection"] });
+      
       onSuccess();
       onOpenChange(false);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating village:', error);
-      toast.error('Gagal memperbarui data desa');
+      toast.error(error.message || 'Gagal memperbarui data desa');
     } finally {
       setLoading(false);
     }
