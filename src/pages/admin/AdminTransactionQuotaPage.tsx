@@ -77,9 +77,9 @@ interface PackageRequest {
 
 interface PaymentSettings {
   bank_name: string;
-  account_number: string;
-  account_name: string;
-  qris_url: string;
+  bank_account_number: string;
+  bank_account_name: string;
+  qris_image_url: string;
 }
 
 interface QuotaTier {
@@ -126,9 +126,9 @@ export default function AdminTransactionQuotaPage() {
 
   const [paymentSettings, setPaymentSettings] = useState<PaymentSettings>({
     bank_name: '',
-    account_number: '',
-    account_name: '',
-    qris_url: '',
+    bank_account_number: '',
+    bank_account_name: '',
+    qris_image_url: '',
   });
 
   const [uploading, setUploading] = useState(false);
@@ -168,11 +168,11 @@ export default function AdminTransactionQuotaPage() {
       if (tierError) throw tierError;
       setTiers(tierData || []);
 
-      // Fetch payment settings
+      // Fetch payment settings from main admin settings
       const { data: settingsData } = await supabase
         .from('app_settings')
         .select('value')
-        .eq('key', 'payment_settings')
+        .eq('key', 'admin_payment_info')
         .maybeSingle();
       
       if (settingsData) {
@@ -419,7 +419,7 @@ export default function AdminTransactionQuotaPage() {
       
       const publicUrl = data.publicUrl;
 
-      setPaymentSettings({ ...paymentSettings, qris_url: publicUrl });
+      setPaymentSettings({ ...paymentSettings, qris_image_url: publicUrl });
       toast.success('QRIS berhasil diunggah');
     } catch (error) {
       console.error('Error uploading QRIS:', error);
@@ -431,11 +431,11 @@ export default function AdminTransactionQuotaPage() {
 
   const handleUpdateSettings = async () => {
     try {
-      // First check if the setting exists
+      // Save to admin_payment_info (main settings)
       const { data: existing } = await supabase
         .from('app_settings')
         .select('id')
-        .eq('key', 'payment_settings')
+        .eq('key', 'admin_payment_info')
         .maybeSingle();
 
       if (existing) {
@@ -444,20 +444,19 @@ export default function AdminTransactionQuotaPage() {
           .update({
             value: paymentSettings as unknown as import('@/integrations/supabase/types').Json,
           })
-          .eq('key', 'payment_settings');
+          .eq('key', 'admin_payment_info');
         if (error) throw error;
       } else {
         const { error } = await supabase
           .from('app_settings')
           .insert({
-            key: 'payment_settings',
+            key: 'admin_payment_info',
             value: paymentSettings as unknown as import('@/integrations/supabase/types').Json,
             category: 'payment',
-            description: 'Pengaturan pembayaran untuk pembelian paket'
+            description: 'Rekening & QRIS default admin untuk pembayaran'
           });
         if (error) throw error;
       }
-
 
       toast.success('Pengaturan pembayaran berhasil diperbarui');
       setSettingsDialogOpen(false);
@@ -863,18 +862,18 @@ export default function AdminTransactionQuotaPage() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="accNumber">Nomor Rekening</Label>
-                <Input id="accNumber" value={paymentSettings.account_number} onChange={(e) => setPaymentSettings({ ...paymentSettings, account_number: e.target.value })} />
+                <Input id="accNumber" value={paymentSettings.bank_account_number} onChange={(e) => setPaymentSettings({ ...paymentSettings, bank_account_number: e.target.value })} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="accName">Nama Pemilik Rekening</Label>
-                <Input id="accName" value={paymentSettings.account_name} onChange={(e) => setPaymentSettings({ ...paymentSettings, account_name: e.target.value })} />
+                <Input id="accName" value={paymentSettings.bank_account_name} onChange={(e) => setPaymentSettings({ ...paymentSettings, bank_account_name: e.target.value })} />
               </div>
               <div className="space-y-2">
                 <Label>QRIS (Opsional)</Label>
                 <div className="flex items-center gap-4">
-                  {paymentSettings.qris_url && (
+                  {paymentSettings.qris_image_url && (
                     <div className="h-16 w-16 border rounded overflow-hidden">
-                      <img src={paymentSettings.qris_url} alt="QRIS" className="h-full w-full object-cover" />
+                      <img src={paymentSettings.qris_image_url} alt="QRIS" className="h-full w-full object-cover" />
                     </div>
                   )}
                   <div className="flex-1">
@@ -882,6 +881,12 @@ export default function AdminTransactionQuotaPage() {
                   </div>
                 </div>
               </div>
+              <Alert>
+                <Info className="h-4 w-4" />
+                <AlertDescription>
+                  Pengaturan ini sama dengan Rekening & QRIS Default di halaman Pengaturan Utama.
+                </AlertDescription>
+              </Alert>
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setSettingsDialogOpen(false)}>Batal</Button>
