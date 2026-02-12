@@ -42,6 +42,7 @@ interface MerchantData {
   halal_status: string | null;
   halal_certificate_url: string | null;
   ktp_url: string | null;
+  verifikator_code: string | null;
 }
 
 const BUSINESS_CATEGORIES = [
@@ -82,6 +83,7 @@ export default function MerchantSettingsPage() {
     payment_cod_enabled: true,
     payment_transfer_enabled: true,
     notification_sound_enabled: true,
+    verifikator_code: '',
   });
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [qrisImageUrl, setQrisImageUrl] = useState<string | null>(null);
@@ -117,6 +119,7 @@ export default function MerchantSettingsPage() {
             payment_cod_enabled: data.payment_cod_enabled ?? true,
             payment_transfer_enabled: data.payment_transfer_enabled ?? true,
             notification_sound_enabled: data.notification_sound_enabled ?? true,
+            verifikator_code: data.verifikator_code || '',
           });
           setImageUrl(data.image_url);
           setQrisImageUrl(data.qris_image_url);
@@ -162,6 +165,7 @@ export default function MerchantSettingsPage() {
           payment_cod_enabled: formData.payment_cod_enabled,
           payment_transfer_enabled: formData.payment_transfer_enabled,
           notification_sound_enabled: formData.notification_sound_enabled,
+          verifikator_code: formData.verifikator_code || null,
         })
         .eq('id', merchant.id);
 
@@ -256,6 +260,22 @@ export default function MerchantSettingsPage() {
             <div className="space-y-2">
               <Label htmlFor="business_description">Deskripsi Toko</Label>
               <Textarea id="business_description" name="business_description" value={formData.business_description} onChange={handleChange} rows={3} placeholder="Ceritakan tentang toko Anda..." />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="verifikator_code">Kode Verifikator</Label>
+              <div className="relative">
+                <Shield className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  id="verifikator_code"
+                  name="verifikator_code"
+                  value={formData.verifikator_code}
+                  onChange={handleChange}
+                  className="pl-9 uppercase"
+                  placeholder="Kode Verifikator"
+                />
+              </div>
+              <p className="text-[10px] text-muted-foreground">Kode verifikator yang terhubung dengan akun Anda.</p>
             </div>
           </CardContent>
         </Card>

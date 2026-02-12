@@ -6,7 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { 
   Store, Phone, MapPin, ArrowLeft, CheckCircle, Clock, 
-  Tag, FileText, Building, Shield, AlertCircle, Check, Mail, Loader2
+  Tag, FileText, Building, Shield, AlertCircle, Check, Mail, Loader2, ShieldCheck
 } from 'lucide-react';
 import { PageHeader } from '../components/layout/PageHeader';
 import { BottomNav } from '../components/layout/BottomNav';
@@ -439,11 +439,26 @@ export default function RegisterMerchantPage() {
               <h3 className="font-semibold">Informasi Usaha</h3>
             </div>
             
-            <div className="space-y-2">
-              <Label htmlFor="name">Nama Usaha</Label>
-              <Input id="name" {...register('name')} placeholder="Contoh: Warung Makan Berkah" />
-              {errors.name && <p className="text-xs text-destructive">{errors.name.message}</p>}
-            </div>
+              <div className="space-y-2">
+                <Label htmlFor="name">Nama Usaha</Label>
+                <Input id="name" {...register('name')} placeholder="Contoh: Warung Makan Berkah" />
+                {errors.name && <p className="text-xs text-destructive">{errors.name.message}</p>}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="verifikator_code">Kode Verifikator (Opsional)</Label>
+                <div className="relative">
+                  <ShieldCheck className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <Input 
+                    id="verifikator_code"
+                    className="pl-9 uppercase" 
+                    placeholder="Masukkan kode verifikator jika ada" 
+                    value={referralCode}
+                    onChange={(e) => setReferralCode(e.target.value)}
+                  />
+                </div>
+                <p className="text-[10px] text-muted-foreground">Sama dengan Kode Referral di atas.</p>
+              </div>
 
             <div className="space-y-2">
               <Label>Kategori Usaha</Label>
