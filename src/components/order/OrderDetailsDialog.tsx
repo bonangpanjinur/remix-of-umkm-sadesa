@@ -164,7 +164,9 @@ export function OrderDetailsDialog({
   const handleProcessOrder = async () => {
     try {
       setIsProcessing(true);
-      const isSelfDelivery = deliveryType === "self";
+      
+      const isPickup = order.delivery_type === 'PICKUP';
+      const isSelfDelivery = !isPickup && deliveryType === "self";
       const newStatus = isSelfDelivery ? "DELIVERING" : "PROCESSED";
 
       const { error } = await supabase
@@ -177,11 +179,23 @@ export function OrderDetailsDialog({
 
       if (error) throw error;
       
-      toast.success(isSelfDelivery ? 'Pesanan diproses untuk diantar sendiri!' : 'Pesanan diproses, mencari kurir.');
+      if (isPickup) {
+        toast.success('Pesanan diproses (Pembeli akan ambil sendiri).');
+      } else {
+        toast.success(isSelfDelivery ? 'Pesanan diproses, silakan antar pesanan!' : 'Pesanan diproses. Silakan pilih Kurir Desa.');
+      }
       
       // Update parent component status optimistically
       onUpdateStatus(order.id, newStatus);
       onOpenChange(false);
+
+      // Jika menggunakan kurir desa, otomatis buka modal tugaskan kurir untuk pengalaman seperti di dashboard admin
+      if (!isPickup && !isSelfDelivery && onOpenAssignCourier) {
+        setTimeout(() => {
+          onOpenAssignCourier({ ...order, status: newStatus, is_self_delivery: false });
+        }, 300);
+      }
+
     } catch (err) {
       console.error(err);
       toast.error('Gagal memproses pesanan');
@@ -239,7 +253,7 @@ export function OrderDetailsDialog({
           {order.is_self_delivery && (
             <div className="flex items-center gap-2 p-3 bg-blue-50 text-blue-700 rounded-lg text-sm border border-blue-100">
               <Store className="w-4 h-4" />
-              <span className="font-medium">Pengiriman Mandiri (Diantar Toko)</span>
+              <span className="font-medium">Pengiriman Mandiri (Diantar Kurir Toko)</span>
             </div>
           )}
 
@@ -321,29 +335,31 @@ export function OrderDetailsDialog({
           <div className="flex flex-col gap-2 pt-2">
             {order.status === 'NEW' && (
               <div className="space-y-3">
-                <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">
-                  <Label className="text-sm font-semibold mb-3 block">Metode Pengiriman:</Label>
-                  <RadioGroup 
-                    value={deliveryType} 
-                    onValueChange={(v) => setDeliveryType(v as "courier" | "self")}
-                    className="flex flex-col space-y-2"
-                  >
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="courier" id="r-courier" />
-                      <Label htmlFor="r-courier" className="flex items-center gap-2 cursor-pointer font-normal text-sm">
-                        <Truck className="w-4 h-4 text-muted-foreground" />
-                        Cari Kurir Aplikasi (Standar)
-                      </Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="self" id="r-self" />
-                      <Label htmlFor="r-self" className="flex items-center gap-2 cursor-pointer font-normal text-sm">
-                        <Store className="w-4 h-4 text-muted-foreground" />
-                        Antar Sendiri ke Alamat
-                      </Label>
-                    </div>
-                  </RadioGroup>
-                </div>
+                {order.delivery_type !== 'PICKUP' && (
+                  <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">
+                    <Label className="text-sm font-semibold mb-3 block">Metode Pengiriman:</Label>
+                    <RadioGroup 
+                      value={deliveryType} 
+                      onValueChange={(v) => setDeliveryType(v as "courier" | "self")}
+                      className="flex flex-col space-y-2"
+                    >
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="courier" id="r-courier" />
+                        <Label htmlFor="r-courier" className="flex items-center gap-2 cursor-pointer font-normal text-sm">
+                          <Truck className="w-4 h-4 text-muted-foreground" />
+                          Kirim dengan Kurir Desa
+                        </Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="self" id="r-self" />
+                        <Label htmlFor="r-self" className="flex items-center gap-2 cursor-pointer font-normal text-sm">
+                          <Store className="w-4 h-4 text-muted-foreground" />
+                          Kirim Sendiri (Kurir Toko Pribadi)
+                        </Label>
+                      </div>
+                    </RadioGroup>
+                  </div>
+                )}
 
                 <div className="flex gap-2">
                   <Button 
@@ -352,7 +368,9 @@ export function OrderDetailsDialog({
                     disabled={isProcessing}
                   >
                     <Check className="h-4 w-4 mr-2" />
-                    {isProcessing ? "Memproses..." : (deliveryType === "self" ? "Proses & Antar" : "Terima & Cari Kurir")}
+                    {isProcessing ? "Memproses..." : 
+                      (order.delivery_type === 'PICKUP' ? "Terima Pesanan" : 
+                      (deliveryType === "self" ? "Proses & Kirim Sendiri" : "Proses & Pilih Kurir Desa"))}
                   </Button>
                   <Button 
                     variant="destructive"
@@ -409,7 +427,7 @@ export function OrderDetailsDialog({
                 }}
               >
                 <Truck className="h-4 w-4 mr-2" />
-                Tugaskan Kurir
+                Tugaskan Kurir Desa
               </Button>
             )}
           </div>
