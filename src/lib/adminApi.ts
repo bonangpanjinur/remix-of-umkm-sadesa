@@ -543,3 +543,21 @@ export async function updateVillage(id: string, village: Partial<Village>): Prom
   }
   return true;
 }
+
+/**
+ * Clears all system caches including local address cache and TanStack Query cache.
+ * Note: TanStack Query cache clearing should be handled by the component using useQueryClient.
+ */
+export async function clearAllSystemCache(): Promise<void> {
+  // Clear address cache from localStorage
+  const CACHE_PREFIX = 'address_cache_';
+  Object.keys(localStorage)
+    .filter(key => key.startsWith(CACHE_PREFIX))
+    .forEach(key => localStorage.removeItem(key));
+    
+  // Clear other potential local storage caches
+  const OTHER_CACHES = ['user_location', 'search_history'];
+  OTHER_CACHES.forEach(key => localStorage.removeItem(key));
+  
+  console.log('System cache cleared successfully');
+}

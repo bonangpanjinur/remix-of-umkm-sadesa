@@ -4,6 +4,10 @@ import { fetchAdminStats } from '@/lib/adminApi';
 import { Menu, X } from 'lucide-react';
 import { NotificationDropdown } from '@/components/notifications/NotificationDropdown';
 import { Button } from '@/components/ui/button';
+import { RefreshCw } from 'lucide-react';
+import { clearAllSystemCache } from '@/lib/adminApi';
+import { useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
 interface AdminLayoutProps {
@@ -15,6 +19,27 @@ interface AdminLayoutProps {
 
 export function AdminLayout({ children, title, subtitle, rightElement }: AdminLayoutProps) {
   const [pendingMerchants, setPendingMerchants] = useState(0);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const queryClient = useQueryClient();
+
+  const handleRefreshCache = async () => {
+    try {
+      setIsRefreshing(true);
+      
+      // Clear TanStack Query cache
+      await queryClient.invalidateQueries();
+      
+      // Clear local system caches
+      await clearAllSystemCache();
+      
+      toast.success('Cache sistem berhasil diperbarui');
+    } catch (error) {
+      console.error('Error refreshing cache:', error);
+      toast.error('Gagal memperbarui cache');
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
   const [pendingVillages, setPendingVillages] = useState(0);
   const [pendingCouriers, setPendingCouriers] = useState(0);
   const [pendingWithdrawals, setPendingWithdrawals] = useState(0);
@@ -109,6 +134,16 @@ export function AdminLayout({ children, title, subtitle, rightElement }: AdminLa
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              className={cn("h-8 w-8 rounded-full border border-border bg-secondary text-secondary-foreground hover:scale-105 transition", isRefreshing && "animate-spin")}
+              onClick={handleRefreshCache}
+              disabled={isRefreshing}
+              title="Refresh Cache"
+            >
+              <RefreshCw className={cn("h-4 w-4", isRefreshing && "animate-spin")} />
+            </Button>
             <NotificationDropdown />
             {rightElement && <div>{rightElement}</div>}
           </div>
