@@ -52,6 +52,8 @@ export function AdminSidebar({ pendingMerchants = 0, pendingVillages = 0, pendin
     { label: 'Pengguna', href: '/admin/users', icon: <Users className="h-4 w-4" /> },
     { label: 'Role & Permission', href: '/admin/roles', icon: <Shield className="h-4 w-4" /> },
     { label: 'Merchant', href: '/admin/merchants', icon: <Store className="h-4 w-4" />, badge: pendingMerchants },
+    { label: 'Sertifikasi Halal', href: '/admin/halal', icon: <ShieldCheck className="h-4 w-4" /> },
+    { label: 'Regulasi Halal', href: '/admin/halal-regulation', icon: <FileText className="h-4 w-4" /> },
     { label: 'Desa Wisata', href: '/admin/villages', icon: <MapPin className="h-4 w-4" />, badge: pendingVillages },
     { label: 'Kurir', href: '/admin/couriers', icon: <Bike className="h-4 w-4" />, badge: pendingCouriers },
     { label: 'Paket Kuota', href: '/admin/transaction-quota', icon: <Package className="h-4 w-4" /> },

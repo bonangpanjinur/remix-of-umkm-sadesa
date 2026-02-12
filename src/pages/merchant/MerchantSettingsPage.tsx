@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Save, Store, Clock, MapPin, Phone, FileText, Loader2, CreditCard, QrCode, Bell } from 'lucide-react';
+import { Save, Store, Clock, MapPin, Phone, FileText, Loader2, CreditCard, QrCode, Bell, Shield, CheckCircle2, Upload } from 'lucide-react';
 import { MerchantLayout } from '@/components/merchant/MerchantLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -39,6 +39,9 @@ interface MerchantData {
   payment_cod_enabled: boolean | null;
   payment_transfer_enabled: boolean | null;
   notification_sound_enabled: boolean | null;
+  halal_status: string | null;
+  halal_certificate_url: string | null;
+  ktp_url: string | null;
 }
 
 const BUSINESS_CATEGORIES = [
@@ -272,6 +275,54 @@ export default function MerchantSettingsPage() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Halal Certification */}
+        {formData.business_category === 'kuliner' && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Shield className="h-5 w-5" />
+                Sertifikasi Halal
+              </CardTitle>
+              <CardDescription>Status kehalalan usaha kuliner Anda</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
+                <div className="text-sm font-medium">Status Saat Ini:</div>
+                <div className={`text-xs font-bold px-2 py-1 rounded-full ${
+                  merchant.halal_status === 'VERIFIED' ? 'bg-green-100 text-green-700' :
+                  merchant.halal_status === 'PENDING_VERIFICATION' ? 'bg-yellow-100 text-yellow-700' :
+                  merchant.halal_status === 'REQUESTED' ? 'bg-blue-100 text-blue-700' :
+                  'bg-gray-100 text-gray-700'
+                }`}>
+                  {merchant.halal_status === 'VERIFIED' ? 'TERVERIFIKASI' :
+                   merchant.halal_status === 'PENDING_VERIFICATION' ? 'MENUNGGU VERIFIKASI' :
+                   merchant.halal_status === 'REQUESTED' ? 'PENGAJUAN BARU' :
+                   'BELUM ADA'}
+                </div>
+              </div>
+
+              {merchant.halal_certificate_url && (
+                <div className="space-y-2">
+                  <Label>Sertifikat Halal</Label>
+                  <div className="relative aspect-video rounded-lg overflow-hidden border">
+                    <img src={merchant.halal_certificate_url} alt="Sertifikat Halal" className="object-cover w-full h-full" />
+                  </div>
+                </div>
+              )}
+
+              {merchant.halal_status === 'NONE' && (
+                <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 flex gap-3 items-start">
+                  <CheckCircle2 className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+                  <div className="text-xs">
+                    <p className="font-bold text-primary">Tingkatkan Kepercayaan Pelanggan!</p>
+                    <p className="text-muted-foreground">Ajukan sertifikasi halal gratis melalui admin atau unggah sertifikat jika sudah punya.</p>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         {/* Operating Hours */}
         <Card>

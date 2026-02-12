@@ -38,6 +38,7 @@ interface MerchantInfo {
   closeTime: string | null;
   villageName: string | null;
   isVerified: boolean;
+  halalStatus: string | null;
 }
 
 export default function ProductDetail() {
@@ -78,6 +79,7 @@ export default function ProductDetail() {
               open_time,
               close_time,
               is_verified,
+              halal_status,
               villages (name)
             `)
             .eq('id', productData.merchantId)
@@ -97,6 +99,7 @@ export default function ProductDetail() {
               closeTime: merchantData.close_time,
               villageName: merchantData.villages?.name || null,
               isVerified: merchantData.is_verified || false,
+              halalStatus: merchantData.halal_status || null,
             });
             
             // Check if merchant has active quota
@@ -228,6 +231,12 @@ export default function ProductDetail() {
               <Star className="h-4 w-4 fill-current" />
               <span className="text-xs font-medium text-foreground">4.8</span>
             </div>
+            {merchant?.halalStatus === 'VERIFIED' && (
+              <div className="ml-auto flex items-center gap-1 bg-green-50 text-green-600 px-2 py-1 rounded-lg border border-green-100">
+                <BadgeCheck className="h-3.5 w-3.5" />
+                <span className="text-[10px] font-bold">TERVERIFIKASI HALAL</span>
+              </div>
+            )}
           </div>
 
           {/* Merchant No Quota Banner */}

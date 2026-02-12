@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Plus, Star, Clock } from 'lucide-react';
+import { Plus, Star, Clock, CheckCircle2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import type { Product } from '@/types';
 import { useCart } from '@/contexts/CartContext';
@@ -88,6 +88,12 @@ export function ProductCard({ product, index = 0, showCategoryBadge = false }: P
         {showCategoryBadge && (
           <span className={cn("text-[8px] font-medium px-1.5 py-0.5 rounded", categoryInfo.className)}>
             {categoryInfo.label}
+          </span>
+        )}
+        {product.halal_status === 'VERIFIED' && (
+          <span className="bg-green-500 text-white text-[8px] font-bold px-1.5 py-0.5 rounded flex items-center gap-0.5">
+            <CheckCircle2 className="h-2 w-2" />
+            HALAL
           </span>
         )}
       </div>

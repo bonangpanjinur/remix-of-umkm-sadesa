@@ -61,6 +61,8 @@ import AdminReportsPage from "./pages/admin/AdminReportsPage";
 import AdminRefundsPage from "./pages/admin/AdminRefundsPage";
 import AdminLogsPage from "./pages/admin/AdminLogsPage";
 import AdminWithdrawalsPage from "./pages/admin/AdminWithdrawalsPage";
+import AdminHalalManagementPage from "./pages/admin/AdminHalalManagementPage";
+import AdminHalalRegulationPage from "./pages/admin/AdminHalalRegulationPage";
 
 import AdminTransactionQuotaPage from "./pages/admin/AdminTransactionQuotaPage";
 import AdminVerifikatorCommissionsPage from "./pages/admin/AdminVerifikatorCommissionsPage";
@@ -252,11 +254,21 @@ const App = () => (
                   <AdminSettingsPage />
                 </ProtectedRoute>
               } />
-              <Route path="/admin/merchants" element={
-                <ProtectedRoute allowedRoles={['admin']}>
-                  <AdminMerchantsPage />
-                </ProtectedRoute>
-              } />
+                <Route path="/admin/merchants" element={
+                  <ProtectedRoute allowedRoles={['admin']}>
+                    <AdminMerchantsPage />
+                  </ProtectedRoute>
+                } />
+                <Route path="/admin/halal" element={
+                  <ProtectedRoute allowedRoles={['admin']}>
+                    <AdminHalalManagementPage />
+                  </ProtectedRoute>
+                } />
+                <Route path="/admin/halal-regulation" element={
+                  <ProtectedRoute allowedRoles={['admin']}>
+                    <AdminHalalRegulationPage />
+                  </ProtectedRoute>
+                } />
               <Route path="/admin/merchants/:id" element={
                 <ProtectedRoute allowedRoles={['admin']}>
                   <AdminMerchantDetailPage />

@@ -33,6 +33,7 @@ import {
 } from '../lib/addressApi';
 import type { Village } from '../types';
 import { MerchantLocationPicker } from '../components/merchant/MerchantLocationPicker';
+import { HalalRegistrationInfo } from '../components/merchant/HalalRegistrationInfo';
 
 const merchantSchema = z.object({
   referralCode: z.string().max(50).optional(),
@@ -96,6 +97,10 @@ export default function RegisterMerchantPage() {
   const [matchedVillage, setMatchedVillage] = useState<Village | null>(null);
   const [villageLoading, setVillageLoading] = useState(false);
   const [merchantLocation, setMerchantLocation] = useState<{ lat: number; lng: number } | null>(null);
+  
+  const [halalStatus, setHalalStatus] = useState<'NONE' | 'PENDING_VERIFICATION' | 'REQUESTED'>('NONE');
+  const [halalCertUrl, setHalalCertUrl] = useState<string | undefined>(undefined);
+  const [ktpUrl, setKtpUrl] = useState<string | undefined>(undefined);
   
   const [referralInfo, setReferralInfo] = useState<ReferralInfo>({
     isValid: false,
@@ -326,6 +331,9 @@ export default function RegisterMerchantPage() {
         registered_at: new Date().toISOString(),
         location_lat: merchantLocation?.lat || null,
         location_lng: merchantLocation?.lng || null,
+        halal_status: halalStatus,
+        halal_certificate_url: halalCertUrl,
+        ktp_url: ktpUrl,
       });
 
       if (error) throw error;
@@ -651,6 +659,16 @@ export default function RegisterMerchantPage() {
               </div>
             </div>
           </div>
+
+          {watch('businessCategory') === 'kuliner' && (
+            <HalalRegistrationInfo 
+              onStatusChange={(status, cert, ktp) => {
+                setHalalStatus(status);
+                setHalalCertUrl(cert);
+                setKtpUrl(ktp);
+              }}
+            />
+          )}
 
           <div className="pt-4">
             <Button 

@@ -47,6 +47,7 @@ interface MerchantData {
   subdistrict: string | null;
   village_id: string | null;
   villages?: { name: string } | null;
+  halal_status?: string | null;
 }
 
 interface ReviewData {
@@ -256,6 +257,12 @@ export default function MerchantProfilePage() {
                     )}
                     {merchant.badge === 'NEW' && (
                       <VerifiedBadge type="new" size="sm" />
+                    )}
+                    {merchant.halal_status === 'VERIFIED' && (
+                      <Badge className="bg-green-500 text-white border-none text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
+                        <Check className="h-3 w-3" />
+                        HALAL
+                      </Badge>
                     )}
                   </div>
                   

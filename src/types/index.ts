@@ -49,7 +49,12 @@ export interface Merchant {
   businessDescription?: string;
   tradeGroup?: string;
   verifikatorCode?: string;
+  halal_status?: HalalStatus;
+  halal_certificate_url?: string;
+  ktp_url?: string;
 }
+
+export type HalalStatus = 'NONE' | 'PENDING_VERIFICATION' | 'VERIFIED' | 'REQUESTED';
 
 export interface Product {
   id: string;
@@ -71,6 +76,7 @@ export interface Product {
   // Location coordinates (from merchant/village)
   locationLat?: number | null;
   locationLng?: number | null;
+  halal_status?: HalalStatus;
 }
 
 export interface Tourism {
