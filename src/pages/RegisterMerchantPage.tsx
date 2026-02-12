@@ -295,6 +295,11 @@ export default function RegisterMerchantPage() {
       return;
     }
 
+    if (data.businessCategory === 'kuliner' && halalStatus === 'NONE' && !ktpUrl) {
+      toast.error('Foto KTP wajib diunggah untuk kategori kuliner yang belum memiliki sertifikat halal');
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       const provinceName = provincesList.find(p => p.code === data.province)?.name || '';

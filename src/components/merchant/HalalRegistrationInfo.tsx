@@ -41,7 +41,7 @@ export function HalalRegistrationInfo({ onStatusChange }: HalalRegistrationInfoP
     try {
       const fileExt = file.name.split('.').pop();
       const fileName = `${Math.random()}.${fileExt}`;
-      const filePath = `halal/${type}/${fileName}`;
+      const filePath = `${type}/${fileName}`;
 
       const { error: uploadError } = await supabase.storage
         .from('merchants')
