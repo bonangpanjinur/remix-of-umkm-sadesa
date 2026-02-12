@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Clock, Save, CreditCard, QrCode, UserCheck, Shield } from 'lucide-react';
+import { Clock, Save, CreditCard, QrCode, UserCheck, Shield, Check, X } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -136,6 +136,11 @@ export function MerchantEditDialog({
   const [villages, setVillages] = useState<Region[]>([]);
   const [loadingAddr, setLoadingAddr] = useState(false);
 
+  // Verifikator validation state
+  const [isValidatingCode, setIsValidatingCode] = useState(false);
+  const [tradeGroupName, setTradeGroupName] = useState<string | null>(null);
+  const [isCodeValid, setIsCodeValid] = useState<boolean | null>(null);
+
   const [formData, setFormData] = useState({
     name: '',
     user_id: '',
@@ -212,11 +217,51 @@ export function MerchantEditDialog({
       classification_price: initialData.classification_price || 'none',
     });
 
+    if (initialData.verifikator_code) {
+      validateVerifikatorCode(initialData.verifikator_code);
+    } else {
+      setTradeGroupName(null);
+      setIsCodeValid(null);
+    }
+
     loadOwnerAndUsers(initialData.user_id);
     resolveAddressCodes(initialData.province, initialData.city, initialData.district, initialData.subdistrict);
   }, [open, initialData]);
 
   // --- Owner / User logic ---
+  const validateVerifikatorCode = async (code: string) => {
+    if (!code) {
+      setTradeGroupName(null);
+      setIsCodeValid(null);
+      return;
+    }
+
+    setIsValidatingCode(true);
+    try {
+      const { data, error } = await supabase
+        .from('verifikator_codes')
+        .select('trade_group')
+        .eq('code', code)
+        .eq('is_active', true)
+        .maybeSingle();
+
+      if (error) throw error;
+
+      if (data) {
+        setTradeGroupName(data.trade_group);
+        setIsCodeValid(true);
+      } else {
+        setTradeGroupName(null);
+        setIsCodeValid(false);
+      }
+    } catch (error) {
+      console.error('Error validating code:', error);
+      setIsCodeValid(false);
+    } finally {
+      setIsValidatingCode(false);
+    }
+  };
+
   const loadOwnerAndUsers = async (currentUserId?: string | null) => {
     setLoadingUsers(true);
     try {
@@ -395,8 +440,13 @@ export function MerchantEditDialog({
 
   // --- Submit ---
   const handleSubmit = async () => {
-    if (!formData.name.trim()) {
-      toast.error('Nama merchant wajib diisi');
+        if (!formData.name) {
+      toast.error('Nama merchant harus diisi');
+      return;
+    }
+
+    if (formData.verifikator_code && isCodeValid === false) {
+      toast.error('Kode verifikator tidak valid. Silakan cek kembali atau kosongkan.');
       return;
     }
 
@@ -434,6 +484,7 @@ export function MerchantEditDialog({
           payment_cod_enabled: formData.payment_cod_enabled,
           payment_transfer_enabled: formData.payment_transfer_enabled,
           verifikator_code: formData.verifikator_code || null,
+          trade_group: tradeGroupName || null,
           classification_price: formData.classification_price === 'none' ? null : formData.classification_price,
           updated_at: new Date().toISOString(),
         })
@@ -621,14 +672,48 @@ export function MerchantEditDialog({
               Verifikator
             </h3>
             <div className="space-y-2">
-              <Label>Kode Verifikator</Label>
-              <Input
-                value={formData.verifikator_code}
-                onChange={(e) => setFormData({ ...formData, verifikator_code: e.target.value })}
-                placeholder="Masukkan kode verifikator (jika ada)"
-              />
+              <Label>Kode Verifikator / Kelompok Dagang</Label>
+              <div className="flex gap-2">
+                <Input
+                  value={formData.verifikator_code}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setFormData({ ...formData, verifikator_code: val });
+                    if (!val) {
+                      setIsCodeValid(null);
+                      setTradeGroupName(null);
+                    }
+                  }}
+                  placeholder="Masukkan kode verifikator"
+                  className={isCodeValid === false ? "border-destructive" : isCodeValid === true ? "border-success" : ""}
+                />
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => validateVerifikatorCode(formData.verifikator_code)}
+                  disabled={isValidatingCode || !formData.verifikator_code}
+                >
+                  {isValidatingCode ? "Mengecek..." : "Cek Kode"}
+                </Button>
+              </div>
+              
+              {isCodeValid === true && tradeGroupName && (
+                <p className="text-xs text-success font-medium flex items-center gap-1">
+                  <Check className="h-3 w-3" />
+                  Terhubung ke: {tradeGroupName}
+                </p>
+              )}
+              
+              {isCodeValid === false && (
+                <p className="text-xs text-destructive font-medium flex items-center gap-1">
+                  <X className="h-3 w-3" />
+                  Kode tidak valid atau tidak aktif
+                </p>
+              )}
+
               <p className="text-xs text-muted-foreground">
-                Kode yang digunakan saat pendaftaran merchant oleh verifikator
+                Pastikan kode valid untuk menghubungkan merchant dengan kelompok dagang yang tepat
               </p>
             </div>
           </div>
