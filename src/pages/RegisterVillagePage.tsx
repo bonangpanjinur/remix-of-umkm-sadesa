@@ -145,6 +145,7 @@ export default function RegisterVillagePage() {
         contact_email: data.contactEmail.trim().toLowerCase(),
         registration_status: 'PENDING',
         is_active: false,
+        user_id: user.id,
       }).select('id').single();
 
       if (error) throw error;

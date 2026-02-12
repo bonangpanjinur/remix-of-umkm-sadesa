@@ -136,7 +136,7 @@ export function VillageEditDialog({
       // Step 4: Ambil detail profil untuk ID yang tersedia
       const { data: profileData, error: profileError } = await supabase
         .from("profiles")
-        .select("user_id, full_name, email, phone")
+        .select("user_id, full_name, phone")
         .in("user_id", availableIds)
         .order("full_name", { ascending: true });
 
@@ -184,12 +184,12 @@ export function VillageEditDialog({
     try {
       const { data: profile } = await supabase
         .from('profiles')
-        .select('user_id, full_name, phone, email')
+        .select('user_id, full_name, phone')
         .eq('user_id', userId)
         .maybeSingle();
       
       if (profile) {
-        setCurrentOwner(profile);
+        setCurrentOwner({ ...profile, email: null });
       }
     } catch (error) {
       console.error('Error loading owner profile:', error);
@@ -310,21 +310,21 @@ export function VillageEditDialog({
           const regList = await fetchRegencies(provCode);
           setRegenciesList(regList);
           
-          const regCode = findCodeByName(regList, result.regency);
+          const regCode = findCodeByName(regList, result.city);
           if (regCode) {
-            setFormData(prev => ({ ...prev, regency_code: regCode, regency_name: result.regency }));
+            setFormData(prev => ({ ...prev, regency_code: regCode, regency_name: result.city || '' }));
             const distList = await fetchDistricts(regCode);
             setDistrictsList(distList);
             
             const distCode = findCodeByName(distList, result.district);
             if (distCode) {
-              setFormData(prev => ({ ...prev, district_code: distCode, district_name: result.district }));
+              setFormData(prev => ({ ...prev, district_code: distCode, district_name: result.district || '' }));
               const villList = await fetchVillages(distCode);
               setSubdistrictsList(villList);
               
-              const villCode = findCodeByName(villList, result.subdistrict);
+              const villCode = findCodeByName(villList, result.village);
               if (villCode) {
-                setFormData(prev => ({ ...prev, subdistrict_code: villCode, subdistrict_name: result.subdistrict }));
+                setFormData(prev => ({ ...prev, subdistrict_code: villCode, subdistrict_name: result.village || '' }));
               }
             }
           }
@@ -477,9 +477,9 @@ export function VillageEditDialog({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none_value">-- Lepas Pengelola --</SelectItem>
-                  {profiles?.map(user => (
+                  {profiles?.map((user: any) => (
                     <SelectItem key={user.user_id} value={user.user_id}>
-                      {user.full_name || 'Tanpa Nama'} ({user.email || user.user_id.slice(0, 8)})
+                      {user.full_name || 'Tanpa Nama'} ({user.phone || user.user_id.slice(0, 8)})
                     </SelectItem>
                   ))}
                 </SelectContent>
