@@ -35,22 +35,9 @@ interface OrderItem {
   subtotal: number;
 }
 
-interface OrderRow {
-  id: string;
-  status: string;
-  payment_status: string | null;
-  payment_method: string | null;
-  delivery_type: string;
-  delivery_name: string | null;
-  delivery_phone: string | null;
-  delivery_address: string | null;
-  subtotal: number;
-  shipping_cost: number;
-  total: number;
-  notes: string | null;
-  created_at: string;
-  payment_proof_url: string | null;
-}
+// Use OrderRow from the hook, extending with payment_proof_url
+import type { OrderRow as HookOrderRow } from '@/hooks/useRealtimeOrders';
+type OrderRow = HookOrderRow;
 
 export default function MerchantOrdersPage() {
   const { user } = useAuth();
@@ -99,7 +86,6 @@ export default function MerchantOrdersPage() {
 
   const { orders, loading, updateOrderStatus, refetch } = useRealtimeOrders({
     merchantId,
-    soundEnabled,
     onNewOrder: handleNewOrder,
   });
 

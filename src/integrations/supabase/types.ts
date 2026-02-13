@@ -604,6 +604,27 @@ export type Database = {
           },
         ]
       }
+      halal_regulations: {
+        Row: {
+          content: string
+          created_at: string | null
+          id: string
+          updated_at: string | null
+        }
+        Insert: {
+          content: string
+          created_at?: string | null
+          id?: string
+          updated_at?: string | null
+        }
+        Update: {
+          content?: string
+          created_at?: string | null
+          id?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       insurance_fund: {
         Row: {
           amount: number
@@ -827,10 +848,13 @@ export type Database = {
           current_subscription_id: string | null
           district: string | null
           group_id: string | null
+          halal_certificate_url: string | null
+          halal_status: string | null
           id: string
           image_url: string | null
           is_open: boolean
           is_verified: boolean | null
+          ktp_url: string | null
           location_lat: number | null
           location_lng: number | null
           name: string
@@ -881,10 +905,13 @@ export type Database = {
           current_subscription_id?: string | null
           district?: string | null
           group_id?: string | null
+          halal_certificate_url?: string | null
+          halal_status?: string | null
           id?: string
           image_url?: string | null
           is_open?: boolean
           is_verified?: boolean | null
+          ktp_url?: string | null
           location_lat?: number | null
           location_lng?: number | null
           name: string
@@ -935,10 +962,13 @@ export type Database = {
           current_subscription_id?: string | null
           district?: string | null
           group_id?: string | null
+          halal_certificate_url?: string | null
+          halal_status?: string | null
           id?: string
           image_url?: string | null
           is_open?: boolean
           is_verified?: boolean | null
+          ktp_url?: string | null
           location_lat?: number | null
           location_lng?: number | null
           name?: string
@@ -1103,6 +1133,7 @@ export type Database = {
           delivery_type: string
           flash_sale_discount: number | null
           handled_by: string
+          has_review: boolean | null
           id: string
           is_flash_sale: boolean | null
           merchant_id: string | null
@@ -1151,6 +1182,7 @@ export type Database = {
           delivery_type?: string
           flash_sale_discount?: number | null
           handled_by?: string
+          has_review?: boolean | null
           id?: string
           is_flash_sale?: boolean | null
           merchant_id?: string | null
@@ -1199,6 +1231,7 @@ export type Database = {
           delivery_type?: string
           flash_sale_discount?: number | null
           handled_by?: string
+          has_review?: boolean | null
           id?: string
           is_flash_sale?: boolean | null
           merchant_id?: string | null
@@ -3126,6 +3159,10 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      increment_product_view: {
+        Args: { product_id: string }
+        Returns: undefined
       }
       is_admin: { Args: never; Returns: boolean }
       is_admin_desa: { Args: never; Returns: boolean }

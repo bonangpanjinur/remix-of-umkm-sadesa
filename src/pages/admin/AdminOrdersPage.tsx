@@ -453,7 +453,6 @@ export default function AdminOrdersPage() {
         order={selectedOrder}
         orderItems={orderItems}
         onUpdateStatus={updateOrderStatus}
-        onVerifyPayment={verifyPayment}
         onOpenAssignCourier={openAssignDialog}
         getStatusBadge={getStatusBadge}
         getPaymentBadge={getPaymentBadge}

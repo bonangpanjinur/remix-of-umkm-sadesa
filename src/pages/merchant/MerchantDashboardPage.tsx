@@ -14,6 +14,7 @@ import { OrderStatusManager } from '@/components/merchant/OrderStatusManager';
 import { QuotaStatusCard } from '@/components/merchant/QuotaStatusCard';
 import { QuotaAlertBanner } from '@/components/merchant/QuotaAlertBanner';
 import { MerchantGroupCard } from '@/components/merchant/MerchantGroupCard';
+import { MerchantKasCard } from '@/components/merchant/MerchantKasCard';
 import { StoreQRCode } from '@/components/merchant/StoreQRCode';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
@@ -216,10 +217,11 @@ export default function MerchantDashboardPage() {
         </div>
       </div>
 
-      {/* 3. Quota and Group Status - Compact grid */}
-      <div className="grid md:grid-cols-2 gap-4 mb-4">
+      {/* 3. Quota, Group Status, and Kas Card */}
+      <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
         <QuotaStatusCard />
         <MerchantGroupCard />
+        <MerchantKasCard merchantId={merchant.id} />
       </div>
 
       {/* Quick Stats - Compact */}
