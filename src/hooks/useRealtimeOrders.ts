@@ -18,7 +18,8 @@ export interface OrderRow {
   created_at: string;
   courier_id: string | null;
   merchants?: { name: string } | null;
-  is_self_delivery?: boolean; // Fitur Antar Sendiri
+  is_self_delivery?: boolean;
+  payment_proof_url?: string | null;
 }
 
 interface UseRealtimeOrdersOptions {

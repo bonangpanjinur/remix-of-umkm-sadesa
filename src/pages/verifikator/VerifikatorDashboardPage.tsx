@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { TicketCheck, Store, TrendingUp, Wallet, Copy, Calendar, Check, X, Plus, Settings, ChevronRight, Users } from 'lucide-react';
+import { TicketCheck, Store, TrendingUp, Wallet, Copy, Calendar, Check, X, Plus, Settings, ChevronRight, Users, Bell } from 'lucide-react';
 import { VerifikatorLayout } from '@/components/verifikator/VerifikatorLayout';
 import { StatsCard } from '@/components/admin/StatsCard';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -377,9 +377,38 @@ export default function VerifikatorDashboardPage() {
       if (error) throw error;
       toast.success('Status pembayaran diperbarui');
       fetchPayments();
-      fetchData(); // Refresh total kas
+      fetchData();
     } catch (error: any) {
       toast.error('Gagal memperbarui status');
+    }
+  };
+
+  const handleSendReminder = async (payment: KasPayment) => {
+    try {
+      // Find the merchant's user_id
+      const { data: merchantData } = await supabase
+        .from('merchants')
+        .select('user_id, name')
+        .eq('id', payment.merchant_id)
+        .maybeSingle();
+
+      if (!merchantData?.user_id) {
+        toast.error('Merchant belum terhubung ke user');
+        return;
+      }
+
+      // Send in-app notification
+      const { error } = await supabase.from('notifications').insert({
+        user_id: merchantData.user_id,
+        title: 'Pengingat Iuran Kas',
+        message: `Iuran kas bulan ${MONTHS[payment.payment_month - 1]} ${payment.payment_year} sebesar ${formatPrice(payment.amount)} belum dibayar. Segera lakukan pembayaran.`,
+        type: 'warning',
+      });
+
+      if (error) throw error;
+      toast.success(`Pengingat terkirim ke ${merchantData.name}`);
+    } catch (error: any) {
+      toast.error('Gagal mengirim pengingat');
     }
   };
 
@@ -674,15 +703,25 @@ export default function VerifikatorDashboardPage() {
                           ? new Date(payment.payment_date).toLocaleDateString('id-ID')
                           : '-'}
                       </TableCell>
-                      <TableCell className="text-right">
+                      <TableCell className="text-right space-x-1">
                         {payment.status === 'UNPAID' ? (
-                          <Button 
-                            size="sm" 
-                            onClick={() => handleMarkAsPaid(payment.id)}
-                          >
-                            <Check className="h-4 w-4 mr-1" />
-                            Tandai Lunas
-                          </Button>
+                          <>
+                            <Button 
+                              size="sm" 
+                              onClick={() => handleMarkAsPaid(payment.id)}
+                            >
+                              <Check className="h-4 w-4 mr-1" />
+                              Lunas
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleSendReminder(payment)}
+                            >
+                              <Bell className="h-4 w-4 mr-1" />
+                              Ingatkan
+                            </Button>
+                          </>
                         ) : (
                           <Button 
                             size="sm" 

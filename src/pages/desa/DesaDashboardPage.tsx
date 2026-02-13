@@ -39,19 +39,37 @@ export default function DesaDashboardPage() {
       if (!user) return;
 
       try {
-        // Check user's village assignment via user_villages table
+        let villageData: VillageData | null = null;
+
+        // Try user_villages first
         const { data: userVillage } = await supabase
           .from('user_villages')
           .select('village_id, villages(id, name, district, regency, registration_status)')
           .eq('user_id', user.id)
           .maybeSingle();
 
-        if (!userVillage?.villages) {
+        if (userVillage?.villages) {
+          villageData = userVillage.villages as unknown as VillageData;
+        }
+
+        // Fallback: check villages.user_id directly
+        if (!villageData) {
+          const { data: directVillage } = await supabase
+            .from('villages')
+            .select('id, name, district, regency, registration_status')
+            .eq('user_id', user.id)
+            .maybeSingle();
+
+          if (directVillage) {
+            villageData = directVillage as VillageData;
+          }
+        }
+
+        if (!villageData) {
           setLoading(false);
           return;
         }
 
-        const villageData = userVillage.villages as unknown as VillageData;
         setVillage(villageData);
 
         // Get stats for this village
