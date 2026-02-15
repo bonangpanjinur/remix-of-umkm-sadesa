@@ -737,11 +737,13 @@ export type Database = {
           created_at: string
           group_id: string
           id: string
+          invoice_note: string | null
           merchant_id: string
           notes: string | null
           payment_date: string | null
           payment_month: number
           payment_year: number
+          sent_at: string | null
           status: string
           updated_at: string
         }
@@ -751,11 +753,13 @@ export type Database = {
           created_at?: string
           group_id: string
           id?: string
+          invoice_note?: string | null
           merchant_id: string
           notes?: string | null
           payment_date?: string | null
           payment_month: number
           payment_year: number
+          sent_at?: string | null
           status?: string
           updated_at?: string
         }
@@ -765,11 +769,13 @@ export type Database = {
           created_at?: string
           group_id?: string
           id?: string
+          invoice_note?: string | null
           merchant_id?: string
           notes?: string | null
           payment_date?: string | null
           payment_month?: number
           payment_year?: number
+          sent_at?: string | null
           status?: string
           updated_at?: string
         }

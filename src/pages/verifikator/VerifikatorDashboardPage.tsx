@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { TicketCheck, Store, TrendingUp, Wallet, Copy, Calendar, Check, X, Plus, Settings, ChevronRight, Users, Bell } from 'lucide-react';
+import { TicketCheck, Store, TrendingUp, Wallet, Copy, Calendar, Check, X, Plus, Settings, ChevronRight, Users, Bell, FileText, Send } from 'lucide-react';
 import { VerifikatorLayout } from '@/components/verifikator/VerifikatorLayout';
 import { StatsCard } from '@/components/admin/StatsCard';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -114,6 +114,15 @@ export default function VerifikatorDashboardPage() {
 
   // Edit group settings dialog
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+
+  // Individual billing dialog
+  const [billingDialogOpen, setBillingDialogOpen] = useState(false);
+  const [billingMerchantId, setBillingMerchantId] = useState('');
+  const [billingAmount, setBillingAmount] = useState('');
+  const [billingNote, setBillingNote] = useState('');
+  const [billingMonth, setBillingMonth] = useState((new Date().getMonth() + 1).toString());
+  const [billingYear, setBillingYear] = useState(new Date().getFullYear().toString());
+  const [groupMembers, setGroupMembers] = useState<Array<{ merchant_id: string; merchant: { id: string; name: string } }>>([]);
 
   const fetchData = async () => {
     if (!user) return;
@@ -412,6 +421,111 @@ export default function VerifikatorDashboardPage() {
     }
   };
 
+  // Fetch group members for individual billing
+  const fetchGroupMembers = async () => {
+    if (!group) return;
+    const { data } = await supabase
+      .from('group_members')
+      .select('merchant_id, merchant:merchants(id, name)')
+      .eq('group_id', group.id)
+      .eq('status', 'ACTIVE');
+    setGroupMembers(data || []);
+  };
+
+  const handleOpenBillingDialog = () => {
+    fetchGroupMembers();
+    setBillingAmount(group?.monthly_fee?.toString() || '10000');
+    setBillingNote('');
+    setBillingMerchantId('');
+    setBillingDialogOpen(true);
+  };
+
+  const handleCreateIndividualBilling = async () => {
+    if (!billingMerchantId || !group) {
+      toast.error('Pilih merchant terlebih dahulu');
+      return;
+    }
+    setSaving(true);
+    try {
+      const { error } = await supabase.from('kas_payments').insert({
+        group_id: group.id,
+        merchant_id: billingMerchantId,
+        amount: parseInt(billingAmount) || group.monthly_fee,
+        payment_month: parseInt(billingMonth),
+        payment_year: parseInt(billingYear),
+        status: 'UNPAID',
+        invoice_note: billingNote || null,
+        sent_at: new Date().toISOString(),
+      });
+      if (error) throw error;
+
+      // Send notification to merchant
+      const { data: merchantData } = await supabase
+        .from('merchants')
+        .select('user_id, name')
+        .eq('id', billingMerchantId)
+        .maybeSingle();
+
+      if (merchantData?.user_id) {
+        await supabase.from('notifications').insert({
+          user_id: merchantData.user_id,
+          title: 'Tagihan Iuran Kas',
+          message: `Tagihan iuran kas ${MONTHS[parseInt(billingMonth) - 1]} ${billingYear} sebesar ${formatPrice(parseInt(billingAmount) || group.monthly_fee)}. ${billingNote || ''}`.trim(),
+          type: 'warning',
+        });
+      }
+
+      toast.success('Tagihan berhasil dibuat dan notifikasi terkirim');
+      setBillingDialogOpen(false);
+      fetchPayments();
+      fetchData();
+    } catch (error: any) {
+      if (error.code === '23505') {
+        toast.error('Tagihan untuk bulan ini sudah ada');
+      } else {
+        toast.error('Gagal membuat tagihan: ' + error.message);
+      }
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSendMassReminder = async () => {
+    if (!group) return;
+    const unpaid = payments.filter(p => p.status === 'UNPAID');
+    if (unpaid.length === 0) {
+      toast.info('Semua iuran sudah lunas bulan ini');
+      return;
+    }
+    
+    let sentCount = 0;
+    for (const payment of unpaid) {
+      try {
+        const { data: merchantData } = await supabase
+          .from('merchants')
+          .select('user_id, name')
+          .eq('id', payment.merchant_id)
+          .maybeSingle();
+
+        if (merchantData?.user_id) {
+          await supabase.from('notifications').insert({
+            user_id: merchantData.user_id,
+            title: 'Pengingat Iuran Kas',
+            message: `Iuran kas bulan ${MONTHS[payment.payment_month - 1]} ${payment.payment_year} sebesar ${formatPrice(payment.amount)} belum dibayar. Segera lakukan pembayaran.`,
+            type: 'warning',
+          });
+
+          // Mark as sent
+          await supabase.from('kas_payments').update({ sent_at: new Date().toISOString() }).eq('id', payment.id);
+          sentCount++;
+        }
+      } catch (e) {
+        console.error('Error sending reminder:', e);
+      }
+    }
+    toast.success(`${sentCount} pengingat berhasil terkirim`);
+  };
+
   if (loading) {
     return (
       <VerifikatorLayout title="Dashboard" subtitle="Ringkasan aktivitas verifikator">
@@ -614,7 +728,7 @@ export default function VerifikatorDashboardPage() {
               <CardTitle>Pembayaran Kas Bulanan</CardTitle>
               <CardDescription>Kelola iuran kas anggota kelompok</CardDescription>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <Select
                 value={selectedMonth.toString()}
                 onValueChange={(v) => setSelectedMonth(parseInt(v))}
@@ -649,6 +763,16 @@ export default function VerifikatorDashboardPage() {
                 <Plus className="h-4 w-4 mr-2" />
                 Buat Tagihan
               </Button>
+              <Button variant="outline" onClick={handleOpenBillingDialog}>
+                <FileText className="h-4 w-4 mr-2" />
+                Tagihan Manual
+              </Button>
+              {payments.filter(p => p.status === 'UNPAID').length > 0 && (
+                <Button variant="secondary" onClick={handleSendMassReminder}>
+                  <Send className="h-4 w-4 mr-2" />
+                  Ingatkan Semua
+                </Button>
+              )}
             </div>
           </div>
         </CardHeader>
@@ -781,6 +905,65 @@ export default function VerifikatorDashboardPage() {
             </Button>
             <Button onClick={handleUpdateGroup} disabled={saving}>
               {saving ? 'Menyimpan...' : 'Simpan'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Individual Billing Dialog */}
+      <Dialog open={billingDialogOpen} onOpenChange={setBillingDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Buat Tagihan Manual</DialogTitle>
+            <DialogDescription>Buat tagihan iuran untuk merchant tertentu</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Pilih Merchant *</Label>
+              <Select value={billingMerchantId} onValueChange={setBillingMerchantId}>
+                <SelectTrigger><SelectValue placeholder="Pilih merchant" /></SelectTrigger>
+                <SelectContent>
+                  {groupMembers.map((m) => (
+                    <SelectItem key={m.merchant_id} value={m.merchant_id}>
+                      {(m.merchant as any)?.name || m.merchant_id}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label>Bulan</Label>
+                <Select value={billingMonth} onValueChange={setBillingMonth}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {MONTHS.map((m, i) => <SelectItem key={i} value={(i+1).toString()}>{m}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Tahun</Label>
+                <Select value={billingYear} onValueChange={setBillingYear}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {[2024,2025,2026,2027].map(y => <SelectItem key={y} value={y.toString()}>{y}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Jumlah (Rp)</Label>
+              <Input type="number" value={billingAmount} onChange={(e) => setBillingAmount(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label>Catatan (opsional)</Label>
+              <Textarea value={billingNote} onChange={(e) => setBillingNote(e.target.value)} placeholder="Catatan tambahan..." rows={2} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBillingDialogOpen(false)}>Batal</Button>
+            <Button onClick={handleCreateIndividualBilling} disabled={saving}>
+              {saving ? 'Menyimpan...' : 'Buat Tagihan'}
             </Button>
           </DialogFooter>
         </DialogContent>

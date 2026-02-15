@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+
 import { Link, useLocation } from 'react-router-dom';
 import { 
   LayoutDashboard, 
@@ -17,7 +18,8 @@ import {
   Calendar,
   Eye,
   RotateCcw,
-  MessageCircle
+  MessageCircle,
+  Wallet as WalletIcon
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
@@ -103,6 +105,7 @@ export function MerchantSidebar() {
     { label: 'Analitik', href: '/merchant/analytics', icon: <BarChart3 className="h-4 w-4" /> },
     { label: 'Ulasan', href: '/merchant/reviews', icon: <Star className="h-4 w-4" />, badge: unrepliedReviews },
     { label: 'Promo', href: '/merchant/promo', icon: <Percent className="h-4 w-4" /> },
+    { label: 'Iuran Kas', href: '/merchant/dues', icon: <WalletIcon className="h-4 w-4" /> },
     { label: 'Penarikan', href: '/merchant/withdrawal', icon: <Wallet className="h-4 w-4" /> },
     { label: 'Pengaturan Kasir', href: '/merchant/pos/settings', icon: <Settings className="h-4 w-4" /> },
     { label: 'Pengaturan', href: '/merchant/settings', icon: <Settings className="h-4 w-4" /> },

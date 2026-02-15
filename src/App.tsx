@@ -83,6 +83,7 @@ import CourierWithdrawalPage from "./pages/courier/CourierWithdrawalPage";
 import VerifikatorDashboardPage from "./pages/verifikator/VerifikatorDashboardPage";
 import VerifikatorMerchantsPage from "./pages/verifikator/VerifikatorMerchantsPage";
 import VerifikatorEarningsPage from "./pages/verifikator/VerifikatorEarningsPage";
+import VerifikatorKasReportPage from "./pages/verifikator/VerifikatorKasReportPage";
 
 // Merchant Pages
 import MerchantDashboardPage from "./pages/merchant/MerchantDashboardPage";
@@ -104,6 +105,7 @@ import MerchantRefundsPage from "./pages/merchant/MerchantRefundsPage";
 import MerchantPOSPage from "./pages/merchant/MerchantPOSPage";
 import MerchantPOSSubscribePage from "./pages/merchant/MerchantPOSSubscribePage";
 import MerchantPOSSettingsPage from "./pages/merchant/MerchantPOSSettingsPage";
+import MerchantDuesPage from "./pages/merchant/MerchantDuesPage";
 
 // Desa Pages
 import DesaDashboardPage from "./pages/desa/DesaDashboardPage";
@@ -409,6 +411,11 @@ const App = () => (
                   <VerifikatorMerchantsPage />
                 </ProtectedRoute>
               } />
+              <Route path="/verifikator/kas-report" element={
+                <ProtectedRoute allowedRoles={['verifikator', 'admin']}>
+                  <VerifikatorKasReportPage />
+                </ProtectedRoute>
+              } />
               <Route path="/verifikator/earnings" element={
                 <ProtectedRoute allowedRoles={['verifikator', 'admin']}>
                   <VerifikatorEarningsPage />
@@ -508,6 +515,11 @@ const App = () => (
               <Route path="/merchant/pos/settings" element={
                 <ProtectedRoute allowedRoles={['merchant', 'admin']}>
                   <MerchantPOSSettingsPage />
+                </ProtectedRoute>
+              } />
+              <Route path="/merchant/dues" element={
+                <ProtectedRoute allowedRoles={['merchant', 'admin']}>
+                  <MerchantDuesPage />
                 </ProtectedRoute>
               } />
 
