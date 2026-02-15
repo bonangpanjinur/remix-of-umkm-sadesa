@@ -998,9 +998,10 @@ CREATE INDEX IF NOT EXISTS idx_quota_usage_logs_created ON public.quota_usage_lo
 -- BAGIAN 5: VIEWS
 -- ============================================================
 
-CREATE OR REPLACE VIEW public.public_merchants AS
+DROP VIEW IF EXISTS public.public_merchants CASCADE;
+CREATE VIEW public.public_merchants WITH (security_invoker=on) AS
 SELECT id, name, image_url, business_category, business_description, village_id,
-  CASE WHEN phone IS NOT NULL THEN CONCAT(LEFT(phone, 4), '****', RIGHT(phone, 3)) ELSE NULL END AS phone_masked,
+  CASE WHEN phone IS NOT NULL THEN CONCAT('****', RIGHT(phone, 4)) ELSE NULL END AS phone_masked,
   city, district, province,
   CASE WHEN location_lat IS NOT NULL THEN ROUND(location_lat::numeric, 2) ELSE NULL END AS location_lat_approx,
   CASE WHEN location_lng IS NOT NULL THEN ROUND(location_lng::numeric, 2) ELSE NULL END AS location_lng_approx,
@@ -1008,12 +1009,16 @@ SELECT id, name, image_url, business_category, business_description, village_id,
 FROM public.merchants
 WHERE status = 'ACTIVE' AND registration_status = 'APPROVED';
 
-CREATE OR REPLACE VIEW public.public_couriers AS
-SELECT id, name, photo_url, vehicle_type, village_id, is_available, status,
-  current_lat, current_lng,
-  CASE WHEN phone IS NOT NULL THEN CONCAT(LEFT(phone, 4), '****', RIGHT(phone, 3)) ELSE NULL END AS phone_masked
+DROP VIEW IF EXISTS public.public_couriers CASCADE;
+CREATE VIEW public.public_couriers WITH (security_invoker=on) AS
+SELECT id, name,
+  CASE WHEN phone IS NOT NULL THEN CONCAT('****', RIGHT(phone, 4)) ELSE NULL END AS phone_masked,
+  photo_url, vehicle_type,
+  CASE WHEN current_lat IS NOT NULL THEN ROUND(current_lat, 3) ELSE NULL END AS current_lat_approx,
+  CASE WHEN current_lng IS NOT NULL THEN ROUND(current_lng, 3) ELSE NULL END AS current_lng_approx,
+  is_available, status, village_id
 FROM public.couriers
-WHERE registration_status = 'APPROVED' AND status = 'ACTIVE';
+WHERE status = 'ACTIVE' AND registration_status = 'APPROVED';
 
 -- ============================================================
 -- BAGIAN 6: FUNCTIONS
