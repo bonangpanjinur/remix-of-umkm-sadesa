@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Save, Store, Clock, MapPin, Phone, FileText, Loader2, CreditCard, QrCode, Bell, Shield, CheckCircle2, Upload } from 'lucide-react';
+import { Save, Store, Clock, MapPin, Phone, FileText, Loader2, CreditCard, QrCode, Bell, Shield, CheckCircle2, Upload, Link as LinkIcon } from 'lucide-react';
 import { MerchantLayout } from '@/components/merchant/MerchantLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -43,6 +43,7 @@ interface MerchantData {
   halal_certificate_url: string | null;
   ktp_url: string | null;
   verifikator_code: string | null;
+  slug: string | null;
 }
 
 const BUSINESS_CATEGORIES = [
@@ -84,6 +85,7 @@ export default function MerchantSettingsPage() {
     payment_transfer_enabled: true,
     notification_sound_enabled: true,
     verifikator_code: '',
+    slug: '',
   });
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [qrisImageUrl, setQrisImageUrl] = useState<string | null>(null);
@@ -120,6 +122,7 @@ export default function MerchantSettingsPage() {
             payment_transfer_enabled: data.payment_transfer_enabled ?? true,
             notification_sound_enabled: data.notification_sound_enabled ?? true,
             verifikator_code: data.verifikator_code || '',
+            slug: (data as any).slug || '',
           });
           setImageUrl(data.image_url);
           setQrisImageUrl(data.qris_image_url);
@@ -166,6 +169,7 @@ export default function MerchantSettingsPage() {
           payment_transfer_enabled: formData.payment_transfer_enabled,
           notification_sound_enabled: formData.notification_sound_enabled,
           verifikator_code: formData.verifikator_code || null,
+          slug: formData.slug || null,
         })
         .eq('id', merchant.id);
 
@@ -277,6 +281,43 @@ export default function MerchantSettingsPage() {
               </div>
               <p className="text-[10px] text-muted-foreground">Kode verifikator yang terhubung dengan akun Anda.</p>
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Custom Store Link */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <LinkIcon className="h-5 w-5" />
+              Link Toko
+            </CardTitle>
+            <CardDescription>URL unik untuk membagikan toko Anda</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="slug">Slug Toko</Label>
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground whitespace-nowrap">{window.location.origin}/s/</span>
+                <Input
+                  id="slug"
+                  name="slug"
+                  value={formData.slug}
+                  onChange={(e) => {
+                    const val = e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '');
+                    setFormData(prev => ({ ...prev, slug: val }));
+                  }}
+                  placeholder="nama-toko"
+                  className="font-mono"
+                />
+              </div>
+              <p className="text-[10px] text-muted-foreground">Hanya huruf kecil, angka, dan strip (-). Contoh: kedai-maju</p>
+            </div>
+            {formData.slug && (
+              <div className="bg-primary/5 border border-primary/20 rounded-lg p-3">
+                <p className="text-xs text-primary font-medium">Link toko Anda:</p>
+                <p className="text-sm font-mono text-foreground mt-1">{window.location.origin}/s/{formData.slug}</p>
+              </div>
+            )}
           </CardContent>
         </Card>
 

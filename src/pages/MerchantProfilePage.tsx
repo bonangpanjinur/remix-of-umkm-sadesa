@@ -48,6 +48,8 @@ interface MerchantData {
   village_id: string | null;
   villages?: { name: string } | null;
   halal_status?: string | null;
+  halal_certificate_url?: string | null;
+  slug?: string | null;
 }
 
 interface ReviewData {
@@ -59,8 +61,13 @@ interface ReviewData {
   profiles?: { full_name: string } | null;
 }
 
-export default function MerchantProfilePage() {
-  const { id } = useParams();
+interface MerchantProfilePageProps {
+  overrideId?: string;
+}
+
+export default function MerchantProfilePage({ overrideId }: MerchantProfilePageProps = {}) {
+  const { id: paramId } = useParams();
+  const id = overrideId || paramId;
   const navigate = useNavigate();
   const [merchant, setMerchant] = useState<MerchantData | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
@@ -311,7 +318,26 @@ export default function MerchantProfilePage() {
                     <ShoppingBag className="h-4 w-4" />
                     <span>{getPriceLabel(merchant.classification_price)}</span>
                   </div>
-                )}
+            )}
+
+            {/* Halal Certificate */}
+            {merchant.halal_status === 'VERIFIED' && merchant.halal_certificate_url && (
+              <div className="bg-card rounded-2xl p-4 shadow-sm border border-border mb-4">
+                <h3 className="font-semibold text-foreground mb-2 flex items-center gap-2">
+                  <Check className="h-4 w-4 text-success" />
+                  Sertifikat Halal
+                </h3>
+                <div className="relative aspect-video rounded-lg overflow-hidden border border-border">
+                  <img 
+                    src={merchant.halal_certificate_url} 
+                    alt="Sertifikat Halal" 
+                    className="object-contain w-full h-full cursor-pointer hover:opacity-90 transition"
+                    onClick={() => window.open(merchant.halal_certificate_url!, '_blank')}
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground mt-2">Klik untuk melihat sertifikat ukuran penuh</p>
+              </div>
+            )}
               </div>
             </div>
 

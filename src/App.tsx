@@ -42,6 +42,7 @@ import OrderTrackingPage from "./pages/OrderTrackingPage";
 import UnauthorizedPage from "./pages/UnauthorizedPage";
 import VillageDetailPage from "./pages/VillageDetailPage";
 import MerchantProfilePage from "./pages/MerchantProfilePage";
+import MerchantSlugResolver from "./pages/MerchantSlugResolver";
 import ShopsPage from "./pages/ShopsPage";
 import InstallPage from "./pages/InstallPage";
 
@@ -522,6 +523,9 @@ const App = () => (
                   <NotificationsPage />
                 </ProtectedRoute>
               } />
+
+              {/* Custom store link - must be before catch-all */}
+              <Route path="/s/:slug" element={<MerchantSlugResolver />} />
 
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Package, Clock, Truck, CheckCircle, XCircle, MessageCircle, Phone, CreditCard, ImageIcon } from 'lucide-react';
+import { Package, Clock, Truck, CheckCircle, XCircle, MessageCircle, Phone, CreditCard, ImageIcon, Users } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -12,6 +12,14 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { formatPrice } from '@/lib/utils';
@@ -34,6 +42,14 @@ interface Order {
   created_at: string;
   confirmation_deadline: string | null;
   payment_proof_url: string | null;
+}
+
+interface CourierOption {
+  id: string;
+  name: string;
+  phone: string;
+  vehicle_type: string;
+  is_available: boolean;
 }
 
 interface OrderStatusManagerProps {
@@ -60,6 +76,14 @@ export function OrderStatusManager({ merchantId }: OrderStatusManagerProps) {
   const [rejectReason, setRejectReason] = useState('');
   const [updating, setUpdating] = useState(false);
   const [activeTab, setActiveTab] = useState('pending');
+  
+  // Courier assignment state
+  const [showCourierDialog, setShowCourierDialog] = useState(false);
+  const [courierOrderId, setCourierOrderId] = useState<string | null>(null);
+  const [deliveryMethod, setDeliveryMethod] = useState<'self' | 'village' | null>(null);
+  const [availableCouriers, setAvailableCouriers] = useState<CourierOption[]>([]);
+  const [selectedCourierId, setSelectedCourierId] = useState<string>('');
+  const [loadingCouriers, setLoadingCouriers] = useState(false);
 
   useEffect(() => {
     fetchOrders();
@@ -83,7 +107,7 @@ export function OrderStatusManager({ merchantId }: OrderStatusManagerProps) {
     }
   };
 
-  const updateOrderStatus = async (orderId: string, newStatus: string) => {
+  const updateOrderStatus = async (orderId: string, newStatus: string, courierId?: string | null) => {
     setUpdating(true);
     try {
       const updateData: Record<string, any> = { 
@@ -93,6 +117,11 @@ export function OrderStatusManager({ merchantId }: OrderStatusManagerProps) {
 
       if (newStatus === 'PROCESSED') {
         updateData.confirmed_at = new Date().toISOString();
+      }
+
+      if (newStatus === 'SENT' && courierId) {
+        updateData.courier_id = courierId;
+        updateData.assigned_at = new Date().toISOString();
       }
 
       const { error } = await supabase
@@ -111,6 +140,64 @@ export function OrderStatusManager({ merchantId }: OrderStatusManagerProps) {
     } finally {
       setUpdating(false);
     }
+  };
+
+  const handleSendOrder = (orderId: string) => {
+    setCourierOrderId(orderId);
+    setDeliveryMethod(null);
+    setSelectedCourierId('');
+    setShowCourierDialog(true);
+  };
+
+  const fetchAvailableCouriers = async () => {
+    setLoadingCouriers(true);
+    try {
+      // Get merchant's village_id
+      const { data: merchantData } = await supabase
+        .from('merchants')
+        .select('village_id')
+        .eq('id', merchantId)
+        .single();
+
+      if (merchantData?.village_id) {
+        const { data: couriers } = await supabase
+          .from('couriers')
+          .select('id, name, phone, vehicle_type, is_available')
+          .eq('village_id', merchantData.village_id)
+          .eq('status', 'ACTIVE')
+          .eq('registration_status', 'APPROVED');
+
+        setAvailableCouriers(couriers || []);
+      } else {
+        // No village, fetch all active couriers
+        const { data: couriers } = await supabase
+          .from('couriers')
+          .select('id, name, phone, vehicle_type, is_available')
+          .eq('status', 'ACTIVE')
+          .eq('registration_status', 'APPROVED');
+
+        setAvailableCouriers(couriers || []);
+      }
+    } catch (error) {
+      console.error('Error fetching couriers:', error);
+    } finally {
+      setLoadingCouriers(false);
+    }
+  };
+
+  const handleConfirmSend = async () => {
+    if (!courierOrderId) return;
+    
+    if (deliveryMethod === 'self') {
+      await updateOrderStatus(courierOrderId, 'SENT');
+    } else if (deliveryMethod === 'village' && selectedCourierId) {
+      await updateOrderStatus(courierOrderId, 'SENT', selectedCourierId);
+    }
+    
+    setShowCourierDialog(false);
+    setCourierOrderId(null);
+    setDeliveryMethod(null);
+    setSelectedCourierId('');
   };
 
   const verifyPayment = async (orderId: string) => {
@@ -197,7 +284,6 @@ export function OrderStatusManager({ merchantId }: OrderStatusManagerProps) {
       'PENDING_CONFIRMATION': 'PROCESSED',
       'NEW': 'PROCESSED',
       'PROCESSED': 'SENT',
-      // SENT → DELIVERED is done by courier, DELIVERED → DONE is done by buyer/system
     };
     return flow[currentStatus] || null;
   };
@@ -390,13 +476,24 @@ export function OrderStatusManager({ merchantId }: OrderStatusManagerProps) {
                               )}
                               
                               {order.status !== 'PENDING_PAYMENT' && nextStatus && (
-                                <Button
-                                  size="sm"
-                                  onClick={() => updateOrderStatus(order.id, nextStatus)}
-                                  disabled={updating}
-                                >
-                                  {getNextStatusLabel(order.status)}
-                                </Button>
+                                order.status === 'PROCESSED' ? (
+                                  <Button
+                                    size="sm"
+                                    onClick={() => handleSendOrder(order.id)}
+                                    disabled={updating}
+                                  >
+                                    <Truck className="h-4 w-4 mr-1" />
+                                    Kirim Pesanan
+                                  </Button>
+                                ) : (
+                                  <Button
+                                    size="sm"
+                                    onClick={() => updateOrderStatus(order.id, nextStatus)}
+                                    disabled={updating}
+                                  >
+                                    {getNextStatusLabel(order.status)}
+                                  </Button>
+                                )
                               )}
                             </>
                           )}
@@ -411,6 +508,7 @@ export function OrderStatusManager({ merchantId }: OrderStatusManagerProps) {
         </CardContent>
       </Card>
 
+      {/* Reject Dialog */}
       <Dialog open={showRejectDialog} onOpenChange={setShowRejectDialog}>
         <DialogContent>
           <DialogHeader>
@@ -436,6 +534,117 @@ export function OrderStatusManager({ merchantId }: OrderStatusManagerProps) {
               disabled={updating}
             >
               Ya, Batalkan Pesanan
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Courier Assignment Dialog */}
+      <Dialog open={showCourierDialog} onOpenChange={setShowCourierDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Truck className="h-5 w-5" />
+              Pilih Metode Pengiriman
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Pilih cara pengiriman untuk pesanan #{courierOrderId?.slice(0, 8).toUpperCase()}
+            </p>
+            
+            {/* Self delivery option */}
+            <button
+              type="button"
+              onClick={() => setDeliveryMethod('self')}
+              className={`w-full p-4 rounded-lg border-2 text-left transition ${
+                deliveryMethod === 'self' 
+                  ? 'border-primary bg-primary/5' 
+                  : 'border-border hover:border-muted-foreground/30'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                  <Truck className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <p className="font-medium text-foreground">Antar Sendiri (Kurir Toko)</p>
+                  <p className="text-xs text-muted-foreground">Anda atau kurir toko yang mengantar pesanan</p>
+                </div>
+              </div>
+            </button>
+            
+            {/* Village courier option */}
+            <button
+              type="button"
+              onClick={() => {
+                setDeliveryMethod('village');
+                fetchAvailableCouriers();
+              }}
+              className={`w-full p-4 rounded-lg border-2 text-left transition ${
+                deliveryMethod === 'village' 
+                  ? 'border-primary bg-primary/5' 
+                  : 'border-border hover:border-muted-foreground/30'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-info/10 flex items-center justify-center">
+                  <Users className="h-5 w-5 text-info" />
+                </div>
+                <div>
+                  <p className="font-medium text-foreground">Tugaskan ke Kurir Desa</p>
+                  <p className="text-xs text-muted-foreground">Pilih kurir desa yang tersedia untuk mengantar</p>
+                </div>
+              </div>
+            </button>
+
+            {/* Courier selection dropdown */}
+            {deliveryMethod === 'village' && (
+              <div className="space-y-2 pl-2 border-l-2 border-primary/30 ml-5">
+                <Label className="text-sm">Pilih Kurir</Label>
+                {loadingCouriers ? (
+                  <p className="text-xs text-muted-foreground">Memuat kurir...</p>
+                ) : availableCouriers.length === 0 ? (
+                  <p className="text-xs text-destructive">Tidak ada kurir yang tersedia di desa ini</p>
+                ) : (
+                  <Select value={selectedCourierId} onValueChange={setSelectedCourierId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Pilih kurir..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableCouriers.map((courier) => (
+                        <SelectItem key={courier.id} value={courier.id}>
+                          <div className="flex items-center gap-2">
+                            <span>{courier.name}</span>
+                            <span className="text-xs text-muted-foreground">({courier.vehicle_type})</span>
+                            {courier.is_available ? (
+                              <span className="text-xs text-success">● Online</span>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">● Offline</span>
+                            )}
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowCourierDialog(false)}>
+              Batal
+            </Button>
+            <Button
+              onClick={handleConfirmSend}
+              disabled={
+                updating || 
+                !deliveryMethod || 
+                (deliveryMethod === 'village' && !selectedCourierId)
+              }
+            >
+              <Truck className="h-4 w-4 mr-1" />
+              Kirim Pesanan
             </Button>
           </DialogFooter>
         </DialogContent>

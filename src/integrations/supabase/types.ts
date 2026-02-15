@@ -872,6 +872,7 @@ export type Database = {
           registered_at: string | null
           registration_status: string
           rejection_reason: string | null
+          slug: string | null
           status: string
           subdistrict: string | null
           total_withdrawn: number | null
@@ -929,6 +930,7 @@ export type Database = {
           registered_at?: string | null
           registration_status?: string
           rejection_reason?: string | null
+          slug?: string | null
           status?: string
           subdistrict?: string | null
           total_withdrawn?: number | null
@@ -986,6 +988,7 @@ export type Database = {
           registered_at?: string | null
           registration_status?: string
           rejection_reason?: string | null
+          slug?: string | null
           status?: string
           subdistrict?: string | null
           total_withdrawn?: number | null
@@ -3133,6 +3136,10 @@ export type Database = {
       deduct_merchant_quota: {
         Args: { p_credits: number; p_merchant_id: string }
         Returns: boolean
+      }
+      generate_merchant_slug: {
+        Args: { merchant_name: string }
+        Returns: string
       }
       generate_monthly_kas: {
         Args: { p_group_id: string; p_month: number; p_year: number }

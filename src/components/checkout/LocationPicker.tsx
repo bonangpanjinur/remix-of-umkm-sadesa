@@ -58,6 +58,7 @@ export function LocationPicker({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number }>({ lat: -7.3274, lng: 108.2207 });
+  const [autoGpsTriggered, setAutoGpsTriggered] = useState(false);
   
   // Update map center when external center changes (from address geocoding)
   useEffect(() => {
@@ -116,6 +117,14 @@ export function LocationPicker({
       }
     );
   }, [onChange, onLocationSelected]);
+
+  // Auto-trigger GPS on mount
+  useEffect(() => {
+    if (!autoGpsTriggered && !value && !disabled) {
+      setAutoGpsTriggered(true);
+      handleGetCurrentLocation();
+    }
+  }, [autoGpsTriggered, value, disabled, handleGetCurrentLocation]);
 
   const handleMapClick = useCallback((lat: number, lng: number) => {
     if (!disabled) {
