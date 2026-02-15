@@ -92,6 +92,8 @@ const STATIC_PROVINCES: Region[] = [
   { code: "96", name: "Papua Barat Daya" },
 ];
 
+const EMSIFA_BASE_URL = 'https://www.emsifa.com/api-wilayah-indonesia/api';
+
 let BASE_URL = 'https://wilayah.id/api';
 
 // Try to load custom API URL from localStorage (cached from system settings)
@@ -102,6 +104,15 @@ try {
   }
 } catch (e) {
   // Ignore localStorage errors
+}
+
+function toTitleCase(str: string): string {
+  if (!str) return str;
+  // If string is all uppercase, convert to title case
+  if (str === str.toUpperCase()) {
+    return str.toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
+  }
+  return str;
 }
 
 export function setBaseUrl(url: string) {
@@ -173,6 +184,27 @@ async function fetchViaCorsProxy2(url: string, signal?: AbortSignal): Promise<Re
   return null;
 }
 
+async function fetchViaEmsifa(type: string, code: string | undefined, signal?: AbortSignal): Promise<Region[]> {
+  let url: string;
+  switch (type) {
+    case 'provinces': url = `${EMSIFA_BASE_URL}/provinces.json`; break;
+    case 'regencies': url = `${EMSIFA_BASE_URL}/regencies/${code}.json`; break;
+    case 'districts': url = `${EMSIFA_BASE_URL}/districts/${code}.json`; break;
+    case 'villages': url = `${EMSIFA_BASE_URL}/villages/${code}.json`; break;
+    default: return [];
+  }
+
+  const response = await fetch(url, {
+    headers: { 'Accept': 'application/json' },
+    signal,
+  });
+
+  if (!response.ok) throw new Error(`Emsifa returned ${response.status}`);
+
+  const data: Array<{ id: string; name: string }> = await response.json();
+  return data.map(item => ({ code: item.id, name: toTitleCase(item.name) }));
+}
+
 // Wrap a fetch function so it rejects (instead of resolving null) on failure
 async function mustSucceed(fn: () => Promise<Response | null>): Promise<Response> {
   const result = await fn();
@@ -197,32 +229,44 @@ async function fetchWithFallbacks(type: string, code?: string): Promise<Region[]
   const timeout = setTimeout(() => controller.abort(), 10000);
 
   try {
-    // Race all three strategies in parallel — first success wins
-    const promises = [
+    // 5-way parallel race — Emsifa is primary (no CORS issues), others are fallbacks
+    // Emsifa returns Region[] directly, others return Response that needs parsing
+    const emsifaPromise = fetchViaEmsifa(type, code, signal);
+
+    const wilayahPromises = [
       mustSucceed(() => fetchDirect(url, signal)),
       mustSucceed(() => fetchViaEdgeFunction(type, code, signal)),
       mustSucceed(() => fetchViaCorsProxy(url, signal)),
       mustSucceed(() => fetchViaCorsProxy2(url, signal)),
     ];
 
-    // Use Promise.any polyfill pattern for ES2020 compat
-    const response = await new Promise<Response>((resolve, reject) => {
+    // Parse wilayah.id responses into Region[]
+    const wilayahParsed = wilayahPromises.map(p =>
+      p.then(async (res) => {
+        const result: WilayahResponse = await res.json();
+        return result.data || [];
+      })
+    );
+
+    // Race all 5 strategies — first to return Region[] wins
+    const allPromises = [emsifaPromise, ...wilayahParsed];
+
+    const result = await new Promise<Region[]>((resolve, reject) => {
       let rejections = 0;
-      const errors: Error[] = [];
-      for (const p of promises) {
-        p.then(resolve, (err) => {
-          errors.push(err);
+      for (const p of allPromises) {
+        p.then((data) => {
+          if (data && data.length > 0) resolve(data);
+          else throw new Error('Empty result');
+        }).catch(() => {
           rejections++;
-          if (rejections === promises.length) reject(new Error('All failed'));
+          if (rejections === allPromises.length) reject(new Error('All failed'));
         });
       }
     });
 
     clearTimeout(timeout);
     controller.abort();
-
-    const result: WilayahResponse = await response.json();
-    return result.data || [];
+    return result;
   } catch {
     clearTimeout(timeout);
     if (type === 'provinces') return STATIC_PROVINCES;
