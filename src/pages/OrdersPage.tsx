@@ -1,14 +1,16 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { useRealtimeOrders } from "@/hooks/useRealtimeOrders";
-import { formatCurrency } from "@/lib/utils";
-import PageHeader from "@/components/layout/PageHeader";
-import BottomNav from "@/components/layout/BottomNav";
-import { Package, Clock, Truck, CheckCircle, XCircle, ShoppingBag, ChevronRight, Store } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+// Menggunakan relative path untuk menghindari error alias
+import { Tabs, TabsList, TabsTrigger } from "../components/ui/tabs";
+import { Card, CardContent } from "../components/ui/card";
+import { Button } from "../components/ui/button";
+import { useRealtimeOrders } from "../hooks/useRealtimeOrders";
+import { formatCurrency } from "../lib/utils";
+// Menggunakan named import dan relative path
+import { PageHeader } from "../components/layout/PageHeader";
+import { BottomNav } from "../components/layout/BottomNav";
+import { Package, Clock, Truck, CheckCircle, XCircle, ShoppingBag, Store } from "lucide-react";
+import { Badge } from "../components/ui/badge";
 
 const OrdersPage = () => {
   const { orders, loading } = useRealtimeOrders();
