@@ -1,77 +1,63 @@
 
 
-# Rencana Perbaikan: tsconfig.json + UI/UX OrdersPage
+# Perbaikan Build Error untuk Deploy Vercel
 
-## Problem 1: Halaman Blank (Build Error)
+## Masalah
 
-File `tsconfig.json` diubah pada edit terakhir dan sekarang menyebabkan error build:
+`tsconfig.json` menggunakan project references (`"references": [...]`) yang **mengharuskan** setiap file yang direferensikan memiliki `"composite": true`. Saat ini:
+
+- `tsconfig.node.json` -- TIDAK punya `"composite": true` dan punya `"noEmit": true` (konflik dengan composite)
+- `tsconfig.app.json` -- TIDAK punya `"composite": true` dan punya `"noEmit": true`
+
+Error yang muncul:
 ```
-tsconfig.json: error TS6306: Referenced project 'tsconfig.node.json' must have setting "composite": true.
-tsconfig.json: error TS6310: Referenced project 'tsconfig.node.json' may not disable emit.
+TS6306: Referenced project must have setting "composite": true
+TS6310: Referenced project may not disable emit
 ```
 
-Ini menyebabkan **seluruh aplikasi blank/tidak bisa diakses**.
+## Solusi
 
-### Solusi
-Kembalikan `tsconfig.json` ke format project references yang benar (seperti sebelumnya):
+Hapus `"references"` dari `tsconfig.json` karena Vite tidak membutuhkan project references untuk build. Ini adalah pendekatan paling sederhana dan aman -- tidak perlu mengubah `tsconfig.app.json` atau `tsconfig.node.json`.
 
-```text
+### File: `tsconfig.json`
+
+Ubah dari:
+```json
 {
+  "compilerOptions": { ... },
   "files": [],
   "references": [
     { "path": "./tsconfig.app.json" },
     { "path": "./tsconfig.node.json" }
-  ],
-  "compilerOptions": {
-    "baseUrl": ".",
-    "paths": { "@/*": ["./src/*"] },
-    "noImplicitAny": false,
-    "noUnusedParameters": false,
-    "skipLibCheck": true,
-    "allowJs": true,
-    "noUnusedLocals": false,
-    "strictNullChecks": false
-  }
+  ]
 }
 ```
 
-Ini mengembalikan referensi ke `tsconfig.app.json` (yang hilang) dan menghilangkan setting `strict`, `noEmit`, dll yang konflik.
+Menjadi:
+```json
+{
+  "compilerOptions": {
+    "allowJs": true,
+    "baseUrl": ".",
+    "noImplicitAny": false,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "paths": {
+      "@/*": ["./src/*"]
+    },
+    "skipLibCheck": true,
+    "strictNullChecks": false
+  },
+  "include": ["src"]
+}
+```
 
----
+Perubahan utama:
+- Hapus `"files": []` dan `"references"` yang menyebabkan error composite
+- Tambahkan `"baseUrl": "."` agar path alias `@/*` berfungsi
+- Tambahkan `"include": ["src"]` agar TypeScript tahu file mana yang harus di-compile
 
-## Problem 2: UI/UX OrdersPage
+### File lain: Tidak ada perubahan
 
-Setelah build diperbaiki, halaman Orders perlu peningkatan visual:
-
-### Perbaikan yang akan dilakukan:
-
-1. **Header lebih menarik** -- Ganti `PageHeader` sederhana dengan header bergradien hijau brand yang menampilkan ikon dan jumlah pesanan aktif
-
-2. **Tab filter lebih jelas** -- Tambahkan jumlah pesanan per tab (badge count) agar pembeli tahu ada berapa pesanan di setiap kategori
-
-3. **Card pesanan lebih informatif**:
-   - Tampilkan tanggal pesanan (format: "12 Feb 2026")
-   - Tampilkan nomor pesanan singkat (8 karakter pertama dari ID)
-   - Gambar produk lebih besar (20x20 dari 16x16)
-   - Tambahkan divider visual antara info toko dan detail produk
-
-4. **Status dengan ikon** -- Setiap status badge ditambahkan ikon kecil (Clock untuk pending, Truck untuk shipped, dll)
-
-5. **Tombol aksi kontekstual** -- Selain "Bayar Sekarang" untuk pending, tambahkan:
-   - "Lacak Pesanan" untuk status shipped/out_for_delivery
-   - "Beri Ulasan" untuk status completed
-   - "Pesan Lagi" untuk status completed/cancelled
-
-6. **Empty state lebih menarik** -- Ilustrasi lebih besar dengan animasi halus dan teks yang lebih ramah
-
-7. **Pull-to-refresh indicator** -- Tambahkan visual feedback saat refresh data
-
----
-
-## File yang Diubah
-
-| File | Perubahan |
-|------|-----------|
-| `tsconfig.json` | Kembalikan ke format project references yang benar |
-| `src/pages/OrdersPage.tsx` | Redesign UI/UX lengkap dengan semua perbaikan di atas |
+`tsconfig.app.json`, `tsconfig.node.json`, dan `OrdersPage.tsx` tetap seperti sekarang.
 
