@@ -46,6 +46,8 @@ import MerchantSlugResolver from "./pages/MerchantSlugResolver";
 import ShopsPage from "./pages/ShopsPage";
 import InstallPage from "./pages/InstallPage";
 import HelpPage from "./pages/HelpPage";
+import RecentlyViewedPage from "./pages/buyer/RecentlyViewedPage";
+import AdminSystemHealthPage from "./pages/admin/AdminSystemHealthPage";
 
 // Admin Pages
 import AdminDashboardPage from "./pages/admin/AdminDashboardPage";
@@ -254,6 +256,11 @@ const App = () => (
                   <MyReviewsPage />
                 </ProtectedRoute>
               } />
+              <Route path="/recently-viewed" element={
+                <ProtectedRoute>
+                  <RecentlyViewedPage />
+                </ProtectedRoute>
+              } />
               {/* Admin routes */}
               <Route path="/admin" element={
                 <ProtectedRoute allowedRoles={['admin']}>
@@ -404,6 +411,11 @@ const App = () => (
               <Route path="/admin/pos" element={
                 <ProtectedRoute allowedRoles={['admin']}>
                   <AdminPOSPage />
+                </ProtectedRoute>
+              } />
+              <Route path="/admin/system-health" element={
+                <ProtectedRoute allowedRoles={['admin']}>
+                  <AdminSystemHealthPage />
                 </ProtectedRoute>
               } />
 

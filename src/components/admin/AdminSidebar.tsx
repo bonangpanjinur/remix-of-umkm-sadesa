@@ -22,7 +22,8 @@ import {
   Shield,
   Database,
   Tags,
-  Wallet
+  Wallet,
+  Activity
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -71,6 +72,7 @@ export function AdminSidebar({ pendingMerchants = 0, pendingVillages = 0, pendin
     { label: 'Backup Data', href: '/admin/backup', icon: <Database className="h-4 w-4" /> },
     { label: 'Kasir POS', href: '/admin/pos', icon: <Receipt className="h-4 w-4" /> },
     { label: 'System Logs', href: '/admin/logs', icon: <ScrollText className="h-4 w-4" /> },
+    { label: 'Kesehatan Sistem', href: '/admin/system-health', icon: <Activity className="h-4 w-4" /> },
     { label: 'Pengaturan', href: '/admin/settings', icon: <Settings className="h-4 w-4" /> },
   ];
 

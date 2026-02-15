@@ -1,39 +1,25 @@
 import { useState, useEffect, useMemo } from 'react';
 import { 
-  DollarSign, 
-  TrendingUp, 
-  Truck, 
-  Store, 
-  PieChart, 
-  Download, 
-  Calendar,
-  ArrowUpRight,
-  ArrowDownRight,
-  FileText
+  DollarSign, TrendingUp, Truck, Store, PieChart, Download, Calendar,
+  ArrowUpRight, ArrowDownRight, FileText
 } from 'lucide-react';
+import { format, subDays, startOfDay, endOfDay, startOfMonth, endOfMonth } from 'date-fns';
+import { id as idLocale } from 'date-fns/locale';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar as CalendarPicker } from '@/components/ui/calendar';
+import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { formatPrice } from '@/lib/utils';
-import { format, subDays, startOfDay, endOfDay, startOfMonth, endOfMonth } from 'date-fns';
-import { id as idLocale } from 'date-fns/locale';
 import { SalesAreaChart } from '@/components/admin/SalesChart';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -65,6 +51,8 @@ export default function AdminFinancePage() {
   const [dateRange, setDateRange] = useState('30days');
   const [platformFeePercent, setPlatformFeePercent] = useState(5);
   const [courierFeePercent, setCourierFeePercent] = useState(80);
+  const [customStart, setCustomStart] = useState<Date | undefined>(undefined);
+  const [customEnd, setCustomEnd] = useState<Date | undefined>(undefined);
 
   // Load fee settings from app_settings
   useEffect(() => {
@@ -103,6 +91,11 @@ export default function AdminFinancePage() {
       case 'lastMonth':
         const lastMonth = subDays(startOfMonth(now), 1);
         return { start: startOfMonth(lastMonth), end: endOfMonth(lastMonth) };
+      case 'custom':
+        return { 
+          start: customStart ? startOfDay(customStart) : startOfDay(subDays(now, 30)), 
+          end: customEnd ? endOfDay(customEnd) : endOfDay(now) 
+        };
       default:
         return { start: startOfDay(subDays(now, 30)), end: endOfDay(now) };
     }
@@ -144,7 +137,7 @@ export default function AdminFinancePage() {
 
   useEffect(() => {
     loadData();
-  }, [dateRange]);
+  }, [dateRange, customStart, customEnd]);
 
   const financials = useMemo<FinancialData>(() => {
     const completed = orders.filter(o => o.status === 'DONE' || o.status === 'DELIVERED');
@@ -270,8 +263,33 @@ export default function AdminFinancePage() {
               <SelectItem value="30days">30 Hari Terakhir</SelectItem>
               <SelectItem value="thisMonth">Bulan Ini</SelectItem>
               <SelectItem value="lastMonth">Bulan Lalu</SelectItem>
+              <SelectItem value="custom">Custom Range</SelectItem>
             </SelectContent>
           </Select>
+          {dateRange === 'custom' && (
+            <div className="flex gap-2">
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className={cn("w-36 justify-start text-left text-xs", !customStart && "text-muted-foreground")}>
+                    {customStart ? format(customStart, 'dd MMM yyyy') : 'Dari'}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <CalendarPicker mode="single" selected={customStart} onSelect={setCustomStart} className="p-3 pointer-events-auto" />
+                </PopoverContent>
+              </Popover>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className={cn("w-36 justify-start text-left text-xs", !customEnd && "text-muted-foreground")}>
+                    {customEnd ? format(customEnd, 'dd MMM yyyy') : 'Sampai'}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <CalendarPicker mode="single" selected={customEnd} onSelect={setCustomEnd} className="p-3 pointer-events-auto" />
+                </PopoverContent>
+              </Popover>
+            </div>
+          )}
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={exportToCSV}>

@@ -1,8 +1,8 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Package, Receipt, TrendingUp, DollarSign, AlertCircle, Settings,
-  BarChart3, Star, Wallet, Percent, CreditCard, QrCode
+  BarChart3, Star, Wallet, Percent, CreditCard, QrCode, CheckCircle, XCircle, Bell
 } from 'lucide-react';
 import { MerchantLayout } from '@/components/merchant/MerchantLayout';
 import { StatsCard } from '@/components/admin/StatsCard';
@@ -25,6 +25,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { formatPrice } from '@/lib/utils';
+import { useRealtimeOrders, type OrderRow } from '@/hooks/useRealtimeOrders';
 
 interface MerchantData {
   id: string;
@@ -84,6 +85,26 @@ export default function MerchantDashboardPage() {
 
     fetchData();
   }, [user]);
+
+  // Realtime orders with sound notification
+  const handleNewOrder = useCallback((order: OrderRow) => {
+    // Also refresh local orders
+    if (merchant) {
+      supabase
+        .from('orders')
+        .select('id, status, total, created_at')
+        .eq('merchant_id', merchant.id)
+        .then(({ data }) => setOrders(data || []));
+    }
+  }, [merchant]);
+
+  const { orders: realtimeOrders, updateOrderStatus } = useRealtimeOrders({
+    merchantId: merchant?.id || null,
+    onNewOrder: handleNewOrder,
+  });
+
+  // New orders waiting for action
+  const pendingOrders = realtimeOrders.filter(o => o.status === 'NEW' || o.status === 'PENDING_CONFIRMATION').slice(0, 5);
 
   const salesChartData = useMemo(() => {
     const dateMap = new Map<string, { revenue: number; orders: number }>();
@@ -257,6 +278,47 @@ export default function MerchantDashboardPage() {
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4 mt-0">
+          {/* Quick Action: Pending Orders */}
+          {pendingOrders.length > 0 && (
+            <div className="bg-card rounded-xl border border-warning/30 p-4">
+              <h4 className="font-semibold text-sm mb-3 flex items-center gap-2">
+                <Bell className="h-4 w-4 text-warning" />
+                Pesanan Menunggu ({pendingOrders.length})
+              </h4>
+              <div className="space-y-2">
+                {pendingOrders.map(order => (
+                  <div key={order.id} className="flex items-center justify-between bg-muted/50 rounded-lg p-3">
+                    <div>
+                      <p className="text-sm font-medium">{order.delivery_name || 'Pelanggan'}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {formatPrice(order.total)} • {new Date(order.created_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
+                      </p>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-8 text-xs text-destructive border-destructive/30 hover:bg-destructive/10"
+                        onClick={() => updateOrderStatus(order.id, 'CANCELED', 'Ditolak oleh merchant')}
+                      >
+                        <XCircle className="h-3 w-3 mr-1" />
+                        Tolak
+                      </Button>
+                      <Button
+                        size="sm"
+                        className="h-8 text-xs"
+                        onClick={() => updateOrderStatus(order.id, 'PROCESSING')}
+                      >
+                        <CheckCircle className="h-3 w-3 mr-1" />
+                        Terima
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Charts - Reduced height or better layout */}
           <div className="grid md:grid-cols-2 gap-4">
             <div className="bg-card rounded-xl border border-border p-1 overflow-hidden">

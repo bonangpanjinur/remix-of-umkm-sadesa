@@ -24,6 +24,7 @@ import { getMerchantOperatingStatus, formatTime } from '@/lib/merchantOperatingH
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { trackPageView } from '@/lib/pageViewTracker';
+import { addToRecentlyViewed } from '@/pages/buyer/RecentlyViewedPage';
 import type { Product } from '@/types';
 
 interface MerchantInfo {
@@ -60,6 +61,14 @@ export default function ProductDetail() {
         setProduct(productData);
         
         if (productData) {
+          // Track recently viewed
+          addToRecentlyViewed({
+            id: productData.id,
+            name: productData.name,
+            price: productData.price,
+            image: productData.image,
+            merchantName: productData.merchantName,
+          });
           // Increment product view count
           supabase.rpc('increment_product_view', { product_id: id }).then(({ error }) => {
             if (error) console.error('Error incrementing view count:', error);

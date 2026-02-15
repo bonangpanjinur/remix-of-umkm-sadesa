@@ -1,5 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { FileText, Download, Calendar, TrendingUp, ShoppingBag, DollarSign, Store } from 'lucide-react';
+import { format, subDays, startOfDay, endOfDay, startOfMonth, endOfMonth } from 'date-fns';
+import { id as idLocale } from 'date-fns/locale';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -11,18 +13,14 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar as CalendarPicker } from '@/components/ui/calendar';
+import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { formatPrice } from '@/lib/utils';
-import { format, subDays, startOfDay, endOfDay, startOfMonth, endOfMonth } from 'date-fns';
-import { id as idLocale } from 'date-fns/locale';
 import { SalesAreaChart, OrdersBarChart } from '@/components/admin/SalesChart';
 
 interface OrderReport {
@@ -51,6 +49,8 @@ export default function AdminReportsPage() {
   const [loading, setLoading] = useState(true);
   const [dateRange, setDateRange] = useState('7days');
   const [reportType, setReportType] = useState('transactions');
+  const [customStart, setCustomStart] = useState<Date | undefined>(undefined);
+  const [customEnd, setCustomEnd] = useState<Date | undefined>(undefined);
 
   const getDateRange = () => {
     const now = new Date();
@@ -64,6 +64,11 @@ export default function AdminReportsPage() {
       case 'lastMonth':
         const lastMonth = subDays(startOfMonth(now), 1);
         return { start: startOfMonth(lastMonth), end: endOfMonth(lastMonth) };
+      case 'custom':
+        return { 
+          start: customStart ? startOfDay(customStart) : startOfDay(subDays(now, 7)), 
+          end: customEnd ? endOfDay(customEnd) : endOfDay(now) 
+        };
       default:
         return { start: startOfDay(subDays(now, 7)), end: endOfDay(now) };
     }
@@ -106,7 +111,7 @@ export default function AdminReportsPage() {
 
   useEffect(() => {
     loadReports();
-  }, [dateRange]);
+  }, [dateRange, customStart, customEnd]);
 
   // Summary calculations
   const summary = useMemo(() => {
@@ -233,8 +238,33 @@ export default function AdminReportsPage() {
               <SelectItem value="30days">30 Hari Terakhir</SelectItem>
               <SelectItem value="thisMonth">Bulan Ini</SelectItem>
               <SelectItem value="lastMonth">Bulan Lalu</SelectItem>
+              <SelectItem value="custom">Custom Range</SelectItem>
             </SelectContent>
           </Select>
+          {dateRange === 'custom' && (
+            <div className="flex gap-2">
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className={cn("w-36 justify-start text-left text-xs", !customStart && "text-muted-foreground")}>
+                    {customStart ? format(customStart, 'dd MMM yyyy') : 'Dari'}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <CalendarPicker mode="single" selected={customStart} onSelect={setCustomStart} className="p-3 pointer-events-auto" />
+                </PopoverContent>
+              </Popover>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className={cn("w-36 justify-start text-left text-xs", !customEnd && "text-muted-foreground")}>
+                    {customEnd ? format(customEnd, 'dd MMM yyyy') : 'Sampai'}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <CalendarPicker mode="single" selected={customEnd} onSelect={setCustomEnd} className="p-3 pointer-events-auto" />
+                </PopoverContent>
+              </Popover>
+            </div>
+          )}
         </div>
       </div>
 
@@ -341,7 +371,7 @@ export default function AdminReportsPage() {
                       </TableCell>
                     </TableRow>
                   ) : (
-                    orders.slice(0, 50).map((order) => (
+                    orders.map((order) => (
                       <TableRow key={order.id}>
                         <TableCell className="font-mono text-sm">{order.id.slice(0, 8)}</TableCell>
                         <TableCell>{order.merchantName}</TableCell>

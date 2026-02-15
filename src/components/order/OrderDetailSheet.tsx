@@ -1,10 +1,14 @@
 import { useState, useEffect } from 'react';
-import { Package, Truck, MapPin, CreditCard, Clock, CheckCircle, XCircle } from 'lucide-react';
+import { Package, Truck, MapPin, CreditCard, Clock, CheckCircle, XCircle, MessageCircle, Navigation } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { formatPrice } from '@/lib/utils';
+import { formatETA, calculateETA, formatDistance, calculateDistance, type VehicleType } from '@/lib/etaCalculation';
+import { useAuth } from '@/contexts/AuthContext';
+import { OrderChat } from '@/components/chat/OrderChat';
 
 interface OrderDetailSheetProps {
   orderId: string | null;
@@ -22,14 +26,17 @@ interface OrderDetail {
   delivery_address: string | null;
   delivery_name: string | null;
   delivery_phone: string | null;
+  delivery_lat: number | null;
+  delivery_lng: number | null;
   payment_method: string | null;
   payment_status: string | null;
   notes: string | null;
   created_at: string;
   confirmed_at: string | null;
   delivered_at: string | null;
-  merchant: { name: string } | null;
-  courier: { name: string; phone: string } | null;
+  merchant_id: string | null;
+  merchant: { name: string; location_lat: number | null; location_lng: number | null; user_id: string | null } | null;
+  courier: { name: string; phone: string; current_lat: number | null; current_lng: number | null; vehicle_type: string } | null;
   items: Array<{
     id: string;
     product_name: string;
@@ -51,8 +58,10 @@ const statusTimeline = [
 const statusOrder = ['NEW', 'PENDING_PAYMENT', 'PENDING_CONFIRMATION', 'PROCESSING', 'PROCESSED', 'ASSIGNED', 'PICKED_UP', 'ON_DELIVERY', 'SENT', 'DELIVERED', 'DONE'];
 
 export function OrderDetailSheet({ orderId, open, onOpenChange }: OrderDetailSheetProps) {
+  const { user } = useAuth();
   const [order, setOrder] = useState<OrderDetail | null>(null);
   const [loading, setLoading] = useState(false);
+  const [showChat, setShowChat] = useState(false);
 
   useEffect(() => {
     if (orderId && open) {
@@ -67,11 +76,11 @@ export function OrderDetailSheet({ orderId, open, onOpenChange }: OrderDetailShe
         .from('orders')
         .select(`
           id, status, total, subtotal, shipping_cost, delivery_type,
-          delivery_address, delivery_name, delivery_phone,
+          delivery_address, delivery_name, delivery_phone, delivery_lat, delivery_lng,
           payment_method, payment_status, notes, created_at,
-          confirmed_at, delivered_at,
-          merchants(name),
-          couriers(name, phone),
+          confirmed_at, delivered_at, merchant_id,
+          merchants(name, location_lat, location_lng, user_id),
+          couriers(name, phone, current_lat, current_lng, vehicle_type),
           order_items(id, product_name, product_price, quantity, subtotal)
         `)
         .eq('id', id)
@@ -81,6 +90,7 @@ export function OrderDetailSheet({ orderId, open, onOpenChange }: OrderDetailShe
       if (data) {
         setOrder({
           ...data,
+          merchant_id: data.merchant_id,
           merchant: data.merchants as any,
           courier: data.couriers as any,
           items: data.order_items || [],
@@ -94,6 +104,30 @@ export function OrderDetailSheet({ orderId, open, onOpenChange }: OrderDetailShe
   };
 
   const currentStatusIdx = order ? statusOrder.indexOf(order.status) : -1;
+
+  // Calculate ETA
+  const etaInfo = (() => {
+    if (!order) return null;
+    const deliveryActive = ['ASSIGNED', 'PICKED_UP', 'ON_DELIVERY', 'SENT'].includes(order.status);
+    
+    if (deliveryActive && order.courier?.current_lat && order.courier?.current_lng && order.delivery_lat && order.delivery_lng) {
+      const from = { lat: order.courier.current_lat, lng: order.courier.current_lng };
+      const to = { lat: order.delivery_lat, lng: order.delivery_lng };
+      const vehicle = (order.courier.vehicle_type as VehicleType) || 'motor';
+      const dist = calculateDistance(from, to);
+      const eta = calculateETA(from, to, vehicle);
+      return { distance: formatDistance(dist), eta: formatETA(eta) };
+    }
+    
+    if (order.merchant?.location_lat && order.merchant?.location_lng && order.delivery_lat && order.delivery_lng) {
+      const from = { lat: order.merchant.location_lat, lng: order.merchant.location_lng };
+      const to = { lat: order.delivery_lat, lng: order.delivery_lng };
+      const dist = calculateDistance(from, to);
+      const eta = calculateETA(from, to, 'motor');
+      return { distance: formatDistance(dist), eta: formatETA(eta) };
+    }
+    return null;
+  })();
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -186,7 +220,7 @@ export function OrderDetailSheet({ orderId, open, onOpenChange }: OrderDetailShe
               </div>
             </div>
 
-            {/* Courier */}
+            {/* Courier & ETA */}
             {order.courier && (
               <div>
                 <h4 className="text-sm font-semibold mb-2 flex items-center gap-2">
@@ -194,6 +228,29 @@ export function OrderDetailSheet({ orderId, open, onOpenChange }: OrderDetailShe
                 </h4>
                 <p className="text-sm">{order.courier.name}</p>
                 <p className="text-xs text-muted-foreground">{order.courier.phone}</p>
+                {etaInfo && (
+                  <div className="mt-2 flex items-center gap-3 bg-primary/5 rounded-lg p-2">
+                    <div className="flex items-center gap-1">
+                      <Navigation className="h-3 w-3 text-primary" />
+                      <span className="text-xs font-medium">{etaInfo.distance}</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Clock className="h-3 w-3 text-primary" />
+                      <span className="text-xs font-medium">ETA: {etaInfo.eta}</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ETA without courier */}
+            {!order.courier && etaInfo && (
+              <div className="flex items-center gap-3 bg-muted rounded-lg p-3">
+                <Navigation className="h-4 w-4 text-muted-foreground" />
+                <div>
+                  <p className="text-xs font-medium">Estimasi Pengiriman</p>
+                  <p className="text-xs text-muted-foreground">{etaInfo.distance} • ~{etaInfo.eta}</p>
+                </div>
               </div>
             )}
 
@@ -235,6 +292,31 @@ export function OrderDetailSheet({ orderId, open, onOpenChange }: OrderDetailShe
               <div className="bg-muted rounded-lg p-3">
                 <p className="text-xs font-medium mb-1">Catatan:</p>
                 <p className="text-sm text-muted-foreground">{order.notes}</p>
+              </div>
+            )}
+
+            {/* Chat with Merchant */}
+            {order.merchant_id && user && order.merchant?.user_id && !['DONE', 'CANCELED', 'REFUNDED'].includes(order.status) && (
+              <div>
+                <Button 
+                  variant="outline" 
+                  className="w-full" 
+                  onClick={() => setShowChat(!showChat)}
+                >
+                  <MessageCircle className="h-4 w-4 mr-2" />
+                  {showChat ? 'Tutup Chat' : 'Chat dengan Merchant'}
+                </Button>
+                {showChat && (
+                  <div className="mt-3 border border-border rounded-lg overflow-hidden h-64">
+                    <OrderChat 
+                      orderId={order.id} 
+                      otherUserId={order.merchant.user_id!}
+                      otherUserName={order.merchant.name || 'Merchant'}
+                      isOpen={showChat}
+                      onClose={() => setShowChat(false)}
+                    />
+                  </div>
+                )}
               </div>
             )}
           </div>
