@@ -26,6 +26,7 @@ interface Order {
   items_count?: number;
   courier_id?: string | null;
   has_review?: boolean;
+  first_item_name?: string;
 }
 
 const statusConfig: Record<string, { label: string; icon: React.ElementType; color: string }> = {
@@ -99,7 +100,8 @@ export default function OrdersPage() {
             name
           ),
           order_items (
-            id
+            id,
+            product_name
           )
         `)
         .eq('buyer_id', user.id)
@@ -118,6 +120,7 @@ export default function OrdersPage() {
         merchant_name: order.merchants?.name || 'Toko',
         items_count: order.order_items?.length || 0,
         has_review: order.has_review || false,
+        first_item_name: order.order_items?.[0]?.product_name || undefined,
       }));
 
       setOrders(formattedOrders);
@@ -276,8 +279,22 @@ export default function OrdersPage() {
           )}
           
           {loading ? (
-            <div className="flex justify-center py-12">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+            <div className="space-y-3">
+              {[1,2,3].map(i => (
+                <div key={i} className="bg-card rounded-xl border border-border p-4 space-y-3">
+                  <div className="flex justify-between">
+                    <div className="space-y-1">
+                      <div className="h-4 w-28 bg-muted animate-pulse rounded" />
+                      <div className="h-3 w-36 bg-muted animate-pulse rounded" />
+                    </div>
+                    <div className="h-5 w-20 bg-muted animate-pulse rounded-full" />
+                  </div>
+                  <div className="flex justify-between pt-3 border-t border-border">
+                    <div className="h-3 w-24 bg-muted animate-pulse rounded" />
+                    <div className="h-4 w-20 bg-muted animate-pulse rounded" />
+                  </div>
+                </div>
+              ))}
             </div>
           ) : orders.length === 0 ? (
             <div className="text-center py-12">
@@ -333,6 +350,11 @@ export default function OrdersPage() {
                     <div className="flex justify-between items-start mb-3">
                       <div>
                         <p className="font-bold text-sm">{order.merchant_name}</p>
+                        {order.first_item_name && (
+                          <p className="text-xs text-foreground/70 truncate max-w-[180px]">
+                            {order.first_item_name}{(order.items_count || 0) > 1 ? ` +${(order.items_count || 0) - 1} lainnya` : ''}
+                          </p>
+                        )}
                         <p className="text-xs text-muted-foreground">
                           {new Date(order.created_at).toLocaleDateString('id-ID', {
                             day: 'numeric',

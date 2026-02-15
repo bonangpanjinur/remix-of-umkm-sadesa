@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Minus, Plus, Trash2, ShoppingBag } from 'lucide-react';
+import { ArrowLeft, Minus, Plus, Trash2, ShoppingBag, Store } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useCart } from '@/contexts/CartContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -71,65 +71,82 @@ export default function CartPage() {
         </button>
       </div>
       
-      {/* Cart Items */}
+      {/* Cart Items - Grouped by Merchant */}
       <div className="flex-1 overflow-y-auto p-4 pb-48">
-        <div className="space-y-3">
-          {items.map((item, index) => (
-            <motion.div
-              key={item.product.id}
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: index * 0.05 }}
-              className="bg-card rounded-xl p-3 border border-border shadow-sm"
-            >
-              <div className="flex gap-3">
-                <img 
-                  src={item.product.image}
-                  alt={item.product.name}
-                  className="w-20 h-20 rounded-lg object-cover"
-                />
-                <div className="flex-1 min-w-0">
-                  <h3 className="font-bold text-sm text-foreground line-clamp-2">
-                    {item.product.name}
-                  </h3>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    {item.product.merchantName}
-                  </p>
-                  <p className="text-primary font-bold text-sm mt-1">
-                    {formatPrice(item.product.price)}
-                  </p>
-                </div>
+        {(() => {
+          // Group items by merchantName
+          const grouped: Record<string, typeof items> = {};
+          items.forEach(item => {
+            const key = item.product.merchantName || 'Toko';
+            if (!grouped[key]) grouped[key] = [];
+            grouped[key].push(item);
+          });
+
+          return Object.entries(grouped).map(([merchantName, merchantItems]) => (
+            <div key={merchantName} className="mb-4">
+              {/* Merchant Header */}
+              <div className="flex items-center gap-2 mb-2 px-1">
+                <Store className="h-4 w-4 text-primary" />
+                <span className="font-semibold text-sm text-foreground">{merchantName}</span>
+                <span className="text-[10px] text-muted-foreground">({merchantItems.length} item)</span>
               </div>
-              
-              <div className="flex justify-between items-center mt-3 pt-3 border-t border-border">
-                <button
-                  onClick={() => removeFromCart(item.product.id)}
-                  className="text-destructive hover:bg-destructive/10 p-2 rounded-lg transition"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
-                
-                <div className="flex items-center border border-border rounded-lg">
-                  <button 
-                    onClick={() => updateQuantity(item.product.id, item.quantity - 1)}
-                    className="w-8 h-8 text-muted-foreground hover:text-primary transition"
+              <div className="space-y-3">
+                {merchantItems.map((item, index) => (
+                  <motion.div
+                    key={item.product.id}
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: index * 0.05 }}
+                    className="bg-card rounded-xl p-3 border border-border shadow-sm"
                   >
-                    <Minus className="h-4 w-4 mx-auto" />
-                  </button>
-                  <span className="w-8 text-center font-bold text-sm">
-                    {item.quantity}
-                  </span>
-                  <button 
-                    onClick={() => updateQuantity(item.product.id, item.quantity + 1)}
-                    className="w-8 h-8 text-muted-foreground hover:text-primary transition"
-                  >
-                    <Plus className="h-4 w-4 mx-auto" />
-                  </button>
-                </div>
+                    <div className="flex gap-3">
+                      <img 
+                        src={item.product.image}
+                        alt={item.product.name}
+                        className="w-20 h-20 rounded-lg object-cover"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-bold text-sm text-foreground line-clamp-2">
+                          {item.product.name}
+                        </h3>
+                        <p className="text-primary font-bold text-sm mt-1">
+                          {formatPrice(item.product.price)}
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex justify-between items-center mt-3 pt-3 border-t border-border">
+                      <button
+                        onClick={() => removeFromCart(item.product.id)}
+                        className="text-destructive hover:bg-destructive/10 p-2 rounded-lg transition"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                      
+                      <div className="flex items-center border border-border rounded-lg">
+                        <button 
+                          onClick={() => updateQuantity(item.product.id, item.quantity - 1)}
+                          className="w-8 h-8 text-muted-foreground hover:text-primary transition"
+                        >
+                          <Minus className="h-4 w-4 mx-auto" />
+                        </button>
+                        <span className="w-8 text-center font-bold text-sm">
+                          {item.quantity}
+                        </span>
+                        <button 
+                          onClick={() => updateQuantity(item.product.id, item.quantity + 1)}
+                          className="w-8 h-8 text-muted-foreground hover:text-primary transition"
+                        >
+                          <Plus className="h-4 w-4 mx-auto" />
+                        </button>
+                      </div>
+                    </div>
+                  </motion.div>
+                ))}
               </div>
-            </motion.div>
-          ))}
-        </div>
+            </div>
+          ));
+        })()}
       </div>
 
       {/* Checkout Summary */}

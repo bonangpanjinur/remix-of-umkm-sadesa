@@ -195,6 +195,18 @@ export default function MerchantDashboardPage() {
 
   return (
     <MerchantLayout title="Dashboard" subtitle="Ringkasan toko Anda">
+      {/* Welcome Card */}
+      <div className="bg-gradient-to-r from-primary/10 to-primary/5 border border-primary/20 rounded-xl p-4 mb-4">
+        <h2 className="font-bold text-base text-foreground">
+          {new Date().getHours() < 12 ? '🌅 Selamat Pagi' : new Date().getHours() < 17 ? '☀️ Selamat Siang' : '🌙 Selamat Malam'}, {merchant.name}!
+        </h2>
+        <p className="text-xs text-muted-foreground mt-1">
+          {pendingOrders.length > 0
+            ? `Anda punya ${pendingOrders.length} pesanan baru menunggu konfirmasi.`
+            : 'Semua pesanan sudah ditangani. Kerja bagus! 🎉'}
+        </p>
+      </div>
+
       {/* 1. Quota Alert Banner - High priority, at the top */}
       <QuotaAlertBanner />
 
@@ -279,7 +291,7 @@ export default function MerchantDashboardPage() {
 
         <TabsContent value="overview" className="space-y-4 mt-0">
           {/* Quick Action: Pending Orders */}
-          {pendingOrders.length > 0 && (
+          {pendingOrders.length > 0 ? (
             <div className="bg-card rounded-xl border border-warning/30 p-4">
               <h4 className="font-semibold text-sm mb-3 flex items-center gap-2">
                 <Bell className="h-4 w-4 text-warning" />
@@ -315,6 +327,16 @@ export default function MerchantDashboardPage() {
                     </div>
                   </div>
                 ))}
+              </div>
+            </div>
+          ) : (
+            <div className="bg-card rounded-xl border border-success/30 p-6 flex items-center gap-4">
+              <div className="w-12 h-12 rounded-full bg-success/10 flex items-center justify-center">
+                <CheckCircle className="h-6 w-6 text-success" />
+              </div>
+              <div>
+                <p className="font-semibold text-sm text-foreground">Semua Pesanan Ditangani</p>
+                <p className="text-xs text-muted-foreground">Tidak ada pesanan yang menunggu konfirmasi saat ini.</p>
               </div>
             </div>
           )}

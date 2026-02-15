@@ -26,6 +26,8 @@ import { toast } from '@/hooks/use-toast';
 import { trackPageView } from '@/lib/pageViewTracker';
 import { addToRecentlyViewed } from '@/pages/buyer/RecentlyViewedPage';
 import type { Product } from '@/types';
+import { ProductReviews } from '@/components/product/ProductReviews';
+import { SimilarProducts } from '@/components/product/SimilarProducts';
 
 interface MerchantInfo {
   id: string;
@@ -244,10 +246,15 @@ export default function ProductDetail() {
             <p className="text-2xl font-bold text-primary">
               {formatPrice(product.price)}
             </p>
-            <div className="flex items-center gap-0.5 text-gold ml-2">
-              <Star className="h-4 w-4 fill-current" />
-              <span className="text-xs font-medium text-foreground">4.8</span>
-            </div>
+            {merchant && merchant.ratingCount > 0 && (
+              <div className="flex items-center gap-0.5 text-gold ml-2">
+                <Star className="h-4 w-4 fill-current" />
+                <span className="text-xs font-medium text-foreground">
+                  {merchant.ratingAvg.toFixed(1)}
+                </span>
+                <span className="text-[10px] text-muted-foreground">({merchant.ratingCount})</span>
+              </div>
+            )}
             {merchant?.halalStatus === 'VERIFIED' && (
               <div className="ml-auto flex items-center gap-1 bg-green-50 text-green-600 px-2 py-1 rounded-lg border border-green-100">
                 <BadgeCheck className="h-3.5 w-3.5" />
@@ -340,6 +347,12 @@ export default function ProductDetail() {
           <p className="text-sm text-muted-foreground leading-relaxed mb-6">
             {product.description}
           </p>
+
+          {/* Reviews Section */}
+          <ProductReviews merchantId={product.merchantId} />
+
+          {/* Similar Products */}
+          <SimilarProducts currentProductId={product.id} category={product.category} merchantId={product.merchantId} />
         </motion.div>
       </div>
 

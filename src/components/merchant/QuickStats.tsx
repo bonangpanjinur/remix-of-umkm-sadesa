@@ -1,8 +1,29 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Package, Clock, CheckCircle, XCircle, TrendingUp, Wallet } from 'lucide-react';
+import { motion, useInView, useSpring, useMotionValue } from 'framer-motion';
 import { Card, CardContent } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';
 import { formatPrice } from '@/lib/utils';
+
+function AnimatedCounter({ value }: { value: number }) {
+  const ref = useRef<HTMLSpanElement>(null);
+  const isInView = useInView(ref, { once: true });
+  const motionVal = useMotionValue(0);
+  const spring = useSpring(motionVal, { duration: 800, bounce: 0 });
+
+  useEffect(() => {
+    if (isInView) motionVal.set(value);
+  }, [isInView, value, motionVal]);
+
+  useEffect(() => {
+    const unsubscribe = spring.on('change', (v) => {
+      if (ref.current) ref.current.textContent = Math.round(v).toString();
+    });
+    return unsubscribe;
+  }, [spring]);
+
+  return <span ref={ref}>0</span>;
+}
 
 interface QuickStatsProps {
   merchantId: string;
@@ -148,7 +169,9 @@ export function QuickStats({ merchantId }: QuickStatsProps) {
             <div className={`w-10 h-10 rounded-lg ${item.bgColor} flex items-center justify-center mb-2`}>
               <item.icon className={`h-5 w-5 ${item.color}`} />
             </div>
-            <p className="text-2xl font-bold">{item.value}</p>
+            <p className="text-2xl font-bold">
+              {item.isPrice ? item.value : <AnimatedCounter value={item.value as number} />}
+            </p>
             <p className="text-xs text-muted-foreground">{item.label}</p>
           </CardContent>
         </Card>

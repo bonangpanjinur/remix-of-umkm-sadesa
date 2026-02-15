@@ -235,8 +235,39 @@ const Index = () => {
       {/* Scrollable Content */}
       <div className="flex-1 overflow-y-auto pb-24">
         {isLoading ? (
-          <div className="flex justify-center py-12">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+          <div className="space-y-4">
+            {/* Hero Skeleton */}
+            <div className="h-44 bg-muted animate-pulse rounded-b-2xl" />
+            {/* Category Pills Skeleton */}
+            <div className="flex gap-2 px-5 overflow-hidden">
+              {[1,2,3,4,5].map(i => (
+                <div key={i} className="flex flex-col items-center gap-1.5 min-w-[60px]">
+                  <div className="w-12 h-12 rounded-xl bg-muted animate-pulse" />
+                  <div className="w-10 h-2 bg-muted animate-pulse rounded" />
+                </div>
+              ))}
+            </div>
+            {/* Section Header Skeleton */}
+            <div className="px-5 flex items-center gap-2 mt-2">
+              <div className="w-7 h-7 bg-muted animate-pulse rounded-lg" />
+              <div className="w-28 h-4 bg-muted animate-pulse rounded" />
+            </div>
+            {/* Product Grid Skeleton */}
+            <div className="grid grid-cols-2 gap-3 px-5">
+              {[1,2,3,4].map(i => (
+                <div key={i} className="bg-card rounded-xl border border-border overflow-hidden">
+                  <div className="h-32 bg-muted animate-pulse" />
+                  <div className="p-2.5 space-y-2">
+                    <div className="h-3 w-20 bg-muted animate-pulse rounded" />
+                    <div className="h-4 w-full bg-muted animate-pulse rounded" />
+                    <div className="flex justify-between items-center">
+                      <div className="h-4 w-16 bg-muted animate-pulse rounded" />
+                      <div className="h-6 w-6 bg-muted animate-pulse rounded-lg" />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         ) : (
           <>
