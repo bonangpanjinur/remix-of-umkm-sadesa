@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
-import { Wallet, Check, X, Calendar } from 'lucide-react';
+import { Wallet, Check, X, Calendar, ShieldCheck, ExternalLink } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { formatPrice } from '@/lib/utils';
+import { Link } from 'react-router-dom';
 
 interface KasPayment {
   id: string;
@@ -12,6 +14,7 @@ interface KasPayment {
   payment_year: number;
   status: string;
   payment_date: string | null;
+  collected_by: string | null;
 }
 
 const MONTHS = [
@@ -28,11 +31,11 @@ export function MerchantKasCard({ merchantId }: MerchantKasCardProps) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetch = async () => {
+    const fetchKas = async () => {
       try {
         const { data } = await supabase
           .from('kas_payments')
-          .select('id, amount, payment_month, payment_year, status, payment_date')
+          .select('id, amount, payment_month, payment_year, status, payment_date, collected_by')
           .eq('merchant_id', merchantId)
           .order('payment_year', { ascending: false })
           .order('payment_month', { ascending: false })
@@ -45,7 +48,7 @@ export function MerchantKasCard({ merchantId }: MerchantKasCardProps) {
         setLoading(false);
       }
     };
-    fetch();
+    fetchKas();
   }, [merchantId]);
 
   if (loading) return null;
@@ -63,24 +66,37 @@ export function MerchantKasCard({ merchantId }: MerchantKasCardProps) {
   return (
     <Card>
       <CardHeader className="pb-3">
-        <CardTitle className="text-sm flex items-center gap-2">
-          <Wallet className="h-4 w-4 text-primary" />
-          Iuran Kas Kelompok
-        </CardTitle>
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <Wallet className="h-4 w-4 text-primary" />
+            Iuran Kas Kelompok
+          </CardTitle>
+          <Link to="/merchant/dues">
+            <Button variant="ghost" size="sm" className="text-xs h-7 gap-1">
+              Lihat Semua <ExternalLink className="h-3 w-3" />
+            </Button>
+          </Link>
+        </div>
       </CardHeader>
       <CardContent className="space-y-3">
         {/* Current month status */}
         {currentMonth && (
-          <div className={`p-3 rounded-lg border ${currentMonth.status === 'PAID' ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
+          <div className={`p-3 rounded-lg border ${currentMonth.status === 'PAID' ? 'bg-primary/5 border-primary/20' : 'bg-destructive/5 border-destructive/20'}`}>
             <div className="flex items-center justify-between">
               <span className="text-xs font-medium">
                 {MONTHS[currentMonth.payment_month - 1]} {currentMonth.payment_year}
               </span>
-              <Badge variant={currentMonth.status === 'PAID' ? 'success' : 'destructive'} className="text-[10px]">
+              <Badge variant={currentMonth.status === 'PAID' ? 'default' : 'destructive'} className="text-[10px]">
                 {currentMonth.status === 'PAID' ? 'LUNAS' : 'BELUM BAYAR'}
               </Badge>
             </div>
             <p className="text-sm font-bold mt-1">{formatPrice(currentMonth.amount)}</p>
+            {currentMonth.status === 'PAID' && currentMonth.collected_by && (
+              <div className="flex items-center gap-1 text-[10px] text-primary mt-1">
+                <ShieldCheck className="h-3 w-3" />
+                <span>Terverifikasi</span>
+              </div>
+            )}
           </div>
         )}
 
@@ -110,11 +126,14 @@ export function MerchantKasCard({ merchantId }: MerchantKasCardProps) {
               </span>
               <span className="flex items-center gap-1">
                 {p.status === 'PAID' ? (
-                  <Check className="h-3 w-3 text-green-600" />
+                  <>
+                    <Check className="h-3 w-3 text-primary" />
+                    {p.collected_by && <ShieldCheck className="h-3 w-3 text-primary" />}
+                  </>
                 ) : (
-                  <X className="h-3 w-3 text-red-500" />
+                  <X className="h-3 w-3 text-destructive" />
                 )}
-                <span className={p.status === 'PAID' ? 'text-green-600' : 'text-red-500'}>
+                <span className={p.status === 'PAID' ? 'text-primary' : 'text-destructive'}>
                   {formatPrice(p.amount)}
                 </span>
               </span>

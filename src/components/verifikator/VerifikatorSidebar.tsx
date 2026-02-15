@@ -5,7 +5,8 @@ import {
   Store, 
   ChevronLeft,
   ClipboardCheck,
-  Wallet
+  Wallet,
+  BarChart3
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
@@ -51,6 +52,7 @@ export function VerifikatorSidebar() {
   const menuItems: SidebarItem[] = [
     { label: 'Dashboard', href: '/verifikator', icon: <LayoutDashboard className="h-4 w-4" /> },
     { label: 'Merchant', href: '/verifikator/merchants', icon: <Store className="h-4 w-4" />, badge: pendingMerchants },
+    { label: 'Laporan Kas', href: '/verifikator/kas-report', icon: <BarChart3 className="h-4 w-4" /> },
     { label: 'Pendapatan', href: '/verifikator/earnings', icon: <Wallet className="h-4 w-4" /> },
   ];
 
