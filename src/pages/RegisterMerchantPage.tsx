@@ -1,895 +1,415 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
-import { 
-  Store, Phone, MapPin, ArrowLeft, CheckCircle, Clock, 
-  Tag, FileText, Building, Shield, AlertCircle, Check, Mail, Loader2, ShieldCheck, RefreshCw, Save, Trash2
-} from 'lucide-react';
-import { PageHeader } from '../components/layout/PageHeader';
-import { BottomNav } from '../components/layout/BottomNav';
-import { Button } from '../components/ui/button';
+import { useState, useEffect, useCallback, useRef } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+import { Loader2, Store } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "../components/ui/alert-dialog";
-import { useAuth } from '../contexts/AuthContext';
-import { Input } from '../components/ui/input';
-import { Textarea } from '../components/ui/textarea';
-import { Label } from '../components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
-import { supabase } from '../integrations/supabase/client';
-import { toast } from 'sonner';
-import { 
-  fetchProvinces, fetchRegencies, fetchDistricts, fetchVillages,
-  type Region
-} from '../lib/addressApi';
-import type { Village } from '../types';
-import { MerchantLocationPicker } from '../components/merchant/MerchantLocationPicker';
-import { HalalRegistrationInfo } from '../components/merchant/HalalRegistrationInfo';
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { useToast } from "@/components/ui/use-toast";
+import { locationService, Region } from "@/services/locationService";
+import { supabase } from "@/integrations/supabase/client";
+import { useNavigate } from "react-router-dom";
 
-const merchantSchema = z.object({
-  referralCode: z.string().max(50).optional(),
-  name: z.string().min(3, 'Nama usaha minimal 3 karakter').max(100),
-  businessCategory: z.string().min(1, 'Pilih kategori usaha'),
-  businessDescription: z.string().max(500).optional(),
-  province: z.string().min(1, 'Pilih provinsi'),
-  city: z.string().min(1, 'Pilih kabupaten/kota'),
-  district: z.string().min(1, 'Pilih kecamatan'),
-  subdistrict: z.string().min(1, 'Pilih kelurahan/desa'),
-  addressDetail: z.string().min(10, 'Alamat detail minimal 10 karakter').max(200),
-  phone: z.string().min(10, 'Nomor telepon minimal 10 digit').max(15),
-  openTime: z.string().min(1, 'Pilih jam buka'),
-  closeTime: z.string().min(1, 'Pilih jam tutup'),
+// Schema validasi form
+const formSchema = z.object({
+  shopName: z.string().min(3, "Nama toko minimal 3 karakter"),
+  description: z.string().min(10, "Deskripsi minimal 10 karakter"),
+  province: z.string().min(1, "Provinsi wajib dipilih"),
+  city: z.string().min(1, "Kota/Kabupaten wajib dipilih"),
+  district: z.string().min(1, "Kecamatan wajib dipilih"),
+  village: z.string().min(1, "Kelurahan wajib dipilih"),
+  address: z.string().min(10, "Alamat lengkap wajib diisi"),
+  phone: z.string().min(10, "Nomor telepon tidak valid"),
 });
 
-type MerchantFormData = z.infer<typeof merchantSchema>;
-
-const DRAFT_KEY = 'merchant_registration_draft';
-
-const timeOptions = [
-  '05:00', '06:00', '07:00', '08:00', '09:00', '10:00', '11:00', '12:00',
-  '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00',
-  '21:00', '22:00', '23:00', '00:00'
-];
-
-const businessCategories = [
-  { value: 'kuliner', label: 'Kuliner & Makanan', icon: '🍜' },
-  { value: 'fashion', label: 'Fashion & Pakaian', icon: '👕' },
-  { value: 'kriya', label: 'Kerajinan Tangan', icon: '🎨' },
-];
-
-interface ReferralInfo {
-  isValid: boolean;
-  tradeGroup: string;
-  description: string;
-  isLoading: boolean;
-}
-
-interface DraftData {
-  referralCode: string;
-  name: string;
-  businessCategory: string;
-  businessDescription: string;
-  phone: string;
-  openTime: string;
-  closeTime: string;
-  addressDetail: string;
-  selectedProvince: string;
-  selectedCity: string;
-  selectedDistrict: string;
-  selectedSubdistrict: string;
-  merchantLocation: { lat: number; lng: number } | null;
-  halalStatus: string;
-  halalCertUrl?: string;
-  ktpUrl?: string;
-}
-
-export default function RegisterMerchantPage() {
+export default function SellerApplicationForm() {
+  const { toast } = useToast();
   const navigate = useNavigate();
-  const { user } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isSuccess, setIsSuccess] = useState(false);
-  const [showEmailModal, setShowEmailModal] = useState(false);
-  const [hasDraft, setHasDraft] = useState(false);
-  const draftRestoredRef = useRef(false);
-  const saveDraftTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  
-  const [selectedProvince, setSelectedProvince] = useState('');
-  const [selectedCity, setSelectedCity] = useState('');
-  const [selectedDistrict, setSelectedDistrict] = useState('');
-  const [selectedSubdistrict, setSelectedSubdistrict] = useState('');
-  
-  const [provincesList, setProvincesList] = useState<Region[]>([]);
+
+  // State untuk data wilayah
+  const [provinces, setProvinces] = useState<Region[]>([]);
   const [cities, setCities] = useState<Region[]>([]);
-  const [districtsList, setDistrictsList] = useState<Region[]>([]);
-  const [subdistrictsList, setSubdistrictsList] = useState<Region[]>([]);
-  
-  const [loadingProvinces, setLoadingProvinces] = useState(false);
-  const [loadingCities, setLoadingCities] = useState(false);
-  const [loadingDistricts, setLoadingDistricts] = useState(false);
-  const [loadingSubdistricts, setLoadingSubdistricts] = useState(false);
+  const [districts, setDistricts] = useState<Region[]>([]);
+  const [villages, setVillages] = useState<Region[]>([]);
 
-  // Error states for retry
-  const [errorDistricts, setErrorDistricts] = useState(false);
-  const [errorSubdistricts, setErrorSubdistricts] = useState(false);
-  
-  const [matchedVillage, setMatchedVillage] = useState<Village | null>(null);
-  const [villageLoading, setVillageLoading] = useState(false);
-  const [merchantLocation, setMerchantLocation] = useState<{ lat: number; lng: number } | null>(null);
-  
-  const [halalStatus, setHalalStatus] = useState<'NONE' | 'PENDING_VERIFICATION' | 'REQUESTED'>('NONE');
-  const [halalCertUrl, setHalalCertUrl] = useState<string | undefined>(undefined);
-  const [ktpUrl, setKtpUrl] = useState<string | undefined>(undefined);
-  
-  const [referralInfo, setReferralInfo] = useState<ReferralInfo>({
-    isValid: false,
-    tradeGroup: '',
-    description: '',
-    isLoading: false,
-  });
-  const [referralCode, setReferralCode] = useState('');
+  // State loading untuk dropdown wilayah
+  const [isLoadingProvinces, setIsLoadingProvinces] = useState(false);
+  const [isLoadingCities, setIsLoadingCities] = useState(false);
+  const [isLoadingDistricts, setIsLoadingDistricts] = useState(false);
+  const [isLoadingVillages, setIsLoadingVillages] = useState(false);
 
-  const { register, handleSubmit, setValue, watch, getValues, formState: { errors } } = useForm<MerchantFormData>({
-    resolver: zodResolver(merchantSchema),
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      shopName: "",
+      description: "",
+      province: "",
+      city: "",
+      district: "",
+      village: "",
+      address: "",
+      phone: "",
+    },
   });
 
-  // === DRAFT: Save ===
-  const saveDraft = useCallback(() => {
-    const values = getValues();
-    const draft: DraftData = {
-      referralCode,
-      name: values.name || '',
-      businessCategory: values.businessCategory || '',
-      businessDescription: values.businessDescription || '',
-      phone: values.phone || '',
-      openTime: values.openTime || '',
-      closeTime: values.closeTime || '',
-      addressDetail: values.addressDetail || '',
-      selectedProvince,
-      selectedCity,
-      selectedDistrict,
-      selectedSubdistrict,
-      merchantLocation,
-      halalStatus,
-      halalCertUrl,
-      ktpUrl,
+  // 1. Fetch Provinsi saat komponen di-mount
+  useEffect(() => {
+    const fetchProvincesData = async () => {
+      setIsLoadingProvinces(true);
+      const data = await locationService.getProvinces();
+      setProvinces(data);
+      setIsLoadingProvinces(false);
     };
-    try {
-      localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
-      setHasDraft(true);
-    } catch {}
-  }, [getValues, referralCode, selectedProvince, selectedCity, selectedDistrict, selectedSubdistrict, merchantLocation, halalStatus, halalCertUrl, ktpUrl]);
-
-  // Debounced auto-save
-  const scheduleSaveDraft = useCallback(() => {
-    if (saveDraftTimerRef.current) clearTimeout(saveDraftTimerRef.current);
-    saveDraftTimerRef.current = setTimeout(() => saveDraft(), 500);
-  }, [saveDraft]);
-
-  // Watch all form fields for auto-save
-  const watchedFields = watch();
-  useEffect(() => {
-    if (draftRestoredRef.current) {
-      scheduleSaveDraft();
-    }
-  }, [watchedFields, referralCode, selectedProvince, selectedCity, selectedDistrict, selectedSubdistrict, merchantLocation, halalStatus, halalCertUrl, ktpUrl, scheduleSaveDraft]);
-
-  // === DRAFT: Restore on mount ===
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem(DRAFT_KEY);
-      if (!raw) {
-        draftRestoredRef.current = true;
-        return;
-      }
-      const draft: DraftData = JSON.parse(raw);
-      setHasDraft(true);
-
-      // Restore simple fields
-      if (draft.name) setValue('name', draft.name);
-      if (draft.businessCategory) setValue('businessCategory', draft.businessCategory);
-      if (draft.businessDescription) setValue('businessDescription', draft.businessDescription);
-      if (draft.phone) setValue('phone', draft.phone);
-      if (draft.openTime) setValue('openTime', draft.openTime);
-      if (draft.closeTime) setValue('closeTime', draft.closeTime);
-      if (draft.addressDetail) setValue('addressDetail', draft.addressDetail);
-      if (draft.referralCode) setReferralCode(draft.referralCode);
-      if (draft.merchantLocation) setMerchantLocation(draft.merchantLocation);
-      if (draft.halalStatus) setHalalStatus(draft.halalStatus as any);
-      if (draft.halalCertUrl) setHalalCertUrl(draft.halalCertUrl);
-      if (draft.ktpUrl) setKtpUrl(draft.ktpUrl);
-
-      // Restore address chain
-      if (draft.selectedProvince) {
-        setSelectedProvince(draft.selectedProvince);
-        setValue('province', draft.selectedProvince);
-      }
-      if (draft.selectedCity) {
-        setSelectedCity(draft.selectedCity);
-        setValue('city', draft.selectedCity);
-      }
-      if (draft.selectedDistrict) {
-        setSelectedDistrict(draft.selectedDistrict);
-        setValue('district', draft.selectedDistrict);
-      }
-      if (draft.selectedSubdistrict) {
-        setSelectedSubdistrict(draft.selectedSubdistrict);
-        setValue('subdistrict', draft.selectedSubdistrict);
-      }
-
-      toast.info('Draft formulir dipulihkan');
-    } catch {
-      console.warn('Failed to restore draft');
-    }
-    draftRestoredRef.current = true;
-  }, [setValue]);
-
-  const clearDraft = () => {
-    localStorage.removeItem(DRAFT_KEY);
-    setHasDraft(false);
-    toast.success('Draft dihapus');
-  };
-
-  // === Address loading ===
-  useEffect(() => {
-    const loadProvinces = async () => {
-      setLoadingProvinces(true);
-      try {
-        const data = await fetchProvinces();
-        setProvincesList(data);
-      } catch (error) {
-        console.error('Error loading provinces:', error);
-        toast.error('Gagal memuat data provinsi');
-      } finally {
-        setLoadingProvinces(false);
-      }
-    };
-    loadProvinces();
+    fetchProvincesData();
   }, []);
 
-  useEffect(() => {
-    const loadCities = async () => {
-      if (selectedProvince) {
-        setLoadingCities(true);
-        try {
-          const data = await fetchRegencies(selectedProvince);
-          setCities(data);
-          if (!draftRestoredRef.current) return;
-          // Only reset if user manually changed province (not draft restore)
-        } catch (error) {
-          console.error('Error loading cities:', error);
-          toast.error('Gagal memuat data kabupaten/kota');
-        } finally {
-          setLoadingCities(false);
-        }
-      } else {
-        setCities([]);
-      }
-    };
-    loadCities();
-  }, [selectedProvince]);
+  // 2. Handler perubahan Provinsi -> Fetch Kota
+  const handleProvinceChange = async (value: string) => {
+    form.setValue("province", value);
+    // Reset field di bawahnya
+    form.setValue("city", "");
+    form.setValue("district", "");
+    form.setValue("village", "");
+    setCities([]);
+    setDistricts([]);
+    setVillages([]);
 
-  const loadDistrictsFn = useCallback(async (cityCode: string) => {
-    if (!cityCode) { setDistrictsList([]); return; }
-    setLoadingDistricts(true);
-    setErrorDistricts(false);
-    try {
-      const data = await fetchDistricts(cityCode);
-      setDistrictsList(data);
-      if (data.length === 0 && cityCode) setErrorDistricts(true);
-    } catch (error) {
-      console.error('Error loading districts:', error);
-      setErrorDistricts(true);
-    } finally {
-      setLoadingDistricts(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    loadDistrictsFn(selectedCity);
-  }, [selectedCity, loadDistrictsFn]);
-
-  const loadSubdistrictsFn = useCallback(async (districtCode: string) => {
-    if (!districtCode) { setSubdistrictsList([]); return; }
-    setLoadingSubdistricts(true);
-    setErrorSubdistricts(false);
-    try {
-      const data = await fetchVillages(districtCode);
-      setSubdistrictsList(data);
-      if (data.length === 0 && districtCode) setErrorSubdistricts(true);
-    } catch (error) {
-      console.error('Error loading subdistricts:', error);
-      setErrorSubdistricts(true);
-    } finally {
-      setLoadingSubdistricts(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    loadSubdistrictsFn(selectedDistrict);
-  }, [selectedDistrict, loadSubdistrictsFn]);
-
-  useEffect(() => {
-    async function checkVillageMatch() {
-      if (!selectedSubdistrict) {
-        setMatchedVillage(null);
-        return;
-      }
-
-      setVillageLoading(true);
-      try {
-        const subdistrictName = subdistrictsList.find(s => s.code === selectedSubdistrict)?.name || '';
-        
-        const { data, error } = await supabase
-          .from('villages')
-          .select('*')
-          .or(`name.ilike.%${subdistrictName}%,district.ilike.%${subdistrictName}%,subdistrict.ilike.%${subdistrictName}%`)
-          .limit(1);
-
-        if (error) throw error;
-
-        if (data && data.length > 0) {
-          setMatchedVillage({
-            id: data[0].id,
-            name: data[0].name,
-            district: data[0].district,
-            regency: data[0].regency,
-            description: data[0].description || '',
-            image: data[0].image_url || '',
-            isActive: data[0].is_active,
-          });
-        } else {
-          setMatchedVillage(null);
-        }
-      } catch (error) {
-        console.error('Error checking village match:', error);
-        setMatchedVillage(null);
-      } finally {
-        setVillageLoading(false);
-      }
-    }
-    checkVillageMatch();
-  }, [selectedSubdistrict, subdistrictsList]);
-
-  const validateReferralCode = async (code: string) => {
-    if (code.length < 3) {
-      setReferralInfo({ isValid: false, tradeGroup: '', description: '', isLoading: false });
-      return;
-    }
-    setReferralInfo(prev => ({ ...prev, isLoading: true }));
-    try {
-      const { data, error } = await supabase
-        .from('verifikator_codes')
-        .select('*')
-        .eq('code', code.toUpperCase())
-        .eq('is_active', true)
-        .single();
-
-      if (error || !data) {
-        setReferralInfo({ isValid: false, tradeGroup: '', description: '', isLoading: false });
-        return;
-      }
-      if (data.max_usage && data.usage_count >= data.max_usage) {
-        setReferralInfo({ isValid: false, tradeGroup: '', description: 'Kode sudah mencapai batas maksimal penggunaan', isLoading: false });
-        return;
-      }
-      setReferralInfo({
-        isValid: true,
-        tradeGroup: data.trade_group,
-        description: data.description || '',
-        isLoading: false,
-      });
-      setValue('referralCode', code.toUpperCase());
-    } catch (error) {
-      console.error('Error validating referral:', error);
-      setReferralInfo({ isValid: false, tradeGroup: '', description: '', isLoading: false });
+    if (value) {
+      setIsLoadingCities(true);
+      const data = await locationService.getRegencies(value);
+      setCities(data);
+      setIsLoadingCities(false);
     }
   };
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (referralCode) validateReferralCode(referralCode);
-    }, 500);
-    return () => clearTimeout(timer);
-  }, [referralCode]);
+  // 3. Handler perubahan Kota -> Fetch Kecamatan
+  const handleCityChange = async (value: string) => {
+    form.setValue("city", value);
+    form.setValue("district", "");
+    form.setValue("village", "");
+    setDistricts([]);
+    setVillages([]);
 
-  const onSubmit = async (data: MerchantFormData) => {
-    if (referralCode && referralCode.length > 0 && !referralInfo.isValid) {
-      toast.error('Kode referral tidak valid');
-      return;
+    if (value) {
+      setIsLoadingDistricts(true);
+      const data = await locationService.getDistricts(value);
+      setDistricts(data);
+      setIsLoadingDistricts(false);
     }
+  };
 
-    if (data.businessCategory === 'kuliner' && halalStatus === 'NONE' && !ktpUrl) {
-      toast.error('Foto KTP wajib diunggah untuk kategori kuliner yang belum memiliki sertifikat halal');
-      return;
+  // 4. Handler perubahan Kecamatan -> Fetch Kelurahan
+  const handleDistrictChange = async (value: string) => {
+    form.setValue("district", value);
+    form.setValue("village", "");
+    setVillages([]);
+
+    if (value) {
+      setIsLoadingVillages(true);
+      const data = await locationService.getVillages(value);
+      setVillages(data);
+      setIsLoadingVillages(false);
     }
+  };
 
+  const onSubmit = async (values: z.infer<typeof formSchema>) => {
     setIsSubmitting(true);
-    try {
-      const provinceName = provincesList.find(p => p.code === data.province)?.name || '';
-      const cityName = cities.find(c => c.code === data.city)?.name || '';
-      const districtName = districtsList.find(d => d.code === data.district)?.name || '';
-      const subdistrictName = subdistrictsList.find(s => s.code === data.subdistrict)?.name || '';
 
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
       if (!user) {
-        toast.error('Anda harus login untuk mendaftar');
-        navigate('/auth');
+        toast({
+          variant: "destructive",
+          title: "Gagal",
+          description: "Anda harus login terlebih dahulu",
+        });
         return;
       }
 
-      const { error } = await supabase.from('merchants').insert({
-        name: data.name.trim(),
-        user_id: user.id,
-        village_id: matchedVillage?.id || null,
-        address: data.addressDetail.trim(),
-        province: provinceName,
-        city: cityName,
-        district: districtName,
-        subdistrict: subdistrictName,
-        phone: data.phone.trim(),
-        business_category: data.businessCategory,
-        business_description: data.businessDescription?.trim() || null,
-        verifikator_code: referralCode ? referralCode.toUpperCase() : null,
-        trade_group: referralInfo.tradeGroup || null,
-        registration_status: 'PENDING',
-        status: 'PENDING',
-        order_mode: 'ADMIN_ASSISTED',
-        is_open: false,
-        open_time: data.openTime,
-        close_time: data.closeTime,
-        registered_at: new Date().toISOString(),
-        location_lat: merchantLocation?.lat || null,
-        location_lng: merchantLocation?.lng || null,
-        halal_status: halalStatus,
-        halal_certificate_url: halalCertUrl,
-        ktp_url: ktpUrl,
-      });
+      // Mendapatkan nama wilayah dari ID untuk disimpan
+      const provinceName = locationService.getNameById(provinces, values.province);
+      const cityName = locationService.getNameById(cities, values.city);
+      const districtName = locationService.getNameById(districts, values.district);
+      const villageName = locationService.getNameById(villages, values.village);
+
+      // Simpan ke database
+      const { error } = await supabase
+        .from('merchants') 
+        .insert({
+          user_id: user.id,
+          name: values.shopName,
+          business_description: values.description,
+          phone: values.phone,
+          address_detail: values.address,
+          province: provinceName,
+          city: cityName,
+          district: districtName,
+          subdistrict: villageName,
+          status: 'PENDING',
+        });
 
       if (error) throw error;
-      // Clear draft on success
-      localStorage.removeItem(DRAFT_KEY);
-      setHasDraft(false);
-      setIsSuccess(true);
-      setShowEmailModal(true);
-      toast.success('Pendaftaran pedagang berhasil dikirim!');
-    } catch (error) {
-      console.error('Error submitting merchant registration:', error);
-      toast.error('Gagal mengirim pendaftaran. Silakan coba lagi.');
+
+      toast({
+        title: "Pendaftaran Berhasil",
+        description: "Aplikasi merchant Anda telah dikirim untuk ditinjau.",
+      });
+      
+      navigate("/merchant/dashboard");
+
+    } catch (error: any) {
+      console.error("Submission error:", error);
+      toast({
+        variant: "destructive",
+        title: "Gagal Mengirim",
+        description: error.message || "Terjadi kesalahan saat menyimpan data",
+      });
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  if (isSuccess) {
-    return (
-      <div className="min-h-screen bg-background flex flex-col">
-        <PageHeader title="Pendaftaran Berhasil" showBack={false} />
-        <main className="flex-1 flex flex-col items-center justify-center p-6 text-center">
-          <motion.div
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            className="w-20 h-20 bg-success/10 rounded-full flex items-center justify-center mb-6"
-          >
-            <CheckCircle className="w-10 h-10 text-success" />
-          </motion.div>
-          <h2 className="text-2xl font-bold mb-2">Pendaftaran Terkirim!</h2>
-          <p className="text-muted-foreground mb-8">
-            Terima kasih telah mendaftar sebagai mitra merchant. Tim kami akan melakukan verifikasi data Anda dalam 1-3 hari kerja.
-          </p>
-          <Button onClick={() => navigate('/')} className="w-full max-w-xs">
-            Kembali ke Beranda
-          </Button>
-        </main>
-        <BottomNav />
-      </div>
-    );
-  }
-
   return (
-    <div className="min-h-screen bg-background pb-24">
-      <PageHeader title="Daftar Jadi Merchant" />
-      
-      <main className="p-4 max-w-2xl mx-auto">
-        {/* Draft banner */}
-        {hasDraft && (
-          <div className="bg-accent/50 border border-accent rounded-xl p-3 mb-4 flex items-center justify-between">
-            <div className="flex items-center gap-2 text-sm">
-              <Save className="w-4 h-4 text-primary" />
-              <span className="text-muted-foreground">Draft tersimpan otomatis</span>
-            </div>
-            <Button variant="ghost" size="sm" onClick={clearDraft} className="text-xs h-7 gap-1">
-              <Trash2 className="w-3 h-3" />
-              Hapus Draft
-            </Button>
-          </div>
-        )}
-
-        <div className="bg-primary/5 border border-primary/10 rounded-xl p-4 mb-6 flex gap-3">
-          <AlertCircle className="w-5 h-5 text-primary shrink-0 mt-0.5" />
-          <div className="text-sm">
-            <p className="font-medium text-primary mb-1">Informasi Pendaftaran</p>
-            <p className="text-muted-foreground">Lengkapi data usaha Anda dengan benar untuk mempercepat proses verifikasi oleh tim kami.</p>
-          </div>
+    <div className="max-w-2xl mx-auto p-4 md:p-6 bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800">
+      <div className="mb-8 text-center">
+        <div className="mx-auto w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mb-4 text-primary">
+          <Store className="w-6 h-6" />
         </div>
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Daftar Merchant Baru</h2>
+        <p className="text-gray-500 dark:text-gray-400 mt-2">Mulai berjualan dengan mengisi data usaha Anda</p>
+      </div>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-          {/* Referral Section */}
-          <div className="space-y-4 bg-card border rounded-xl p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <Tag className="w-5 h-5 text-primary" />
-              <h3 className="font-semibold">Kode Referral (Opsional)</h3>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="referralCode">Punya kode dari verifikator?</Label>
-              <div className="relative">
-                <Input
-                  id="referralCode"
-                  placeholder="Masukkan kode referral"
-                  className="uppercase pr-10"
-                  value={referralCode}
-                  onChange={(e) => setReferralCode(e.target.value)}
-                />
-                {referralInfo.isLoading && (
-                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                    <Loader2 className="w-4 h-4 text-primary animate-spin" />
-                  </div>
-                )}
-                {!referralInfo.isLoading && referralInfo.isValid && (
-                  <Check className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-success" />
-                )}
-              </div>
-              {referralInfo.isValid && (
-                <div className="bg-success/5 border border-success/20 rounded-lg p-3 flex gap-2 items-start">
-                  <CheckCircle className="w-4 h-4 text-success shrink-0 mt-0.5" />
-                  <div className="text-xs text-success">
-                    <p className="font-bold">Kode Valid: {referralInfo.tradeGroup}</p>
-                    <p>{referralInfo.description}</p>
-                  </div>
-                </div>
-              )}
-              {referralCode && !referralInfo.isValid && !referralInfo.isLoading && (
-                <p className="text-xs text-destructive">Kode tidak ditemukan atau sudah tidak aktif</p>
-              )}
-            </div>
-          </div>
-
-          {/* Business Info */}
-          <div className="space-y-4 bg-card border rounded-xl p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <Store className="w-5 h-5 text-primary" />
-              <h3 className="font-semibold">Informasi Usaha</h3>
-            </div>
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+          
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold flex items-center gap-2">
+              <span className="w-6 h-6 rounded-full bg-primary text-white text-xs flex items-center justify-center">1</span>
+              Informasi Toko
+            </h3>
             
-              <div className="space-y-2">
-                <Label htmlFor="name">Nama Usaha</Label>
-                <Input id="name" {...register('name')} placeholder="Contoh: Warung Makan Berkah" />
-                {errors.name && <p className="text-xs text-destructive">{errors.name.message}</p>}
-              </div>
-
-
-            <div className="space-y-2">
-              <Label>Kategori Usaha</Label>
-              <Select onValueChange={(val) => setValue('businessCategory', val)} value={watch('businessCategory') || undefined}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Pilih kategori" />
-                </SelectTrigger>
-                <SelectContent>
-                  {businessCategories.map((cat) => (
-                    <SelectItem key={cat.value} value={cat.value}>
-                      <div className="flex items-center gap-2">
-                        <span>{cat.icon}</span>
-                        <span>{cat.label}</span>
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {errors.businessCategory && <p className="text-xs text-destructive">{errors.businessCategory.message}</p>}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="businessDescription">Deskripsi Usaha (Opsional)</Label>
-              <Textarea 
-                id="businessDescription" 
-                {...register('businessDescription')} 
-                placeholder="Ceritakan sedikit tentang usaha Anda..."
-                className="resize-none h-24"
-              />
-              {errors.businessDescription && <p className="text-xs text-destructive">{errors.businessDescription.message}</p>}
-            </div>
-          </div>
-
-          {/* Contact Info */}
-          <div className="space-y-4 bg-card border rounded-xl p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <Phone className="w-5 h-5 text-primary" />
-              <h3 className="font-semibold">Kontak & Operasional</h3>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="phone">Nomor WhatsApp</Label>
-              <Input id="phone" {...register('phone')} placeholder="08xxxxxxxxxx" type="tel" />
-              {errors.phone && <p className="text-xs text-destructive">{errors.phone.message}</p>}
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Jam Buka</Label>
-                <Select onValueChange={(val) => setValue('openTime', val)} value={watch('openTime') || undefined}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Buka" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {timeOptions.map((time) => (
-                      <SelectItem key={time} value={time}>{time}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {errors.openTime && <p className="text-xs text-destructive">{errors.openTime.message}</p>}
-              </div>
-              <div className="space-y-2">
-                <Label>Jam Tutup</Label>
-                <Select onValueChange={(val) => setValue('closeTime', val)} value={watch('closeTime') || undefined}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Tutup" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {timeOptions.map((time) => (
-                      <SelectItem key={time} value={time}>{time}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {errors.closeTime && <p className="text-xs text-destructive">{errors.closeTime.message}</p>}
-              </div>
-            </div>
-          </div>
-
-          {/* Location Info */}
-          <div className="space-y-4 bg-card border rounded-xl p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <MapPin className="w-5 h-5 text-primary" />
-              <h3 className="font-semibold">Lokasi Usaha</h3>
-            </div>
-
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label>Provinsi</Label>
-                <Select onValueChange={(val) => {
-                  setSelectedProvince(val);
-                  setValue('province', val);
-                  // Reset dependents
-                  setSelectedCity(''); setSelectedDistrict(''); setSelectedSubdistrict('');
-                  setValue('city', ''); setValue('district', ''); setValue('subdistrict', '');
-                  setCities([]); setDistrictsList([]); setSubdistrictsList([]);
-                }} value={selectedProvince || undefined}>
-                  <SelectTrigger>
-                    <div className="flex items-center gap-2">
-                      {loadingProvinces && <Loader2 className="w-3 h-3 animate-spin" />}
-                      <SelectValue placeholder="Pilih provinsi" />
-                    </div>
-                  </SelectTrigger>
-                  <SelectContent>
-                    {provincesList.map((p) => (
-                      <SelectItem key={p.code} value={p.code}>{p.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {errors.province && <p className="text-xs text-destructive">{errors.province.message}</p>}
-              </div>
-
-              <div className="space-y-2">
-                <Label>Kabupaten/Kota</Label>
-                <Select 
-                  disabled={!selectedProvince || loadingCities}
-                  onValueChange={(val) => {
-                    setSelectedCity(val);
-                    setValue('city', val);
-                    // Reset dependents
-                    setSelectedDistrict(''); setSelectedSubdistrict('');
-                    setValue('district', ''); setValue('subdistrict', '');
-                    setDistrictsList([]); setSubdistrictsList([]);
-                  }}
-                  value={selectedCity || undefined}
-                >
-                  <SelectTrigger>
-                    <div className="flex items-center gap-2">
-                      {loadingCities && <Loader2 className="w-3 h-3 animate-spin" />}
-                      <SelectValue placeholder={loadingCities ? "Memuat..." : "Pilih kabupaten/kota"} />
-                    </div>
-                  </SelectTrigger>
-                  <SelectContent>
-                    {cities.map((c) => (
-                      <SelectItem key={c.code} value={c.code}>{c.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {errors.city && <p className="text-xs text-destructive">{errors.city.message}</p>}
-              </div>
-
-              <div className="space-y-2">
-                <Label>Kecamatan</Label>
-                <Select 
-                  disabled={!selectedCity || loadingDistricts}
-                  onValueChange={(val) => {
-                    setSelectedDistrict(val);
-                    setValue('district', val);
-                    // Reset dependents
-                    setSelectedSubdistrict('');
-                    setValue('subdistrict', '');
-                    setSubdistrictsList([]);
-                  }}
-                  value={selectedDistrict || undefined}
-                >
-                  <SelectTrigger>
-                    <div className="flex items-center gap-2">
-                      {loadingDistricts && <Loader2 className="w-3 h-3 animate-spin" />}
-                      <SelectValue placeholder={loadingDistricts ? "Memuat..." : "Pilih kecamatan"} />
-                    </div>
-                  </SelectTrigger>
-                  <SelectContent>
-                    {districtsList.map((d) => (
-                      <SelectItem key={d.code} value={d.code}>{d.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {errorDistricts && !loadingDistricts && (
-                  <div className="flex items-center gap-2 text-xs text-destructive">
-                    <AlertCircle className="w-3 h-3" />
-                    <span>Gagal memuat data kecamatan.</span>
-                    <button type="button" onClick={() => loadDistrictsFn(selectedCity)} className="underline font-medium flex items-center gap-1">
-                      <RefreshCw className="w-3 h-3" /> Coba Lagi
-                    </button>
-                  </div>
-                )}
-                {errors.district && <p className="text-xs text-destructive">{errors.district.message}</p>}
-              </div>
-
-              <div className="space-y-2">
-                <Label>Kelurahan/Desa</Label>
-                <Select 
-                  disabled={!selectedDistrict || loadingSubdistricts}
-                  onValueChange={(val) => {
-                    setSelectedSubdistrict(val);
-                    setValue('subdistrict', val);
-                  }}
-                  value={selectedSubdistrict || undefined}
-                >
-                  <SelectTrigger>
-                    <div className="flex items-center gap-2">
-                      {loadingSubdistricts && <Loader2 className="w-3 h-3 animate-spin" />}
-                      <SelectValue placeholder={loadingSubdistricts ? "Memuat..." : "Pilih kelurahan/desa"} />
-                    </div>
-                  </SelectTrigger>
-                  <SelectContent>
-                    {subdistrictsList.map((s) => (
-                      <SelectItem key={s.code} value={s.code}>{s.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {errorSubdistricts && !loadingSubdistricts && (
-                  <div className="flex items-center gap-2 text-xs text-destructive">
-                    <AlertCircle className="w-3 h-3" />
-                    <span>Gagal memuat data kelurahan.</span>
-                    <button type="button" onClick={() => loadSubdistrictsFn(selectedDistrict)} className="underline font-medium flex items-center gap-1">
-                      <RefreshCw className="w-3 h-3" /> Coba Lagi
-                    </button>
-                  </div>
-                )}
-                {errors.subdistrict && <p className="text-xs text-destructive">{errors.subdistrict.message}</p>}
-              </div>
-
-              {villageLoading && (
-                <div className="flex items-center gap-2 text-xs text-muted-foreground animate-pulse">
-                  <div className="w-2 h-2 bg-primary rounded-full" />
-                  Mengecek ketersediaan desa digital...
-                </div>
+            <FormField
+              control={form.control}
+              name="shopName"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Nama Toko</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Contoh: Barokah Toko" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
               )}
-
-              {matchedVillage && (
-                <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 flex gap-3 items-start">
-                  <Building className="w-5 h-5 text-primary shrink-0 mt-0.5" />
-                  <div className="text-xs">
-                    <p className="font-bold text-primary">Desa Digital Terdeteksi!</p>
-                    <p className="text-muted-foreground">Usaha Anda akan terhubung dengan sistem digital {matchedVillage.name}.</p>
-                  </div>
-                </div>
-              )}
-
-              <div className="space-y-2">
-                <Label htmlFor="addressDetail">Alamat Lengkap</Label>
-                <Textarea 
-                  id="addressDetail" 
-                  {...register('addressDetail')} 
-                  placeholder="Nama jalan, nomor rumah, patokan..."
-                  className="resize-none h-20"
-                />
-                {errors.addressDetail && <p className="text-xs text-destructive">{errors.addressDetail.message}</p>}
-              </div>
-
-              <div className="space-y-2">
-                <Label>Titik Lokasi (Opsional)</Label>
-                <MerchantLocationPicker 
-                  value={merchantLocation}
-                  onChange={(location) => setMerchantLocation(location)}
-                />
-                <p className="text-[10px] text-muted-foreground">Gunakan titik lokasi agar pembeli lebih mudah menemukan usaha Anda.</p>
-              </div>
-            </div>
-          </div>
-
-          {watch('businessCategory') === 'kuliner' && (
-            <HalalRegistrationInfo 
-              onStatusChange={(status, cert, ktp) => {
-                setHalalStatus(status);
-                setHalalCertUrl(cert);
-                setKtpUrl(ktp);
-              }}
             />
-          )}
 
-          <div className="pt-4">
-            <Button 
-              type="submit" 
-              className="w-full h-12 text-lg font-bold" 
-              disabled={isSubmitting}
-            >
-              {isSubmitting ? (
-                <div className="flex items-center gap-2">
-                  <Loader2 className="w-4 h-4 text-white animate-spin" />
-                  Memproses...
-                </div>
-              ) : (
-                'Daftar Sekarang'
+            <FormField
+              control={form.control}
+              name="description"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Deskripsi Singkat</FormLabel>
+                  <FormControl>
+                    <Textarea 
+                      placeholder="Jelaskan produk yang Anda jual..." 
+                      className="resize-none h-24"
+                      {...field} 
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
               )}
-            </Button>
-            <p className="text-[10px] text-center text-muted-foreground mt-4 px-4">
-              Dengan mendaftar, Anda menyetujui Syarat & Ketentuan serta Kebijakan Privasi kami sebagai mitra merchant.
-            </p>
+            />
+
+            <FormField
+              control={form.control}
+              name="phone"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Nomor WhatsApp</FormLabel>
+                  <FormControl>
+                    <Input type="tel" placeholder="08xxxxxxxxxx" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
           </div>
-        </form>
-      </main>
 
-      <AlertDialog open={showEmailModal} onOpenChange={setShowEmailModal}>
-        <AlertDialogContent className="max-w-[90vw] rounded-2xl">
-          <AlertDialogHeader>
-            <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Mail className="w-8 h-8 text-primary" />
+          <div className="border-t border-gray-100 dark:border-gray-800 my-6"></div>
+
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold flex items-center gap-2">
+              <span className="w-6 h-6 rounded-full bg-primary text-white text-xs flex items-center justify-center">2</span>
+              Lokasi Usaha
+            </h3>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="province"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Provinsi</FormLabel>
+                    <Select 
+                      onValueChange={handleProvinceChange} 
+                      value={field.value}
+                      disabled={isLoadingProvinces}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder={isLoadingProvinces ? "Memuat..." : "Pilih Provinsi"} />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {provinces.map((prov) => (
+                          <SelectItem key={prov.code} value={prov.code}>
+                            {prov.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="city"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Kota/Kabupaten</FormLabel>
+                    <Select 
+                      onValueChange={handleCityChange} 
+                      value={field.value}
+                      disabled={isLoadingCities || !form.watch("province")}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder={isLoadingCities ? "Memuat..." : "Pilih Kota"} />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {cities.map((city) => (
+                          <SelectItem key={city.code} value={city.code}>
+                            {city.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="district"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Kecamatan</FormLabel>
+                    <Select 
+                      onValueChange={handleDistrictChange} 
+                      value={field.value}
+                      disabled={isLoadingDistricts || !form.watch("city")}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder={isLoadingDistricts ? "Memuat..." : "Pilih Kecamatan"} />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {districts.map((dist) => (
+                          <SelectItem key={dist.code} value={dist.code}>
+                            {dist.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="village"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Kelurahan/Desa</FormLabel>
+                    <Select 
+                      onValueChange={field.onChange} 
+                      value={field.value}
+                      disabled={isLoadingVillages || !form.watch("district")}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder={isLoadingVillages ? "Memuat..." : "Pilih Kelurahan"} />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {villages.map((v) => (
+                          <SelectItem key={v.code} value={v.code}>
+                            {v.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
             </div>
-            <AlertDialogTitle className="text-center text-xl">Pendaftaran Berhasil!</AlertDialogTitle>
-            <AlertDialogDescription className="text-center space-y-3">
-              <p>
-                Data pendaftaran Anda telah kami terima dan sedang dalam proses verifikasi.
-              </p>
-              <div className="bg-muted p-3 rounded-lg text-xs text-left space-y-2">
-                <div className="flex items-center gap-2">
-                  <Shield className="w-3 h-3 text-primary" />
-                  <span className="font-semibold">Apa selanjutnya?</span>
-                </div>
-                <ul className="list-disc list-inside space-y-1 text-muted-foreground">
-                  <li>Verifikasi data (1-3 hari kerja)</li>
-                  <li>Pemberitahuan via WhatsApp/Email</li>
-                  <li>Akses ke Dashboard Merchant</li>
-                </ul>
-              </div>
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogAction onClick={() => navigate('/')} className="w-full h-11">
-              Mengerti
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
 
-      <BottomNav />
+            <FormField
+              control={form.control}
+              name="address"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Alamat Lengkap</FormLabel>
+                  <FormControl>
+                    <Textarea 
+                      placeholder="Nama jalan, nomor rumah, RT/RW..." 
+                      className="resize-none h-20"
+                      {...field} 
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+
+          <Button type="submit" className="w-full" disabled={isSubmitting}>
+            {isSubmitting ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Mengirim...
+              </>
+            ) : (
+              "Daftar Sekarang"
+            )}
+          </Button>
+        </form>
+      </Form>
     </div>
   );
 }
