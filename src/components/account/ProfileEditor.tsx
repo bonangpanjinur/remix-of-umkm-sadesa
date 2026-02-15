@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Loader2 } from 'lucide-react';
+import { useState, useRef } from 'react';
+import { Loader2, Camera, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -15,6 +15,7 @@ interface ProfileEditorProps {
     full_name: string;
     phone: string | null;
     address: string | null;
+    avatar_url?: string | null;
     province_id?: string | null;
     province_name?: string | null;
     city_id?: string | null;
@@ -25,12 +26,15 @@ interface ProfileEditorProps {
     village_name?: string | null;
     address_detail?: string | null;
   };
-  onSave: (data: { full_name: string; phone: string | null; address: string | null }) => void;
+  onSave: (data: { full_name: string; phone: string | null; address: string | null; avatar_url?: string | null }) => void;
   onCancel: () => void;
 }
 
 export function ProfileEditor({ userId, initialData, onSave, onCancel }: ProfileEditorProps) {
   const [saving, setSaving] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [avatarUrl, setAvatarUrl] = useState(initialData.avatar_url || '');
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [fullName, setFullName] = useState(initialData.full_name || '');
   const [phone, setPhone] = useState(initialData.phone || '');
   const [phoneValid, setPhoneValid] = useState(true);
@@ -53,7 +57,48 @@ export function ProfileEditor({ userId, initialData, onSave, onCancel }: Profile
   });
 
   const handlePhoneValidation = (isValid: boolean) => {
-    setPhoneValid(isValid || !phone); // Empty phone is valid
+    setPhoneValid(isValid || !phone);
+  };
+
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 2 * 1024 * 1024) {
+      toast({ title: 'Ukuran file maksimal 2MB', variant: 'destructive' });
+      return;
+    }
+
+    setUploadingAvatar(true);
+    try {
+      const ext = file.name.split('.').pop();
+      const filePath = `${userId}/avatar.${ext}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('profile-images')
+        .upload(filePath, file, { upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('profile-images')
+        .getPublicUrl(filePath);
+
+      setAvatarUrl(publicUrl);
+
+      // Update profile immediately
+      await supabase
+        .from('profiles')
+        .update({ avatar_url: publicUrl })
+        .eq('user_id', userId);
+
+      toast({ title: 'Foto profil berhasil diperbarui' });
+    } catch (error) {
+      console.error('Avatar upload error:', error);
+      toast({ title: 'Gagal mengupload foto', variant: 'destructive' });
+    } finally {
+      setUploadingAvatar(false);
+    }
   };
 
   const handleSave = async () => {
@@ -105,6 +150,7 @@ export function ProfileEditor({ userId, initialData, onSave, onCancel }: Profile
         full_name: fullName.trim(),
         phone: phone.trim() || null,
         address: formattedAddress || null,
+        avatar_url: avatarUrl || null,
       });
 
       toast({ title: 'Profil berhasil diperbarui' });
@@ -121,6 +167,39 @@ export function ProfileEditor({ userId, initialData, onSave, onCancel }: Profile
 
   return (
     <div className="space-y-4">
+      {/* Avatar Upload */}
+      <div className="flex justify-center">
+        <div className="relative">
+          <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden border-2 border-border">
+            {avatarUrl ? (
+              <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+            ) : (
+              <User className="h-10 w-10 text-primary" />
+            )}
+            {uploadingAvatar && (
+              <div className="absolute inset-0 bg-background/60 flex items-center justify-center rounded-full">
+                <Loader2 className="h-5 w-5 animate-spin text-primary" />
+              </div>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="absolute -bottom-1 -right-1 w-7 h-7 bg-primary text-primary-foreground rounded-full flex items-center justify-center shadow-md hover:opacity-90 transition"
+            disabled={uploadingAvatar}
+          >
+            <Camera className="h-3.5 w-3.5" />
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={handleAvatarUpload}
+          />
+        </div>
+      </div>
+
       <div className="space-y-2">
         <Label>Nama Lengkap</Label>
         <Input

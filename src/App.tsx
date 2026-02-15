@@ -45,6 +45,7 @@ import MerchantProfilePage from "./pages/MerchantProfilePage";
 import MerchantSlugResolver from "./pages/MerchantSlugResolver";
 import ShopsPage from "./pages/ShopsPage";
 import InstallPage from "./pages/InstallPage";
+import HelpPage from "./pages/HelpPage";
 
 // Admin Pages
 import AdminDashboardPage from "./pages/admin/AdminDashboardPage";
@@ -172,6 +173,7 @@ const App = () => (
                 </ProtectedRoute>
               } />
               <Route path="/install" element={<InstallPage />} />
+              <Route path="/help" element={<HelpPage />} />
               <Route path="/unauthorized" element={<UnauthorizedPage />} />
 
               {/* Protected buyer routes */}

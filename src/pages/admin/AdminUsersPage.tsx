@@ -2,8 +2,9 @@ import { useState, useEffect, useMemo } from 'react';
 import { 
   Users, Search, Ban, CheckCircle, Eye, Filter, Download, 
   MoreHorizontal, ChevronLeft, ChevronRight, UserPlus, 
-  Mail, Lock, Phone, User, Shield, AlertCircle, XCircle
+  Mail, Lock, Phone, User, Shield, AlertCircle, XCircle, Settings2
 } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -78,6 +79,9 @@ export default function AdminUsersPage() {
   const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
   const [blockDialogOpen, setBlockDialogOpen] = useState(false);
   const [addDialogOpen, setAddDialogOpen] = useState(false);
+  const [roleDialogOpen, setRoleDialogOpen] = useState(false);
+  const [roleUser, setRoleUser] = useState<UserProfile | null>(null);
+  const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
   const [blockReason, setBlockReason] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
@@ -276,6 +280,58 @@ export default function AdminUsersPage() {
     } finally {
       setActionLoading(false);
     }
+  };
+
+  const openRoleDialog = (user: UserProfile) => {
+    setRoleUser(user);
+    setSelectedRoles([...user.roles]);
+    setRoleDialogOpen(true);
+  };
+
+  const handleSaveRoles = async () => {
+    if (!roleUser) return;
+    try {
+      setActionLoading(true);
+
+      // Remove all existing roles
+      await supabase
+        .from('user_roles')
+        .delete()
+        .eq('user_id', roleUser.userId);
+
+      // Insert selected roles (except 'buyer' which is default)
+      const rolesToInsert = selectedRoles.filter(r => r !== 'buyer');
+      if (rolesToInsert.length > 0) {
+        const { error } = await supabase
+          .from('user_roles')
+          .insert(rolesToInsert.map(role => ({
+            user_id: roleUser.userId,
+            role: role as any,
+          })));
+        if (error) throw error;
+      }
+
+      await logAdminAction('UPDATE_ROLES', 'user', roleUser.userId,
+        { roles: roleUser.roles },
+        { roles: selectedRoles }
+      );
+
+      toast.success('Role berhasil diperbarui');
+      setRoleDialogOpen(false);
+      setRoleUser(null);
+      loadUsers();
+    } catch (error) {
+      console.error('Error updating roles:', error);
+      toast.error('Gagal memperbarui role');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const toggleRole = (roleId: string) => {
+    setSelectedRoles(prev =>
+      prev.includes(roleId) ? prev.filter(r => r !== roleId) : [...prev, roleId]
+    );
   };
 
   const filteredUsers = useMemo(() => {
@@ -519,6 +575,9 @@ export default function AdminUsersPage() {
                                   <DropdownMenuItem className="gap-2">
                                     <Eye className="h-4 w-4" /> Lihat Detail
                                   </DropdownMenuItem>
+                                  <DropdownMenuItem className="gap-2" onClick={() => openRoleDialog(user)}>
+                                    <Settings2 className="h-4 w-4" /> Kelola Role
+                                  </DropdownMenuItem>
                                   <DropdownMenuSeparator />
                                   {user.isBlocked ? (
                                     <DropdownMenuItem 
@@ -749,6 +808,50 @@ export default function AdminUsersPage() {
                     Memproses...
                   </>
                 ) : 'Konfirmasi Blokir'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Role Management Dialog */}
+        <Dialog open={roleDialogOpen} onOpenChange={setRoleDialogOpen}>
+          <DialogContent className="sm:max-w-[400px]">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Settings2 className="h-5 w-5 text-primary" />
+                Kelola Role
+              </DialogTitle>
+              <DialogDescription>
+                Atur role untuk {roleUser?.fullName}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-3 py-4">
+              {AVAILABLE_ROLES.map(role => (
+                <label
+                  key={role.id}
+                  className="flex items-center gap-3 p-3 rounded-lg border border-border hover:bg-secondary/50 cursor-pointer transition"
+                >
+                  <Checkbox
+                    checked={selectedRoles.includes(role.id)}
+                    onCheckedChange={() => toggleRole(role.id)}
+                  />
+                  <div>
+                    <p className="font-medium text-sm">{role.label}</p>
+                  </div>
+                </label>
+              ))}
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setRoleDialogOpen(false)} disabled={actionLoading}>
+                Batal
+              </Button>
+              <Button onClick={handleSaveRoles} disabled={actionLoading}>
+                {actionLoading ? (
+                  <>
+                    <div className="animate-spin mr-2 h-4 w-4 border-2 border-background border-t-transparent rounded-full" />
+                    Menyimpan...
+                  </>
+                ) : 'Simpan Role'}
               </Button>
             </DialogFooter>
           </DialogContent>
