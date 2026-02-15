@@ -23,6 +23,10 @@ import { VerifiedBadge } from '../components/merchant/VerifiedBadge';
 import { MerchantClosedBanner, MerchantStatusBadge } from '../components/merchant/MerchantClosedBanner';
 import { getMerchantOperatingStatus, formatTime } from '../lib/merchantOperatingHours';
 import { checkMerchantHasActiveQuota } from '../lib/api';
+import { ShareStoreButton } from '../components/merchant/ShareStoreButton';
+import { OrderChat } from '../components/chat/OrderChat';
+import { trackPageView } from '../lib/pageViewTracker';
+import { useAuth } from '../contexts/AuthContext';
 import type { Product } from '../types';
 
 interface MerchantData {
@@ -46,6 +50,7 @@ interface MerchantData {
   district: string | null;
   subdistrict: string | null;
   village_id: string | null;
+  user_id: string | null;
   villages?: { name: string } | null;
   halal_status?: string | null;
   halal_certificate_url?: string | null;
@@ -69,12 +74,15 @@ export default function MerchantProfilePage({ overrideId }: MerchantProfilePageP
   const { id: paramId } = useParams();
   const id = overrideId || paramId;
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [merchant, setMerchant] = useState<MerchantData | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [reviews, setReviews] = useState<ReviewData[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'products' | 'reviews'>('products');
   const [hasActiveQuota, setHasActiveQuota] = useState(true);
+  const [chatOpen, setChatOpen] = useState(false);
+  const [chatOrderId, setChatOrderId] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadData() {
@@ -92,6 +100,9 @@ export default function MerchantProfilePage({ overrideId }: MerchantProfilePageP
 
         if (merchantError) throw merchantError;
         setMerchant(merchantData);
+
+        // Track page view
+        trackPageView({ merchantId: id, pageType: 'store' });
 
         // Check merchant quota
         const quotaActive = await checkMerchantHasActiveQuota(id);
@@ -182,11 +193,29 @@ export default function MerchantProfilePage({ overrideId }: MerchantProfilePageP
     }
   };
 
-  const handleWhatsAppClick = () => {
-    if (merchant?.phone) {
-      const phone = merchant.phone.replace(/\D/g, '');
-      const formattedPhone = phone.startsWith('0') ? '62' + phone.slice(1) : phone;
-      window.open(`https://wa.me/${formattedPhone}`, '_blank');
+  const handleChatClick = async () => {
+    if (!user || !merchant) return;
+    
+    // Find an active order between this buyer and merchant
+    const { data: orders } = await supabase
+      .from('orders')
+      .select('id')
+      .eq('buyer_id', user.id)
+      .eq('merchant_id', merchant.id)
+      .not('status', 'in', '("CANCELLED","REJECTED")')
+      .order('created_at', { ascending: false })
+      .limit(1);
+
+    if (orders && orders.length > 0) {
+      setChatOrderId(orders[0].id);
+      setChatOpen(true);
+    } else {
+      // Fallback to WhatsApp if no active order
+      if (merchant.phone) {
+        const phone = merchant.phone.replace(/\D/g, '');
+        const formattedPhone = phone.startsWith('0') ? '62' + phone.slice(1) : phone;
+        window.open(`https://wa.me/${formattedPhone}`, '_blank');
+      }
     }
   };
 
@@ -235,9 +264,13 @@ export default function MerchantProfilePage({ overrideId }: MerchantProfilePageP
             >
               <ArrowLeft className="h-5 w-5" />
             </button>
-            <button className="w-10 h-10 bg-foreground/20 backdrop-blur rounded-full flex items-center justify-center text-primary-foreground hover:bg-foreground/40 transition border border-primary-foreground/20">
-              <Share2 className="h-5 w-5" />
-            </button>
+            {merchant && (
+              <ShareStoreButton 
+                merchantName={merchant.name} 
+                slug={merchant.slug} 
+                merchantId={merchant.id} 
+              />
+            )}
           </div>
           
           {/* Gradient overlay */}
@@ -468,13 +501,24 @@ export default function MerchantProfilePage({ overrideId }: MerchantProfilePageP
       {merchant.phone && (
         <div className="absolute bottom-0 w-full bg-card border-t border-border p-4 px-6 shadow-lg z-20">
           <Button
-            onClick={handleWhatsAppClick}
+            onClick={handleChatClick}
             className="w-full bg-primary text-primary-foreground shadow-brand font-bold"
           >
             <MessageCircle className="h-5 w-5 mr-2" />
             Chat Penjual
           </Button>
         </div>
+      )}
+
+      {/* Chat Modal */}
+      {chatOrderId && merchant.user_id && (
+        <OrderChat
+          orderId={chatOrderId}
+          otherUserId={merchant.user_id as string}
+          otherUserName={merchant.name}
+          isOpen={chatOpen}
+          onClose={() => setChatOpen(false)}
+        />
       )}
     </div>
   );

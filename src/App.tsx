@@ -99,6 +99,7 @@ import MerchantFlashSalePage from "./pages/merchant/MerchantFlashSalePage";
 import MerchantVouchersPage from "./pages/merchant/MerchantVouchersPage";
 import MerchantScheduledPromoPage from "./pages/merchant/MerchantScheduledPromoPage";
 import MerchantVisitorStatsPage from "./pages/merchant/MerchantVisitorStatsPage";
+import MerchantChatPage from "./pages/merchant/MerchantChatPage";
 import MerchantRefundsPage from "./pages/merchant/MerchantRefundsPage";
 import MerchantPOSPage from "./pages/merchant/MerchantPOSPage";
 import MerchantPOSSubscribePage from "./pages/merchant/MerchantPOSSubscribePage";
@@ -487,6 +488,11 @@ const App = () => (
               <Route path="/merchant/visitor-stats" element={
                 <ProtectedRoute allowedRoles={['merchant', 'admin']}>
                   <MerchantVisitorStatsPage />
+                </ProtectedRoute>
+              } />
+              <Route path="/merchant/chat" element={
+                <ProtectedRoute allowedRoles={['merchant', 'admin']}>
+                  <MerchantChatPage />
                 </ProtectedRoute>
               } />
               <Route path="/merchant/pos" element={

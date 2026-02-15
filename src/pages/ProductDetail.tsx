@@ -23,6 +23,7 @@ import { MerchantClosedBanner, MerchantStatusBadge } from '@/components/merchant
 import { getMerchantOperatingStatus, formatTime } from '@/lib/merchantOperatingHours';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
+import { trackPageView } from '@/lib/pageViewTracker';
 import type { Product } from '@/types';
 
 interface MerchantInfo {
@@ -62,6 +63,13 @@ export default function ProductDetail() {
           // Increment product view count
           supabase.rpc('increment_product_view', { product_id: id }).then(({ error }) => {
             if (error) console.error('Error incrementing view count:', error);
+          });
+
+          // Track page view for analytics
+          trackPageView({ 
+            merchantId: productData.merchantId, 
+            productId: id, 
+            pageType: 'product' 
           });
           
           // Fetch merchant with operating hours

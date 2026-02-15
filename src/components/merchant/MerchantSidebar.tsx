@@ -16,7 +16,8 @@ import {
   Ticket,
   Calendar,
   Eye,
-  RotateCcw
+  RotateCcw,
+  MessageCircle
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
@@ -92,6 +93,7 @@ export function MerchantSidebar() {
     { label: 'Kasir POS', href: '/merchant/pos', icon: <Receipt className="h-4 w-4" /> },
     { label: 'Produk', href: '/merchant/products', icon: <Package className="h-4 w-4" /> },
     { label: 'Pesanan', href: '/merchant/orders', icon: <Receipt className="h-4 w-4" />, badge: pendingOrders },
+    { label: 'Chat', href: '/merchant/chat', icon: <MessageCircle className="h-4 w-4" /> },
     { label: 'Refund', href: '/merchant/refunds', icon: <RotateCcw className="h-4 w-4" />, badge: pendingRefunds },
     { label: 'Flash Sale', href: '/merchant/flash-sale', icon: <Zap className="h-4 w-4" /> },
     { label: 'Jadwal Promo', href: '/merchant/scheduled-promo', icon: <Calendar className="h-4 w-4" /> },

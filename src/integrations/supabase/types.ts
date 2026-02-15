@@ -251,6 +251,47 @@ export type Database = {
         }
         Relationships: []
       }
+      chat_messages: {
+        Row: {
+          auto_delete_at: string | null
+          created_at: string
+          id: string
+          is_read: boolean
+          message: string
+          order_id: string
+          receiver_id: string
+          sender_id: string
+        }
+        Insert: {
+          auto_delete_at?: string | null
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          message: string
+          order_id: string
+          receiver_id: string
+          sender_id: string
+        }
+        Update: {
+          auto_delete_at?: string | null
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          message?: string
+          order_id?: string
+          receiver_id?: string
+          sender_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_messages_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       courier_earnings: {
         Row: {
           amount: number
@@ -1284,6 +1325,55 @@ export type Database = {
             columns: ["merchant_id"]
             isOneToOne: false
             referencedRelation: "public_merchants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      page_views: {
+        Row: {
+          created_at: string
+          id: string
+          merchant_id: string | null
+          page_type: string
+          product_id: string | null
+          viewer_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          merchant_id?: string | null
+          page_type?: string
+          product_id?: string | null
+          viewer_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          merchant_id?: string | null
+          page_type?: string
+          product_id?: string | null
+          viewer_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "page_views_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "page_views_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "public_merchants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "page_views_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
             referencedColumns: ["id"]
           },
         ]
@@ -3133,6 +3223,7 @@ export type Database = {
         }
         Returns: Json
       }
+      cleanup_expired_chats: { Args: never; Returns: undefined }
       deduct_merchant_quota: {
         Args: { p_credits: number; p_merchant_id: string }
         Returns: boolean
