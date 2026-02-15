@@ -1,106 +1,151 @@
 
-# Perbaikan dan Fitur Baru - Tahap 1
+# Tahap 3: Standarisasi Alamat + Sistem Iuran Verifikator
 
-Karena permintaan sangat banyak, implementasi dibagi menjadi beberapa tahap. Tahap 1 ini fokus pada perbaikan yang paling kritis dan sering digunakan.
+## Bagian A: Standarisasi Formulir Alamat
 
-## Fitur yang Akan Dikerjakan di Tahap 1
+### Masalah Ditemukan
+Ada **3 pola berbeda** untuk dropdown alamat di aplikasi ini:
 
-### 1. Badge Halal di Toko dan Produk
-Saat ini halal badge sudah muncul di halaman detail produk dan profil toko, tapi belum konsisten di semua tempat. Perbaikan:
-- Tambah badge halal di `ProductCard` (card produk di listing/search)
-- Pastikan badge halal tampil di profil toko (MerchantProfilePage) -- sudah ada, perlu diperbaiki tampilannya
-- Tambah info sertifikat halal di profil toko (tampilkan link/preview sertifikat jika `halal_certificate_url` ada)
+1. **`AddressSelector`** (di `src/components/AddressSelector.tsx`) -- Menggunakan `addressApi.ts` dengan strategi parallel race 5 arah (cepat). Dipakai di: Checkout, Profil, Alamat Tersimpan.
+2. **`AddressDropdowns`** (di `src/components/admin/AddressDropdowns.tsx`) -- Juga menggunakan `addressApi.ts`. Dipakai di: RegisterMerchantPage.
+3. **`locationService`** (di `src/services/locationService.ts`) -- Menggunakan **hanya Emsifa API langsung** (lebih lambat, tidak ada fallback). Dipakai di: `SellerApplicationForm.tsx`.
 
-### 2. Custom Store Link (Slug Toko)
-Setiap toko bisa diakses via URL `site.com/namatoko`:
-- Tambah kolom `slug` di tabel `merchants` (unique, default dari nama toko yang di-slugify)
-- Tambah route baru `/:slug` di App.tsx yang resolve ke MerchantProfilePage
-- Di MerchantSettingsPage, tambah input untuk edit slug toko
-- Slug harus unik dan hanya boleh huruf kecil, angka, dan strip
+Selain itu, `RegisterCourierPage` dan `RegisterVillagePage` menggunakan `addressApi.ts` tapi dengan dropdown manual (bukan komponen reusable), sehingga tidak konsisten dalam UX (tidak ada loading indicator, retry, dll).
 
-### 3. Checkout: Auto GPS + Alamat Cepat via Emsifa
-- Di CheckoutAddressForm, otomatis trigger GPS saat komponen mount (bukan menunggu user klik "Lokasi Saya")
-- Pastikan AddressSelector di checkout menggunakan Emsifa API yang sudah diperbaiki sebelumnya (sudah pakai addressApi.ts yang sama)
-
-### 4. Penugasan Kurir di Detail Pesanan Merchant
-Di OrderStatusManager, saat merchant klik "Kirim Pesanan" (status PROCESSED -> SENT):
-- Tampilkan dialog pilihan: "Antar Sendiri (Kurir Toko)" atau "Tugaskan ke Kurir Desa"
-- Jika pilih Kurir Desa, tampilkan dropdown kurir yang tersedia di desa tersebut
-- Update `courier_id` pada order
-
-## Detail Teknis
-
-### Database Migration
-
-```sql
--- Tambah kolom slug ke merchants
-ALTER TABLE merchants ADD COLUMN IF NOT EXISTS slug text UNIQUE;
-
--- Index untuk pencarian slug
-CREATE UNIQUE INDEX IF NOT EXISTS idx_merchants_slug ON merchants(slug) WHERE slug IS NOT NULL;
-
--- Function untuk generate slug dari nama
-CREATE OR REPLACE FUNCTION generate_merchant_slug(merchant_name text)
-RETURNS text
-LANGUAGE plpgsql
-AS $$
-DECLARE
-  base_slug text;
-  final_slug text;
-  counter integer := 0;
-BEGIN
-  base_slug := lower(regexp_replace(merchant_name, '[^a-zA-Z0-9]+', '-', 'g'));
-  base_slug := trim(both '-' from base_slug);
-  final_slug := base_slug;
-  WHILE EXISTS (SELECT 1 FROM merchants WHERE slug = final_slug) LOOP
-    counter := counter + 1;
-    final_slug := base_slug || '-' || counter;
-  END LOOP;
-  RETURN final_slug;
-END;
-$$;
-
--- Set slug untuk merchant yang sudah ada
-UPDATE merchants SET slug = generate_merchant_slug(name) WHERE slug IS NULL;
-```
+### Solusi
+Standarkan semua formulir alamat menggunakan komponen **`AddressSelector`** yang sudah ada, karena:
+- Sudah menggunakan `addressApi.ts` (parallel race, cepat)
+- Ada loading indicator per dropdown
+- Ada retry mechanism
+- Ada preload chain untuk edit mode
 
 ### File yang Diubah
 
 | File | Perubahan |
 |------|-----------|
-| `src/components/ProductCard.tsx` | Tambah badge halal (query halal_status dari merchant) |
-| `src/pages/MerchantProfilePage.tsx` | Tambah section sertifikat halal, support resolve by slug |
-| `src/App.tsx` | Tambah route `/:slug` untuk store link |
-| `src/pages/merchant/MerchantSettingsPage.tsx` | Tambah input edit slug toko |
-| `src/components/checkout/LocationPicker.tsx` | Auto-trigger GPS on mount |
-| `src/components/merchant/OrderStatusManager.tsx` | Tambah dialog pilih kurir (toko/desa) saat kirim pesanan |
+| `src/components/seller/SellerApplicationForm.tsx` | Ganti `locationService` dengan `AddressSelector` |
+| `src/pages/RegisterCourierPage.tsx` | Ganti dropdown manual dengan `AddressSelector` |
+| `src/pages/RegisterVillagePage.tsx` | Ganti dropdown manual dengan `AddressSelector` |
 
-### Fitur yang Ditunda ke Tahap 2
-- Chat penjual-pembeli (perlu tabel baru `messages`, realtime subscription, auto-delete cron)
-- Statistik pengunjung yang lebih lengkap (perlu tracking page views, grafik trend)
-- Fitur share link toko (tombol share + copy link)
+### Detail Perubahan
 
-### Alur Custom Store Link
+**SellerApplicationForm.tsx:**
+- Hapus import `locationService`
+- Import `AddressSelector`, `AddressData`, `createEmptyAddressData`
+- Ganti 4 dropdown terpisah + 4 state loading + 4 handler menjadi satu `<AddressSelector>` component
+- Map `AddressData` ke field form saat submit
 
-```text
-User buka site.com/kedai-maju
-  -> App.tsx cek route /:slug
-  -> Query merchants WHERE slug = 'kedai-maju'
-  -> Jika ditemukan, render MerchantProfilePage dengan merchant ID
-  -> Jika tidak, render NotFound
+**RegisterCourierPage.tsx:**
+- Hapus state `provinces`, `cities`, `districts`, `subdistricts`, `selectedProvinceCode`, dll
+- Import dan gunakan `AddressSelector`
+- Simpan `AddressData` ke state, map ke `formData` saat submit
 
-Merchant bisa edit slug di Settings:
-  -> Input slug, validasi format (lowercase, alphanumeric, dash)
-  -> Cek ketersediaan via query
-  -> Update ke database
+**RegisterVillagePage.tsx:**
+- Sama: ganti dropdown manual dengan `AddressSelector`
+- Map output ke form values saat submit
+
+---
+
+## Bagian B: Sistem Iuran Verifikator (Peningkatan)
+
+### Kondisi Saat Ini
+Sudah ada fitur dasar:
+- Tabel `kas_payments` dengan kolom: group_id, merchant_id, amount, payment_month, payment_year, status, notes, collected_by
+- Verifikator bisa generate tagihan bulanan via `generate_monthly_kas` RPC
+- Verifikator bisa tandai PAID/UNPAID
+- Verifikator bisa kirim pengingat notifikasi
+- Merchant bisa lihat status iuran via `MerchantKasCard`
+
+### Fitur Baru yang Ditambahkan
+
+#### 1. Tagihan Individual (Buat Tagihan ke Merchant Tertentu)
+- Di dashboard verifikator, tambah tombol "Buat Tagihan Manual"
+- Dialog form: pilih merchant (dropdown), jumlah, catatan, bulan/tahun
+- Insert langsung ke `kas_payments`
+
+#### 2. Kirim Tagihan Massal dengan Notifikasi
+- Saat generate tagihan bulanan, otomatis kirim notifikasi ke semua merchant yang belum bayar
+- Tambah tombol "Kirim Pengingat Semua" untuk batch reminder
+
+#### 3. Riwayat Iuran Lengkap di Merchant
+- Perbaiki `MerchantKasCard` menjadi halaman lengkap di merchant dashboard
+- Tambah route `/merchant/dues` untuk halaman iuran
+- Tampilkan: riwayat lengkap, total tunggakan, badge "Terverifikasi" pada pembayaran yang sudah dicatat verifikator
+
+#### 4. Laporan Kas Verifikator
+- Tambah tab "Laporan" di dashboard verifikator
+- Rekap: total terkumpul, total tunggakan, persentase kepatuhan
+- Filter per bulan/tahun
+- Daftar merchant yang nunggak
+
+#### 5. Status Verifikasi di Merchant
+- Di `MerchantKasCard` dan halaman iuran merchant, tampilkan:
+  - Badge "Terverifikasi oleh Verifikator" jika `collected_by` terisi
+  - Tanggal verifikasi (`payment_date`)
+  - Nama verifikator (query dari `collected_by`)
+
+### Database Changes
+
+```sql
+-- Tidak perlu tabel baru, cukup tambah kolom untuk catatan tagihan
+ALTER TABLE kas_payments ADD COLUMN IF NOT EXISTS invoice_note text;
+ALTER TABLE kas_payments ADD COLUMN IF NOT EXISTS sent_at timestamptz;
 ```
 
-### Alur Penugasan Kurir
+### File Baru
+
+| File | Deskripsi |
+|------|-----------|
+| `src/pages/merchant/MerchantDuesPage.tsx` | Halaman lengkap riwayat iuran merchant |
+| `src/pages/verifikator/VerifikatorKasReportPage.tsx` | Laporan kas lengkap verifikator |
+
+### File yang Diubah
+
+| File | Perubahan |
+|------|-----------|
+| `src/pages/verifikator/VerifikatorDashboardPage.tsx` | Tambah dialog tagihan individual, tombol kirim pengingat massal, tab laporan |
+| `src/components/merchant/MerchantKasCard.tsx` | Tambah badge "Terverifikasi", link ke halaman detail, nama verifikator |
+| `src/components/verifikator/VerifikatorSidebar.tsx` | Tambah menu "Laporan Kas" |
+| `src/components/merchant/MerchantSidebar.tsx` | Tambah menu "Iuran Kas" |
+| `src/App.tsx` | Tambah route `/merchant/dues` dan `/verifikator/kas-report` |
+
+### Alur Buat Tagihan Individual
 
 ```text
-Merchant klik "Kirim Pesanan" pada order PROCESSED
-  -> Dialog muncul: pilih metode pengiriman
-  -> Opsi 1: "Antar Sendiri" -> status = SENT, courier_id = null
-  -> Opsi 2: "Tugaskan Kurir Desa" -> tampilkan dropdown kurir aktif di village_id yang sama
-  -> Pilih kurir -> status = SENT, courier_id = selected_courier_id
+Verifikator klik "Buat Tagihan Manual"
+  -> Dialog muncul: pilih merchant dari dropdown anggota kelompok
+  -> Isi jumlah (default: iuran bulanan kelompok), catatan, bulan/tahun
+  -> Submit -> insert ke kas_payments dengan status UNPAID
+  -> Otomatis kirim notifikasi ke merchant
 ```
+
+### Alur Kirim Tagihan Massal
+
+```text
+Verifikator klik "Generate Tagihan Bulan Ini"
+  -> RPC generate_monthly_kas berjalan
+  -> Setelah berhasil, tampilkan opsi "Kirim Notifikasi ke Semua"
+  -> Klik -> batch insert notifications ke semua merchant yang UNPAID
+  -> Toast: "X pengingat terkirim"
+```
+
+### Alur Merchant Melihat Iuran Terverifikasi
+
+```text
+Merchant buka halaman Iuran Kas
+  -> Daftar iuran per bulan
+  -> Status PAID + collected_by terisi -> Badge hijau "Terverifikasi"
+  -> Status UNPAID -> Badge merah "Belum Bayar" 
+  -> Total tunggakan ditampilkan di atas
+```
+
+---
+
+## Ringkasan Perubahan
+
+| Kategori | Jumlah File |
+|----------|------------|
+| File diubah | 9 |
+| File baru | 2 |
+| Migrasi database | 1 (tambah 2 kolom) |
+| Total | 12 perubahan |
