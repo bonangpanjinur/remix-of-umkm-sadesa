@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Receipt, ShoppingBag, Package, Truck, CheckCircle, XCircle, Clock, Star, X, RotateCcw, CreditCard } from 'lucide-react';
+import { Receipt, ShoppingBag, Package, Truck, CheckCircle, XCircle, Clock, Star, X, RotateCcw, CreditCard, RefreshCw, Eye } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Header } from '@/components/layout/Header';
 import { BottomNav } from '@/components/layout/BottomNav';
@@ -13,6 +13,7 @@ import { formatPrice } from '@/lib/utils';
 import { toast } from 'sonner';
 import { OrderCancelDialog } from '@/components/order/OrderCancelDialog';
 import { RefundRequestDialog } from '@/components/order/RefundRequestDialog';
+import { OrderDetailSheet } from '@/components/order/OrderDetailSheet';
 
 interface Order {
   id: string;
@@ -46,12 +47,14 @@ const statusConfig: Record<string, { label: string; icon: React.ElementType; col
 export default function OrdersPage() {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
-  const { items } = useCart();
+  const { items, addToCart } = useCart();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [refundDialogOpen, setRefundDialogOpen] = useState(false);
+  const [detailDialogOpen, setDetailDialogOpen] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('all');
 
   const activeStatuses = ['NEW', 'PENDING_PAYMENT', 'PENDING_CONFIRMATION', 'PROCESSING', 'PROCESSED', 'ASSIGNED', 'PICKED_UP', 'ON_DELIVERY', 'SENT', 'DELIVERED'];
@@ -122,6 +125,53 @@ export default function OrdersPage() {
       console.error('Error fetching orders:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleReorder = async (orderId: string) => {
+    try {
+      const { data: items } = await supabase
+        .from('order_items')
+        .select('product_id, quantity')
+        .eq('order_id', orderId);
+
+      if (!items || items.length === 0) {
+        toast.error('Tidak ada item untuk dipesan ulang');
+        return;
+      }
+
+      let addedCount = 0;
+      let unavailableCount = 0;
+
+      for (const item of items) {
+        if (!item.product_id) { unavailableCount++; continue; }
+        
+        const { data: product } = await supabase
+          .from('products')
+          .select('id, name, price, stock, is_active, merchant_id, image_url')
+          .eq('id', item.product_id)
+          .maybeSingle();
+
+        if (!product || !product.is_active || product.stock < 1) {
+          unavailableCount++;
+          continue;
+        }
+
+        const qty = Math.min(item.quantity, product.stock);
+        addToCart({
+          id: product.id,
+          name: product.name,
+          price: product.price,
+          image: product.image_url || '',
+          merchant_id: product.merchant_id,
+        } as any, qty);
+        addedCount++;
+      }
+
+      if (addedCount > 0) toast.success(`${addedCount} produk ditambahkan ke keranjang`);
+      if (unavailableCount > 0) toast.warning(`${unavailableCount} produk tidak tersedia`);
+    } catch (error) {
+      toast.error('Gagal memesan ulang');
     }
   };
 
@@ -270,14 +320,15 @@ export default function OrdersPage() {
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: index * 0.05 }}
-                    className="bg-card rounded-xl p-4 border border-border shadow-sm"
+                    className="bg-card rounded-xl p-4 border border-border shadow-sm cursor-pointer"
                     onClick={() => {
                       if (order.courier_id && ['ASSIGNED', 'PICKED_UP', 'SENT', 'ON_DELIVERY'].includes(order.status)) {
                         navigate(`/orders/${order.id}/tracking`);
+                      } else {
+                        setSelectedOrderId(order.id);
+                        setDetailDialogOpen(true);
                       }
                     }}
-                    role={order.courier_id ? 'button' : undefined}
-                    style={{ cursor: order.courier_id && ['ASSIGNED', 'PICKED_UP', 'SENT', 'ON_DELIVERY'].includes(order.status) ? 'pointer' : 'default' }}
                   >
                     <div className="flex justify-between items-start mb-3">
                       <div>
@@ -380,15 +431,15 @@ export default function OrdersPage() {
                         {order.status === 'DONE' && (
                           <Button 
                             size="sm" 
-                            variant="outline"
+                            variant="ghost"
                             className="h-8 px-2 text-[10px]"
                             onClick={(e) => {
                               e.stopPropagation();
-                              navigate(`/orders/${order.id}/review`);
+                              handleReorder(order.id);
                             }}
                           >
-                            <Star className="h-3 w-3 mr-1" />
-                            Ulasan
+                            <RefreshCw className="h-3 w-3 mr-1" />
+                            Pesan Lagi
                           </Button>
                         )}
                         <p className="font-bold text-primary">{formatPrice(order.total)}</p>
@@ -425,6 +476,13 @@ export default function OrdersPage() {
           onSuccess={fetchOrders}
         />
       )}
+
+      {/* Order Detail Dialog */}
+      <OrderDetailSheet
+        orderId={selectedOrderId}
+        open={detailDialogOpen}
+        onOpenChange={setDetailDialogOpen}
+      />
       
       <BottomNav />
     </div>

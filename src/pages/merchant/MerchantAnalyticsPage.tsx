@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { MerchantLayout } from '@/components/merchant/MerchantLayout';
 import { ProductAnalytics } from '@/components/merchant/ProductAnalytics';
 import { MerchantAnalyticsChart } from '@/components/merchant/MerchantAnalyticsChart';
+import { SalesExport } from '@/components/merchant/SalesExport';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/contexts/AuthContext';
@@ -12,6 +13,7 @@ import { AlertCircle, TrendingUp, ShoppingCart, Eye, Package } from 'lucide-reac
 export default function MerchantAnalyticsPage() {
   const { user } = useAuth();
   const [merchantId, setMerchantId] = useState<string | null>(null);
+  const [merchantName, setMerchantName] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
     totalRevenue: 0,
@@ -28,12 +30,13 @@ export default function MerchantAnalyticsPage() {
       try {
         const { data } = await supabase
           .from('merchants')
-          .select('id')
+          .select('id, name')
           .eq('user_id', user.id)
           .single();
 
         if (data?.id) {
           setMerchantId(data.id);
+          setMerchantName(data.name || '');
           await fetchStats(data.id);
         }
       } catch (error) {
@@ -104,7 +107,7 @@ export default function MerchantAnalyticsPage() {
   }
 
   return (
-    <MerchantLayout title="Analitik" subtitle="Performa toko Anda">
+    <MerchantLayout title="Analitik" subtitle="Performa toko Anda" actions={<SalesExport merchantId={merchantId} merchantName={merchantName} />}>
       {/* Quick Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <Card>
