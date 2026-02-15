@@ -12,8 +12,6 @@ export default function CartPage() {
   const { items, updateQuantity, removeFromCart, getCartTotal, clearCart } = useCart();
   
   const total = getCartTotal();
-  const shippingCost = items.length > 0 ? 5000 : 0;
-  const grandTotal = total + shippingCost;
 
   const handleCheckout = () => {
     if (!user) {
@@ -141,12 +139,12 @@ export default function CartPage() {
           <span className="font-bold">{formatPrice(total)}</span>
         </div>
         <div className="flex justify-between items-center mb-4 text-sm">
-          <span className="text-muted-foreground">Ongkir (estimasi)</span>
-          <span className="font-bold">{formatPrice(shippingCost)}</span>
+          <span className="text-muted-foreground">Ongkir</span>
+          <span className="text-xs text-muted-foreground italic">Dihitung saat checkout</span>
         </div>
         <div className="flex justify-between items-center mb-4 pt-4 border-t border-border">
-          <span className="text-lg font-bold">Total Bayar</span>
-          <span className="text-xl font-bold text-primary">{formatPrice(grandTotal)}</span>
+          <span className="text-lg font-bold">Subtotal</span>
+          <span className="text-xl font-bold text-primary">{formatPrice(total)}</span>
         </div>
         <Button
           onClick={handleCheckout}

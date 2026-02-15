@@ -63,10 +63,33 @@ export default function AdminFinancePage() {
   const [orders, setOrders] = useState<OrderFinance[]>([]);
   const [loading, setLoading] = useState(true);
   const [dateRange, setDateRange] = useState('30days');
+  const [platformFeePercent, setPlatformFeePercent] = useState(5);
+  const [courierFeePercent, setCourierFeePercent] = useState(80);
 
-  // Platform fee percentage (should come from app_settings)
-  const PLATFORM_FEE_PERCENT = 5;
-  const COURIER_FEE_PERCENT = 80;
+  // Load fee settings from app_settings
+  useEffect(() => {
+    const loadFeeSettings = async () => {
+      try {
+        const { data } = await supabase
+          .from('app_settings')
+          .select('key, value')
+          .in('key', ['platform_fee', 'courier_commission']);
+        
+        data?.forEach(setting => {
+          const val = setting.value as Record<string, any>;
+          if (setting.key === 'platform_fee' && val?.percent != null) {
+            setPlatformFeePercent(val.percent);
+          }
+          if (setting.key === 'courier_commission' && val?.percent != null) {
+            setCourierFeePercent(val.percent);
+          }
+        });
+      } catch (e) {
+        console.error('Error loading fee settings:', e);
+      }
+    };
+    loadFeeSettings();
+  }, []);
 
   const getDateRange = () => {
     const now = new Date();
@@ -130,8 +153,8 @@ export default function AdminFinancePage() {
     const totalSubtotal = completed.reduce((sum, o) => sum + o.subtotal, 0);
     const shippingCollected = completed.reduce((sum, o) => sum + o.shipping_cost, 0);
     
-    const platformFees = Math.round(totalSubtotal * (PLATFORM_FEE_PERCENT / 100));
-    const courierFees = Math.round(shippingCollected * (COURIER_FEE_PERCENT / 100));
+    const platformFees = Math.round(totalSubtotal * (platformFeePercent / 100));
+    const courierFees = Math.round(shippingCollected * (courierFeePercent / 100));
     const merchantRevenue = totalSubtotal - platformFees;
 
     return {
@@ -142,7 +165,7 @@ export default function AdminFinancePage() {
       shippingCollected,
       completedOrders: completed.length,
     };
-  }, [orders]);
+  }, [orders, platformFeePercent, courierFeePercent]);
 
   const chartData = useMemo(() => {
     const dateMap = new Map<string, { revenue: number; orders: number }>();
@@ -183,8 +206,8 @@ export default function AdminFinancePage() {
       head: [['Kategori', 'Jumlah']],
       body: [
         ['Total Pendapatan Bruto', formatPrice(financials.totalRevenue)],
-        ['Fee Platform (5%)', formatPrice(financials.platformFees)],
-        ['Pendapatan Kurir (80% ongkir)', formatPrice(financials.courierFees)],
+        [`Fee Platform (${platformFeePercent}%)`, formatPrice(financials.platformFees)],
+        [`Pendapatan Kurir (${courierFeePercent}% ongkir)`, formatPrice(financials.courierFees)],
         ['Pendapatan Merchant Bersih', formatPrice(financials.merchantRevenue)],
         ['Total Ongkir Terkumpul', formatPrice(financials.shippingCollected)],
         ['Jumlah Pesanan Selesai', financials.completedOrders.toString()],
@@ -198,12 +221,12 @@ export default function AdminFinancePage() {
     autoTable(doc, {
       startY: tableY + 4,
       head: [['ID', 'Merchant', 'Total', 'Ongkir', 'Fee', 'Tanggal']],
-      body: orders.filter(o => o.status === 'DONE' || o.status === 'DELIVERED').slice(0, 50).map(o => [
+      body: orders.filter(o => o.status === 'DONE' || o.status === 'DELIVERED').map(o => [
         o.id.slice(0, 8),
         o.merchant_name,
         formatPrice(o.total),
         formatPrice(o.shipping_cost),
-        formatPrice(Math.round(o.subtotal * 0.05)),
+        formatPrice(Math.round(o.subtotal * (platformFeePercent / 100))),
         format(new Date(o.created_at), 'dd/MM/yy'),
       ]),
     });
@@ -219,7 +242,7 @@ export default function AdminFinancePage() {
       o.total,
       o.subtotal,
       o.shipping_cost,
-      Math.round(o.subtotal * 0.05),
+      Math.round(o.subtotal * (platformFeePercent / 100)),
       o.status,
       format(new Date(o.created_at), 'dd/MM/yyyy HH:mm'),
     ]);
@@ -295,7 +318,7 @@ export default function AdminFinancePage() {
               </CardHeader>
               <CardContent>
                 <p className="text-2xl font-bold text-primary">{formatPrice(financials.platformFees)}</p>
-                <p className="text-xs text-muted-foreground mt-1">{PLATFORM_FEE_PERCENT}% dari subtotal</p>
+                <p className="text-xs text-muted-foreground mt-1">{platformFeePercent}% dari subtotal</p>
               </CardContent>
             </Card>
 
@@ -308,7 +331,7 @@ export default function AdminFinancePage() {
               </CardHeader>
               <CardContent>
                 <p className="text-2xl font-bold">{formatPrice(financials.courierFees)}</p>
-                <p className="text-xs text-muted-foreground mt-1">{COURIER_FEE_PERCENT}% dari ongkir</p>
+                <p className="text-xs text-muted-foreground mt-1">{courierFeePercent}% dari ongkir</p>
               </CardContent>
             </Card>
 
@@ -361,13 +384,13 @@ export default function AdminFinancePage() {
                         </TableCell>
                       </TableRow>
                     ) : (
-                      orders.slice(0, 50).map(order => (
+                      orders.map(order => (
                         <TableRow key={order.id}>
                           <TableCell className="font-mono text-sm">{order.id.slice(0, 8)}</TableCell>
                           <TableCell>{order.merchant_name}</TableCell>
                           <TableCell className="text-right">{formatPrice(order.subtotal)}</TableCell>
                           <TableCell className="text-right">{formatPrice(order.shipping_cost)}</TableCell>
-                          <TableCell className="text-right text-primary">{formatPrice(Math.round(order.subtotal * 0.05))}</TableCell>
+                          <TableCell className="text-right text-primary">{formatPrice(Math.round(order.subtotal * (platformFeePercent / 100)))}</TableCell>
                           <TableCell className="text-right font-medium">{formatPrice(order.total)}</TableCell>
                           <TableCell>
                             <span className={`px-2 py-1 rounded-full text-xs font-medium ${

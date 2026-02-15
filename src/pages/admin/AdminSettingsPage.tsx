@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Save, ToggleLeft, Globe, CreditCard, AlertCircle, Truck, Percent, Plus, Trash2, ShieldCheck, Palette, Package } from 'lucide-react';
 import { ImageUpload } from '@/components/ui/ImageUpload';
-import { AdminSidebar } from '@/components/admin/AdminSidebar';
+import { AdminLayout } from '@/components/admin/AdminLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -99,17 +99,8 @@ export default function AdminSettingsPage() {
   const courierCommission = getSetting('courier_commission')?.value as unknown as { percent: number } | undefined;
 
   return (
-    <div className="flex min-h-screen bg-background">
-      <AdminSidebar />
-      
-      <div className="flex-1 p-6 overflow-y-auto">
-        <div className="max-w-4xl mx-auto">
-          {/* Header */}
-          <div className="mb-6">
-            <h1 className="text-2xl font-bold">Pengaturan</h1>
-            <p className="text-muted-foreground text-sm">Konfigurasi fitur dan kustomisasi aplikasi</p>
-          </div>
-
+    <AdminLayout title="Pengaturan" subtitle="Konfigurasi fitur dan kustomisasi aplikasi">
+      <div className="max-w-4xl mx-auto">
           {loading ? (
             <div className="flex items-center justify-center py-20">
               <div className="animate-spin rounded-full h-10 w-10 border-2 border-primary border-t-transparent" />
@@ -469,9 +460,8 @@ export default function AdminSettingsPage() {
               </TabsContent>
             </Tabs>
           )}
-        </div>
       </div>
-    </div>
+    </AdminLayout>
   );
 }
 

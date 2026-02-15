@@ -17,6 +17,7 @@ interface Profile {
   full_name: string;
   phone: string | null;
   address: string | null;
+  avatar_url?: string | null;
   province_id?: string | null;
   province_name?: string | null;
   city_id?: string | null;
@@ -49,7 +50,7 @@ export default function AccountPage() {
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('full_name, phone, address, province_id, province_name, city_id, city_name, district_id, district_name, village_id, village_name, address_detail')
+        .select('full_name, phone, address, avatar_url, province_id, province_name, city_id, city_name, district_id, district_name, village_id, village_name, address_detail')
         .eq('user_id', user.id)
         .maybeSingle();
 
@@ -65,8 +66,8 @@ export default function AccountPage() {
     }
   };
 
-  const handleProfileSave = (data: { full_name: string; phone: string | null; address: string | null }) => {
-    setProfile(data);
+  const handleProfileSave = (data: { full_name: string; phone: string | null; address: string | null; avatar_url?: string | null }) => {
+    setProfile(prev => prev ? { ...prev, ...data } : { ...data, province_id: null, province_name: null, city_id: null, city_name: null, district_id: null, district_name: null, village_id: null, village_name: null, address_detail: null });
     setEditing(false);
   };
 
@@ -153,8 +154,12 @@ export default function AccountPage() {
               {/* Profile Card */}
               <div className="bg-card rounded-2xl p-6 border border-border mb-6">
                 <div className="flex items-center gap-4 mb-4">
-                  <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center">
-                    <User className="h-8 w-8 text-primary" />
+                  <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center overflow-hidden relative group">
+                    {profile?.avatar_url ? (
+                      <img src={profile.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
+                    ) : (
+                      <User className="h-8 w-8 text-primary" />
+                    )}
                   </div>
                   <div className="flex-1">
                     <h2 className="font-bold text-lg text-foreground">
@@ -179,6 +184,7 @@ export default function AccountPage() {
                       full_name: profile?.full_name || '',
                       phone: profile?.phone || null,
                       address: profile?.address || null,
+                      avatar_url: profile?.avatar_url,
                       province_id: profile?.province_id,
                       province_name: profile?.province_name,
                       city_id: profile?.city_id,
@@ -334,6 +340,7 @@ export default function AccountPage() {
             </button>
 
             <button 
+              onClick={() => navigate('/help')}
               className="w-full flex items-center justify-between p-4 bg-card rounded-xl border border-border hover:bg-secondary transition"
             >
               <div className="flex items-center gap-3">
