@@ -15,6 +15,7 @@ import { QuotaStatusCard } from '@/components/merchant/QuotaStatusCard';
 import { QuotaAlertBanner } from '@/components/merchant/QuotaAlertBanner';
 import { MerchantGroupCard } from '@/components/merchant/MerchantGroupCard';
 import { MerchantKasCard } from '@/components/merchant/MerchantKasCard';
+import { DailySummaryCard } from '@/components/merchant/DailySummaryCard';
 import { StoreQRCode } from '@/components/merchant/StoreQRCode';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
@@ -222,6 +223,11 @@ export default function MerchantDashboardPage() {
         <QuotaStatusCard />
         <MerchantGroupCard />
         <MerchantKasCard merchantId={merchant.id} />
+      </div>
+
+      {/* Daily Summary */}
+      <div className="mb-4">
+        <DailySummaryCard merchantId={merchant.id} />
       </div>
 
       {/* Quick Stats - Compact */}

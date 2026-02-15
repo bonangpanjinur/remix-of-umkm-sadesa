@@ -114,6 +114,7 @@ import DesaTourismPage from "./pages/desa/DesaTourismPage";
 // Buyer Pages
 import ReviewsPage from "./pages/buyer/ReviewsPage";
 import WishlistPage from "./pages/buyer/WishlistPage";
+import MyReviewsPage from "./pages/buyer/MyReviewsPage";
 
 // Notifications
 import NotificationsPage from "./pages/NotificationsPage";
@@ -246,7 +247,11 @@ const App = () => (
                   <WishlistPage />
                 </ProtectedRoute>
               } />
-
+              <Route path="/reviews/mine" element={
+                <ProtectedRoute>
+                  <MyReviewsPage />
+                </ProtectedRoute>
+              } />
               {/* Admin routes */}
               <Route path="/admin" element={
                 <ProtectedRoute allowedRoles={['admin']}>

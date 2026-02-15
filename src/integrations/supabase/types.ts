@@ -599,6 +599,41 @@ export type Database = {
           },
         ]
       }
+      group_announcements: {
+        Row: {
+          created_at: string | null
+          group_id: string | null
+          id: string
+          message: string
+          title: string
+          verifikator_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          group_id?: string | null
+          id?: string
+          message: string
+          title: string
+          verifikator_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          group_id?: string | null
+          id?: string
+          message?: string
+          title?: string
+          verifikator_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "group_announcements_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "trade_groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       group_members: {
         Row: {
           group_id: string
@@ -1815,6 +1850,7 @@ export type Database = {
           image_url: string | null
           is_active: boolean
           is_promo: boolean
+          low_stock_threshold: number | null
           merchant_id: string
           min_stock_alert: number | null
           name: string
@@ -1834,6 +1870,7 @@ export type Database = {
           image_url?: string | null
           is_active?: boolean
           is_promo?: boolean
+          low_stock_threshold?: number | null
           merchant_id: string
           min_stock_alert?: number | null
           name: string
@@ -1853,6 +1890,7 @@ export type Database = {
           image_url?: string | null
           is_active?: boolean
           is_promo?: boolean
+          low_stock_threshold?: number | null
           merchant_id?: string
           min_stock_alert?: number | null
           name?: string
