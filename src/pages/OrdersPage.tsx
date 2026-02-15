@@ -224,7 +224,7 @@ const OrdersPage = () => {
                   <Card
                     key={order.id}
                     className="overflow-hidden border-0 shadow-sm hover:shadow-md transition-shadow cursor-pointer active:scale-[0.99]"
-                    onClick={() => navigate(`/order-tracking/${order.id}`)}
+                    onClick={() => navigate(`/orders/${order.id}/tracking`)}
                   >
                     <CardContent className="p-0">
                       {/* Card header */}
@@ -297,7 +297,7 @@ const OrdersPage = () => {
                               size="sm"
                               variant="outline"
                               className="text-xs h-8 rounded-full px-4"
-                              onClick={(e) => { e.stopPropagation(); navigate(`/order-tracking/${order.id}`); }}
+                              onClick={(e) => { e.stopPropagation(); navigate(`/orders/${order.id}/tracking`); }}
                             >
                               <MapPin className="w-3 h-3 mr-1" /> Lacak Pesanan
                             </Button>
@@ -308,7 +308,7 @@ const OrdersPage = () => {
                                 size="sm"
                                 variant="outline"
                                 className="text-xs h-8 rounded-full px-4"
-                                onClick={(e) => { e.stopPropagation(); navigate(`/order-tracking/${order.id}`); }}
+                                onClick={(e) => { e.stopPropagation(); navigate(`/orders/${order.id}/tracking`); }}
                               >
                                 <Star className="w-3 h-3 mr-1" /> Beri Ulasan
                               </Button>
