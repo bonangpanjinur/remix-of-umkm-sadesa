@@ -38,6 +38,7 @@ export function MerchantSidebar() {
   const [pendingOrders, setPendingOrders] = useState(0);
   const [unrepliedReviews, setUnrepliedReviews] = useState(0);
   const [pendingRefunds, setPendingRefunds] = useState(0);
+  const [lowStockCount, setLowStockCount] = useState(0);
 
   useEffect(() => {
     const fetchBadges = async () => {
@@ -85,6 +86,16 @@ export function MerchantSidebar() {
           
           setPendingRefunds(refundsCount || 0);
         }
+
+        // Low stock products
+        const { data: lowStockProducts } = await supabase
+          .from('products')
+          .select('id, stock, low_stock_threshold')
+          .eq('merchant_id', merchant.id)
+          .eq('is_active', true);
+
+        const lowCount = lowStockProducts?.filter(p => p.stock <= (p.low_stock_threshold || 5)).length || 0;
+        setLowStockCount(lowCount);
       }
     };
     fetchBadges();
@@ -93,7 +104,7 @@ export function MerchantSidebar() {
   const menuItems: SidebarItem[] = [
     { label: 'Dashboard', href: '/merchant', icon: <LayoutDashboard className="h-4 w-4" /> },
     { label: 'Kasir POS', href: '/merchant/pos', icon: <Receipt className="h-4 w-4" /> },
-    { label: 'Produk', href: '/merchant/products', icon: <Package className="h-4 w-4" /> },
+    { label: 'Produk', href: '/merchant/products', icon: <Package className="h-4 w-4" />, badge: lowStockCount },
     { label: 'Pesanan', href: '/merchant/orders', icon: <Receipt className="h-4 w-4" />, badge: pendingOrders },
     { label: 'Chat', href: '/merchant/chat', icon: <MessageCircle className="h-4 w-4" /> },
     { label: 'Refund', href: '/merchant/refunds', icon: <RotateCcw className="h-4 w-4" />, badge: pendingRefunds },

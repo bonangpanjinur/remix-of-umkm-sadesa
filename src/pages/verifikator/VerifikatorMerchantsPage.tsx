@@ -10,6 +10,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { MerchantDetailSheet } from '@/components/verifikator/MerchantDetailSheet';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
@@ -32,6 +33,8 @@ export default function VerifikatorMerchantsPage() {
   const { user } = useAuth();
   const [merchants, setMerchants] = useState<MerchantRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [detailMerchantId, setDetailMerchantId] = useState<string | null>(null);
+  const [detailOpen, setDetailOpen] = useState(false);
 
   const fetchMerchants = async () => {
     if (!user) return;
@@ -165,6 +168,10 @@ export default function VerifikatorMerchantsPage() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => { setDetailMerchantId(item.id); setDetailOpen(true); }}>
+              <Eye className="h-4 w-4 mr-2" />
+              Lihat Detail
+            </DropdownMenuItem>
             {item.registration_status === 'PENDING' && (
               <>
                 <DropdownMenuItem onClick={() => handleApprove(item.id)}>
@@ -212,6 +219,12 @@ export default function VerifikatorMerchantsPage() {
         filters={filters}
         loading={loading}
         emptyMessage="Belum ada merchant yang menggunakan kode Anda"
+      />
+
+      <MerchantDetailSheet
+        merchantId={detailMerchantId}
+        open={detailOpen}
+        onOpenChange={setDetailOpen}
       />
     </VerifikatorLayout>
   );

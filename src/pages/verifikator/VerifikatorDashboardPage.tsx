@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { TicketCheck, Store, TrendingUp, Wallet, Copy, Calendar, Check, X, Plus, Settings, ChevronRight, Users, Bell, FileText, Send } from 'lucide-react';
+import { TicketCheck, Store, TrendingUp, Wallet, Copy, Calendar, Check, X, Plus, Settings, ChevronRight, Users, Bell, FileText, Send, Megaphone } from 'lucide-react';
+import { GroupAnnouncementDialog } from '@/components/verifikator/GroupAnnouncementDialog';
 import { VerifikatorLayout } from '@/components/verifikator/VerifikatorLayout';
 import { StatsCard } from '@/components/admin/StatsCard';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -114,6 +115,9 @@ export default function VerifikatorDashboardPage() {
 
   // Edit group settings dialog
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+
+  // Announcement dialog
+  const [announcementOpen, setAnnouncementOpen] = useState(false);
 
   // Individual billing dialog
   const [billingDialogOpen, setBillingDialogOpen] = useState(false);
@@ -655,6 +659,9 @@ export default function VerifikatorDashboardPage() {
                   <Copy className="h-3 w-3" />
                 </Button>
               </div>
+              <Button variant="outline" size="icon" onClick={() => setAnnouncementOpen(true)} title="Pengumuman">
+                <Megaphone className="h-4 w-4" />
+              </Button>
               <Button variant="outline" size="icon" onClick={openEditDialog}>
                 <Settings className="h-4 w-4" />
               </Button>
@@ -968,6 +975,13 @@ export default function VerifikatorDashboardPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Announcement Dialog */}
+      <GroupAnnouncementDialog
+        groupId={group.id}
+        open={announcementOpen}
+        onOpenChange={setAnnouncementOpen}
+      />
     </VerifikatorLayout>
   );
 }
