@@ -1,60 +1,44 @@
 
-# Perbaikan: Percepatan Loading Dropdown Alamat + Auto-save Draft Form
 
-## Masalah Utama
+# Perbaikan Loading Alamat yang Gagal/Lambat
 
-Dropdown alamat (Kecamatan, Kelurahan) sering tidak muncul atau sangat lama karena:
-1. **Fetch sequential** -- direct gagal (10s) -> retry (10s) -> edge function (15s) -> retry (15s) -> CORS proxy (15s) -> retry (15s) = **total 80 detik** worst case sebelum menyerah
-2. **Tidak ada feedback error yang actionable** -- user hanya melihat "Pilih kecamatan" tanpa tahu apakah sedang loading atau gagal
-3. **Data hilang saat keluar halaman** -- tidak ada mekanisme simpan draft
+## Akar Masalah
 
----
+Dari 3 strategi fetch paralel yang ada, **tidak ada yang bekerja dengan baik**:
 
-## Solusi 1: Parallel Race untuk Fetch Alamat
+| Strategi | Status | Alasan |
+|----------|--------|--------|
+| Direct fetch ke wilayah.id | Gagal | CORS diblokir browser |
+| Edge function (wilayah-proxy) | Gagal | Belum terdeploy (404 Not Found) |
+| CORS proxy (allorigins.win) | Tidak stabil | Layanan gratis, sering down |
 
-Ubah `fetchWithFallbacks` di `src/lib/addressApi.ts` dari sequential menjadi **parallel race** menggunakan `Promise.any()`:
+Akibatnya dropdown alamat kosong atau loading sangat lama (15 detik timeout sebelum menyerah).
 
-```text
-SEBELUM (sequential, worst case 80s):
-  direct(10s) -> retry(10s) -> edge(15s) -> retry(15s) -> cors(15s) -> retry(15s)
+## Solusi
 
-SESUDAH (parallel, worst case 15s):
-  Promise.any([direct(10s), edge(15s), cors(15s)])
-  -> Yang pertama berhasil langsung dipakai
-  -> Sisanya di-cancel via AbortController
-```
+### 1. Deploy dan perbaiki Edge Function `wilayah-proxy`
 
-**File:** `src/lib/addressApi.ts`
-- Buat fungsi `fetchParallelRace(type, code)` yang menjalankan ketiga strategi bersamaan
-- Gunakan shared `AbortController` agar request yang kalap bisa dibatalkan
-- Tetap ada fallback ke `STATIC_PROVINCES` jika semua gagal untuk provinsi
+Edge function sudah ada kodenya di `supabase/functions/wilayah-proxy/index.ts` tapi belum terdeploy. Kita perlu:
+- Deploy edge function
+- Perbaiki CORS headers agar sesuai standar (tambahkan header yang diperlukan oleh Supabase client)
+- Ini akan menjadi strategi utama yang paling reliable karena berjalan di server (tidak kena CORS)
 
----
+### 2. Tambah CORS proxy alternatif
 
-## Solusi 2: Tombol Retry + Error State di Form
+Selain `allorigins.win`, tambahkan proxy alternatif lain sebagai backup:
+- `corsproxy.io`
+- Ini meningkatkan peluang salah satu proxy berhasil
 
-Di `src/pages/RegisterMerchantPage.tsx`, tambahkan:
-- State `errorLoadingDistricts` dan `errorLoadingSubdistricts`
-- Jika fetch gagal (return array kosong), tampilkan pesan error + tombol "Coba Lagi"
-- Tombol retry memanggil ulang fetch tanpa perlu mengganti pilihan parent
+### 3. Tambah error state dan tombol Retry di `AddressDropdowns`
 
----
+Saat ini dropdown hanya kosong tanpa feedback. Perbaikan:
+- Tambah state error per dropdown (kabupaten, kecamatan, kelurahan)
+- Tampilkan pesan "Gagal memuat data" + tombol "Coba Lagi"
+- User bisa retry tanpa harus mengulang pilihan sebelumnya
 
-## Solusi 3: Auto-save Draft Form ke localStorage
+### 4. Kurangi timeout dari 15 detik ke 10 detik
 
-Di `src/pages/RegisterMerchantPage.tsx`:
-- Simpan semua state form ke `localStorage` (key: `merchant_registration_draft`) dengan debounce 500ms
-- Saat mount, baca draft dan restore semua field + trigger load chain dropdown
-- Hapus draft setelah submit berhasil
-- Tampilkan banner kecil "Draft tersimpan" + tombol "Hapus Draft"
-
-**Data yang disimpan:**
-- Nama, kategori, deskripsi, phone, jam buka/tutup
-- Kode & nama provinsi, kota, kecamatan, kelurahan
-- Koordinat lokasi, kode referral
-- Status halal & URL sertifikat
-
----
+15 detik terlalu lama menunggu. Dengan edge function yang aktif, 10 detik sudah lebih dari cukup.
 
 ## Detail Teknis
 
@@ -62,39 +46,51 @@ Di `src/pages/RegisterMerchantPage.tsx`:
 
 | File | Perubahan |
 |------|-----------|
-| `src/lib/addressApi.ts` | Ganti `fetchWithFallbacks` ke parallel race dengan `Promise.any()` + shared AbortController |
-| `src/pages/RegisterMerchantPage.tsx` | Tambah auto-save draft, restore draft, error state + retry button untuk dropdown, banner draft |
+| `supabase/functions/wilayah-proxy/index.ts` | Perbaiki CORS headers (tambah `x-supabase-client-platform` dll) |
+| `src/lib/addressApi.ts` | Tambah CORS proxy alternatif, kurangi timeout ke 10s |
+| `src/components/admin/AddressDropdowns.tsx` | Tambah error state, tombol retry, feedback visual |
 
-### Implementasi Parallel Race (addressApi.ts)
-
-Fungsi baru `fetchParallelRace`:
-1. Buat 1 `AbortController` bersama
-2. Jalankan `fetchDirect`, `fetchViaEdgeFunction`, `fetchViaCorsProxy` secara bersamaan via `Promise.any()`
-3. Saat salah satu berhasil, abort sisanya
-4. Jika semua gagal (`AggregateError`), return data statis atau array kosong
-
-### Implementasi Draft (RegisterMerchantPage.tsx)
+### Perubahan CORS Headers (wilayah-proxy)
 
 ```text
-DRAFT_KEY = 'merchant_registration_draft'
+Sebelum:
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type'
 
-On mount:
-  1. Baca draft dari localStorage
-  2. Set semua state (selectedProvince, selectedCity, dll)
-  3. Set form values via setValue()
-  4. Trigger chain loading dropdown (provinsi -> kota -> kecamatan -> kelurahan)
-
-On change (debounce 500ms):
-  1. Kumpulkan semua state ke object
-  2. Simpan ke localStorage
-
-On submit success:
-  1. localStorage.removeItem(DRAFT_KEY)
+Sesudah:
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version'
 ```
 
-### Implementasi Retry Button
+### Perubahan addressApi.ts
 
-Untuk setiap dropdown yang gagal load:
-- Deteksi jika fetch return array kosong (bukan karena belum dipilih parent)
-- Tampilkan: "Gagal memuat data. [Coba Lagi]"
-- Tombol retry memanggil fungsi fetch ulang dengan kode parent yang sama
+```text
+1. Tambah fungsi fetchViaCorsProxy2() menggunakan corsproxy.io sebagai alternatif
+2. Tambahkan ke array promises di fetchWithFallbacks (jadi 4 strategi paralel)
+3. Kurangi timeout dari 15000ms ke 10000ms
+```
+
+### Perubahan AddressDropdowns.tsx
+
+```text
+State baru:
+- errorRegencies, errorDistricts, errorVillages: boolean
+
+Logika:
+- Set error=true jika fetch return array kosong (dan parent sudah dipilih)
+- Tampilkan "Gagal memuat. [Coba Lagi]" di bawah dropdown yang error
+- Tombol retry memanggil load function dengan kode parent yang sama
+```
+
+### Alur Setelah Perbaikan
+
+```text
+User pilih provinsi
+  -> 4 strategi fetch paralel dijalankan bersamaan:
+     1. Direct fetch (kemungkinan gagal CORS, tapi dicoba)
+     2. Edge function (UTAMA - paling reliable)
+     3. CORS proxy allorigins.win
+     4. CORS proxy corsproxy.io
+  -> Yang pertama berhasil langsung dipakai (max 10 detik)
+  -> Jika semua gagal: tampilkan error + tombol retry
+  -> Hasil di-cache 24 jam ke localStorage
+```
+
