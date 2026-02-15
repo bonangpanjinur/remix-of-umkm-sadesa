@@ -1,177 +1,110 @@
 
+# Phase 6: Peningkatan UI/UX untuk Pembeli dan Pedagang
 
-# Analisis & Rencana Pengembangan Tahap 5: Pembeli, Pedagang & Super Admin
+## A. PEMBELI - Peningkatan Utama
 
-## Hasil Analisis Kekurangan
+### 1. Homepage: Loading Skeleton yang Lebih Baik
+- **Masalah**: Saat loading, hanya spinner sederhana ditampilkan. Ini terasa lambat dan tidak profesional.
+- **Solusi**: Ganti spinner dengan skeleton loader yang menyerupai layout sebenarnya (hero skeleton, category pills skeleton, product grid skeleton).
+- **File**: `src/pages/Index.tsx`
 
-### A. PEMBELI -- Area yang Perlu Ditingkatkan
+### 2. ProductCard: Hapus Rating Hardcoded & Tambah Jumlah Terjual
+- **Masalah**: Di `ProductDetail.tsx` baris 249, rating hardcoded "4.8" -- ini menipu pembeli. `ProductCard.tsx` juga tidak menampilkan informasi engagement.
+- **Solusi**: Tampilkan rating sebenarnya dari merchant (sudah ada `rating_avg`) dan tambahkan badge "Terjual X" dari `view_count` atau order count.
+- **File**: `src/pages/ProductDetail.tsx`, `src/components/ProductCard.tsx`
 
-#### 1. Halaman Produk: Tidak Ada Galeri Multi-Foto
-Saat ini `ProductDetail.tsx` hanya menampilkan satu gambar. Tabel `products` memiliki `image_url` saja. Padahal sudah ada komponen `MultipleImageUpload` di sisi merchant tapi belum terpakai untuk menampilkan di sisi pembeli. Perlu carousel gambar produk.
+### 3. ProductDetail: Tambah Tab Review dari Pembeli
+- **Masalah**: Halaman produk tidak menampilkan ulasan sama sekali. Pembeli tidak bisa melihat feedback dari pembeli lain.
+- **Solusi**: Tambahkan section "Ulasan Pembeli" di bawah deskripsi, fetch dari tabel `reviews` berdasarkan `merchant_id` dan filter `product_id` (jika ada) atau tampilkan ulasan merchant.
+- **File**: `src/pages/ProductDetail.tsx`
 
-#### 2. Tidak Ada Fitur Pencarian di Halaman Keranjang
-`CartPage.tsx` tidak mengelompokkan item per merchant dengan jelas dan tidak ada catatan per item. Juga ongkir estimasi hardcoded Rp5.000 yang berbeda dari kalkulasi checkout sebenarnya -- bisa membingungkan pembeli.
+### 4. ProductDetail: Tambah Produk Serupa / Rekomendasi
+- **Masalah**: Setelah melihat satu produk, tidak ada cara mudah untuk menemukan produk serupa.
+- **Solusi**: Tambahkan section "Produk Serupa" di bawah ulasan, fetch produk dari kategori yang sama atau merchant yang sama.
+- **File**: `src/pages/ProductDetail.tsx`
 
-#### 3. Halaman Bantuan Tidak Berfungsi
-Di `AccountPage.tsx`, tombol "Bantuan" (baris 337) tidak mengarah ke mana pun (`onClick` tidak ada). Perlu halaman FAQ atau kontak bantuan.
+### 5. CartPage: Grupkan Item per Merchant
+- **Masalah**: Item keranjang ditampilkan flat tanpa pengelompokan. Membingungkan jika beli dari beberapa toko.
+- **Solusi**: Grupkan item berdasarkan `merchantName` dengan header merchant di setiap grup.
+- **File**: `src/pages/CartPage.tsx`
 
-#### 4. Pengaturan Profil Foto Tidak Ada
-Tidak ada fitur upload foto profil di `AccountPage` atau `ProfileEditor`. Padahal kolom `avatar_url` sudah ada di tabel `profiles` dan bucket `profile-images` sudah tersedia.
+### 6. OrdersPage: Skeleton Loader & Pull-to-Refresh Feel
+- **Masalah**: Loading state hanya spinner. Order card tidak menampilkan ringkasan item (nama produk pertama).
+- **Solusi**: Gunakan `OrderCardSkeleton` yang sudah ada, tambahkan nama produk pertama di setiap order card.
+- **File**: `src/pages/OrdersPage.tsx`
 
-#### 5. Riwayat Pencarian dan Produk Terakhir Dilihat
-`useSearchHistory` sudah ada tapi belum ada halaman "Terakhir Dilihat" untuk pembeli. Fitur ini meningkatkan engagement.
+### 7. Header: Tambah Search Bar di Homepage
+- **Masalah**: Untuk mencari produk, pembeli harus ke halaman Jelajah dulu. Tidak ada shortcut dari homepage.
+- **Solusi**: Tambahkan search bar kecil di header yang langsung navigate ke `/explore?q={query}` atau `/search?q={query}`.
+- **File**: `src/components/layout/Header.tsx`
 
-#### 6. Tidak Ada Estimasi Waktu Pengiriman
-Di checkout dan order detail, tidak ada ETA meski sudah ada `src/lib/etaCalculation.ts`. Perlu integrasi.
-
----
-
-### B. PEDAGANG (MERCHANT) -- Area yang Perlu Ditingkatkan
-
-#### 1. Tidak Ada Multi-Foto Produk di Editor
-`MerchantProductDetailPage` sudah ada tapi hanya satu gambar. Komponen `MultipleImageUpload` sudah dibuat tapi belum diintegrasikan. Perlu koneksi ke tabel `product_images` (jika ada) atau kolom array.
-
-#### 2. Dashboard: Pesanan Menunggu Tanpa Quick Action
-Di `MerchantDashboardPage.tsx`, tab "Pesanan" mengarah ke `OrderStatusManager` yang lengkap, tapi tidak ada quick action card di overview (terima/tolak langsung tanpa pindah tab).
-
-#### 3. Tidak Ada Notifikasi Sound untuk Pesanan Baru
-Tidak ditemukan implementasi sound notification di kode. Perlu audio alert saat pesanan baru masuk via realtime subscription.
-
-#### 4. Chat Merchant-Pembeli Terbatas
-`MerchantChatPage` ada tapi tidak ada link dari sisi pembeli ke chat. Komunikasi buyer-merchant harus 2 arah.
-
-#### 5. Tidak Ada Analitik Pengunjung yang Terlihat
-`MerchantVisitorStatsPage` ada tapi tidak jelas apakah sudah terintegrasi dengan `pageViewTracker`. Perlu verifikasi dan peningkatan dashboard.
-
----
-
-### C. SUPER ADMIN -- Area yang Perlu Ditingkatkan
-
-#### 1. Tidak Ada Dashboard Ringkasan Keuangan Platform
-`AdminFinancePage` ada tapi fee platform hardcoded (5%, 80%). Seharusnya mengambil dari `app_settings` yang sudah dikonfigurasi di `AdminSettingsPage`.
-
-#### 2. Manajemen Pengguna: Tidak Bisa Edit Role Langsung
-`AdminUsersPage` bisa block/unblock dan tambah user, tapi tidak bisa edit role user yang sudah ada (misal: promote buyer ke merchant, hapus role). Ini kritis.
-
-#### 3. Tidak Ada Monitoring Kesehatan Sistem
-Tidak ada dashboard yang menampilkan: jumlah error, response time, edge function failures, storage usage. Admin harus tahu jika ada masalah.
-
-#### 4. AdminSettingsPage Tidak Menggunakan AdminLayout
-`AdminSettingsPage` (baris 102) menggunakan layout manual dengan `AdminSidebar` langsung, bukan `AdminLayout` seperti halaman lain. Ini menyebabkan sidebar tidak konsisten (tidak ada badge pending, tidak ada tombol hamburger di mobile).
-
-#### 5. Laporan Tidak Bisa Custom Date Range
-`AdminReportsPage` dan `AdminFinancePage` hanya preset (7 hari, 30 hari, bulan ini/lalu). Tidak ada date picker custom range.
-
-#### 6. Tidak Ada Audit Trail yang Visible
-`auditLog.ts` sudah mencatat aksi admin, tapi `AdminLogsPage` belum diperiksa apakah menampilkan log ini dengan baik.
-
-#### 7. Export PDF di Laporan Keuangan Terbatas 50 Row
-`AdminFinancePage` baris 201 membatasi `.slice(0, 50)` untuk export PDF. Untuk laporan resmi, ini tidak cukup.
+### 8. BottomNav: Animasi Active State & Haptic Feedback Visual
+- **Masalah**: Bottom navigation terasa datar, tidak ada indikator visual yang kuat untuk tab aktif.
+- **Solusi**: Tambah dot indicator atau bar di bawah ikon aktif, dan animasi scale ringan saat tap.
+- **File**: `src/components/layout/BottomNav.tsx`
 
 ---
 
-## Rencana Implementasi
+## B. PEDAGANG - Peningkatan Utama
 
-### Prioritas 1: Perbaikan Kritis
+### 9. Merchant Dashboard: Welcome Card dengan Ringkasan Cepat
+- **Masalah**: Dashboard langsung ke data tanpa konteks. Tidak ada greeting atau ringkasan singkat "Anda punya X pesanan baru hari ini".
+- **Solusi**: Tambahkan greeting card di atas yang menampilkan waktu hari + ringkasan cepat (pesanan baru, pendapatan hari ini).
+- **File**: `src/pages/merchant/MerchantDashboardPage.tsx`
 
-| No | Fitur | File | Kategori |
-|----|-------|------|----------|
-| 1 | Upload Foto Profil pembeli | `AccountPage.tsx`, `ProfileEditor.tsx` | Pembeli |
-| 2 | Halaman Bantuan/FAQ | Buat `HelpPage.tsx`, update `AccountPage` | Pembeli |
-| 3 | Edit Role User di Admin | `AdminUsersPage.tsx` | Admin |
-| 4 | Fix AdminSettings pakai AdminLayout | `AdminSettingsPage.tsx` | Admin |
-| 5 | Fee platform dari app_settings | `AdminFinancePage.tsx` | Admin |
+### 10. Merchant Dashboard: Empty State yang Lebih Informatif
+- **Masalah**: Jika tidak ada pesanan menunggu, area "Pesanan Menunggu" tidak muncul tanpa feedback positif.
+- **Solusi**: Tampilkan pesan positif "Semua pesanan sudah ditangani" dengan ikon checkmark hijau.
+- **File**: `src/pages/merchant/MerchantDashboardPage.tsx`
 
-### Prioritas 2: Peningkatan UX
+### 11. QuickStats: Animasi Counter
+- **Masalah**: Angka statistik muncul tanpa animasi, terasa statis.
+- **Solusi**: Tambahkan animasi counting-up sederhana menggunakan framer-motion pada angka.
+- **File**: `src/components/merchant/QuickStats.tsx`
 
-| No | Fitur | File | Kategori |
-|----|-------|------|----------|
-| 6 | Perbaiki estimasi ongkir di CartPage | `CartPage.tsx` | Pembeli |
-| 7 | Integrasi ETA pengiriman | `OrderDetailSheet.tsx`, `CheckoutPage.tsx` | Pembeli |
-| 8 | Quick action pesanan di merchant dashboard | `MerchantDashboardPage.tsx` | Pedagang |
-| 9 | Sound notification pesanan baru | `MerchantDashboardPage.tsx` | Pedagang |
-| 10 | Custom date range picker di laporan | `AdminReportsPage.tsx`, `AdminFinancePage.tsx` | Admin |
-
-### Prioritas 3: Fitur Baru
-
-| No | Fitur | File | Kategori |
-|----|-------|------|----------|
-| 11 | Halaman "Terakhir Dilihat" | Buat `RecentlyViewedPage.tsx` | Pembeli |
-| 12 | Chat 2 arah buyer-merchant dari OrderDetail | `OrderDetailSheet.tsx` | Pembeli |
-| 13 | Galeri multi-foto produk (buyer view) | `ProductDetail.tsx` | Pembeli |
-| 14 | System health monitoring | Buat `AdminSystemHealthPage.tsx` | Admin |
-| 15 | Export PDF tanpa batas 50 row | `AdminFinancePage.tsx` | Admin |
+### 12. MerchantLayout: Breadcrumb Navigation
+- **Masalah**: Di mobile, tidak jelas di halaman mana pedagang berada. Hanya ada title.
+- **Solusi**: Tambahkan subtitle breadcrumb kecil "Dashboard > Produk > Edit" di bawah title pada desktop.
+- **File**: `src/components/merchant/MerchantLayout.tsx`
 
 ---
 
-## Detail Teknis Perubahan
+## Detail Teknis
 
-### 1. Upload Foto Profil
-- Gunakan bucket `profile-images` yang sudah ada
-- Tambah komponen avatar upload di `ProfileEditor.tsx`
-- Update `profiles.avatar_url` saat upload berhasil
-- Tampilkan di `AccountPage` (ganti ikon User dengan foto)
+### Perubahan File
 
-### 2. Halaman Bantuan
-- Buat `src/pages/HelpPage.tsx` dengan FAQ accordion
-- Tambah kontak WhatsApp/email admin (ambil dari `app_settings`)
-- Route `/help`, link dari `AccountPage.tsx`
+| No | File | Jenis | Deskripsi |
+|----|------|-------|-----------|
+| 1 | `src/pages/Index.tsx` | Edit | Skeleton loader saat loading |
+| 2 | `src/pages/ProductDetail.tsx` | Edit | Fix rating hardcoded, tambah review section, produk serupa |
+| 3 | `src/components/ProductCard.tsx` | Edit | Tambah badge terjual |
+| 4 | `src/pages/CartPage.tsx` | Edit | Grupkan item per merchant |
+| 5 | `src/pages/OrdersPage.tsx` | Edit | Skeleton loader, nama item pertama |
+| 6 | `src/components/layout/Header.tsx` | Edit | Search bar di header |
+| 7 | `src/components/layout/BottomNav.tsx` | Edit | Active indicator animasi |
+| 8 | `src/pages/merchant/MerchantDashboardPage.tsx` | Edit | Welcome card, empty state pesanan |
+| 9 | `src/components/merchant/QuickStats.tsx` | Edit | Animasi counter |
+| 10 | `src/components/merchant/MerchantLayout.tsx` | Edit | Breadcrumb di desktop |
 
-### 3. Edit Role User
-- Di `AdminUsersPage.tsx`, tambah dialog "Kelola Role"
-- Checkbox per role (admin, merchant, courier, verifikator, admin_desa, buyer)
-- Insert/delete dari tabel `user_roles`
+### Database
+- Tidak ada migrasi database diperlukan
+- Semua data (reviews, rating_avg, rating_count) sudah tersedia di tabel yang ada
 
-### 4. Fix AdminSettingsPage Layout
-- Ganti layout manual menjadi `<AdminLayout title="Pengaturan" subtitle="Konfigurasi...">`
-- Hapus inline `<AdminSidebar />` dan wrapper div
-- Otomatis dapat: responsive sidebar, hamburger mobile, badge pending, refresh cache
+### Prioritas Implementasi
 
-### 5. Fee Platform dari app_settings
-- Baca `platform_fee` dan `courier_commission` dari `app_settings` via query
-- Ganti hardcoded `PLATFORM_FEE_PERCENT = 5` dan `COURIER_FEE_PERCENT = 80`
+**Batch 1 - Pembeli Core** (perubahan paling berdampak):
+- Homepage skeleton loader
+- Fix rating hardcoded di ProductDetail
+- Review section di ProductDetail
+- Produk serupa di ProductDetail
+- Search bar di Header
 
-### 6. Perbaiki CartPage Ongkir
-- Hapus hardcoded `shippingCost = 5000`
-- Tampilkan "Ongkir dihitung saat checkout" sebagai teks
-- Atau hitung berdasarkan `shipping_base_fee` dari `app_settings`
+**Batch 2 - Pembeli Polish**:
+- Cart grouping per merchant
+- Orders skeleton + item preview
+- BottomNav active indicator
 
-### 7. Quick Action Pesanan Merchant
-- Di tab "overview" dashboard merchant, tambah card pesanan baru
-- Tampilkan 3-5 pesanan terbaru status NEW
-- Tombol "Terima" dan "Tolak" langsung di card
-
-### 8. Sound Notification
-- Tambah audio element di `MerchantDashboardPage`
-- Play sound saat realtime event `INSERT` pada `orders` untuk merchant tersebut
-- Gunakan Web Audio API atau `<audio>` tag sederhana
-
-### 9. Custom Date Range
-- Tambah opsi "Custom" di select period
-- Munculkan date picker (sudah ada `react-day-picker`)
-- Implementasi di `AdminReportsPage` dan `AdminFinancePage`
-
-### 10. Hapus Limit 50 Row di Export
-- Hapus `.slice(0, 50)` dari export PDF di `AdminFinancePage`
-- Tambah pagination di autoTable jika data > 100 row
-
----
-
-## Database Changes
-
-Tidak ada perubahan database diperlukan. Semua kolom dan tabel sudah tersedia:
-- `profiles.avatar_url` -- sudah ada
-- `product_images` -- perlu dicek, mungkin belum ada (untuk multi-foto, tahap selanjutnya)
-- `app_settings` -- sudah ada untuk fee settings
-
-## Ringkasan
-
-| Kategori | Jumlah Perubahan |
-|----------|-----------------|
-| File baru | 3 (HelpPage, RecentlyViewedPage, AdminSystemHealthPage) |
-| File diubah | 12 |
-| Migrasi database | 0 |
-| Total | 15 perubahan |
-
-Semua perubahan ini meningkatkan fungsionalitas yang sudah ada tanpa menambah kompleksitas database baru.
-
+**Batch 3 - Pedagang**:
+- Welcome card + empty state
+- QuickStats animasi
+- MerchantLayout breadcrumb
