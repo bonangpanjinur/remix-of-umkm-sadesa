@@ -243,7 +243,7 @@ export default function RegisterMerchantPage() {
             .maybeSingle();
           
           if (data) {
-            setMatchedVillage(data as Village);
+            setMatchedVillage(data as unknown as Village);
           } else {
             setMatchedVillage(null);
           }
