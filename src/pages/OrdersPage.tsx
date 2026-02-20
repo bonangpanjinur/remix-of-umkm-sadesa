@@ -9,16 +9,18 @@ import { BottomNav } from "@/components/layout/BottomNav";
 import {
   Package, Clock, Truck, CheckCircle, XCircle, ShoppingBag,
   Store, LogIn, MapPin, Star, RefreshCw, ChevronRight, CalendarDays,
-  MessageCircle, X,
+  MessageCircle, X, RotateCcw,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useCart } from "@/contexts/CartContext";
 import { formatDistanceToNow } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
 import { OrderChat } from "@/components/chat/OrderChat";
+import { toast } from "@/hooks/use-toast";
 
 interface BuyerOrderItem {
   id: string;
@@ -37,6 +39,7 @@ interface BuyerOrder {
   merchants: { name: string; phone: string | null; user_id: string | null } | null;
   order_items: BuyerOrderItem[];
   is_self_delivery?: boolean;
+  has_review?: boolean;
 }
 
 // Database-aligned status config
@@ -99,6 +102,7 @@ const OrdersPage = () => {
   const [activeTab, setActiveTab] = useState("all");
   const [chatOrder, setChatOrder] = useState<{ orderId: string; merchantUserId: string; merchantName: string } | null>(null);
   const navigate = useNavigate();
+  const { addToCart } = useCart();
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -110,7 +114,7 @@ const OrdersPage = () => {
       if (isRefresh) setRefreshing(true); else setLoading(true);
       const { data, error } = await supabase
         .from("orders")
-        .select("id, status, total, created_at, merchant_id, is_self_delivery, merchants(name, phone, user_id), order_items(id, quantity, product_name, product_price, products(name, image_url))")
+        .select("id, status, total, created_at, merchant_id, is_self_delivery, has_review, merchants(name, phone, user_id), order_items(id, quantity, product_name, product_price, product_id, products(name, image_url))")
         .eq("buyer_id", user.id)
         .order("created_at", { ascending: false });
       if (error) throw error;
@@ -124,6 +128,49 @@ const OrdersPage = () => {
   }, [user]);
 
   useEffect(() => { fetchOrders(); }, [fetchOrders]);
+
+  // Realtime subscription for order status updates
+  useEffect(() => {
+    if (!user) return;
+    const channel = supabase
+      .channel('buyer-orders-realtime')
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'orders', filter: `buyer_id=eq.${user.id}` },
+        (payload) => {
+          setOrders(prev => prev.map(order => 
+            order.id === payload.new.id 
+              ? { ...order, status: (payload.new as any).status } 
+              : order
+          ));
+        }
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [user]);
+
+  // Reorder handler
+  const handleReorder = useCallback(async (order: BuyerOrder) => {
+    let addedCount = 0;
+    for (const item of order.order_items) {
+      addToCart({
+        id: (item as any).product_id || item.id,
+        name: item.product_name,
+        price: item.product_price,
+        image: item.products?.image_url || '/placeholder.svg',
+        stock: 99,
+        merchantId: order.merchant_id || '',
+        merchantName: order.merchants?.name || '',
+        category: '',
+        description: '',
+      } as any, item.quantity);
+      addedCount++;
+    }
+    if (addedCount > 0) {
+      toast({ title: `${addedCount} produk ditambahkan ke keranjang` });
+      navigate('/cart');
+    }
+  }, [navigate, addToCart]);
 
   const filteredOrders = orders.filter((order) => {
     if (activeTab === "all") return true;
@@ -366,21 +413,23 @@ const OrdersPage = () => {
                           )}
                           {order.status === "DONE" && (
                             <>
+                              {!order.has_review && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="text-xs h-8 rounded-full px-4 border-amber-300 text-amber-700 hover:bg-amber-50"
+                                  onClick={(e) => { e.stopPropagation(); navigate(`/orders/${order.id}/review`); }}
+                                >
+                                  <Star className="w-3 h-3 mr-1 fill-amber-400 text-amber-400" /> Beri Rating
+                                </Button>
+                              )}
                               <Button
                                 size="sm"
                                 variant="outline"
                                 className="text-xs h-8 rounded-full px-4"
-                                onClick={(e) => { e.stopPropagation(); navigate(`/orders/${order.id}/tracking`); }}
+                                onClick={(e) => { e.stopPropagation(); handleReorder(order); }}
                               >
-                                <Star className="w-3 h-3 mr-1" /> Beri Ulasan
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                className="text-xs h-8 rounded-full px-4"
-                                onClick={(e) => { e.stopPropagation(); navigate("/explore"); }}
-                              >
-                                <RefreshCw className="w-3 h-3 mr-1" /> Pesan Lagi
+                                <RotateCcw className="w-3 h-3 mr-1" /> Pesan Lagi
                               </Button>
                             </>
                           )}
@@ -391,7 +440,7 @@ const OrdersPage = () => {
                               className="text-xs h-8 rounded-full px-4"
                               onClick={(e) => { e.stopPropagation(); navigate("/explore"); }}
                             >
-                              <RefreshCw className="w-3 h-3 mr-1" /> Pesan Lagi
+                              <RefreshCw className="w-3 h-3 mr-1" /> Belanja Lagi
                             </Button>
                           )}
                         </div>
