@@ -41,7 +41,7 @@ import CourierEarningsPage from "./pages/courier/CourierEarningsPage";
 import OrderTrackingPage from "./pages/OrderTrackingPage";
 import UnauthorizedPage from "./pages/UnauthorizedPage";
 import VillageDetailPage from "./pages/VillageDetailPage";
-import MerchantProfilePage from "./pages/MerchantProfilePage";
+// MerchantProfilePage is rendered via MerchantSlugResolver
 import MerchantSlugResolver from "./pages/MerchantSlugResolver";
 import ShopsPage from "./pages/ShopsPage";
 import InstallPage from "./pages/InstallPage";
@@ -146,8 +146,7 @@ const App = () => (
               <Route path="/tourism" element={<TourismPage />} />
               <Route path="/tourism/:id" element={<TourismDetail />} />
               <Route path="/village/:id" element={<VillageDetailPage />} />
-              <Route path="/store/:id" element={<MerchantProfilePage />} />
-              <Route path="/merchant/:id" element={<MerchantProfilePage />} />
+              <Route path="/merchant/:slugOrId" element={<MerchantSlugResolver />} />
               <Route path="/shops" element={<ShopsPage />} />
               <Route path="/explore" element={<ExplorePage />} />
               <Route path="/search" element={<SearchResultsPage />} />

@@ -17,15 +17,15 @@ interface StoreQRCodeProps {
   merchantId: string;
   merchantName: string;
   merchantImage?: string | null;
+  slug?: string | null;
 }
 
-export function StoreQRCode({ merchantId, merchantName, merchantImage }: StoreQRCodeProps) {
+export function StoreQRCode({ merchantId, merchantName, merchantImage, slug }: StoreQRCodeProps) {
   const [copied, setCopied] = useState(false);
   const qrRef = useRef<HTMLDivElement>(null);
   
-  // Use published URL for production, preview for development
   const baseUrl = window.location.origin;
-  const storeUrl = `${baseUrl}/store/${merchantId}`;
+  const storeUrl = `${baseUrl}/merchant/${slug || merchantId}`;
 
   const handleCopyLink = async () => {
     try {
