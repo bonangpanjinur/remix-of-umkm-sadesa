@@ -11,7 +11,10 @@ import {
   MessageCircle,
   Check,
   Building,
-  Info
+  Info,
+  Heart,
+  Camera,
+  Image as ImageIcon
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
@@ -27,6 +30,7 @@ import { OrderChat } from '../components/chat/OrderChat';
 import { trackPageView } from '../lib/pageViewTracker';
 import { useAuth } from '../contexts/AuthContext';
 import { toast } from '../hooks/use-toast';
+import { ImageLightbox } from '../components/ui/ImageLightbox';
 import {
   Dialog,
   DialogContent,
@@ -61,6 +65,7 @@ interface MerchantData {
   halal_status?: string | null;
   halal_certificate_url?: string | null;
   slug?: string | null;
+  cover_image_url?: string | null;
 }
 
 interface ReviewData {
@@ -70,6 +75,13 @@ interface ReviewData {
   created_at: string;
   buyer_id: string;
   profiles?: { full_name: string } | null;
+}
+
+interface GalleryImage {
+  id: string;
+  image_url: string;
+  caption: string | null;
+  sort_order: number;
 }
 
 interface MerchantProfilePageProps {
@@ -84,11 +96,14 @@ export default function MerchantProfilePage({ overrideId }: MerchantProfilePageP
   const [merchant, setMerchant] = useState<MerchantData | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [reviews, setReviews] = useState<ReviewData[]>([]);
+  const [gallery, setGallery] = useState<GalleryImage[]>([]);
   const [loading, setLoading] = useState(true);
   const [hasActiveQuota, setHasActiveQuota] = useState(true);
   const [chatOpen, setChatOpen] = useState(false);
   const [chatOrderId, setChatOrderId] = useState<string | null>(null);
   const [showHalalModal, setShowHalalModal] = useState(false);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
 
   useEffect(() => {
     async function loadData() {
@@ -118,43 +133,50 @@ export default function MerchantProfilePage({ overrideId }: MerchantProfilePageP
         );
         const isMerchantOpen = merchantStatus.isCurrentlyOpen;
 
-        const { data: productsData } = await supabase
-          .from('products')
-          .select('*')
-          .eq('merchant_id', id)
-          .eq('is_active', true)
-          .order('created_at', { ascending: false });
+        // Fetch products, reviews, and gallery in parallel
+        const [productsResult, reviewsResult, galleryResult] = await Promise.all([
+          supabase
+            .from('products')
+            .select('*')
+            .eq('merchant_id', id)
+            .eq('is_active', true)
+            .order('created_at', { ascending: false }),
+          supabase
+            .from('reviews')
+            .select('id, rating, comment, created_at, buyer_id')
+            .eq('merchant_id', id)
+            .eq('is_visible', true)
+            .order('created_at', { ascending: false })
+            .limit(10),
+          supabase
+            .from('merchant_gallery')
+            .select('id, image_url, caption, sort_order')
+            .eq('merchant_id', id)
+            .order('sort_order', { ascending: true })
+        ]);
 
-        const mappedProducts: Product[] = (productsData || []).map(p => {
-          const isAvailable = quotaActive && isMerchantOpen && p.is_active;
-          return {
-            id: p.id,
-            merchantId: p.merchant_id,
-            merchantName: merchantData.name,
-            merchantVillage: merchantData.villages?.name || '',
-            name: p.name,
-            description: p.description || '',
-            price: p.price,
-            stock: p.stock,
-            image: p.image_url || '/placeholder.svg',
-            category: p.category as any,
-            isActive: p.is_active,
-            isPromo: p.is_promo,
-            isAvailable,
-            isMerchantOpen,
-            hasQuota: quotaActive,
-          };
-        });
+        // Map products
+        const mappedProducts: Product[] = (productsResult.data || []).map(p => ({
+          id: p.id,
+          merchantId: p.merchant_id,
+          merchantName: merchantData.name,
+          merchantVillage: merchantData.villages?.name || '',
+          name: p.name,
+          description: p.description || '',
+          price: p.price,
+          stock: p.stock,
+          image: p.image_url || '/placeholder.svg',
+          category: p.category as any,
+          isActive: p.is_active,
+          isPromo: p.is_promo,
+          isAvailable: quotaActive && isMerchantOpen && p.is_active,
+          isMerchantOpen,
+          hasQuota: quotaActive,
+        }));
         setProducts(mappedProducts);
 
-        const { data: reviewsData } = await supabase
-          .from('reviews')
-          .select('id, rating, comment, created_at, buyer_id')
-          .eq('merchant_id', id)
-          .eq('is_visible', true)
-          .order('created_at', { ascending: false })
-          .limit(10);
-
+        // Map reviews with profiles
+        const reviewsData = reviewsResult.data;
         if (reviewsData && reviewsData.length > 0) {
           const buyerIds = [...new Set(reviewsData.map(r => r.buyer_id))];
           const { data: profilesData } = await supabase
@@ -171,6 +193,9 @@ export default function MerchantProfilePage({ overrideId }: MerchantProfilePageP
         } else {
           setReviews([]);
         }
+
+        // Set gallery
+        setGallery(galleryResult.data || []);
 
       } catch (error) {
         console.error('Error loading merchant:', error);
@@ -222,6 +247,11 @@ export default function MerchantProfilePage({ overrideId }: MerchantProfilePageP
     }
   };
 
+  const openGalleryLightbox = (index: number) => {
+    setLightboxIndex(index);
+    setLightboxOpen(true);
+  };
+
   if (loading) {
     return (
       <div className="mobile-shell flex items-center justify-center min-h-screen">
@@ -243,6 +273,14 @@ export default function MerchantProfilePage({ overrideId }: MerchantProfilePageP
 
   const operatingStatus = getMerchantOperatingStatus(merchant.is_open, merchant.open_time, merchant.close_time);
   const isClosed = !hasActiveQuota || !operatingStatus.isCurrentlyOpen;
+
+  // Compute average rating from reviews for display
+  const avgRating = reviews.length > 0 
+    ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length 
+    : 0;
+
+  // Gallery images for lightbox
+  const galleryUrls = gallery.map(g => g.image_url);
 
   return (
     <div className="mobile-shell bg-background flex flex-col min-h-screen relative">
@@ -340,12 +378,16 @@ export default function MerchantProfilePage({ overrideId }: MerchantProfilePageP
               </div>
             </div>
 
-            {/* Tabs */}
+            {/* Tabs - 4 tabs now */}
             <Tabs defaultValue="products" className="w-full">
-              <TabsList className="w-full grid grid-cols-3 mb-3">
+              <TabsList className="w-full grid grid-cols-4 mb-3">
                 <TabsTrigger value="products" className="text-xs gap-1">
                   <ShoppingBag className="h-3.5 w-3.5" />
-                  Produk ({products.length})
+                  Produk
+                </TabsTrigger>
+                <TabsTrigger value="about" className="text-xs gap-1">
+                  <Heart className="h-3.5 w-3.5" />
+                  Tentang
                 </TabsTrigger>
                 <TabsTrigger value="info" className="text-xs gap-1">
                   <Info className="h-3.5 w-3.5" />
@@ -353,7 +395,7 @@ export default function MerchantProfilePage({ overrideId }: MerchantProfilePageP
                 </TabsTrigger>
                 <TabsTrigger value="reviews" className="text-xs gap-1">
                   <Star className="h-3.5 w-3.5" />
-                  Ulasan ({reviews.length})
+                  Ulasan
                 </TabsTrigger>
               </TabsList>
 
@@ -383,17 +425,120 @@ export default function MerchantProfilePage({ overrideId }: MerchantProfilePageP
                 </div>
               </TabsContent>
 
-              {/* Info Tab */}
-              <TabsContent value="info" className="mt-0 space-y-3 pb-4">
-                {merchant.business_description && (
-                  <div className="bg-card rounded-xl p-3 border border-border">
-                    <h3 className="font-semibold text-foreground text-sm mb-1.5">Tentang Toko</h3>
-                    <p className="text-xs text-muted-foreground leading-relaxed">
+              {/* About / Tentang Kami Tab */}
+              <TabsContent value="about" className="mt-0 space-y-4 pb-4">
+                {/* Business Story */}
+                <div className="bg-card rounded-xl p-4 border border-border">
+                  <h3 className="font-semibold text-foreground text-sm mb-2 flex items-center gap-2">
+                    <Store className="h-4 w-4 text-primary" />
+                    Cerita Kami
+                  </h3>
+                  {merchant.business_description ? (
+                    <p className="text-sm text-muted-foreground leading-relaxed">
                       {merchant.business_description}
                     </p>
-                  </div>
-                )}
+                  ) : (
+                    <p className="text-sm text-muted-foreground italic">
+                      Belum ada cerita bisnis yang ditambahkan.
+                    </p>
+                  )}
+                </div>
 
+                {/* Photo Gallery */}
+                <div className="bg-card rounded-xl p-4 border border-border">
+                  <h3 className="font-semibold text-foreground text-sm mb-3 flex items-center gap-2">
+                    <Camera className="h-4 w-4 text-primary" />
+                    Galeri Foto
+                    {gallery.length > 0 && (
+                      <span className="text-xs text-muted-foreground font-normal">({gallery.length})</span>
+                    )}
+                  </h3>
+                  {gallery.length > 0 ? (
+                    <div className="grid grid-cols-3 gap-1.5">
+                      {gallery.map((img, idx) => (
+                        <button
+                          key={img.id}
+                          onClick={() => openGalleryLightbox(idx)}
+                          className="relative aspect-square rounded-lg overflow-hidden group"
+                        >
+                          <img 
+                            src={img.image_url} 
+                            alt={img.caption || `Foto ${idx + 1}`}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                          />
+                          {img.caption && (
+                            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-1.5">
+                              <p className="text-white text-[10px] truncate">{img.caption}</p>
+                            </div>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8">
+                      <ImageIcon className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
+                      <p className="text-xs text-muted-foreground">Belum ada foto galeri</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Customer Testimonials - featured reviews with high ratings */}
+                <div className="bg-card rounded-xl p-4 border border-border">
+                  <h3 className="font-semibold text-foreground text-sm mb-3 flex items-center gap-2">
+                    <MessageCircle className="h-4 w-4 text-primary" />
+                    Testimoni Pelanggan
+                  </h3>
+                  {reviews.filter(r => r.rating >= 4 && r.comment).length > 0 ? (
+                    <div className="space-y-3">
+                      {reviews
+                        .filter(r => r.rating >= 4 && r.comment)
+                        .slice(0, 5)
+                        .map(review => (
+                          <div key={review.id} className="border-l-2 border-primary/30 pl-3">
+                            <div className="flex items-center gap-1 mb-1">
+                              {[...Array(review.rating)].map((_, i) => (
+                                <Star key={i} className="h-3 w-3 fill-yellow-400 text-yellow-400" />
+                              ))}
+                            </div>
+                            <p className="text-xs text-foreground leading-relaxed italic">
+                              "{review.comment}"
+                            </p>
+                            <p className="text-[11px] text-muted-foreground mt-1">
+                              — {(review.profiles as any)?.full_name || 'Pembeli'} · {new Date(review.created_at).toLocaleDateString('id-ID', { month: 'short', year: 'numeric' })}
+                            </p>
+                          </div>
+                        ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-6">
+                      <MessageCircle className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
+                      <p className="text-xs text-muted-foreground">Belum ada testimoni</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Quick Stats */}
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="bg-card rounded-xl p-3 border border-border text-center">
+                    <p className="text-lg font-bold text-primary">{products.length}</p>
+                    <p className="text-[11px] text-muted-foreground">Produk</p>
+                  </div>
+                  <div className="bg-card rounded-xl p-3 border border-border text-center">
+                    <p className="text-lg font-bold text-primary">{reviews.length}</p>
+                    <p className="text-[11px] text-muted-foreground">Ulasan</p>
+                  </div>
+                  <div className="bg-card rounded-xl p-3 border border-border text-center">
+                    <div className="flex items-center justify-center gap-0.5">
+                      <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                      <span className="text-lg font-bold text-foreground">{(merchant.rating_avg || 0).toFixed(1)}</span>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground">Rating</p>
+                  </div>
+                </div>
+              </TabsContent>
+
+              {/* Info Tab */}
+              <TabsContent value="info" className="mt-0 space-y-3 pb-4">
                 <div className="bg-card rounded-xl p-3 border border-border">
                   <h3 className="font-semibold text-foreground text-sm mb-1.5">Alamat</h3>
                   {merchant.address && (
@@ -428,6 +573,13 @@ export default function MerchantProfilePage({ overrideId }: MerchantProfilePageP
                   <div className="bg-card rounded-xl p-3 border border-border">
                     <h3 className="font-semibold text-foreground text-sm mb-1.5">Kategori</h3>
                     <Badge variant="secondary" className="text-xs">{merchant.business_category}</Badge>
+                  </div>
+                )}
+
+                {merchant.phone && (
+                  <div className="bg-card rounded-xl p-3 border border-border">
+                    <h3 className="font-semibold text-foreground text-sm mb-1.5">Kontak</h3>
+                    <p className="text-xs text-muted-foreground">{merchant.phone}</p>
                   </div>
                 )}
               </TabsContent>
@@ -519,6 +671,16 @@ export default function MerchantProfilePage({ overrideId }: MerchantProfilePageP
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Gallery Lightbox */}
+      {galleryUrls.length > 0 && (
+        <ImageLightbox
+          images={galleryUrls}
+          initialIndex={lightboxIndex}
+          open={lightboxOpen}
+          onOpenChange={setLightboxOpen}
+        />
+      )}
     </div>
   );
 }
