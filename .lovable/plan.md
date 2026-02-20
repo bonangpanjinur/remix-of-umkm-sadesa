@@ -1,172 +1,146 @@
 
-# Analisis Komprehensif Seluruh Sistem DesaMart
+
+# Rencana Pengembangan Sistem Chat Lengkap DesaMart
+
+## Analisis Kondisi Saat Ini
+
+Sistem chat saat ini **sangat terbatas**:
+- Hanya ada 1 komponen `OrderChat` yang terikat ke `order_id`
+- Hanya mendukung chat **Pembeli - Penjual** (via pesanan)
+- Tidak ada chat Pembeli - Kurir
+- Tidak ada chat Penjual - Kurir
+- Tidak ada halaman chat khusus untuk Pembeli (hanya dialog kecil)
+- Tidak ada halaman chat untuk Kurir
+- Tabel `chat_messages` tidak memiliki kolom `chat_type` untuk membedakan jenis percakapan
+
+## Peta Hubungan Chat yang Dibutuhkan
+
+Berikut semua jalur komunikasi yang seharusnya ada:
+
+```text
++----------+          +----------+          +----------+
+|          |  Chat 1  |          |  Chat 2  |          |
+|  PEMBELI | <------> | PENJUAL  | <------> |  KURIR   |
+|          |          |          |          |          |
++----------+          +----------+          +----------+
+      |                                          |
+      |               Chat 3                     |
+      +------------------------------------------+
+```
+
+| # | Jalur | Konteks | Kapan Aktif |
+|---|-------|---------|-------------|
+| 1 | Pembeli - Penjual | Tanya produk, negosiasi, komplain | Selama pesanan aktif (NEW sampai DONE) |
+| 2 | Penjual - Kurir | Koordinasi pengambilan barang, alamat detail | Saat pesanan status ASSIGNED sampai DELIVERED |
+| 3 | Pembeli - Kurir | Konfirmasi lokasi pengantaran, "sudah di mana?" | Saat pesanan status ASSIGNED sampai DELIVERED |
+
+**Tambahan yang juga penting:**
+
+| # | Jalur | Konteks |
+|---|-------|---------|
+| 4 | Admin - Penjual | Verifikasi dokumen, klarifikasi penolakan |
+| 5 | Admin - Pembeli | Penanganan komplain/refund |
+| 6 | Verifikator - Penjual | Koordinasi kas, pengumuman grup |
+
+Untuk fase pertama, kita fokuskan pada **Chat 1, 2, dan 3** (Pembeli-Penjual, Penjual-Kurir, Pembeli-Kurir) karena ini yang paling berdampak pada pengalaman transaksi.
 
 ---
 
-## A. BUG AKTIF (Harus Diperbaiki)
+## Rencana Implementasi
 
-### Kritis
+### Fase 1: Upgrade Database
 
-| # | Bug | Role | Lokasi | Detail |
-|---|-----|------|--------|--------|
-| 1 | **Status ASSIGNED tidak dikenali buyer** | Buyer | `OrdersPage.tsx` baris 46-58, `OrderTrackingPage.tsx` | `STATUS_CONFIG` tidak memiliki mapping untuk `ASSIGNED` dan `PICKED_UP`. Saat merchant pilih "Kurir Desa", order menjadi `ASSIGNED` tapi buyer melihat status kosong/unknown. `DeliveryStatusCard` juga tidak menampilkan timeline yang benar. |
-| 2 | **Merchant Dashboard: Terima pesanan status salah** | Merchant | `MerchantDashboardPage.tsx` baris 324 | Quick action "Terima" mengirim status `PROCESSING` tapi status yang valid di sistem adalah `PROCESSED`. Order akan stuck di status invalid. |
-| 3 | **Admin route tanpa role check** | Admin | `App.tsx` baris 367-381 | Route `/admin/packages`, `/admin/quota-settings`, `/admin/transaction-quota` menggunakan `<ProtectedRoute>` tanpa `allowedRoles={['admin']}`. Semua user yang login bisa mengakses halaman quota settings. **Security issue.** |
-| 4 | **Reorder: product_id bisa null** | Buyer | `OrdersPage.tsx` baris 157 | `(item as any).product_id` -- jika produk sudah dihapus dari database, `product_id` di `order_items` bisa null, lalu fallback ke `item.id` (UUID order_item) dipakai sebagai product ID, menghasilkan data keranjang yang corrupt. |
-| 5 | **Voucher discount tidak disimpan ke database** | Buyer | `CheckoutPage.tsx` baris 459-462 | Diskon voucher hanya dicatat di field `notes` sebagai teks dan `flash_sale_discount` (field yang seharusnya untuk flash sale). Tidak ada field `voucher_id` atau `voucher_discount` di tabel `orders`. Merchant tidak tahu berapa diskon sebenarnya. |
-| 6 | **Verifikator reject pakai `prompt()`** | Verifikator | `VerifikatorMerchantsPage.tsx` baris 96-99 | Menggunakan `prompt()` browser native untuk input alasan penolakan. Ini buruk untuk UX dan tidak konsisten dengan UI lainnya yang menggunakan Dialog. Di mobile browser, prompt bisa terblokir. |
-| 7 | **COD order tanpa deadline handling** | Buyer+Merchant | `CheckoutPage.tsx` baris 425-427 | `confirmation_deadline` dihitung tapi **tidak ada mekanisme auto-cancel** jika deadline terlewat. Order COD bisa stuck di `PENDING_CONFIRMATION` selamanya. |
+**Migrasi tabel `chat_messages`** -- tambah kolom baru tanpa merusak data lama:
 
-### Sedang
+- `chat_type TEXT DEFAULT 'buyer_merchant'` -- jenis chat: `buyer_merchant`, `buyer_courier`, `merchant_courier`
+- `image_url TEXT` -- untuk kirim foto (bukti lokasi, foto barang)
+- Semua data lama otomatis mendapat `chat_type = 'buyer_merchant'`
 
-| # | Bug | Role | Lokasi | Detail |
-|---|-----|------|--------|--------|
-| 8 | **Multi-merchant shipping identik** | Buyer | `CheckoutPage.tsx` baris 416 | `merchantShipping` sama untuk semua merchant dalam satu checkout. Seharusnya dihitung berdasarkan jarak ke masing-masing merchant. |
-| 9 | **Notification `send_notification` RPC mungkin tidak ada** | Merchant | `CheckoutPage.tsx` baris 526 | Checkout memanggil `supabase.rpc('send_notification', ...)` tapi fungsi ini tidak terverifikasi ada di database. Error di-catch dan di-ignore, tapi notifikasi merchant bisa tidak terkirim. |
-| 10 | **Admin Desa dashboard terlalu minimal** | Admin Desa | `DesaDashboardPage.tsx` | Hanya 1 tombol aksi ("Kelola Wisata"). Tidak ada: daftar merchant di desa, statistik pendapatan, grafik pengunjung, notifikasi. |
-| 11 | **Verifikator: Tidak ada pagination untuk kas** | Verifikator | `VerifikatorDashboardPage.tsx` | Semua kas payments di-load tanpa limit. Jika grup besar dengan ratusan merchant, halaman akan lambat. |
+Update RLS policies agar kurir bisa mengakses chat yang relevan.
 
----
+### Fase 2: Upgrade Komponen Chat
 
-## B. ANALISIS PER ROLE
+**Refactor `OrderChat.tsx`** agar mendukung multi-tipe:
+- Tambah prop `chatType` untuk filter pesan berdasarkan tipe
+- Tambah fitur kirim gambar (upload ke storage)
+- Tampilkan label peran pengirim (Pembeli/Penjual/Kurir)
+- Tambah quick reply template untuk penjual dan kurir
 
-### 1. BUYER (Pembeli)
+### Fase 3: Halaman Chat per Role
 
-**Yang Sudah Baik:**
-- Cart persistence ke localStorage sudah diimplementasi
-- Realtime order status update via Supabase channel
-- Chat in-app dengan merchant sudah berfungsi
-- Reorder, review, wishlist, recently viewed tersedia
-- Address management terintegrasi
+**3a. Halaman Chat Pembeli** (`src/pages/buyer/BuyerChatPage.tsx`)
+- Daftar semua thread aktif (dengan penjual dan kurir)
+- Tab: "Penjual" | "Kurir"
+- Badge unread count
+- Route: `/buyer/chat`
 
-**Yang Kurang/Belum Ada:**
+**3b. Upgrade Halaman Chat Penjual** (`src/pages/merchant/MerchantChatPage.tsx`)
+- Tambah tab "Pembeli" | "Kurir"
+- Thread dengan kurir muncul saat pesanan di-assign
+- Notifikasi pesan baru
 
-| # | Fitur | Prioritas | Detail |
-|---|-------|-----------|--------|
-| 1 | **Cancel order** | Tinggi | `OrderCancelDialog` sudah ada sebagai komponen tapi **tidak digunakan di OrdersPage.tsx**. Buyer tidak bisa membatalkan pesanan dari daftar pesanan. |
-| 2 | **Status ASSIGNED/PICKED_UP di buyer** | Tinggi | Buyer tidak melihat status kurir sudah ditugaskan/sudah ambil barang. Progress bar salah. |
-| 3 | **Konfirmasi pesanan diterima dari OrdersPage** | Sedang | Tombol "Selesaikan Pesanan" hanya ada di `OrderTrackingPage`, tidak di daftar pesanan utama. |
-| 4 | **Live tracking kurir di peta** | Sedang | Data lokasi kurir (`current_lat/lng`) sudah ada di database tapi tidak ada peta tracking di `OrderTrackingPage`. |
-| 5 | **Notifikasi toast saat status berubah realtime** | Sedang | Realtime update mengubah state tapi tidak ada feedback visual (toast/banner) saat status berubah. |
-| 6 | **Riwayat pembayaran** | Rendah | Tidak ada halaman khusus melihat semua bukti transfer dan status pembayaran. |
+**3c. Halaman Chat Kurir** (`src/pages/courier/CourierChatPage.tsx`)
+- Daftar thread dengan pembeli dan penjual per pesanan aktif
+- Tab: "Pembeli" | "Penjual"
+- Quick reply: "Sudah di lokasi", "Sedang menuju", "Barang sudah diambil"
+- Route: `/courier/chat`
 
-### 2. MERCHANT (Pedagang)
+### Fase 4: Integrasi ke Halaman yang Ada
 
-**Yang Sudah Baik:**
-- Dashboard lengkap dengan charts, stats, quota
-- Order management dengan filter, search, export
-- Self-delivery vs kurir desa sudah ada
-- Invoice print, payment verification
-- Flash sale, voucher, promo management
+- **OrderTrackingPage** (Pembeli): Tambah tombol "Chat Kurir" saat status ASSIGNED/PICKED_UP/SENT
+- **OrdersPage** (Pembeli): Tombol chat kurir di samping chat penjual
+- **CourierDashboardPage** (Kurir): Tombol chat pembeli dan penjual per pesanan
+- **MerchantOrdersPage** (Penjual): Tombol chat kurir saat pesanan sudah di-assign
+- **Header/BottomNav**: Badge notifikasi unread chat global
 
-**Yang Kurang/Belum Ada:**
+### Fase 5: Fitur Pendukung
 
-| # | Fitur | Prioritas | Detail |
-|---|-------|-----------|--------|
-| 1 | **Sound notification pesanan baru** | Tinggi | `soundEnabled` state ada tapi tidak ada implementasi Audio API. Merchant bisa miss pesanan. |
-| 2 | **Status PROCESSING vs PROCESSED mismatch** | Tinggi | Dashboard quick action mengirim `PROCESSING` (baris 324), order page menggunakan `PROCESSED`. Inkonsistensi status. |
-| 3 | **Mobile card view untuk orders** | Sedang | DataTable tidak responsif di mobile. Kolom terpotong, sulit scroll horizontal. |
-| 4 | **Batch terima pesanan** | Sedang | Tidak bisa terima beberapa pesanan sekaligus dari MerchantOrdersPage. |
-| 5 | **Chat template cepat** | Rendah | Merchant harus ketik manual setiap balas chat. |
-| 6 | **Product image di order detail** | Rendah | Dialog order detail merchant tidak menampilkan foto produk. |
-
-### 3. VERIFIKATOR
-
-**Yang Sudah Baik:**
-- Dashboard dengan stats (merchant, earnings, kas)
-- Trade group management (buat, edit, set fee)
-- Kode referral system berfungsi
-- Kas payment management (generate, mark paid, reminder)
-- Announcement ke grup
-
-**Yang Kurang/Belum Ada:**
-
-| # | Fitur | Prioritas | Detail |
-|---|-------|-----------|--------|
-| 1 | **Reject dialog proper** | Tinggi | Pakai `prompt()` browser native, bukan Dialog component. |
-| 2 | **Laporan kas PDF/export** | Sedang | VerifikatorKasReportPage ada tapi perlu diverifikasi apakah export berfungsi. |
-| 3 | **Dashboard statistik grafik** | Sedang | Tidak ada chart earnings over time atau merchant growth. Hanya angka statis. |
-| 4 | **Notifikasi saat merchant baru daftar** | Sedang | Verifikator tidak mendapat notifikasi real-time saat ada merchant baru pakai kodenya. |
-| 5 | **Withdrawal request** | Rendah | Halaman `VerifikatorEarningsPage` sudah ada tapi perlu diverifikasi alurnya. |
-
-### 4. SUPER ADMIN
-
-**Yang Sudah Baik:**
-- Dashboard lengkap dengan realtime stats, charts, activity feed
-- Bulk approve/reject pendaftaran
-- User management, role management
-- Financial reports, withdrawal management
-- Backup, broadcast, banners, categories
-- System health monitoring
-
-**Yang Kurang/Belum Ada:**
-
-| # | Fitur | Prioritas | Detail |
-|---|-------|-----------|--------|
-| 1 | **Route security hole** | Tinggi | 3 route admin tanpa `allowedRoles` check (quota pages). |
-| 2 | **Audit log viewer detail** | Sedang | `AdminLogsPage` ada tapi perlu diverifikasi apakah menampilkan detail yang cukup. |
-| 3 | **Order management cross-merchant** | Sedang | Admin bisa lihat semua order tapi tidak ada fitur intervensi (force cancel, force refund). |
-| 4 | **Merchant performance ranking** | Rendah | Tidak ada leaderboard merchant berdasarkan revenue/rating. |
-
-### 5. ADMIN DESA
-
-**Yang Sudah Baik:**
-- Dashboard dasar dengan statistik wisata
-- Kelola wisata (CRUD tourism)
-
-**Yang Kurang/Belum Ada:**
-
-| # | Fitur | Prioritas | Detail |
-|---|-------|-----------|--------|
-| 1 | **Dashboard sangat minimal** | Tinggi | Hanya 1 tombol aksi. Tidak ada chart, activity feed, atau notifikasi. |
-| 2 | **Daftar merchant di desa** | Sedang | Admin desa tidak bisa melihat merchant yang terdaftar di desanya. |
-| 3 | **Statistik pengunjung wisata** | Sedang | View count ada tapi tidak ada chart trend. |
-| 4 | **Galeri desa** | Rendah | Tidak ada fitur kelola galeri/foto desa. |
-| 5 | **Event/kalender wisata** | Rendah | Tidak ada fitur jadwal event wisata. |
+- **Unread count global**: Hook `useChatUnread()` yang subscribe realtime ke semua chat user
+- **Notifikasi push**: Kirim push notification saat pesan baru (via edge function yang sudah ada)
+- **Auto-delete**: Chat otomatis dihapus 7 hari setelah pesanan selesai (DONE)
 
 ---
 
-## C. RENCANA PERBAIKAN - PRIORITAS
+## Detail Teknis
 
-### Fase 1: Bug Kritis & Security (Harus segera)
+### File yang Dibuat Baru
 
-| # | Perubahan | File |
-|---|-----------|------|
-| 1 | Fix admin route security: tambah `allowedRoles={['admin']}` di 3 route | `src/App.tsx` |
-| 2 | Tambah `ASSIGNED`, `PICKED_UP` ke `STATUS_CONFIG` buyer | `src/pages/OrdersPage.tsx` |
-| 3 | Fix merchant dashboard status `PROCESSING` -> `PROCESSED` | `src/pages/merchant/MerchantDashboardPage.tsx` |
-| 4 | Tambah `OrderCancelDialog` ke `OrdersPage.tsx` untuk buyer cancel | `src/pages/OrdersPage.tsx` |
-| 5 | Guard reorder: skip items dengan product_id null, beri warning | `src/pages/OrdersPage.tsx` |
-| 6 | Ganti `prompt()` di verifikator dengan Dialog component | `src/pages/verifikator/VerifikatorMerchantsPage.tsx` |
+| File | Deskripsi |
+|------|-----------|
+| `src/pages/buyer/BuyerChatPage.tsx` | Halaman daftar chat pembeli |
+| `src/pages/courier/CourierChatPage.tsx` | Halaman daftar chat kurir |
+| `src/hooks/useChatUnread.ts` | Hook global unread count |
 
-### Fase 2: UX Enhancement
+### File yang Dimodifikasi
 
-| # | Perubahan | File |
-|---|-----------|------|
-| 7 | Sound notification merchant (Audio API) | `src/pages/merchant/MerchantOrdersPage.tsx` |
-| 8 | Toast notification saat realtime order update buyer | `src/pages/OrdersPage.tsx` |
-| 9 | Tombol "Selesaikan Pesanan" di OrdersPage untuk status DELIVERED | `src/pages/OrdersPage.tsx` |
-| 10 | Status DELIVERING/ASSIGNED di DeliveryStatusCard & OrderTrackingPage | `src/components/courier/DeliveryStatusCard.tsx` |
+| File | Perubahan |
+|------|-----------|
+| `supabase migration` | Tambah kolom `chat_type`, `image_url` ke `chat_messages` + RLS update |
+| `src/components/chat/OrderChat.tsx` | Tambah prop `chatType`, filter berdasarkan tipe, label peran, kirim gambar |
+| `src/pages/merchant/MerchantChatPage.tsx` | Tambah tab Kurir |
+| `src/pages/OrdersPage.tsx` | Tambah tombol "Chat Kurir" |
+| `src/pages/OrderTrackingPage.tsx` | Tambah tombol "Chat Kurir" |
+| `src/pages/CourierDashboardPage.tsx` | Tambah tombol chat pembeli + penjual |
+| `src/pages/merchant/MerchantOrdersPage.tsx` | Tambah tombol chat kurir |
+| `src/App.tsx` | Tambah route `/buyer/chat` dan `/courier/chat` |
+| `src/components/layout/BottomNav.tsx` | Badge unread chat |
 
-### Fase 3: Fitur Tambahan
+### Skema Database (Migrasi)
 
-| # | Perubahan | File |
-|---|-----------|------|
-| 11 | Perkaya dashboard Admin Desa (chart, merchant list, notifikasi) | `src/pages/desa/DesaDashboardPage.tsx` |
-| 12 | Verifikator chart earnings + merchant growth | `src/pages/verifikator/VerifikatorDashboardPage.tsx` |
-| 13 | Mobile card view untuk merchant orders | `src/pages/merchant/MerchantOrdersPage.tsx` |
-| 14 | Migrasi SQL: tambah `voucher_id`, `voucher_discount` ke orders | Migrasi SQL + `CheckoutPage.tsx` |
+```text
+ALTER TABLE chat_messages
+  ADD COLUMN chat_type TEXT DEFAULT 'buyer_merchant',
+  ADD COLUMN image_url TEXT;
 
----
+-- Update RLS: kurir bisa akses chat tipe buyer_courier dan merchant_courier
+-- pada pesanan yang di-assign ke mereka
+```
 
-## D. RINGKASAN FASE 1
+### Estimasi
 
-| # | File | Perubahan |
-|---|------|-----------|
-| 1 | `src/App.tsx` | Fix 3 route admin tanpa allowedRoles |
-| 2 | `src/pages/OrdersPage.tsx` | Tambah ASSIGNED/PICKED_UP status, cancel dialog, guard reorder, toast realtime |
-| 3 | `src/pages/merchant/MerchantDashboardPage.tsx` | Fix status PROCESSING -> PROCESSED |
-| 4 | `src/pages/verifikator/VerifikatorMerchantsPage.tsx` | Ganti prompt() dengan Dialog reject |
-| 5 | `src/components/courier/DeliveryStatusCard.tsx` | Tambah ASSIGNED di timeline |
+- **Fase 1 (Database)**: Migrasi SQL sederhana
+- **Fase 2-3 (Komponen + Halaman)**: Perubahan utama
+- **Fase 4-5 (Integrasi + Polish)**: Finishing touches
 
-**Total Fase 1: 5 file diubah, 0 migrasi database**
+Total: 3 file baru, 9 file dimodifikasi, 1 migrasi database
+
