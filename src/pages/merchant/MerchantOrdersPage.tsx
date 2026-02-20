@@ -51,8 +51,6 @@ export default function MerchantOrdersPage() {
   const [rejectReason, setRejectReason] = useState('');
   const [printDialogOpen, setPrintDialogOpen] = useState(false);
   const [isConnected, setIsConnected] = useState(true);
-  const [deliveryChoiceDialogOpen, setDeliveryChoiceDialogOpen] = useState(false);
-  const [deliveryChoiceOrderId, setDeliveryChoiceOrderId] = useState<string | null>(null);
   const invoiceRef = useRef<HTMLDivElement>(null);
 
   // Fetch merchant info
@@ -157,7 +155,6 @@ export default function MerchantOrdersPage() {
       if (error) throw error;
       
       toast.success('Pesanan akan diantar sendiri');
-      setDeliveryChoiceDialogOpen(false);
       setDetailDialogOpen(false);
       refetch();
     } catch (error) {
@@ -227,10 +224,6 @@ export default function MerchantOrdersPage() {
     }
   };
 
-  const openDeliveryChoiceDialog = (orderId: string) => {
-    setDeliveryChoiceOrderId(orderId);
-    setDeliveryChoiceDialogOpen(true);
-  };
 
   const getStatusBadge = (status: string) => {
     const statusMap: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' | 'success' | 'warning' | 'info' | 'pending' }> = {
@@ -361,10 +354,10 @@ export default function MerchantOrdersPage() {
                   Siap Diambil
                 </DropdownMenuItem>
               ) : (
-                <DropdownMenuItem onClick={() => openDeliveryChoiceDialog(item.id)}>
-                  <Truck className="h-4 w-4 mr-2" />
-                  Kirim Pesanan
-                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => viewOrderDetail(item)}>
+                   <Truck className="h-4 w-4 mr-2" />
+                   Kirim Pesanan
+                 </DropdownMenuItem>
               )
             )}
             {item.status === 'DELIVERING' && (
@@ -706,13 +699,51 @@ export default function MerchantOrdersPage() {
                     Siap Diambil
                   </Button>
                 ) : (
-                  <Button 
-                    className="w-full"
-                    onClick={() => openDeliveryChoiceDialog(selectedOrder.id)}
-                  >
-                    <Truck className="h-4 w-4 mr-2" />
-                    Kirim Pesanan
-                  </Button>
+                  <div className="space-y-3">
+                    <p className="text-sm font-semibold">Pilih Metode Pengiriman:</p>
+                    <Button 
+                      className="w-full justify-start gap-3 h-auto py-4"
+                      variant="outline"
+                      onClick={() => handleSelfDelivery(selectedOrder.id)}
+                    >
+                      <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                        <User className="h-5 w-5 text-primary" />
+                      </div>
+                      <div className="text-left">
+                        <p className="font-bold text-sm">Antar Sendiri</p>
+                        <p className="text-xs text-muted-foreground">Anda mengirim langsung ke pembeli</p>
+                      </div>
+                    </Button>
+                    <Button 
+                      className="w-full justify-start gap-3 h-auto py-4"
+                      variant="outline"
+                      onClick={async () => {
+                        const { error } = await supabase
+                          .from('orders')
+                          .update({ 
+                            status: 'ASSIGNED',
+                            updated_at: new Date().toISOString()
+                          })
+                          .eq('id', selectedOrder.id);
+                        
+                        if (error) {
+                          toast.error('Gagal mengubah status');
+                        } else {
+                          toast.success('Pesanan menunggu penugasan kurir desa');
+                          refetch();
+                        }
+                        setDetailDialogOpen(false);
+                      }}
+                    >
+                      <div className="h-10 w-10 rounded-full bg-info/10 flex items-center justify-center flex-shrink-0">
+                        <Truck className="h-5 w-5 text-info" />
+                      </div>
+                      <div className="text-left">
+                        <p className="font-bold text-sm">Kurir Desa</p>
+                        <p className="text-xs text-muted-foreground">Dikirim oleh kurir desa</p>
+                      </div>
+                    </Button>
+                  </div>
                 )
               )}
               {/* DELIVERING (self-delivery): mark as delivered */}
@@ -734,69 +765,6 @@ export default function MerchantOrdersPage() {
               )}
             </div>
           )}
-        </DialogContent>
-      </Dialog>
-
-      {/* Delivery Choice Dialog */}
-      <Dialog open={deliveryChoiceDialogOpen} onOpenChange={setDeliveryChoiceDialogOpen}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Pilih Metode Pengiriman</DialogTitle>
-          </DialogHeader>
-          <div className="py-4 space-y-3">
-            <p className="text-sm text-muted-foreground">
-              Bagaimana Anda ingin mengirim pesanan ini?
-            </p>
-            <Button 
-              className="w-full justify-start gap-3 h-auto py-4"
-              variant="outline"
-              onClick={() => {
-                if (deliveryChoiceOrderId) {
-                  handleSelfDelivery(deliveryChoiceOrderId);
-                }
-              }}
-            >
-              <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                <User className="h-5 w-5 text-primary" />
-              </div>
-              <div className="text-left">
-                <p className="font-bold text-sm">Antar Sendiri</p>
-                <p className="text-xs text-muted-foreground">Anda mengirim langsung ke pembeli</p>
-              </div>
-            </Button>
-            <Button 
-              className="w-full justify-start gap-3 h-auto py-4"
-              variant="outline"
-              onClick={async () => {
-                if (deliveryChoiceOrderId) {
-                  // Set status to ASSIGNED first, waiting for courier assignment
-                  const { error } = await supabase
-                    .from('orders')
-                    .update({ 
-                      status: 'ASSIGNED',
-                      updated_at: new Date().toISOString()
-                    })
-                    .eq('id', deliveryChoiceOrderId);
-                  
-                  if (error) {
-                    toast.error('Gagal mengubah status');
-                  } else {
-                    toast.success('Pesanan menunggu penugasan kurir desa');
-                    refetch();
-                  }
-                  setDeliveryChoiceDialogOpen(false);
-                }
-              }}
-            >
-              <div className="h-10 w-10 rounded-full bg-info/10 flex items-center justify-center flex-shrink-0">
-                <Truck className="h-5 w-5 text-info" />
-              </div>
-              <div className="text-left">
-                <p className="font-bold text-sm">Kurir Desa</p>
-                <p className="text-xs text-muted-foreground">Dikirim oleh kurir desa</p>
-              </div>
-            </Button>
-          </div>
         </DialogContent>
       </Dialog>
 
