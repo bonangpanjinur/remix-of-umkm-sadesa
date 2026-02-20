@@ -3364,7 +3364,7 @@ export type Database = {
       is_admin: { Args: never; Returns: boolean }
       is_admin_desa: { Args: never; Returns: boolean }
       is_chat_participant: {
-        Args: { _chat_type: string; _order_id: string; _user_id: string }
+        Args: { p_chat_type: string; p_order_id: string; user_uuid: string }
         Returns: boolean
       }
       is_courier: { Args: never; Returns: boolean }
