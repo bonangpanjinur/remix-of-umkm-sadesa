@@ -28,6 +28,7 @@ interface ShopData {
   locationLat: number | null;
   locationLng: number | null;
   slug: string | null;
+  businessCategory: string | null;
 }
 
 export default function ShopsPage() {
@@ -53,7 +54,7 @@ export default function ShopsPage() {
           .from('merchants')
           .select(`
             id, name, address, phone, rating_avg, rating_count, is_open, badge, image_url,
-            village_id, location_lat, location_lng, slug,
+            village_id, location_lat, location_lng, slug, business_category,
             villages(name, location_lat, location_lng),
             products(id, category)
           `);
@@ -94,6 +95,7 @@ export default function ShopsPage() {
             locationLat,
             locationLng,
             slug: m.slug || null,
+            businessCategory: m.business_category || null,
           };
         });
 
@@ -133,13 +135,15 @@ export default function ShopsPage() {
 
     // Then filter
     return sorted.filter((shop) => {
-      // Search filter
+      // Search filter - match name, address, village, or business category
       if (searchQuery) {
         const query = searchQuery.toLowerCase();
         const matchName = shop.name.toLowerCase().includes(query);
         const matchAddress = shop.address?.toLowerCase().includes(query);
         const matchVillage = shop.villageName?.toLowerCase().includes(query);
-        if (!matchName && !matchAddress && !matchVillage) return false;
+        const matchCategory = shop.categories.some(cat => cat.toLowerCase().includes(query));
+        const matchBusinessCategory = shop.businessCategory?.toLowerCase().includes(query);
+        if (!matchName && !matchAddress && !matchVillage && !matchCategory && !matchBusinessCategory) return false;
       }
 
       // Rating filter

@@ -838,6 +838,48 @@ export type Database = {
           },
         ]
       }
+      merchant_gallery: {
+        Row: {
+          caption: string | null
+          created_at: string
+          id: string
+          image_url: string
+          merchant_id: string
+          sort_order: number | null
+        }
+        Insert: {
+          caption?: string | null
+          created_at?: string
+          id?: string
+          image_url: string
+          merchant_id: string
+          sort_order?: number | null
+        }
+        Update: {
+          caption?: string | null
+          created_at?: string
+          id?: string
+          image_url?: string
+          merchant_id?: string
+          sort_order?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "merchant_gallery_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "merchant_gallery_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "public_merchants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       merchant_subscriptions: {
         Row: {
           created_at: string
