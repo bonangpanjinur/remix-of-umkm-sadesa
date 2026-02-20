@@ -1,62 +1,80 @@
 
+# Analisis Bug Pesanan Kosong dan Perbaikan UX Checkout
 
-# Perbaikan Bug 2 Modal di Detail Pesanan Merchant
+## A. Bug Halaman "Pesanan Saya" Kosong
 
-## Masalah
-Saat merchant membuka Detail Pesanan (status PROCESSED) dan klik tombol "Kirim Pesanan", muncul **2 modal bertumpuk**:
-1. Modal "Detail Pesanan" tetap terbuka
-2. Modal "Pilih Metode Pengiriman" muncul di atasnya
+### Temuan
+Database **benar-benar kosong** -- 0 pesanan di tabel `orders`. Ini bukan bug RLS atau bug kode. Query dan RLS policy sudah benar (`buyer_id = auth.uid()`).
 
-Ini terjadi karena `openDeliveryChoiceDialog()` (baris 710) hanya membuka dialog baru tanpa menutup dialog detail yang sedang aktif.
+**Penyebab yang paling mungkin:** Pesanan gagal dibuat saat checkout, atau user belum pernah berhasil checkout.
 
-## Solusi: Gabungkan Pilihan Pengiriman ke Dalam Dialog Detail
+### Masalah Terkait: Empty State Kurang Informatif
+Saat ini jika tidak ada pesanan, halaman hanya menampilkan area kosong tanpa pesan yang jelas. Ini membuat user bingung apakah ada bug atau memang belum ada pesanan.
 
-Daripada menutup dialog detail lalu membuka dialog baru (pengalaman terputus), lebih baik **menampilkan pilihan metode pengiriman langsung di dalam dialog detail pesanan** -- menggantikan tombol "Kirim Pesanan" dengan inline radio/button group.
+**Solusi**: Tambahkan empty state yang informatif di halaman OrdersPage dengan pesan "Belum ada pesanan" dan tombol "Mulai Belanja".
 
-### Perubahan di `src/pages/merchant/MerchantOrdersPage.tsx`
+---
 
-**Bagian Actions untuk status PROCESSED (baris 698-717):**
+## B. Analisis UX Checkout dan Rencana Perbaikan
 
-Sebelum:
-```
-{selectedOrder.status === 'PROCESSED' && delivery_type !== 'PICKUP' && (
-  <Button onClick={() => openDeliveryChoiceDialog(selectedOrder.id)}>
-    Kirim Pesanan
-  </Button>
-)}
-```
+### B1. Masalah yang Ditemukan
 
-Sesudah:
-```
-{selectedOrder.status === 'PROCESSED' && delivery_type !== 'PICKUP' && (
-  <div className="space-y-3">
-    <p className="text-sm font-semibold">Pilih Metode Pengiriman:</p>
-    <Button variant="outline" onClick={() => handleSelfDelivery(selectedOrder.id)}>
-      Antar Sendiri
-    </Button>
-    <Button variant="outline" onClick={async () => {
-      // update status ASSIGNED + close dialog
-      ...
-    }}>
-      Kurir Desa
-    </Button>
-  </div>
-)}
-```
+| No | Masalah | Dampak |
+|----|---------|--------|
+| 1 | **Tidak ada ringkasan jumlah item di header** | User tidak tahu berapa item yang di-checkout |
+| 2 | **Form alamat muncul sebelum ringkasan produk** | User harus scroll jauh ke bawah untuk melihat apa yang mereka beli |
+| 3 | **Alamat tersimpan tersembunyi di balik accordion** | User mungkin tidak sadar ada fitur ini |
+| 4 | **Peta wajib diisi meski pilih "Ambil Sendiri"** | Validasi memaksa titik lokasi padahal tidak relevan untuk pickup |
+| 5 | **Bottom fixed summary menutupi konten** | `pb-56` di form, tapi summary bar cukup tinggi dan bisa menutupi catatan/voucher |
+| 6 | **Tidak ada loading indicator saat auto-populate alamat** | Form terlihat kosong sesaat sebelum data profil dimuat |
+| 7 | **Error message generik** | "Data belum lengkap" tanpa menunjukkan field mana yang salah (scroll ke error) |
 
-**Hapus dialog terpisah "Delivery Choice Dialog" (baris 740-801):**
-- Dialog terpisah tidak lagi diperlukan karena sudah inline
-- State `deliveryChoiceDialogOpen` dan `deliveryChoiceOrderId` juga dihapus
+### B2. Rencana Perbaikan
 
-### Detail Teknis
+#### Perbaikan 1: Empty State di OrdersPage
+**File**: `src/pages/OrdersPage.tsx`
+- Cek blok `filteredOrders.length === 0` (sudah ada tapi perlu dipastikan ada untuk tab "Semua")
+- Tambahkan ilustrasi, pesan "Belum ada pesanan", dan tombol "Mulai Belanja"
 
-1. **Hapus state**: `deliveryChoiceDialogOpen`, `deliveryChoiceOrderId`, dan fungsi `openDeliveryChoiceDialog`
-2. **Inline pilihan pengiriman** di dalam blok `selectedOrder.status === 'PROCESSED'` pada dialog detail
-3. **Tutup detail dialog** setelah aksi berhasil (sudah dilakukan oleh `handleSelfDelivery` dan handler kurir desa)
-4. **Pertahankan UX** yang sama: 2 tombol besar (Antar Sendiri / Kurir Desa) dengan deskripsi
+#### Perbaikan 2: Reorder Seksi Checkout -- Ringkasan Produk di Atas
+**File**: `src/pages/CheckoutPage.tsx`
+- Pindahkan "Ringkasan Pesanan" (saat ini di baris 938-966) ke posisi PERTAMA sebelum alamat
+- User langsung melihat apa yang mereka beli
 
-### File yang Dimodifikasi
-- `src/pages/merchant/MerchantOrdersPage.tsx` -- satu-satunya file yang perlu diubah
+#### Perbaikan 3: Sembunyikan Peta Saat "Ambil Sendiri"
+**File**: `src/pages/CheckoutPage.tsx`
+- Pass prop `deliveryType` ke `CheckoutAddressForm`
+- Sembunyikan `LocationPicker` jika `deliveryType === 'PICKUP'`
+- Skip validasi lokasi jika pickup
+
+#### Perbaikan 4: Loading State Saat Auto-Populate
+**File**: `src/components/checkout/CheckoutAddressForm.tsx`
+- Tampilkan skeleton/spinner saat `!profileLoaded`
+- Beri feedback visual bahwa data sedang dimuat
+
+#### Perbaikan 5: Scroll ke Error Field
+**File**: `src/pages/CheckoutPage.tsx`
+- Setelah `validateForm()` gagal, scroll ke field pertama yang error menggunakan `document.querySelector`
+
+#### Perbaikan 6: Tambahkan Jumlah Item di Header Checkout
+**File**: `src/pages/CheckoutPage.tsx`
+- Tambahkan badge jumlah item di header: "Checkout (3 item)"
+
+### Detail Teknis Perubahan
+
+**`src/pages/OrdersPage.tsx`**
+- Di blok `filteredOrders.length === 0` (setelah loading selesai), pastikan ada empty state dengan ikon, teks, dan tombol CTA
+
+**`src/pages/CheckoutPage.tsx`**
+- Pindahkan blok "Ringkasan Pesanan" ke atas, sebelum blok "Alamat Pengiriman"
+- Header: tambahkan `({items.length} item)` di samping "Checkout"
+- Validasi: skip cek lokasi jika `deliveryType === 'PICKUP'`
+- Setelah `validateForm()` return false: `document.querySelector('.text-destructive')?.scrollIntoView({ behavior: 'smooth', block: 'center' })`
+
+**`src/components/checkout/CheckoutAddressForm.tsx`**
+- Tambahkan prop `hideMap?: boolean`
+- Jika `hideMap` true, sembunyikan section LocationPicker
+- Tambahkan loading skeleton sebelum `profileLoaded`
 
 ### Tidak Ada Perubahan Database
-Perbaikan ini murni frontend.
+Semua perbaikan ini murni frontend.
