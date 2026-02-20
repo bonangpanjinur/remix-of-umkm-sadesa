@@ -10,10 +10,12 @@ import {
   ShoppingBag,
   MessageCircle,
   Check,
-  Building
+  Building,
+  Info
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '../components/ui/tabs';
 import { ProductCard } from '../components/ProductCard';
 import { supabase } from '../integrations/supabase/client';
 import { VerifiedBadge } from '../components/merchant/VerifiedBadge';
@@ -83,7 +85,6 @@ export default function MerchantProfilePage({ overrideId }: MerchantProfilePageP
   const [products, setProducts] = useState<Product[]>([]);
   const [reviews, setReviews] = useState<ReviewData[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'products' | 'reviews'>('products');
   const [hasActiveQuota, setHasActiveQuota] = useState(true);
   const [chatOpen, setChatOpen] = useState(false);
   const [chatOrderId, setChatOrderId] = useState<string | null>(null);
@@ -240,11 +241,14 @@ export default function MerchantProfilePage({ overrideId }: MerchantProfilePageP
     );
   }
 
+  const operatingStatus = getMerchantOperatingStatus(merchant.is_open, merchant.open_time, merchant.close_time);
+  const isClosed = !hasActiveQuota || !operatingStatus.isCurrentlyOpen;
+
   return (
     <div className="mobile-shell bg-background flex flex-col min-h-screen relative">
-      <div className="flex-1 overflow-y-auto pb-24">
+      <div className="flex-1 overflow-y-auto pb-20">
         {/* Hero Image */}
-        <div className="relative h-48 bg-gradient-to-br from-primary/20 to-primary/5">
+        <div className="relative h-40 bg-gradient-to-br from-primary/20 to-primary/5">
           {merchant.image_url ? (
             <img 
               src={merchant.image_url} 
@@ -253,16 +257,16 @@ export default function MerchantProfilePage({ overrideId }: MerchantProfilePageP
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center">
-              <Store className="h-16 w-16 text-primary/30" />
+              <Store className="h-14 w-14 text-primary/30" />
             </div>
           )}
           
-          <div className="absolute top-0 left-0 w-full p-4 flex justify-between items-center z-20">
+          <div className="absolute top-0 left-0 w-full p-3 flex justify-between items-center z-20">
             <button 
               onClick={() => navigate(-1)}
-              className="w-10 h-10 bg-foreground/20 backdrop-blur rounded-full flex items-center justify-center text-primary-foreground hover:bg-foreground/40 transition border border-primary-foreground/20"
+              className="w-9 h-9 bg-foreground/20 backdrop-blur rounded-full flex items-center justify-center text-primary-foreground hover:bg-foreground/40 transition border border-primary-foreground/20"
             >
-              <ArrowLeft className="h-5 w-5" />
+              <ArrowLeft className="h-4 w-4" />
             </button>
             <ShareStoreButton 
               merchantName={merchant.name} 
@@ -271,51 +275,59 @@ export default function MerchantProfilePage({ overrideId }: MerchantProfilePageP
             />
           </div>
           
-          <div className="absolute bottom-0 left-0 w-full h-16 bg-gradient-to-t from-background to-transparent" />
+          <div className="absolute bottom-0 left-0 w-full h-12 bg-gradient-to-t from-background to-transparent" />
         </div>
         
-        <div className="px-4 -mt-6 relative z-10">
+        {/* Compact Header */}
+        <div className="px-4 -mt-4 relative z-10">
           <motion.div 
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.25 }}
           >
-            {/* Store Info Card */}
-            <div className="bg-card rounded-2xl p-4 shadow-sm border border-border mb-4">
-              <div className="flex justify-between items-start">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1 flex-wrap">
-                    <h1 className="text-xl font-bold text-foreground">{merchant.name}</h1>
+            <div className="bg-card rounded-xl p-3 shadow-sm border border-border mb-3">
+              {/* Row 1: Name + badges + status */}
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <h1 className="text-lg font-bold text-foreground truncate">{merchant.name}</h1>
                     {merchant.badge === 'VERIFIED' && <VerifiedBadge type="verified" size="sm" />}
                     {merchant.badge === 'POPULAR' && <VerifiedBadge type="popular" size="sm" />}
                     {merchant.badge === 'NEW' && <VerifiedBadge type="new" size="sm" />}
                     {merchant.halal_status === 'VERIFIED' && (
                       <button onClick={() => setShowHalalModal(true)}>
-                        <Badge className="bg-green-500 text-white border-none text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 cursor-pointer hover:bg-green-600 transition">
-                          <Check className="h-3 w-3" />
+                        <Badge className="bg-green-500 text-white border-none text-[10px] font-bold px-1.5 py-0 rounded-full flex items-center gap-0.5 cursor-pointer hover:bg-green-600 transition">
+                          <Check className="h-2.5 w-2.5" />
                           HALAL
                         </Badge>
                       </button>
                     )}
                   </div>
-                  
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className="flex items-center gap-1">
-                      <Star className="h-4 w-4 fill-gold text-gold" />
-                      <span className="font-semibold text-foreground">
-                        {merchant.rating_avg?.toFixed(1) || '0.0'}
+
+                  {/* Row 2: Rating + location */}
+                  <div className="flex items-center gap-1.5 mt-1 text-sm text-muted-foreground flex-wrap">
+                    <div className="flex items-center gap-0.5">
+                      <Star className="h-3.5 w-3.5 fill-yellow-400 text-yellow-400" />
+                      <span className="font-medium text-foreground">{merchant.rating_avg?.toFixed(1) || '0.0'}</span>
+                    </div>
+                    <span className="text-muted-foreground/50">·</span>
+                    <span className="text-xs">({merchant.rating_count || 0} ulasan)</span>
+                    <span className="text-muted-foreground/50">·</span>
+                    <div className="flex items-center gap-0.5">
+                      <MapPin className="h-3 w-3" />
+                      <span className="text-xs truncate max-w-[120px]">
+                        {merchant.villages?.name || merchant.subdistrict || merchant.district || merchant.city}
                       </span>
                     </div>
-                    <span className="text-muted-foreground text-sm">
-                      ({merchant.rating_count || 0} ulasan)
-                    </span>
                   </div>
 
-                  <div className="flex items-center gap-1 text-muted-foreground text-sm">
-                    <MapPin className="h-3.5 w-3.5" />
-                    <span>
-                      {merchant.villages?.name || merchant.subdistrict || merchant.district || merchant.city}
-                    </span>
-                  </div>
+                  {/* Row 3: Operating hours */}
+                  {merchant.open_time && merchant.close_time && (
+                    <div className="flex items-center gap-1.5 mt-1 text-xs text-muted-foreground">
+                      <Clock className="h-3 w-3" />
+                      <span>{formatTime(merchant.open_time)} - {formatTime(merchant.close_time)}</span>
+                    </div>
+                  )}
                 </div>
 
                 <MerchantStatusBadge
@@ -326,154 +338,147 @@ export default function MerchantProfilePage({ overrideId }: MerchantProfilePageP
                   size="md"
                 />
               </div>
-
-              {/* Quick Info */}
-              <div className="flex gap-4 mt-4 pt-4 border-t border-border">
-                {merchant.open_time && merchant.close_time && (
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Clock className="h-4 w-4" />
-                    <span>{formatTime(merchant.open_time)} - {formatTime(merchant.close_time)}</span>
-                  </div>
-                )}
-                {merchant.classification_price && (
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <ShoppingBag className="h-4 w-4" />
-                    <span>{getPriceLabel(merchant.classification_price)}</span>
-                  </div>
-                )}
-              </div>
             </div>
-
-            {/* Description */}
-            {merchant.business_description && (
-              <div className="bg-card rounded-2xl p-4 shadow-sm border border-border mb-4">
-                <h3 className="font-semibold text-foreground mb-2">Tentang Toko</h3>
-                <p className="text-sm text-muted-foreground leading-relaxed">
-                  {merchant.business_description}
-                </p>
-              </div>
-            )}
-
-            {/* Address */}
-            <div className="bg-card rounded-2xl p-4 shadow-sm border border-border mb-4">
-              <h3 className="font-semibold text-foreground mb-2">Alamat</h3>
-              {merchant.address && (
-                <p className="text-sm text-muted-foreground mb-1">
-                  {merchant.address}
-                </p>
-              )}
-              {(merchant.subdistrict || merchant.district || merchant.city) && (
-                <p className="text-xs text-muted-foreground">
-                  {[merchant.subdistrict, merchant.district, merchant.city, merchant.province]
-                    .filter(Boolean)
-                    .join(', ')}
-                </p>
-              )}
-              {merchant.villages?.name && (
-                <div className="mt-3 pt-3 border-t border-border flex items-center gap-2">
-                  <Building className="h-3.5 w-3.5 text-primary" />
-                  <span className="text-xs font-medium text-primary">Desa Wisata: {merchant.villages.name}</span>
-                </div>
-              )}
-            </div>
-
-            {/* Merchant Closed / No Quota Banner */}
-            {merchant && (!hasActiveQuota || !getMerchantOperatingStatus(merchant.is_open, merchant.open_time, merchant.close_time).isCurrentlyOpen) && (
-              <div className="mb-4">
-                <MerchantClosedBanner
-                  isManuallyOpen={merchant.is_open}
-                  openTime={merchant.open_time}
-                  closeTime={merchant.close_time}
-                  merchantName={merchant.name}
-                  hasQuota={hasActiveQuota}
-                />
-              </div>
-            )}
 
             {/* Tabs */}
-            <div className="flex gap-2 mb-4">
-              <Button
-                variant={activeTab === 'products' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setActiveTab('products')}
-                className="flex-1"
-              >
-                <ShoppingBag className="h-4 w-4 mr-2" />
-                Produk ({products.length})
-              </Button>
-              <Button
-                variant={activeTab === 'reviews' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setActiveTab('reviews')}
-                className="flex-1"
-              >
-                <Star className="h-4 w-4 mr-2" />
-                Ulasan ({reviews.length})
-              </Button>
-            </div>
+            <Tabs defaultValue="products" className="w-full">
+              <TabsList className="w-full grid grid-cols-3 mb-3">
+                <TabsTrigger value="products" className="text-xs gap-1">
+                  <ShoppingBag className="h-3.5 w-3.5" />
+                  Produk ({products.length})
+                </TabsTrigger>
+                <TabsTrigger value="info" className="text-xs gap-1">
+                  <Info className="h-3.5 w-3.5" />
+                  Info
+                </TabsTrigger>
+                <TabsTrigger value="reviews" className="text-xs gap-1">
+                  <Star className="h-3.5 w-3.5" />
+                  Ulasan ({reviews.length})
+                </TabsTrigger>
+              </TabsList>
 
-            {/* Products Tab */}
-            {activeTab === 'products' && (
-              <div className="grid grid-cols-2 gap-3 pb-6">
-                {products.length > 0 ? (
-                  products.map(product => (
-                    <ProductCard key={product.id} product={product} />
-                  ))
-                ) : (
-                  <div className="col-span-2 text-center py-8 text-muted-foreground">
-                    Belum ada produk
+              {/* Products Tab */}
+              <TabsContent value="products" className="mt-0">
+                {isClosed && (
+                  <div className="mb-3">
+                    <MerchantClosedBanner
+                      isManuallyOpen={merchant.is_open}
+                      openTime={merchant.open_time}
+                      closeTime={merchant.close_time}
+                      merchantName={merchant.name}
+                      hasQuota={hasActiveQuota}
+                    />
                   </div>
                 )}
-              </div>
-            )}
+                <div className="grid grid-cols-2 gap-2.5 pb-4">
+                  {products.length > 0 ? (
+                    products.map(product => (
+                      <ProductCard key={product.id} product={product} />
+                    ))
+                  ) : (
+                    <div className="col-span-2 text-center py-12 text-muted-foreground text-sm">
+                      Belum ada produk
+                    </div>
+                  )}
+                </div>
+              </TabsContent>
 
-            {/* Reviews Tab */}
-            {activeTab === 'reviews' && (
-              <div className="space-y-3 pb-6">
+              {/* Info Tab */}
+              <TabsContent value="info" className="mt-0 space-y-3 pb-4">
+                {merchant.business_description && (
+                  <div className="bg-card rounded-xl p-3 border border-border">
+                    <h3 className="font-semibold text-foreground text-sm mb-1.5">Tentang Toko</h3>
+                    <p className="text-xs text-muted-foreground leading-relaxed">
+                      {merchant.business_description}
+                    </p>
+                  </div>
+                )}
+
+                <div className="bg-card rounded-xl p-3 border border-border">
+                  <h3 className="font-semibold text-foreground text-sm mb-1.5">Alamat</h3>
+                  {merchant.address && (
+                    <p className="text-xs text-muted-foreground mb-1">{merchant.address}</p>
+                  )}
+                  {(merchant.subdistrict || merchant.district || merchant.city) && (
+                    <p className="text-xs text-muted-foreground">
+                      {[merchant.subdistrict, merchant.district, merchant.city, merchant.province]
+                        .filter(Boolean)
+                        .join(', ')}
+                    </p>
+                  )}
+                  {merchant.villages?.name && (
+                    <div className="mt-2 pt-2 border-t border-border flex items-center gap-1.5">
+                      <Building className="h-3 w-3 text-primary" />
+                      <span className="text-xs font-medium text-primary">Desa Wisata: {merchant.villages.name}</span>
+                    </div>
+                  )}
+                </div>
+
+                {merchant.classification_price && (
+                  <div className="bg-card rounded-xl p-3 border border-border">
+                    <h3 className="font-semibold text-foreground text-sm mb-1.5">Kisaran Harga</h3>
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <ShoppingBag className="h-3 w-3" />
+                      <span>{getPriceLabel(merchant.classification_price)}</span>
+                    </div>
+                  </div>
+                )}
+
+                {merchant.business_category && (
+                  <div className="bg-card rounded-xl p-3 border border-border">
+                    <h3 className="font-semibold text-foreground text-sm mb-1.5">Kategori</h3>
+                    <Badge variant="secondary" className="text-xs">{merchant.business_category}</Badge>
+                  </div>
+                )}
+              </TabsContent>
+
+              {/* Reviews Tab */}
+              <TabsContent value="reviews" className="mt-0 space-y-2.5 pb-4">
                 {reviews.length > 0 ? (
                   reviews.map(review => (
-                    <div key={review.id} className="bg-card rounded-xl p-4 border border-border">
-                      <div className="flex items-start justify-between mb-2">
+                    <div key={review.id} className="bg-card rounded-xl p-3 border border-border">
+                      <div className="flex items-start justify-between mb-1.5">
                         <div>
                           <p className="font-medium text-foreground text-sm">
                             {(review.profiles as any)?.full_name || 'Pembeli'}
                           </p>
-                          <p className="text-xs text-muted-foreground">
+                          <p className="text-[11px] text-muted-foreground">
                             {new Date(review.created_at).toLocaleDateString('id-ID')}
                           </p>
                         </div>
-                        <div className="flex items-center gap-1">
+                        <div className="flex items-center gap-0.5">
                           {[...Array(5)].map((_, i) => (
                             <Star 
                               key={i} 
-                              className={`h-3 w-3 ${i < review.rating ? 'fill-gold text-gold' : 'text-muted'}`} 
+                              className={`h-3 w-3 ${i < review.rating ? 'fill-yellow-400 text-yellow-400' : 'text-muted'}`} 
                             />
                           ))}
                         </div>
                       </div>
                       {review.comment && (
-                        <p className="text-sm text-muted-foreground">{review.comment}</p>
+                        <p className="text-xs text-muted-foreground">{review.comment}</p>
                       )}
                     </div>
                   ))
                 ) : (
-                  <div className="text-center py-8 text-muted-foreground">
+                  <div className="text-center py-12 text-muted-foreground text-sm">
                     Belum ada ulasan
                   </div>
                 )}
-              </div>
-            )}
+              </TabsContent>
+            </Tabs>
           </motion.div>
         </div>
       </div>
 
-      {/* Sticky CTA - always visible */}
-      <div className="absolute bottom-0 w-full bg-card border-t border-border p-4 px-6 shadow-lg z-20">
+      {/* Sticky CTA */}
+      <div className="absolute bottom-0 w-full bg-card border-t border-border p-3 px-4 shadow-lg z-20">
         <Button
           onClick={handleChatClick}
           className="w-full bg-primary text-primary-foreground shadow-brand font-bold"
+          size="sm"
         >
-          <MessageCircle className="h-5 w-5 mr-2" />
+          <MessageCircle className="h-4 w-4 mr-2" />
           Chat Penjual
         </Button>
       </div>
