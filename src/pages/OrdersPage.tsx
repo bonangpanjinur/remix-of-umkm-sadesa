@@ -37,8 +37,8 @@ interface BuyerOrder {
   total: number;
   created_at: string;
   merchant_id: string | null;
-  merchants: { name: string; phone: string | null; user_id: string | null } | null;
-  order_items: BuyerOrderItem[];
+  merchants: { name: string; phone: string | null; user_id?: string | null } | null;
+  order_items?: BuyerOrderItem[];
   is_self_delivery?: boolean;
   has_review?: boolean;
 }
@@ -105,6 +105,7 @@ const OrdersPage = () => {
   const [activeTab, setActiveTab] = useState("all");
   const [chatOrder, setChatOrder] = useState<{ orderId: string; merchantUserId: string; merchantName: string } | null>(null);
   const [cancelOrderId, setCancelOrderId] = useState<string | null>(null);
+  const [fetchError, setFetchError] = useState(false);
   const navigate = useNavigate();
   const { addToCart } = useCart();
 
@@ -116,59 +117,71 @@ const OrdersPage = () => {
     if (!user) { setLoading(false); return; }
     try {
       if (isRefresh) setRefreshing(true); else setLoading(true);
+      setFetchError(false);
       
-      // Try full query first, fallback to simpler queries if schema differs
       let data: any[] | null = null;
-      let error: any = null;
 
-      // Attempt 1: Full query with all relations
-      const result1 = await supabase
+      // Level 1: Full query with all relations including nested products
+      const r1 = await supabase
         .from("orders")
         .select("id, status, total, created_at, merchant_id, is_self_delivery, has_review, merchants(name, phone, user_id), order_items(id, quantity, product_name, product_price, product_id, products(name, image_url))")
         .eq("buyer_id", user.id)
         .order("created_at", { ascending: false });
       
-      if (!result1.error) {
-        data = result1.data;
+      if (!r1.error) {
+        data = r1.data;
       } else {
-        console.warn("Full orders query failed, trying without products relation:", result1.error.message);
+        console.warn("L1 failed:", r1.error.message);
         
-        // Attempt 2: Without products sub-relation (order_items only)
-        const result2 = await supabase
+        // Level 2: Without nested products, without user_id
+        const r2 = await supabase
           .from("orders")
-          .select("id, status, total, created_at, merchant_id, is_self_delivery, has_review, merchants(name, phone), order_items(id, quantity, product_name, product_price, product_id)")
+          .select("id, status, total, created_at, merchant_id, is_self_delivery, has_review, merchants(name, phone), order_items(id, quantity, product_name, product_price)")
           .eq("buyer_id", user.id)
           .order("created_at", { ascending: false });
         
-        if (!result2.error) {
-          data = result2.data;
+        if (!r2.error) {
+          data = (r2.data || []).map((o: any) => ({
+            ...o,
+            order_items: (o.order_items || []).map((i: any) => ({ ...i, products: null })),
+          }));
         } else {
-          console.warn("Orders with relations failed, trying minimal query:", result2.error.message);
+          console.warn("L2 failed:", r2.error.message);
           
-          // Attempt 3: Minimal - just orders, no relations
-          const result3 = await supabase
+          // Level 3: Orders + merchants only, no order_items
+          const r3 = await supabase
             .from("orders")
-            .select("id, status, total, created_at, merchant_id, is_self_delivery, has_review")
+            .select("id, status, total, created_at, merchant_id, merchants(name, phone)")
             .eq("buyer_id", user.id)
             .order("created_at", { ascending: false });
           
-          if (!result3.error) {
-            // Map to expected shape with empty relations
-            data = (result3.data || []).map((o: any) => ({
-              ...o,
-              merchants: null,
-              order_items: [],
-            }));
+          if (!r3.error) {
+            data = (r3.data || []).map((o: any) => ({ ...o, order_items: [], is_self_delivery: false, has_review: false }));
           } else {
-            error = result3.error;
+            console.warn("L3 failed:", r3.error.message);
+            
+            // Level 4: Absolute minimum - only core order columns
+            const r4 = await supabase
+              .from("orders")
+              .select("id, status, total, created_at, merchant_id")
+              .eq("buyer_id", user.id)
+              .order("created_at", { ascending: false });
+            
+            if (!r4.error) {
+              data = (r4.data || []).map((o: any) => ({ ...o, merchants: null, order_items: [], is_self_delivery: false, has_review: false }));
+            } else {
+              console.error("All query levels failed:", r4.error.message);
+              setFetchError(true);
+              return;
+            }
           }
         }
       }
 
-      if (error) throw error;
       setOrders((data as unknown as BuyerOrder[]) || []);
     } catch (e) {
       console.error("Error fetching buyer orders:", e);
+      setFetchError(true);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -364,11 +377,25 @@ const OrdersPage = () => {
                   </CardContent>
                 </Card>
               ))
+            ) : fetchError ? (
+              <div className="flex flex-col items-center justify-center py-20 text-center">
+                <div className="w-24 h-24 rounded-full bg-destructive/10 flex items-center justify-center mb-5">
+                  <XCircle className="w-12 h-12 text-destructive/50" />
+                </div>
+                <h3 className="text-lg font-semibold text-foreground mb-1">Gagal memuat pesanan</h3>
+                <p className="text-muted-foreground text-sm max-w-[220px] mb-6">
+                  Terjadi masalah saat mengambil data pesanan. Silakan coba lagi.
+                </p>
+                <Button className="rounded-full px-6" onClick={() => fetchOrders(true)}>
+                  <RefreshCw className="w-4 h-4 mr-2" /> Coba Lagi
+                </Button>
+              </div>
             ) : filteredOrders.length > 0 ? (
               filteredOrders.map((order) => {
                 const firstItem = order.order_items?.[0];
                 const imageUrl = firstItem?.products?.image_url;
                 const productName = firstItem?.products?.name || firstItem?.product_name || "Produk";
+                const itemCount = order.order_items?.length || 0;
                 const statusConf = STATUS_CONFIG[order.status] || STATUS_CONFIG.NEW;
                 const StatusIcon = statusConf.icon;
                 const relativeTime = formatDistanceToNow(new Date(order.created_at), { addSuffix: true, locale: idLocale });
@@ -428,8 +455,8 @@ const OrdersPage = () => {
                           <div>
                             <h4 className="font-medium text-sm truncate text-foreground">{productName}</h4>
                             <p className="text-xs text-muted-foreground mt-0.5">
-                              {order.order_items.length > 1
-                                ? `+${order.order_items.length - 1} produk lainnya`
+                              {itemCount > 1
+                                ? `+${itemCount - 1} produk lainnya`
                                 : `${firstItem?.quantity || 1} barang`}
                             </p>
                           </div>
