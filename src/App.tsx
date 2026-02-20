@@ -2,7 +2,8 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useLocation, useNavigate } from "react-router-dom";
+import { useEffect } from "react";
 import { CartProvider } from "@/contexts/CartContext";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { WhitelabelProvider } from "@/contexts/WhitelabelContext";
@@ -124,6 +125,22 @@ import NotificationsPage from "./pages/NotificationsPage";
 
 const queryClient = new QueryClient();
 
+// Handle 404 redirect from hosting fallback
+function RedirectHandler() {
+  const location = useLocation();
+  const navigate = useNavigate();
+  
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const redirectPath = params.get('redirect');
+    if (redirectPath) {
+      navigate(decodeURIComponent(redirectPath), { replace: true });
+    }
+  }, [location.search, navigate]);
+  
+  return null;
+}
+
 const App = () => (
   <ErrorBoundary>
     <QueryClientProvider client={queryClient}>
@@ -135,6 +152,7 @@ const App = () => (
               <Sonner />
               <OfflineIndicator />
               <BrowserRouter>
+                <RedirectHandler />
                 <SEO />
                 <InstallBanner />
                 <UpdatePrompt />
