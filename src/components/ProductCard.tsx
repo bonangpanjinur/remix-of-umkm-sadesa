@@ -45,7 +45,7 @@ export function ProductCard({ product, index = 0, showCategoryBadge = false }: P
   const categoryInfo = categoryLabels[product.category] || { label: product.category, className: 'bg-muted text-muted-foreground' };
 
   const displayPrice = flashSale ? flashSale.flashPrice : product.price;
-  const originalPrice = flashSale ? flashSale.originalPrice : null;
+  const originalPrice = flashSale ? flashSale.originalPrice : product.originalPrice || null;
 
   // Get unavailability reason
   const getUnavailableReason = () => {

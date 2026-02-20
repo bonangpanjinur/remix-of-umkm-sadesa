@@ -246,9 +246,23 @@ export default function ProductDetail() {
           </div>
           
           <div className="flex items-center gap-2 mb-4">
-            <p className="text-2xl font-bold text-primary">
-              {formatPrice(product.price)}
-            </p>
+            {product.originalPrice ? (
+              <>
+                <p className="text-sm line-through text-muted-foreground">
+                  {formatPrice(product.originalPrice)}
+                </p>
+                <p className="text-2xl font-bold text-primary">
+                  {formatPrice(product.price)}
+                </p>
+                <span className="bg-destructive text-destructive-foreground text-xs font-bold px-2 py-0.5 rounded">
+                  -{product.discountPercent}%
+                </span>
+              </>
+            ) : (
+              <p className="text-2xl font-bold text-primary">
+                {formatPrice(product.price)}
+              </p>
+            )}
             {merchant && merchant.ratingCount > 0 && (
               <div className="flex items-center gap-0.5 text-gold ml-2">
                 <Star className="h-4 w-4 fill-current" />
@@ -385,9 +399,20 @@ export default function ProductDetail() {
           
           <div className="flex-1 text-right">
             <p className="text-xs text-muted-foreground">Total</p>
-            <p className="text-lg font-bold text-primary">
-              {formatPrice(product.price * quantity)}
-            </p>
+            {product.originalPrice ? (
+              <div>
+                <p className="text-xs line-through text-muted-foreground">
+                  {formatPrice(product.originalPrice * quantity)}
+                </p>
+                <p className="text-lg font-bold text-primary">
+                  {formatPrice(product.price * quantity)}
+                </p>
+              </div>
+            ) : (
+              <p className="text-lg font-bold text-primary">
+                {formatPrice(product.price * quantity)}
+              </p>
+            )}
           </div>
         </div>
         
