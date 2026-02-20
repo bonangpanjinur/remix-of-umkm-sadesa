@@ -9,6 +9,7 @@ BEGIN
 END;
 $$;
 
+DROP TRIGGER IF EXISTS trg_auto_merchant_slug ON merchants;
 CREATE TRIGGER trg_auto_merchant_slug
   BEFORE INSERT ON merchants
   FOR EACH ROW EXECUTE FUNCTION auto_set_merchant_slug();
@@ -25,6 +26,7 @@ BEGIN
 END;
 $$;
 
+DROP TRIGGER IF EXISTS trg_auto_update_merchant_slug ON merchants;
 CREATE TRIGGER trg_auto_update_merchant_slug
   BEFORE UPDATE ON merchants
   FOR EACH ROW EXECUTE FUNCTION auto_update_merchant_slug();
