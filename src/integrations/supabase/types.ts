@@ -1983,6 +1983,7 @@ export type Database = {
           created_at: string
           district_id: string | null
           district_name: string | null
+          email: string | null
           full_name: string
           id: string
           is_blocked: boolean | null
@@ -2011,6 +2012,7 @@ export type Database = {
           created_at?: string
           district_id?: string | null
           district_name?: string | null
+          email?: string | null
           full_name?: string
           id?: string
           is_blocked?: boolean | null
@@ -2039,6 +2041,7 @@ export type Database = {
           created_at?: string
           district_id?: string | null
           district_name?: string | null
+          email?: string | null
           full_name?: string
           id?: string
           is_blocked?: boolean | null

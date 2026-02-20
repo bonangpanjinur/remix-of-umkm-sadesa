@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -47,11 +47,16 @@ export function OrderChat({ orderId, otherUserId, otherUserName, isOpen, onClose
   const [senderNames, setSenderNames] = useState<Record<string, string>>({});
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  // Memoize unique sender IDs to avoid re-fetching on every render
+  const senderIdsKey = useMemo(() => {
+    return [...new Set(messages.map(m => m.sender_id))].sort().join(',');
+  }, [messages]);
+
   // Fetch sender names from profiles
   useEffect(() => {
-    if (!isOpen || messages.length === 0) return;
+    if (!isOpen || !senderIdsKey) return;
 
-    const uniqueSenderIds = [...new Set(messages.map(m => m.sender_id))];
+    const uniqueSenderIds = senderIdsKey.split(',').filter(Boolean);
     const missingIds = uniqueSenderIds.filter(id => !senderNames[id]);
 
     if (missingIds.length === 0) return;
@@ -97,7 +102,7 @@ export function OrderChat({ orderId, otherUserId, otherUserName, isOpen, onClose
     };
 
     fetchNames();
-  }, [isOpen, messages]);
+  }, [isOpen, senderIdsKey]);
 
   useEffect(() => {
     if (!isOpen || !orderId || !user) return;
