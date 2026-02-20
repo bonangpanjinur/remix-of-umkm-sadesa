@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCart } from "@/contexts/CartContext";
@@ -213,6 +213,39 @@ const OrdersPage = () => {
         }
       }
 
+      // Recover merchant user_id if missing (fallback levels 2-4)
+      if (data && data.length > 0) {
+        const merchantIdsNeedingUserId = [...new Set(
+          data.filter((o: any) => o.merchant_id && (!o.merchants || !o.merchants.user_id))
+            .map((o: any) => o.merchant_id)
+        )] as string[];
+
+        if (merchantIdsNeedingUserId.length > 0) {
+          const { data: merchantsData } = await supabase
+            .from('merchants')
+            .select('id, user_id, name, phone')
+            .in('id', merchantIdsNeedingUserId);
+
+          if (merchantsData) {
+            const merchantMap = Object.fromEntries(merchantsData.map(m => [m.id, m]));
+            data = data.map((o: any) => {
+              if (o.merchant_id && merchantMap[o.merchant_id]) {
+                const m = merchantMap[o.merchant_id];
+                return {
+                  ...o,
+                  merchants: {
+                    name: o.merchants?.name || m.name,
+                    phone: o.merchants?.phone || m.phone,
+                    user_id: o.merchants?.user_id || m.user_id,
+                  },
+                };
+              }
+              return o;
+            });
+          }
+        }
+      }
+
       setOrders((data as unknown as BuyerOrder[]) || []);
     } catch (e) {
       console.error("Error fetching buyer orders:", e);
@@ -298,14 +331,26 @@ const OrdersPage = () => {
 
   const activeOrderCount = orders.filter(o => !["DONE", "CANCELLED", "CANCELED"].includes(o.status)).length;
 
-  const handleContactSeller = (e: React.MouseEvent, order: BuyerOrder) => {
+  const handleContactSeller = async (e: React.MouseEvent, order: BuyerOrder) => {
     e.stopPropagation();
-    // Prefer in-app chat if merchant has user_id
-    if (order.merchants?.user_id && order.merchant_id) {
+    let merchantUserId = order.merchants?.user_id;
+
+    // If user_id not available, fetch it on-demand
+    if (!merchantUserId && order.merchant_id) {
+      const { data: merchant } = await supabase
+        .from('merchants')
+        .select('user_id')
+        .eq('id', order.merchant_id)
+        .single();
+      merchantUserId = merchant?.user_id ?? null;
+    }
+
+    // Prefer in-app chat
+    if (merchantUserId && order.merchant_id) {
       setChatOrder({
         orderId: order.id,
-        merchantUserId: order.merchants.user_id,
-        merchantName: order.merchants.name || 'Penjual',
+        merchantUserId,
+        merchantName: order.merchants?.name || 'Penjual',
       });
       return;
     }
@@ -508,7 +553,7 @@ const OrdersPage = () => {
                       {/* Contextual actions */}
                       <div className="px-4 py-3 border-t border-border/50 bg-muted/30 flex justify-between items-center gap-2">
                         {/* Contact seller (always visible for active orders) */}
-                        {isActive && (order.merchants?.user_id || order.merchants?.phone) && (
+                        {isActive && (order.merchant_id || order.merchants?.phone) && (
                           <Button
                             size="sm"
                             variant="ghost"
@@ -606,27 +651,16 @@ const OrdersPage = () => {
           </div>
         </Tabs>
       </div>
-      {/* Chat Dialog */}
-      <Dialog open={!!chatOrder} onOpenChange={(open) => { if (!open) setChatOrder(null); }}>
-        <DialogContent className="max-w-md p-0 overflow-hidden">
-          <DialogHeader className="p-4 pb-0">
-            <div className="flex items-center justify-between">
-              <DialogTitle className="text-base">Chat dengan {chatOrder?.merchantName}</DialogTitle>
-            </div>
-          </DialogHeader>
-          {chatOrder && (
-            <div className="h-[400px]">
-              <OrderChat
-                orderId={chatOrder.orderId}
-                otherUserId={chatOrder.merchantUserId}
-                otherUserName={chatOrder.merchantName}
-                isOpen={true}
-                onClose={() => setChatOrder(null)}
-              />
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+      {/* Chat - rendered directly without Dialog wrapper */}
+      {chatOrder && (
+        <OrderChat
+          orderId={chatOrder.orderId}
+          otherUserId={chatOrder.merchantUserId}
+          otherUserName={chatOrder.merchantName}
+          isOpen={!!chatOrder}
+          onClose={() => setChatOrder(null)}
+        />
+      )}
       {/* Cancel Order Dialog */}
       <OrderCancelDialog
         open={!!cancelOrderId}
