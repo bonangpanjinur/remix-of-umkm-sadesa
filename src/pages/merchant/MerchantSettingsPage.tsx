@@ -122,7 +122,7 @@ export default function MerchantSettingsPage() {
             payment_transfer_enabled: data.payment_transfer_enabled ?? true,
             notification_sound_enabled: data.notification_sound_enabled ?? true,
             verifikator_code: data.verifikator_code || '',
-            slug: (data as any).slug || '',
+            slug: data.slug || '',
           });
           setImageUrl(data.image_url);
           setQrisImageUrl(data.qris_image_url);
