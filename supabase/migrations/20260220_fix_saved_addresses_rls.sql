@@ -4,6 +4,7 @@
 -- Tanggal: 2026-02-20
 -- Deskripsi: Perbaiki RLS policies dan trigger untuk saved_addresses table
 --            Tambahkan kolom email ke profiles table jika belum ada
+--            Idempotent: Aman untuk dijalankan berkali-kali
 
 -- 1. Pastikan tabel saved_addresses ada dengan benar
 CREATE TABLE IF NOT EXISTS public.saved_addresses (
@@ -94,5 +95,17 @@ FROM auth.users u
 WHERE p.user_id = u.id
 AND p.email IS NULL;
 
--- 7. Enable realtime untuk saved_addresses
-ALTER PUBLICATION supabase_realtime ADD TABLE public.saved_addresses;
+-- 7. Enable realtime untuk saved_addresses (idempotent - hanya jika belum ada)
+DO $$
+BEGIN
+  -- Check if saved_addresses is already in supabase_realtime publication
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_rel pr
+    JOIN pg_publication p ON pr.prpubid = p.oid
+    JOIN pg_class c ON pr.prrelid = c.oid
+    WHERE p.pubname = 'supabase_realtime'
+    AND c.relname = 'saved_addresses'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.saved_addresses;
+  END IF;
+END $$;
