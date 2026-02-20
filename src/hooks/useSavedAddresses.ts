@@ -106,7 +106,12 @@ export function useSavedAddresses() {
       return data;
     } catch (error) {
       console.error('Error adding address:', error);
-      toast({ title: 'Gagal menyimpan alamat', variant: 'destructive' });
+      const errorMessage = error instanceof Error ? error.message : 'Terjadi kesalahan saat menyimpan alamat';
+      toast({ 
+        title: 'Gagal menyimpan alamat', 
+        description: errorMessage,
+        variant: 'destructive' 
+      });
       return null;
     }
   };
@@ -136,7 +141,12 @@ export function useSavedAddresses() {
       return true;
     } catch (error) {
       console.error('Error updating address:', error);
-      toast({ title: 'Gagal memperbarui alamat', variant: 'destructive' });
+      const errorMessage = error instanceof Error ? error.message : 'Terjadi kesalahan saat memperbarui alamat';
+      toast({ 
+        title: 'Gagal memperbarui alamat', 
+        description: errorMessage,
+        variant: 'destructive' 
+      });
       return false;
     }
   };
@@ -158,7 +168,12 @@ export function useSavedAddresses() {
       return true;
     } catch (error) {
       console.error('Error deleting address:', error);
-      toast({ title: 'Gagal menghapus alamat', variant: 'destructive' });
+      const errorMessage = error instanceof Error ? error.message : 'Terjadi kesalahan saat menghapus alamat';
+      toast({ 
+        title: 'Gagal menghapus alamat', 
+        description: errorMessage,
+        variant: 'destructive' 
+      });
       return false;
     }
   };

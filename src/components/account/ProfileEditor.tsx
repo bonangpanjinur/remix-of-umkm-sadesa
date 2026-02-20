@@ -131,7 +131,6 @@ export function ProfileEditor({ userId, initialData, onSave, onCancel }: Profile
           full_name: fullName.trim(),
           phone: phone.trim() || null,
           address: formattedAddress || null,
-          village: addressData.villageName || null,
           province_id: addressData.province || null,
           province_name: addressData.provinceName || null,
           city_id: addressData.city || null,
