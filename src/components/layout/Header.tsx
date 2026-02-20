@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { Leaf, Search } from 'lucide-react';
+import { Leaf, Search, ShoppingCart, MessageCircle } from 'lucide-react';
 import { NotificationDropdown } from '@/components/notifications/NotificationDropdown';
 import { InstallButton } from '@/components/pwa/InstallButton';
 import { useWhitelabel } from '@/hooks/useWhitelabel';
+import { useCart } from '@/contexts/CartContext';
+import { useChatUnread } from '@/hooks/useChatUnread';
 
 export function Header() {
   const { settings } = useWhitelabel();
@@ -11,6 +13,9 @@ export function Header() {
   const location = useLocation();
   const [searchQuery, setSearchQuery] = useState('');
   const isHomepage = location.pathname === '/';
+  const { getItemCount } = useCart();
+  const chatUnread = useChatUnread();
+  const cartCount = getItemCount();
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -45,8 +50,32 @@ export function Header() {
           </div>
         </Link>
         
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1">
           <InstallButton />
+          <button
+            onClick={() => navigate('/buyer/chat')}
+            className="relative w-9 h-9 flex items-center justify-center rounded-full hover:bg-secondary transition"
+            aria-label="Chat"
+          >
+            <MessageCircle className="h-[18px] w-[18px] text-muted-foreground" />
+            {chatUnread > 0 && (
+              <span className="absolute top-1 right-1 w-4 h-4 bg-destructive rounded-full text-[8px] flex items-center justify-center text-destructive-foreground font-bold">
+                {chatUnread > 9 ? '9+' : chatUnread}
+              </span>
+            )}
+          </button>
+          <button
+            onClick={() => navigate('/cart')}
+            className="relative w-9 h-9 flex items-center justify-center rounded-full hover:bg-secondary transition"
+            aria-label="Keranjang"
+          >
+            <ShoppingCart className="h-[18px] w-[18px] text-muted-foreground" />
+            {cartCount > 0 && (
+              <span className="absolute top-1 right-1 w-4 h-4 bg-primary rounded-full text-[8px] flex items-center justify-center text-primary-foreground font-bold">
+                {cartCount > 9 ? '9+' : cartCount}
+              </span>
+            )}
+          </button>
           <NotificationDropdown />
         </div>
       </div>

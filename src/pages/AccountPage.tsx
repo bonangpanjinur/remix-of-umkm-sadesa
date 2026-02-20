@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { 
   User, Settings, HelpCircle, LogIn, LogOut, Store, ChevronRight, Edit, Heart, 
-  Bell, LayoutDashboard, Shield, CheckCircle, Bike, Building2, MapPin, Star, Clock 
+  Bell, LayoutDashboard, Shield, CheckCircle, Bike, Building2, MapPin, Star, Clock,
+  MessageCircle
 } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
 import { BottomNav } from '@/components/layout/BottomNav';
@@ -213,6 +214,27 @@ export default function AccountPage() {
                     )}
                   </div>
                 )}
+              </div>
+
+              {/* Quick Access Grid */}
+              <div className="grid grid-cols-4 gap-3 mb-6">
+                {[
+                  { icon: MessageCircle, label: 'Chat', path: '/buyer/chat', color: 'text-primary bg-primary/10' },
+                  { icon: Heart, label: 'Wishlist', path: '/wishlist', color: 'text-destructive bg-destructive/10' },
+                  { icon: MapPin, label: 'Alamat', path: '/addresses', color: 'text-info bg-info/10' },
+                  { icon: HelpCircle, label: 'Bantuan', path: '/help', color: 'text-warning bg-warning/10' },
+                ].map((item) => (
+                  <button
+                    key={item.path}
+                    onClick={() => navigate(item.path)}
+                    className="flex flex-col items-center gap-1.5 py-3 rounded-xl bg-card border border-border hover:shadow-md transition"
+                  >
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center ${item.color}`}>
+                      <item.icon className="h-5 w-5" />
+                    </div>
+                    <span className="text-[11px] font-medium text-foreground">{item.label}</span>
+                  </button>
+                ))}
               </div>
 
               {/* Dashboard Buttons */}
