@@ -480,7 +480,7 @@ const App = () => (
                 <ProtectedRoute allowedRoles={['merchant', 'admin']}>
                   <MerchantPromoPage />
                 </ProtectedRoute>
-              } />              <Route path="/merchant/withdrawals" element={
+              } />              <Route path="/merchant/withdrawal" element={
                 <ProtectedRoute allowedRoles={['merchant', 'admin']}>
                   <MerchantWithdrawalPage />
                 </ProtectedRoute>
