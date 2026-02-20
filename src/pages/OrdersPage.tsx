@@ -9,14 +9,16 @@ import { BottomNav } from "@/components/layout/BottomNav";
 import {
   Package, Clock, Truck, CheckCircle, XCircle, ShoppingBag,
   Store, LogIn, MapPin, Star, RefreshCw, ChevronRight, CalendarDays,
-  MessageCircle,
+  MessageCircle, X,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { formatDistanceToNow } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
+import { OrderChat } from "@/components/chat/OrderChat";
 
 interface BuyerOrderItem {
   id: string;
@@ -32,8 +34,9 @@ interface BuyerOrder {
   total: number;
   created_at: string;
   merchant_id: string | null;
-  merchants: { name: string; phone: string | null } | null;
+  merchants: { name: string; phone: string | null; user_id: string | null } | null;
   order_items: BuyerOrderItem[];
+  is_self_delivery?: boolean;
 }
 
 // Database-aligned status config
@@ -43,6 +46,7 @@ const STATUS_CONFIG: Record<string, { label: string; icon: React.ElementType; co
   PENDING_CONFIRMATION: { label: "Menunggu Konfirmasi", icon: Clock, color: "bg-orange-50 text-orange-700 border-orange-200" },
   CONFIRMED: { label: "Dikonfirmasi", icon: CheckCircle, color: "bg-sky-50 text-sky-700 border-sky-200" },
   PROCESSED: { label: "Sedang Diproses", icon: Package, color: "bg-blue-50 text-blue-700 border-blue-200" },
+  DELIVERING: { label: "Diantar Penjual", icon: Truck, color: "bg-cyan-50 text-cyan-700 border-cyan-200" },
   SENT: { label: "Dalam Pengiriman", icon: Truck, color: "bg-indigo-50 text-indigo-700 border-indigo-200" },
   DELIVERED: { label: "Sudah Diantar", icon: MapPin, color: "bg-violet-50 text-violet-700 border-violet-200" },
   DONE: { label: "Selesai", icon: CheckCircle, color: "bg-emerald-50 text-emerald-700 border-emerald-200" },
@@ -54,7 +58,7 @@ const ORDER_STEPS = ["NEW", "CONFIRMED", "PROCESSED", "SENT", "DELIVERED", "DONE
 
 const PENDING_STATUSES = ["NEW", "PENDING_PAYMENT", "PENDING_CONFIRMATION"];
 const PROCESSING_STATUSES = ["CONFIRMED", "PROCESSED"];
-const SHIPPING_STATUSES = ["SENT", "DELIVERED"];
+const SHIPPING_STATUSES = ["SENT", "DELIVERING", "DELIVERED"];
 const DONE_STATUSES = ["DONE"];
 const CANCELLED_STATUSES = ["CANCELLED", "CANCELED"];
 
@@ -93,6 +97,7 @@ const OrdersPage = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState("all");
+  const [chatOrder, setChatOrder] = useState<{ orderId: string; merchantUserId: string; merchantName: string } | null>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -105,7 +110,7 @@ const OrdersPage = () => {
       if (isRefresh) setRefreshing(true); else setLoading(true);
       const { data, error } = await supabase
         .from("orders")
-        .select("id, status, total, created_at, merchant_id, merchants(name, phone), order_items(id, quantity, product_name, product_price, products(name, image_url))")
+        .select("id, status, total, created_at, merchant_id, is_self_delivery, merchants(name, phone, user_id), order_items(id, quantity, product_name, product_price, products(name, image_url))")
         .eq("buyer_id", user.id)
         .order("created_at", { ascending: false });
       if (error) throw error;
@@ -134,6 +139,16 @@ const OrdersPage = () => {
 
   const handleContactSeller = (e: React.MouseEvent, order: BuyerOrder) => {
     e.stopPropagation();
+    // Prefer in-app chat if merchant has user_id
+    if (order.merchants?.user_id && order.merchant_id) {
+      setChatOrder({
+        orderId: order.id,
+        merchantUserId: order.merchants.user_id,
+        merchantName: order.merchants.name || 'Penjual',
+      });
+      return;
+    }
+    // Fallback to WhatsApp
     const phone = order.merchants?.phone;
     if (phone) {
       const cleaned = phone.replace(/\D/g, '');
@@ -318,7 +333,7 @@ const OrdersPage = () => {
                       {/* Contextual actions */}
                       <div className="px-4 py-3 border-t border-border/50 bg-muted/30 flex justify-between items-center gap-2">
                         {/* Contact seller (always visible for active orders) */}
-                        {isActive && order.merchants?.phone && (
+                        {isActive && (order.merchants?.user_id || order.merchants?.phone) && (
                           <Button
                             size="sm"
                             variant="ghost"
@@ -404,6 +419,27 @@ const OrdersPage = () => {
           </div>
         </Tabs>
       </div>
+      {/* Chat Dialog */}
+      <Dialog open={!!chatOrder} onOpenChange={(open) => { if (!open) setChatOrder(null); }}>
+        <DialogContent className="max-w-md p-0 overflow-hidden">
+          <DialogHeader className="p-4 pb-0">
+            <div className="flex items-center justify-between">
+              <DialogTitle className="text-base">Chat dengan {chatOrder?.merchantName}</DialogTitle>
+            </div>
+          </DialogHeader>
+          {chatOrder && (
+            <div className="h-[400px]">
+              <OrderChat
+                orderId={chatOrder.orderId}
+                otherUserId={chatOrder.merchantUserId}
+                otherUserName={chatOrder.merchantName}
+                isOpen={true}
+                onClose={() => setChatOrder(null)}
+              />
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
       <BottomNav />
     </div>
   );

@@ -1,12 +1,13 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ArrowLeft, MapPin, Truck, Package, Loader2, CheckCircle, CreditCard, Wallet, AlertTriangle, ShieldCheck, Clock } from 'lucide-react';
+import { ArrowLeft, MapPin, Truck, Package, Loader2, CheckCircle, CreditCard, Wallet, AlertTriangle, ShieldCheck, Clock, Ticket } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Badge } from '@/components/ui/badge';
+import { VoucherInput } from '@/components/checkout/VoucherInput';
 import { useCart } from '@/contexts/CartContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -53,6 +54,7 @@ export default function CheckoutPage() {
   const [xenditAvailable, setXenditAvailable] = useState(false);
   const [notes, setNotes] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [appliedVoucher, setAppliedVoucher] = useState<{ id: string; name: string; discount: number } | null>(null);
   
   // Address state
   const [addressData, setAddressData] = useState<CheckoutAddressData>(createEmptyCheckoutAddress());
@@ -120,7 +122,8 @@ export default function CheckoutPage() {
   // COD service fee
   const codServiceFee = paymentMethod === 'COD' && codSettings ? codSettings.serviceFee : 0;
   
-  const total = subtotal + shippingCost + codServiceFee;
+  const voucherDiscount = appliedVoucher?.discount || 0;
+  const total = subtotal + shippingCost + codServiceFee - voucherDiscount;
 
   // Check COD eligibility when amount or distance changes
   useEffect(() => {
@@ -928,7 +931,24 @@ export default function CheckoutPage() {
           </div>
         </motion.div>
 
-        {/* Notes */}
+        {/* Voucher */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.25 }}
+          className="bg-card rounded-xl p-4 border border-border shadow-sm mb-4"
+        >
+          <VoucherInput
+            orderTotal={subtotal}
+            merchantId={merchantIds[0]}
+            onVoucherApplied={(discount, voucherId, voucherName) => {
+              setAppliedVoucher({ id: voucherId, name: voucherName, discount });
+            }}
+            onVoucherRemoved={() => setAppliedVoucher(null)}
+            appliedVoucher={appliedVoucher}
+          />
+        </motion.div>
+
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -957,6 +977,12 @@ export default function CheckoutPage() {
           <span className="text-muted-foreground">Ongkir</span>
           <span className="font-bold">{formatPrice(shippingCost)}</span>
         </div>
+        {voucherDiscount > 0 && (
+          <div className="flex justify-between items-center mb-1 text-sm">
+            <span className="text-primary">Diskon Voucher</span>
+            <span className="font-bold text-primary">-{formatPrice(voucherDiscount)}</span>
+          </div>
+        )}
         {codServiceFee > 0 && (
           <div className="flex justify-between items-center mb-1 text-sm">
             <span className="text-muted-foreground">Biaya Layanan COD</span>

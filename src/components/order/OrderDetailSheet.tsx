@@ -50,12 +50,13 @@ const statusTimeline = [
   { key: 'NEW', label: 'Pesanan Dibuat', icon: Clock },
   { key: 'PENDING_CONFIRMATION', label: 'Menunggu Konfirmasi', icon: Clock },
   { key: 'PROCESSED', label: 'Diproses', icon: Package },
-  { key: 'SENT', label: 'Dikirim', icon: Truck },
+  { key: 'DELIVERING', label: 'Diantar Penjual', icon: Truck },
+  { key: 'SENT', label: 'Dikirim Kurir', icon: Truck },
   { key: 'DELIVERED', label: 'Sampai Tujuan', icon: CheckCircle },
   { key: 'DONE', label: 'Selesai', icon: CheckCircle },
 ];
 
-const statusOrder = ['NEW', 'PENDING_PAYMENT', 'PENDING_CONFIRMATION', 'PROCESSING', 'PROCESSED', 'ASSIGNED', 'PICKED_UP', 'ON_DELIVERY', 'SENT', 'DELIVERED', 'DONE'];
+const statusOrder = ['NEW', 'PENDING_PAYMENT', 'PENDING_CONFIRMATION', 'PROCESSING', 'PROCESSED', 'ASSIGNED', 'DELIVERING', 'PICKED_UP', 'ON_DELIVERY', 'SENT', 'DELIVERED', 'DONE'];
 
 export function OrderDetailSheet({ orderId, open, onOpenChange }: OrderDetailSheetProps) {
   const { user } = useAuth();
