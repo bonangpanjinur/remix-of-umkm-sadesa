@@ -15,7 +15,7 @@ export function ShareStoreButton({ merchantName, slug, merchantId }: ShareStoreB
   const getStoreUrl = () => {
     const base = window.location.origin;
     if (slug) return `${base}/s/${slug}`;
-    return `${base}/store/${merchantId}`;
+    return `${base}/merchant/${merchantId}`;
   };
 
   const handleShare = async () => {

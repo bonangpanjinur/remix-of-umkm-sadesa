@@ -3,16 +3,13 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { 
   ArrowLeft, 
-  Share2, 
   MapPin, 
   Star, 
   Clock, 
-  Phone,
   Store,
   ShoppingBag,
   MessageCircle,
   Check,
-  Badge as BadgeIcon,
   Building
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
@@ -27,6 +24,13 @@ import { ShareStoreButton } from '../components/merchant/ShareStoreButton';
 import { OrderChat } from '../components/chat/OrderChat';
 import { trackPageView } from '../lib/pageViewTracker';
 import { useAuth } from '../contexts/AuthContext';
+import { toast } from '../hooks/use-toast';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '../components/ui/dialog';
 import type { Product } from '../types';
 
 interface MerchantData {
@@ -83,12 +87,12 @@ export default function MerchantProfilePage({ overrideId }: MerchantProfilePageP
   const [hasActiveQuota, setHasActiveQuota] = useState(true);
   const [chatOpen, setChatOpen] = useState(false);
   const [chatOrderId, setChatOrderId] = useState<string | null>(null);
+  const [showHalalModal, setShowHalalModal] = useState(false);
 
   useEffect(() => {
     async function loadData() {
       if (!id) return;
       try {
-        // Fetch merchant
         const { data: merchantData, error: merchantError } = await supabase
           .from('merchants')
           .select(`
@@ -101,14 +105,11 @@ export default function MerchantProfilePage({ overrideId }: MerchantProfilePageP
         if (merchantError) throw merchantError;
         setMerchant(merchantData);
 
-        // Track page view
         trackPageView({ merchantId: id, pageType: 'store' });
 
-        // Check merchant quota
         const quotaActive = await checkMerchantHasActiveQuota(id);
         setHasActiveQuota(quotaActive);
 
-        // Determine if merchant is currently open
         const merchantStatus = getMerchantOperatingStatus(
           merchantData.is_open,
           merchantData.open_time,
@@ -116,7 +117,6 @@ export default function MerchantProfilePage({ overrideId }: MerchantProfilePageP
         );
         const isMerchantOpen = merchantStatus.isCurrentlyOpen;
 
-        // Fetch products
         const { data: productsData } = await supabase
           .from('products')
           .select('*')
@@ -126,7 +126,6 @@ export default function MerchantProfilePage({ overrideId }: MerchantProfilePageP
 
         const mappedProducts: Product[] = (productsData || []).map(p => {
           const isAvailable = quotaActive && isMerchantOpen && p.is_active;
-          
           return {
             id: p.id,
             merchantId: p.merchant_id,
@@ -147,7 +146,6 @@ export default function MerchantProfilePage({ overrideId }: MerchantProfilePageP
         });
         setProducts(mappedProducts);
 
-        // Fetch reviews
         const { data: reviewsData } = await supabase
           .from('reviews')
           .select('id, rating, comment, created_at, buyer_id')
@@ -156,7 +154,6 @@ export default function MerchantProfilePage({ overrideId }: MerchantProfilePageP
           .order('created_at', { ascending: false })
           .limit(10);
 
-        // Get buyer profiles for reviews
         if (reviewsData && reviewsData.length > 0) {
           const buyerIds = [...new Set(reviewsData.map(r => r.buyer_id))];
           const { data: profilesData } = await supabase
@@ -194,9 +191,12 @@ export default function MerchantProfilePage({ overrideId }: MerchantProfilePageP
   };
 
   const handleChatClick = async () => {
-    if (!user || !merchant) return;
+    if (!user) {
+      navigate('/auth');
+      return;
+    }
+    if (!merchant) return;
     
-    // Find an active order between this buyer and merchant
     const { data: orders } = await supabase
       .from('orders')
       .select('id')
@@ -209,13 +209,15 @@ export default function MerchantProfilePage({ overrideId }: MerchantProfilePageP
     if (orders && orders.length > 0) {
       setChatOrderId(orders[0].id);
       setChatOpen(true);
+    } else if (merchant.phone) {
+      const phone = merchant.phone.replace(/\D/g, '');
+      const formattedPhone = phone.startsWith('0') ? '62' + phone.slice(1) : phone;
+      window.open(`https://wa.me/${formattedPhone}`, '_blank');
     } else {
-      // Fallback to WhatsApp if no active order
-      if (merchant.phone) {
-        const phone = merchant.phone.replace(/\D/g, '');
-        const formattedPhone = phone.startsWith('0') ? '62' + phone.slice(1) : phone;
-        window.open(`https://wa.me/${formattedPhone}`, '_blank');
-      }
+      toast({
+        title: 'Belum bisa chat',
+        description: 'Buat pesanan terlebih dahulu untuk chat dengan penjual',
+      });
     }
   };
 
@@ -240,7 +242,6 @@ export default function MerchantProfilePage({ overrideId }: MerchantProfilePageP
 
   return (
     <div className="mobile-shell bg-background flex flex-col min-h-screen relative">
-      {/* Scrollable Content */}
       <div className="flex-1 overflow-y-auto pb-24">
         {/* Hero Image */}
         <div className="relative h-48 bg-gradient-to-br from-primary/20 to-primary/5">
@@ -256,7 +257,6 @@ export default function MerchantProfilePage({ overrideId }: MerchantProfilePageP
             </div>
           )}
           
-          {/* Top Navigation */}
           <div className="absolute top-0 left-0 w-full p-4 flex justify-between items-center z-20">
             <button 
               onClick={() => navigate(-1)}
@@ -264,20 +264,16 @@ export default function MerchantProfilePage({ overrideId }: MerchantProfilePageP
             >
               <ArrowLeft className="h-5 w-5" />
             </button>
-            {merchant && (
-              <ShareStoreButton 
-                merchantName={merchant.name} 
-                slug={merchant.slug} 
-                merchantId={merchant.id} 
-              />
-            )}
+            <ShareStoreButton 
+              merchantName={merchant.name} 
+              slug={merchant.slug} 
+              merchantId={merchant.id} 
+            />
           </div>
           
-          {/* Gradient overlay */}
           <div className="absolute bottom-0 left-0 w-full h-16 bg-gradient-to-t from-background to-transparent" />
         </div>
         
-        {/* Content */}
         <div className="px-4 -mt-6 relative z-10">
           <motion.div 
             initial={{ opacity: 0, y: 20 }}
@@ -289,24 +285,19 @@ export default function MerchantProfilePage({ overrideId }: MerchantProfilePageP
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-1 flex-wrap">
                     <h1 className="text-xl font-bold text-foreground">{merchant.name}</h1>
-                    {merchant.badge === 'VERIFIED' && (
-                      <VerifiedBadge type="verified" size="sm" />
-                    )}
-                    {merchant.badge === 'POPULAR' && (
-                      <VerifiedBadge type="popular" size="sm" />
-                    )}
-                    {merchant.badge === 'NEW' && (
-                      <VerifiedBadge type="new" size="sm" />
-                    )}
+                    {merchant.badge === 'VERIFIED' && <VerifiedBadge type="verified" size="sm" />}
+                    {merchant.badge === 'POPULAR' && <VerifiedBadge type="popular" size="sm" />}
+                    {merchant.badge === 'NEW' && <VerifiedBadge type="new" size="sm" />}
                     {merchant.halal_status === 'VERIFIED' && (
-                      <Badge className="bg-green-500 text-white border-none text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
-                        <Check className="h-3 w-3" />
-                        HALAL
-                      </Badge>
+                      <button onClick={() => setShowHalalModal(true)}>
+                        <Badge className="bg-green-500 text-white border-none text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 cursor-pointer hover:bg-green-600 transition">
+                          <Check className="h-3 w-3" />
+                          HALAL
+                        </Badge>
+                      </button>
                     )}
                   </div>
                   
-                  {/* Rating */}
                   <div className="flex items-center gap-2 mb-2">
                     <div className="flex items-center gap-1">
                       <Star className="h-4 w-4 fill-gold text-gold" />
@@ -319,7 +310,6 @@ export default function MerchantProfilePage({ overrideId }: MerchantProfilePageP
                     </span>
                   </div>
 
-                  {/* Location */}
                   <div className="flex items-center gap-1 text-muted-foreground text-sm">
                     <MapPin className="h-3.5 w-3.5" />
                     <span>
@@ -328,7 +318,6 @@ export default function MerchantProfilePage({ overrideId }: MerchantProfilePageP
                   </div>
                 </div>
 
-                {/* Open Status */}
                 <MerchantStatusBadge
                   isManuallyOpen={merchant.is_open}
                   openTime={merchant.open_time}
@@ -351,26 +340,7 @@ export default function MerchantProfilePage({ overrideId }: MerchantProfilePageP
                     <ShoppingBag className="h-4 w-4" />
                     <span>{getPriceLabel(merchant.classification_price)}</span>
                   </div>
-            )}
-
-            {/* Halal Certificate */}
-            {merchant.halal_status === 'VERIFIED' && merchant.halal_certificate_url && (
-              <div className="bg-card rounded-2xl p-4 shadow-sm border border-border mb-4">
-                <h3 className="font-semibold text-foreground mb-2 flex items-center gap-2">
-                  <Check className="h-4 w-4 text-success" />
-                  Sertifikat Halal
-                </h3>
-                <div className="relative aspect-video rounded-lg overflow-hidden border border-border">
-                  <img 
-                    src={merchant.halal_certificate_url} 
-                    alt="Sertifikat Halal" 
-                    className="object-contain w-full h-full cursor-pointer hover:opacity-90 transition"
-                    onClick={() => window.open(merchant.halal_certificate_url!, '_blank')}
-                  />
-                </div>
-                <p className="text-xs text-muted-foreground mt-2">Klik untuk melihat sertifikat ukuran penuh</p>
-              </div>
-            )}
+                )}
               </div>
             </div>
 
@@ -497,18 +467,16 @@ export default function MerchantProfilePage({ overrideId }: MerchantProfilePageP
         </div>
       </div>
 
-      {/* Sticky CTA */}
-      {merchant.phone && (
-        <div className="absolute bottom-0 w-full bg-card border-t border-border p-4 px-6 shadow-lg z-20">
-          <Button
-            onClick={handleChatClick}
-            className="w-full bg-primary text-primary-foreground shadow-brand font-bold"
-          >
-            <MessageCircle className="h-5 w-5 mr-2" />
-            Chat Penjual
-          </Button>
-        </div>
-      )}
+      {/* Sticky CTA - always visible */}
+      <div className="absolute bottom-0 w-full bg-card border-t border-border p-4 px-6 shadow-lg z-20">
+        <Button
+          onClick={handleChatClick}
+          className="w-full bg-primary text-primary-foreground shadow-brand font-bold"
+        >
+          <MessageCircle className="h-5 w-5 mr-2" />
+          Chat Penjual
+        </Button>
+      </div>
 
       {/* Chat Modal */}
       {chatOrderId && merchant.user_id && (
@@ -520,6 +488,32 @@ export default function MerchantProfilePage({ overrideId }: MerchantProfilePageP
           onClose={() => setChatOpen(false)}
         />
       )}
+
+      {/* Halal Certificate Modal */}
+      <Dialog open={showHalalModal} onOpenChange={setShowHalalModal}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Check className="h-5 w-5 text-green-500" />
+              Sertifikat Halal
+            </DialogTitle>
+          </DialogHeader>
+          {merchant.halal_certificate_url ? (
+            <div className="relative aspect-[3/4] rounded-lg overflow-hidden border border-border">
+              <img 
+                src={merchant.halal_certificate_url} 
+                alt="Sertifikat Halal" 
+                className="object-contain w-full h-full"
+              />
+            </div>
+          ) : (
+            <div className="text-center py-8 text-muted-foreground text-sm">
+              <Check className="h-10 w-10 text-green-500 mx-auto mb-2" />
+              <p>Produk toko ini telah tersertifikasi halal</p>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
