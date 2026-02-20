@@ -3,17 +3,19 @@ import { useNavigate } from "react-router-dom";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
 import { formatPrice } from "@/lib/utils";
 import { BottomNav } from "@/components/layout/BottomNav";
 import {
   Package, Clock, Truck, CheckCircle, XCircle, ShoppingBag,
   Store, LogIn, MapPin, Star, RefreshCw, ChevronRight, CalendarDays,
+  MessageCircle,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { format } from "date-fns";
+import { formatDistanceToNow } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
 
 interface BuyerOrderItem {
@@ -29,7 +31,8 @@ interface BuyerOrder {
   status: string;
   total: number;
   created_at: string;
-  merchants: { name: string } | null;
+  merchant_id: string | null;
+  merchants: { name: string; phone: string | null } | null;
   order_items: BuyerOrderItem[];
 }
 
@@ -46,6 +49,8 @@ const STATUS_CONFIG: Record<string, { label: string; icon: React.ElementType; co
   CANCELLED: { label: "Dibatalkan", icon: XCircle, color: "bg-red-50 text-red-700 border-red-200" },
   CANCELED: { label: "Dibatalkan", icon: XCircle, color: "bg-red-50 text-red-700 border-red-200" },
 };
+
+const ORDER_STEPS = ["NEW", "CONFIRMED", "PROCESSED", "SENT", "DELIVERED", "DONE"];
 
 const PENDING_STATUSES = ["NEW", "PENDING_PAYMENT", "PENDING_CONFIRMATION"];
 const PROCESSING_STATUSES = ["CONFIRMED", "PROCESSED"];
@@ -71,6 +76,17 @@ const getStatusGroup = (status: string): string => {
   return "all";
 };
 
+function getOrderProgress(status: string): number {
+  if (CANCELLED_STATUSES.includes(status)) return 0;
+  const idx = ORDER_STEPS.indexOf(status);
+  if (idx === -1) {
+    // Map pending statuses to step 0
+    if (PENDING_STATUSES.includes(status)) return (1 / ORDER_STEPS.length) * 100;
+    return 0;
+  }
+  return ((idx + 1) / ORDER_STEPS.length) * 100;
+}
+
 const OrdersPage = () => {
   const { user } = useAuth();
   const [orders, setOrders] = useState<BuyerOrder[]>([]);
@@ -89,7 +105,7 @@ const OrdersPage = () => {
       if (isRefresh) setRefreshing(true); else setLoading(true);
       const { data, error } = await supabase
         .from("orders")
-        .select("id, status, total, created_at, merchants(name), order_items(id, quantity, product_name, product_price, products(name, image_url))")
+        .select("id, status, total, created_at, merchant_id, merchants(name, phone), order_items(id, quantity, product_name, product_price, products(name, image_url))")
         .eq("buyer_id", user.id)
         .order("created_at", { ascending: false });
       if (error) throw error;
@@ -115,6 +131,16 @@ const OrdersPage = () => {
   };
 
   const activeOrderCount = orders.filter(o => !["DONE", "CANCELLED", "CANCELED"].includes(o.status)).length;
+
+  const handleContactSeller = (e: React.MouseEvent, order: BuyerOrder) => {
+    e.stopPropagation();
+    const phone = order.merchants?.phone;
+    if (phone) {
+      const cleaned = phone.replace(/\D/g, '');
+      const formatted = cleaned.startsWith('0') ? '62' + cleaned.slice(1) : cleaned;
+      window.open(`https://wa.me/${formatted}`, '_blank');
+    }
+  };
 
   // Not logged in state
   if (!user) {
@@ -217,8 +243,10 @@ const OrdersPage = () => {
                 const productName = firstItem?.products?.name || firstItem?.product_name || "Produk";
                 const statusConf = STATUS_CONFIG[order.status] || STATUS_CONFIG.NEW;
                 const StatusIcon = statusConf.icon;
-                const formattedDate = format(new Date(order.created_at), "dd MMM yyyy", { locale: idLocale });
+                const relativeTime = formatDistanceToNow(new Date(order.created_at), { addSuffix: true, locale: idLocale });
                 const shortId = order.id.substring(0, 8).toUpperCase();
+                const progress = getOrderProgress(order.status);
+                const isActive = !DONE_STATUSES.includes(order.status) && !CANCELLED_STATUSES.includes(order.status);
 
                 return (
                   <Card
@@ -232,7 +260,7 @@ const OrdersPage = () => {
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-0.5">
                             <CalendarDays className="w-3 h-3" />
-                            <span>{formattedDate}</span>
+                            <span>{relativeTime}</span>
                             <span className="text-border">•</span>
                             <span className="font-mono">#{shortId}</span>
                           </div>
@@ -249,6 +277,13 @@ const OrdersPage = () => {
                           {statusConf.label}
                         </Badge>
                       </div>
+
+                      {/* Progress bar for active orders */}
+                      {isActive && (
+                        <div className="px-4 pt-3">
+                          <Progress value={progress} className="h-1.5" />
+                        </div>
+                      )}
 
                       {/* Product info */}
                       <div className="p-4 flex gap-4">
@@ -281,8 +316,20 @@ const OrdersPage = () => {
                       </div>
 
                       {/* Contextual actions */}
-                      {(PENDING_STATUSES.includes(order.status) || SHIPPING_STATUSES.includes(order.status) || order.status === "DONE" || CANCELLED_STATUSES.includes(order.status)) && (
-                        <div className="px-4 py-3 border-t border-border/50 bg-muted/30 flex justify-end gap-2">
+                      <div className="px-4 py-3 border-t border-border/50 bg-muted/30 flex justify-between items-center gap-2">
+                        {/* Contact seller (always visible for active orders) */}
+                        {isActive && order.merchants?.phone && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="text-xs h-8 rounded-full px-3"
+                            onClick={(e) => handleContactSeller(e, order)}
+                          >
+                            <MessageCircle className="w-3 h-3 mr-1" /> Hubungi Penjual
+                          </Button>
+                        )}
+                        
+                        <div className="flex gap-2 ml-auto">
                           {PENDING_STATUSES.includes(order.status) && (
                             <Button
                               size="sm"
@@ -299,7 +346,7 @@ const OrdersPage = () => {
                               className="text-xs h-8 rounded-full px-4"
                               onClick={(e) => { e.stopPropagation(); navigate(`/orders/${order.id}/tracking`); }}
                             >
-                              <MapPin className="w-3 h-3 mr-1" /> Lacak Pesanan
+                              <MapPin className="w-3 h-3 mr-1" /> Lacak
                             </Button>
                           )}
                           {order.status === "DONE" && (
@@ -333,7 +380,7 @@ const OrdersPage = () => {
                             </Button>
                           )}
                         </div>
-                      )}
+                      </div>
                     </CardContent>
                   </Card>
                 );
