@@ -112,6 +112,11 @@ export default function CartPage() {
                         <p className="text-primary font-bold text-sm mt-1">
                           {formatPrice(item.product.price)}
                         </p>
+                        {item.product.originalPrice && (
+                          <p className="text-xs line-through text-muted-foreground">
+                            {formatPrice(item.product.originalPrice)}
+                          </p>
+                        )}
                       </div>
                     </div>
                     

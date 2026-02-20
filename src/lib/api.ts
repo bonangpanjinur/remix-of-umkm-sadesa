@@ -214,6 +214,12 @@ export async function fetchProducts(): Promise<Product[]> {
       ? Number(merchant.location_lng) 
       : (merchant?.villages?.location_lng ? Number(merchant.villages.location_lng) : null);
     
+    // Calculate discounted price
+    const hasDiscount = p.is_promo && p.discount_percent > 0;
+    const discountedPrice = hasDiscount 
+      ? Math.round(p.price - (p.price * p.discount_percent / 100))
+      : p.price;
+
     return {
       id: p.id,
       merchantId: p.merchant_id,
@@ -221,7 +227,9 @@ export async function fetchProducts(): Promise<Product[]> {
       merchantVillage: merchant?.villages?.name || '',
       name: p.name,
       description: p.description || '',
-      price: p.price,
+      price: discountedPrice,
+      originalPrice: hasDiscount ? p.price : undefined,
+      discountPercent: hasDiscount ? p.discount_percent : undefined,
       stock: p.stock,
       image: productImages[p.id] || p.image_url || productKeripik,
       category: p.category as Product['category'],
@@ -294,6 +302,12 @@ export async function fetchProduct(id: string): Promise<Product | null> {
   const isMerchantOpen = isManuallyOpen && isWithinHours;
   const isAvailable = hasQuota && isMerchantOpen && data.is_active;
 
+  // Calculate discounted price
+  const hasDiscount = data.is_promo && data.discount_percent > 0;
+  const discountedPrice = hasDiscount 
+    ? Math.round(data.price - (data.price * data.discount_percent / 100))
+    : data.price;
+
   return {
     id: data.id,
     merchantId: data.merchant_id,
@@ -301,7 +315,9 @@ export async function fetchProduct(id: string): Promise<Product | null> {
     merchantVillage: data.merchants?.villages?.name || '',
     name: data.name,
     description: data.description || '',
-    price: data.price,
+    price: discountedPrice,
+    originalPrice: hasDiscount ? data.price : undefined,
+    discountPercent: hasDiscount ? data.discount_percent : undefined,
     stock: data.stock,
     image: productImages[data.id] || data.image_url || productKeripik,
     category: data.category as Product['category'],
