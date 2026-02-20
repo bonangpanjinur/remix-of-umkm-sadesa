@@ -116,11 +116,55 @@ const OrdersPage = () => {
     if (!user) { setLoading(false); return; }
     try {
       if (isRefresh) setRefreshing(true); else setLoading(true);
-      const { data, error } = await supabase
+      
+      // Try full query first, fallback to simpler queries if schema differs
+      let data: any[] | null = null;
+      let error: any = null;
+
+      // Attempt 1: Full query with all relations
+      const result1 = await supabase
         .from("orders")
         .select("id, status, total, created_at, merchant_id, is_self_delivery, has_review, merchants(name, phone, user_id), order_items(id, quantity, product_name, product_price, product_id, products(name, image_url))")
         .eq("buyer_id", user.id)
         .order("created_at", { ascending: false });
+      
+      if (!result1.error) {
+        data = result1.data;
+      } else {
+        console.warn("Full orders query failed, trying without products relation:", result1.error.message);
+        
+        // Attempt 2: Without products sub-relation (order_items only)
+        const result2 = await supabase
+          .from("orders")
+          .select("id, status, total, created_at, merchant_id, is_self_delivery, has_review, merchants(name, phone), order_items(id, quantity, product_name, product_price, product_id)")
+          .eq("buyer_id", user.id)
+          .order("created_at", { ascending: false });
+        
+        if (!result2.error) {
+          data = result2.data;
+        } else {
+          console.warn("Orders with relations failed, trying minimal query:", result2.error.message);
+          
+          // Attempt 3: Minimal - just orders, no relations
+          const result3 = await supabase
+            .from("orders")
+            .select("id, status, total, created_at, merchant_id, is_self_delivery, has_review")
+            .eq("buyer_id", user.id)
+            .order("created_at", { ascending: false });
+          
+          if (!result3.error) {
+            // Map to expected shape with empty relations
+            data = (result3.data || []).map((o: any) => ({
+              ...o,
+              merchants: null,
+              order_items: [],
+            }));
+          } else {
+            error = result3.error;
+          }
+        }
+      }
+
       if (error) throw error;
       setOrders((data as unknown as BuyerOrder[]) || []);
     } catch (e) {
