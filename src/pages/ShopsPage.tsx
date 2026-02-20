@@ -27,6 +27,7 @@ interface ShopData {
   categories: string[];
   locationLat: number | null;
   locationLng: number | null;
+  slug: string | null;
 }
 
 export default function ShopsPage() {
@@ -52,7 +53,7 @@ export default function ShopsPage() {
           .from('merchants')
           .select(`
             id, name, address, phone, rating_avg, rating_count, is_open, badge, image_url,
-            village_id, location_lat, location_lng,
+            village_id, location_lat, location_lng, slug,
             villages(name, location_lat, location_lng),
             products(id, category)
           `);
@@ -92,6 +93,7 @@ export default function ShopsPage() {
             categories,
             locationLat,
             locationLng,
+            slug: m.slug || null,
           };
         });
 
@@ -286,7 +288,7 @@ export default function ShopsPage() {
                 transition={{ delay: idx * 0.03 }}
               >
                 <Link
-                  to={`/merchant/${shop.id}`}
+                  to={`/merchant/${shop.slug || shop.id}`}
                   className="block bg-card rounded-xl border border-border p-4 hover:shadow-md transition-shadow"
                 >
                   <div className="flex gap-3">

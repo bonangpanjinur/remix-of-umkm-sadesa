@@ -43,6 +43,7 @@ interface MerchantInfo {
   villageName: string | null;
   isVerified: boolean;
   halalStatus: string | null;
+  slug: string | null;
 }
 
 export default function ProductDetail() {
@@ -99,6 +100,7 @@ export default function ProductDetail() {
               close_time,
               is_verified,
               halal_status,
+              slug,
               villages (name)
             `)
             .eq('id', productData.merchantId)
@@ -119,6 +121,7 @@ export default function ProductDetail() {
               villageName: merchantData.villages?.name || null,
               isVerified: merchantData.is_verified || false,
               halalStatus: merchantData.halal_status || null,
+              slug: merchantData.slug || null,
             });
             
             // Check if merchant has active quota
@@ -293,7 +296,7 @@ export default function ProductDetail() {
           {/* Merchant Info - Clickable to Store */}
           {merchant && (
             <Link 
-              to={`/store/${merchant.id}`}
+              to={`/merchant/${merchant.slug || merchant.id}`}
               className="block mb-6 p-3 bg-secondary rounded-xl border border-border hover:border-primary/30 transition group"
             >
               <div className="flex items-center gap-3">

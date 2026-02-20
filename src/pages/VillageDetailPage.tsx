@@ -55,6 +55,7 @@ interface MerchantData {
   product_count?: number;
   is_verified?: boolean;
   badge?: string | null;
+  slug?: string | null;
 }
 
 export default function VillageDetailPage() {
@@ -123,7 +124,7 @@ export default function VillageDetailPage() {
         // Fetch merchants with product counts - optimized query
         const { data: merchantsData } = await supabase
           .from('merchants')
-          .select('id, name, image_url, business_category, rating_avg, rating_count, is_open, open_time, close_time, is_verified, badge')
+          .select('id, name, image_url, business_category, rating_avg, rating_count, is_open, open_time, close_time, is_verified, badge, slug')
           .eq('village_id', actualId)
           .eq('status', 'ACTIVE')
           .eq('registration_status', 'APPROVED');
@@ -388,7 +389,7 @@ export default function VillageDetailPage() {
             <div className="space-y-3 pb-6">
               {merchants.length > 0 ? (
                 merchants.map(merchant => (
-                  <Link key={merchant.id} to={`/merchant/${merchant.id}`}>
+                  <Link key={merchant.id} to={`/merchant/${merchant.slug || merchant.id}`}>
                     <Card className="overflow-hidden hover:shadow-md transition-shadow">
                       <CardContent className="p-3">
                         <div className="flex gap-3">

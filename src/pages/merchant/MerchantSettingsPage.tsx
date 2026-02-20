@@ -297,7 +297,7 @@ export default function MerchantSettingsPage() {
             <div className="space-y-2">
               <Label htmlFor="slug">Slug Toko</Label>
               <div className="flex items-center gap-2">
-                <span className="text-sm text-muted-foreground whitespace-nowrap">{window.location.origin}/s/</span>
+                <span className="text-sm text-muted-foreground whitespace-nowrap">{window.location.origin}/merchant/</span>
                 <Input
                   id="slug"
                   name="slug"
@@ -315,7 +315,7 @@ export default function MerchantSettingsPage() {
             {formData.slug && (
               <div className="bg-primary/5 border border-primary/20 rounded-lg p-3">
                 <p className="text-xs text-primary font-medium">Link toko Anda:</p>
-                <p className="text-sm font-mono text-foreground mt-1">{window.location.origin}/s/{formData.slug}</p>
+                <p className="text-sm font-mono text-foreground mt-1">{window.location.origin}/merchant/{formData.slug}</p>
               </div>
             )}
           </CardContent>
