@@ -82,6 +82,7 @@ import AdminVerifikatorWithdrawalsPage from "./pages/admin/AdminVerifikatorWithd
 import AdminPOSPage from "./pages/admin/AdminPOSPage";
 import CourierHistoryPage from "./pages/courier/CourierHistoryPage";
 import CourierWithdrawalPage from "./pages/courier/CourierWithdrawalPage";
+import CourierChatPage from "./pages/courier/CourierChatPage";
 
 // Verifikator Pages
 import VerifikatorDashboardPage from "./pages/verifikator/VerifikatorDashboardPage";
@@ -119,6 +120,7 @@ import DesaTourismPage from "./pages/desa/DesaTourismPage";
 import ReviewsPage from "./pages/buyer/ReviewsPage";
 import WishlistPage from "./pages/buyer/WishlistPage";
 import MyReviewsPage from "./pages/buyer/MyReviewsPage";
+import BuyerChatPage from "./pages/buyer/BuyerChatPage";
 
 // Notifications
 import NotificationsPage from "./pages/NotificationsPage";
@@ -258,6 +260,11 @@ const App = () => (
                   <CourierWithdrawalPage />
                 </ProtectedRoute>
               } />
+              <Route path="/courier/chat" element={
+                <ProtectedRoute allowedRoles={['courier', 'admin']}>
+                  <CourierChatPage />
+                </ProtectedRoute>
+              } />
               <Route path="/orders/:orderId/review" element={
                 <ProtectedRoute>
                   <ReviewsPage />
@@ -276,6 +283,11 @@ const App = () => (
               <Route path="/recently-viewed" element={
                 <ProtectedRoute>
                   <RecentlyViewedPage />
+                </ProtectedRoute>
+              } />
+              <Route path="/buyer/chat" element={
+                <ProtectedRoute>
+                  <BuyerChatPage />
                 </ProtectedRoute>
               } />
               {/* Admin routes */}

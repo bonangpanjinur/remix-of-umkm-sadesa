@@ -3,10 +3,12 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Send, MessageCircle, X, Clock } from 'lucide-react';
+import { Send, MessageCircle, X, Clock, Image as ImageIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format, formatDistanceToNow } from 'date-fns';
 import { id as idLocale } from 'date-fns/locale';
+
+export type ChatType = 'buyer_merchant' | 'buyer_courier' | 'merchant_courier';
 
 interface ChatMessage {
   id: string;
@@ -16,6 +18,8 @@ interface ChatMessage {
   is_read: boolean;
   created_at: string;
   auto_delete_at: string | null;
+  chat_type: string | null;
+  image_url: string | null;
 }
 
 interface OrderChatProps {
@@ -24,9 +28,17 @@ interface OrderChatProps {
   otherUserName: string;
   isOpen: boolean;
   onClose: () => void;
+  chatType?: ChatType;
+  senderRole?: string;
 }
 
-export function OrderChat({ orderId, otherUserId, otherUserName, isOpen, onClose }: OrderChatProps) {
+const QUICK_REPLIES: Record<string, string[]> = {
+  merchant_courier: ['Barang sudah siap diambil', 'Tolong hubungi saya dulu', 'Alamat pickup berubah'],
+  buyer_courier: ['Sudah di mana?', 'Saya tunggu di depan rumah', 'Tolong hubungi saya'],
+  buyer_merchant: [],
+};
+
+export function OrderChat({ orderId, otherUserId, otherUserName, isOpen, onClose, chatType = 'buyer_merchant', senderRole }: OrderChatProps) {
   const { user } = useAuth();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [newMessage, setNewMessage] = useState('');
@@ -42,16 +54,14 @@ export function OrderChat({ orderId, otherUserId, otherUserName, isOpen, onClose
         .from('chat_messages')
         .select('*')
         .eq('order_id', orderId)
+        .eq('chat_type', chatType)
         .order('created_at', { ascending: true });
 
       if (data) {
-        setMessages(data);
-        // Check auto-delete status
+        setMessages(data as ChatMessage[]);
         const withDelete = data.find(m => m.auto_delete_at);
-        if (withDelete) {
-          setAutoDeleteInfo(withDelete.auto_delete_at);
-        }
-        // Mark unread as read
+        if (withDelete) setAutoDeleteInfo(withDelete.auto_delete_at);
+        
         const unread = data.filter(m => m.receiver_id === user.id && !m.is_read);
         if (unread.length > 0) {
           await supabase
@@ -64,17 +74,18 @@ export function OrderChat({ orderId, otherUserId, otherUserName, isOpen, onClose
 
     fetchMessages();
 
-    // Realtime subscription
     const channel = supabase
-      .channel(`chat-${orderId}`)
+      .channel(`chat-${orderId}-${chatType}`)
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'chat_messages', filter: `order_id=eq.${orderId}` },
         (payload) => {
           const newMsg = payload.new as ChatMessage;
-          setMessages(prev => [...prev, newMsg]);
-          if (newMsg.receiver_id === user.id) {
-            supabase.from('chat_messages').update({ is_read: true }).eq('id', newMsg.id);
+          if (newMsg.chat_type === chatType) {
+            setMessages(prev => [...prev, newMsg]);
+            if (newMsg.receiver_id === user.id) {
+              supabase.from('chat_messages').update({ is_read: true }).eq('id', newMsg.id);
+            }
           }
         }
       )
@@ -88,17 +99,16 @@ export function OrderChat({ orderId, otherUserId, otherUserName, isOpen, onClose
       )
       .subscribe();
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [isOpen, orderId, user]);
+    return () => { supabase.removeChannel(channel); };
+  }, [isOpen, orderId, user, chatType]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  const handleSend = async () => {
-    if (!newMessage.trim() || !user || sending) return;
+  const handleSend = async (messageText?: string) => {
+    const text = (messageText || newMessage).trim();
+    if (!text || !user || sending) return;
 
     setSending(true);
     try {
@@ -106,15 +116,18 @@ export function OrderChat({ orderId, otherUserId, otherUserName, isOpen, onClose
         order_id: orderId,
         sender_id: user.id,
         receiver_id: otherUserId,
-        message: newMessage.trim(),
+        message: text,
+        chat_type: chatType,
       });
-      setNewMessage('');
+      if (!messageText) setNewMessage('');
     } catch (error) {
       console.error('Error sending message:', error);
     } finally {
       setSending(false);
     }
   };
+
+  const quickReplies = QUICK_REPLIES[chatType] || [];
 
   if (!isOpen) return null;
 
@@ -128,7 +141,10 @@ export function OrderChat({ orderId, otherUserId, otherUserName, isOpen, onClose
             <MessageCircle className="h-5 w-5 text-primary" />
             <div>
               <h3 className="font-semibold text-sm">{otherUserName}</h3>
-              <p className="text-xs text-muted-foreground">Chat Pesanan</p>
+              <p className="text-xs text-muted-foreground">
+                {chatType === 'buyer_merchant' ? 'Chat Pesanan' : 
+                 chatType === 'buyer_courier' ? 'Chat Kurir' : 'Chat Penjual-Kurir'}
+              </p>
             </div>
           </div>
           <Button variant="ghost" size="icon" onClick={onClose}>
@@ -161,6 +177,9 @@ export function OrderChat({ orderId, otherUserId, otherUserName, isOpen, onClose
                     ? 'bg-primary text-primary-foreground rounded-br-md'
                     : 'bg-secondary text-secondary-foreground rounded-bl-md'
                 )}>
+                  {msg.image_url && (
+                    <img src={msg.image_url} alt="Chat image" className="rounded-lg mb-1 max-h-40 object-cover" />
+                  )}
                   <p className="text-sm whitespace-pre-wrap break-words">{msg.message}</p>
                   <p className={cn(
                     'text-[10px] mt-1',
@@ -175,6 +194,21 @@ export function OrderChat({ orderId, otherUserId, otherUserName, isOpen, onClose
           <div ref={messagesEndRef} />
         </div>
 
+        {/* Quick Replies */}
+        {quickReplies.length > 0 && messages.length === 0 && (
+          <div className="px-3 pb-2 flex gap-1.5 flex-wrap">
+            {quickReplies.map((reply) => (
+              <button
+                key={reply}
+                onClick={() => handleSend(reply)}
+                className="text-xs px-3 py-1.5 rounded-full bg-secondary text-secondary-foreground hover:bg-secondary/80 transition"
+              >
+                {reply}
+              </button>
+            ))}
+          </div>
+        )}
+
         {/* Input */}
         <div className="p-3 border-t border-border flex gap-2">
           <Input
@@ -184,7 +218,7 @@ export function OrderChat({ orderId, otherUserId, otherUserName, isOpen, onClose
             onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
             className="flex-1"
           />
-          <Button size="icon" onClick={handleSend} disabled={!newMessage.trim() || sending}>
+          <Button size="icon" onClick={() => handleSend()} disabled={!newMessage.trim() || sending}>
             <Send className="h-4 w-4" />
           </Button>
         </div>

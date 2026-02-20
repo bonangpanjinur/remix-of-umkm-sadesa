@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
-import { MerchantLayout } from '@/components/merchant/MerchantLayout';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { OrderChat, ChatType } from '@/components/chat/OrderChat';
+import { CourierLayout } from '@/components/courier/CourierLayout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { MessageCircle, AlertCircle, Clock, User, Truck } from 'lucide-react';
+import { MessageCircle, User, Store, AlertCircle } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { id as idLocale } from 'date-fns/locale';
 
@@ -18,47 +18,35 @@ interface ChatThread {
   lastMessageAt: string;
   unreadCount: number;
   chatType: ChatType;
-  autoDeleteAt: string | null;
 }
 
-export default function MerchantChatPage() {
+export default function CourierChatPage() {
   const { user } = useAuth();
-  const [merchantId, setMerchantId] = useState<string | null>(null);
   const [threads, setThreads] = useState<ChatThread[]>([]);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<'all' | 'buyer_courier' | 'merchant_courier'>('all');
   const [selectedThread, setSelectedThread] = useState<ChatThread | null>(null);
-  const [activeTab, setActiveTab] = useState<'all' | 'buyer_merchant' | 'merchant_courier'>('all');
 
   useEffect(() => {
-    const fetchMerchant = async () => {
-      if (!user) return;
-      const { data } = await supabase.from('merchants').select('id').eq('user_id', user.id).single();
-      setMerchantId(data?.id || null);
-    };
-    fetchMerchant();
-  }, [user]);
-
-  useEffect(() => {
-    if (!merchantId || !user) return;
+    if (!user) return;
     fetchThreads();
 
     const channel = supabase
-      .channel('merchant-chats')
+      .channel('courier-chats')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages' }, () => fetchThreads())
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, [merchantId, user]);
+  }, [user]);
 
   const fetchThreads = async () => {
-    if (!merchantId || !user) return;
-
+    if (!user) return;
     try {
       const { data: messages } = await supabase
         .from('chat_messages')
         .select('*')
         .or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`)
-        .in('chat_type', ['buyer_merchant', 'merchant_courier'])
+        .in('chat_type', ['buyer_courier', 'merchant_courier'])
         .order('created_at', { ascending: false });
 
       if (!messages || messages.length === 0) { setThreads([]); setLoading(false); return; }
@@ -67,7 +55,7 @@ export default function MerchantChatPage() {
       for (const msg of messages) {
         const key = `${msg.order_id}-${msg.chat_type}`;
         if (!threadMap.has(key)) {
-          const otherUserId = msg.sender_id === user!.id ? msg.receiver_id : msg.sender_id;
+          const otherUserId = msg.sender_id === user.id ? msg.receiver_id : msg.sender_id;
           threadMap.set(key, {
             orderId: msg.order_id,
             otherUserId,
@@ -75,11 +63,10 @@ export default function MerchantChatPage() {
             lastMessage: msg.message,
             lastMessageAt: msg.created_at,
             unreadCount: 0,
-            chatType: (msg.chat_type || 'buyer_merchant') as ChatType,
-            autoDeleteAt: msg.auto_delete_at,
+            chatType: (msg.chat_type || 'buyer_courier') as ChatType,
           });
         }
-        if (msg.receiver_id === user!.id && !msg.is_read) {
+        if (msg.receiver_id === user.id && !msg.is_read) {
           threadMap.get(key)!.unreadCount++;
         }
       }
@@ -89,7 +76,7 @@ export default function MerchantChatPage() {
       const nameMap = new Map((profiles || []).map(p => [p.user_id, p.full_name]));
 
       for (const thread of threadMap.values()) {
-        thread.otherUserName = nameMap.get(thread.otherUserId) || (thread.chatType === 'merchant_courier' ? 'Kurir' : 'Pembeli');
+        thread.otherUserName = nameMap.get(thread.otherUserId) || (thread.chatType === 'merchant_courier' ? 'Penjual' : 'Pembeli');
       }
 
       setThreads(Array.from(threadMap.values()));
@@ -100,50 +87,33 @@ export default function MerchantChatPage() {
     }
   };
 
-  if (loading) {
-    return (
-      <MerchantLayout title="Chat" subtitle="Percakapan dengan pembeli & kurir">
-        <div className="flex items-center justify-center py-20">
-          <div className="animate-spin rounded-full h-10 w-10 border-2 border-primary border-t-transparent" />
-        </div>
-      </MerchantLayout>
-    );
-  }
-
-  if (!merchantId) {
-    return (
-      <MerchantLayout title="Chat" subtitle="Percakapan dengan pembeli & kurir">
-        <div className="flex flex-col items-center justify-center py-20 text-center">
-          <AlertCircle className="h-12 w-12 text-muted-foreground mb-4" />
-          <p className="text-muted-foreground">Toko tidak ditemukan</p>
-        </div>
-      </MerchantLayout>
-    );
-  }
-
   const filtered = activeTab === 'all' ? threads : threads.filter(t => t.chatType === activeTab);
 
   return (
-    <MerchantLayout title="Chat" subtitle="Percakapan dengan pembeli & kurir">
+    <CourierLayout title="Chat" subtitle="Percakapan dengan pembeli & penjual">
       <Tabs defaultValue="all" onValueChange={(v) => setActiveTab(v as any)}>
         <div className="bg-card rounded-xl shadow-sm p-1.5 mb-4">
           <TabsList className="w-full bg-transparent h-auto p-0 gap-1">
             <TabsTrigger value="all" className="flex-1 rounded-lg text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Semua</TabsTrigger>
-            <TabsTrigger value="buyer_merchant" className="flex-1 rounded-lg text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+            <TabsTrigger value="buyer_courier" className="flex-1 rounded-lg text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
               <User className="h-3 w-3 mr-1" /> Pembeli
             </TabsTrigger>
             <TabsTrigger value="merchant_courier" className="flex-1 rounded-lg text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-              <Truck className="h-3 w-3 mr-1" /> Kurir
+              <Store className="h-3 w-3 mr-1" /> Penjual
             </TabsTrigger>
           </TabsList>
         </div>
       </Tabs>
 
-      {filtered.length === 0 ? (
+      {loading ? (
+        <div className="flex items-center justify-center py-20">
+          <div className="animate-spin rounded-full h-10 w-10 border-2 border-primary border-t-transparent" />
+        </div>
+      ) : filtered.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 text-center">
           <MessageCircle className="h-16 w-16 text-muted-foreground/30 mb-4" />
           <p className="text-muted-foreground">Belum ada percakapan</p>
-          <p className="text-xs text-muted-foreground mt-1">Chat akan muncul saat pembeli/kurir mengirim pesan</p>
+          <p className="text-xs text-muted-foreground mt-1">Chat akan muncul saat ada pesanan aktif</p>
         </div>
       ) : (
         <div className="space-y-2">
@@ -151,30 +121,20 @@ export default function MerchantChatPage() {
             <Card key={`${thread.orderId}-${thread.chatType}`} className="cursor-pointer hover:bg-accent/50 transition" onClick={() => setSelectedThread(thread)}>
               <CardContent className="p-4 flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                  {thread.chatType === 'merchant_courier' ? <Truck className="h-5 w-5 text-primary" /> : <User className="h-5 w-5 text-primary" />}
+                  {thread.chatType === 'merchant_courier' ? <Store className="h-5 w-5 text-primary" /> : <User className="h-5 w-5 text-primary" />}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <span className="font-medium text-sm">{thread.otherUserName}</span>
-                    <Badge variant="outline" className="text-[10px] px-1.5 py-0">
-                      {thread.chatType === 'merchant_courier' ? 'Kurir' : 'Pembeli'}
-                    </Badge>
                     {thread.unreadCount > 0 && (
                       <Badge variant="destructive" className="text-[10px] px-1.5 py-0">{thread.unreadCount}</Badge>
                     )}
                   </div>
                   <p className="text-xs text-muted-foreground truncate">{thread.lastMessage}</p>
                 </div>
-                <div className="text-right flex-shrink-0">
-                  <p className="text-[10px] text-muted-foreground">
-                    {formatDistanceToNow(new Date(thread.lastMessageAt), { locale: idLocale, addSuffix: true })}
-                  </p>
-                  {thread.autoDeleteAt && (
-                    <div className="flex items-center gap-0.5 text-[10px] text-warning mt-0.5">
-                      <Clock className="h-2.5 w-2.5" /><span>Auto-hapus</span>
-                    </div>
-                  )}
-                </div>
+                <p className="text-[10px] text-muted-foreground flex-shrink-0">
+                  {formatDistanceToNow(new Date(thread.lastMessageAt), { locale: idLocale, addSuffix: true })}
+                </p>
               </CardContent>
             </Card>
           ))}
@@ -191,6 +151,6 @@ export default function MerchantChatPage() {
           onClose={() => setSelectedThread(null)}
         />
       )}
-    </MerchantLayout>
+    </CourierLayout>
   );
 }
