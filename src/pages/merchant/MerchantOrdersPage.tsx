@@ -152,14 +152,18 @@ export default function MerchantOrdersPage() {
         })
         .eq('id', orderId);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Self delivery update error:', error);
+        toast.error(`Gagal mengubah status: ${error.message}`);
+        return;
+      }
       
       toast.success('Pesanan akan diantar sendiri');
       setDetailDialogOpen(false);
       refetch();
-    } catch (error) {
-      console.error('Error:', error);
-      toast.error('Gagal mengubah status');
+    } catch (error: any) {
+      console.error('Self delivery error:', error);
+      toast.error(`Gagal mengubah status: ${error?.message || 'Unknown error'}`);
     }
   };
 
