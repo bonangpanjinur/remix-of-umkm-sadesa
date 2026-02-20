@@ -72,11 +72,17 @@ export default function CourierChatPage() {
       }
 
       const userIds = [...new Set([...threadMap.values()].map(t => t.otherUserId))];
-      const { data: profiles } = await supabase.from('profiles').select('user_id, full_name').in('user_id', userIds);
-      const nameMap = new Map((profiles || []).map(p => [p.user_id, p.full_name]));
+      const [{ data: profiles }, { data: merchants }, { data: couriers }] = await Promise.all([
+        supabase.from('profiles').select('user_id, full_name').in('user_id', userIds),
+        supabase.from('merchants').select('user_id, name').in('user_id', userIds),
+        supabase.from('couriers').select('user_id, name').in('user_id', userIds),
+      ]);
 
       for (const thread of threadMap.values()) {
-        thread.otherUserName = nameMap.get(thread.otherUserId) || (thread.chatType === 'merchant_courier' ? 'Penjual' : 'Pembeli');
+        const profile = (profiles || []).find(p => p.user_id === thread.otherUserId);
+        const merchant = (merchants || []).find(m => m.user_id === thread.otherUserId);
+        const courier = (couriers || []).find(c => c.user_id === thread.otherUserId);
+        thread.otherUserName = profile?.full_name || merchant?.name || courier?.name || (thread.chatType === 'merchant_courier' ? 'Penjual' : 'Pembeli');
       }
 
       setThreads(Array.from(threadMap.values()));
