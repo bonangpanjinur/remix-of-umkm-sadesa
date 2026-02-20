@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Send, MessageCircle, X, Clock, Image as ImageIcon } from 'lucide-react';
+import { Send, MessageCircle, X, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format, formatDistanceToNow } from 'date-fns';
 import { id as idLocale } from 'date-fns/locale';
@@ -44,7 +44,60 @@ export function OrderChat({ orderId, otherUserId, otherUserName, isOpen, onClose
   const [newMessage, setNewMessage] = useState('');
   const [sending, setSending] = useState(false);
   const [autoDeleteInfo, setAutoDeleteInfo] = useState<string | null>(null);
+  const [senderNames, setSenderNames] = useState<Record<string, string>>({});
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Fetch sender names from profiles
+  useEffect(() => {
+    if (!isOpen || messages.length === 0) return;
+
+    const uniqueSenderIds = [...new Set(messages.map(m => m.sender_id))];
+    const missingIds = uniqueSenderIds.filter(id => !senderNames[id]);
+
+    if (missingIds.length === 0) return;
+
+    const fetchNames = async () => {
+      // Fetch from profiles
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('user_id, full_name')
+        .in('user_id', missingIds);
+
+      // Also check merchants and couriers for their names
+      const { data: merchants } = await supabase
+        .from('merchants')
+        .select('user_id, name')
+        .in('user_id', missingIds);
+
+      const { data: couriers } = await supabase
+        .from('couriers')
+        .select('user_id, name')
+        .in('user_id', missingIds);
+
+      const nameMap: Record<string, string> = { ...senderNames };
+
+      missingIds.forEach(id => {
+        // Priority: merchant name > courier name > profile full_name > 'Pengguna'
+        const merchant = merchants?.find(m => m.user_id === id);
+        const courier = couriers?.find(c => c.user_id === id);
+        const profile = profiles?.find(p => p.user_id === id);
+
+        if (merchant) {
+          nameMap[id] = merchant.name;
+        } else if (courier) {
+          nameMap[id] = courier.name;
+        } else if (profile?.full_name) {
+          nameMap[id] = profile.full_name;
+        } else {
+          nameMap[id] = 'Pengguna';
+        }
+      });
+
+      setSenderNames(nameMap);
+    };
+
+    fetchNames();
+  }, [isOpen, messages]);
 
   useEffect(() => {
     if (!isOpen || !orderId || !user) return;
@@ -169,6 +222,7 @@ export function OrderChat({ orderId, otherUserId, otherUserName, isOpen, onClose
           )}
           {messages.map((msg) => {
             const isMine = msg.sender_id === user?.id;
+            const senderDisplayName = senderNames[msg.sender_id] || 'Memuat...';
             return (
               <div key={msg.id} className={cn('flex', isMine ? 'justify-end' : 'justify-start')}>
                 <div className={cn(
@@ -177,6 +231,13 @@ export function OrderChat({ orderId, otherUserId, otherUserName, isOpen, onClose
                     ? 'bg-primary text-primary-foreground rounded-br-md'
                     : 'bg-secondary text-secondary-foreground rounded-bl-md'
                 )}>
+                  {/* Sender name label */}
+                  <p className={cn(
+                    'text-[11px] font-semibold mb-0.5',
+                    isMine ? 'text-primary-foreground/80' : 'text-primary'
+                  )}>
+                    {isMine ? 'Anda' : senderDisplayName}
+                  </p>
                   {msg.image_url && (
                     <img src={msg.image_url} alt="Chat image" className="rounded-lg mb-1 max-h-40 object-cover" />
                   )}
