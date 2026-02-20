@@ -1,80 +1,60 @@
 
-# Analisis Bug Pesanan Kosong dan Perbaikan UX Checkout
+# Perbaikan Halaman "Pesanan Saya" - Query Error 400
 
-## A. Bug Halaman "Pesanan Saya" Kosong
+## Masalah
 
-### Temuan
-Database **benar-benar kosong** -- 0 pesanan di tabel `orders`. Ini bukan bug RLS atau bug kode. Query dan RLS policy sudah benar (`buyer_id = auth.uid()`).
+Halaman pesanan gagal memuat data karena query ke database mengembalikan error **400 Bad Request**. Ini terjadi karena query meminta kolom atau relasi yang tidak ada di skema database eksternal Anda:
 
-**Penyebab yang paling mungkin:** Pesanan gagal dibuat saat checkout, atau user belum pernah berhasil checkout.
+- Kolom `is_self_delivery` dan `has_review` pada tabel `orders` mungkin belum ada
+- Relasi nested `order_items -> products(name, image_url)` mungkin belum dikonfigurasi
+- Kolom `product_id` pada `order_items` mungkin tidak memiliki FK ke `products`
 
-### Masalah Terkait: Empty State Kurang Informatif
-Saat ini jika tidak ada pesanan, halaman hanya menampilkan area kosong tanpa pesan yang jelas. Ini membuat user bingung apakah ada bug atau memang belum ada pesanan.
+Mekanisme fallback yang sudah ada masih gagal karena semua 3 level tetap meminta kolom yang bermasalah.
 
-**Solusi**: Tambahkan empty state yang informatif di halaman OrdersPage dengan pesan "Belum ada pesanan" dan tombol "Mulai Belanja".
+## Analisis Tabel Database
 
----
+Berdasarkan skema yang didefinisikan:
 
-## B. Analisis UX Checkout dan Rencana Perbaikan
+**Tabel `orders`** -- kolom inti yang pasti ada:
+- `id`, `buyer_id`, `merchant_id`, `courier_id`, `status`, `delivery_type`, `delivery_name`, `delivery_phone`, `delivery_address`, `subtotal`, `shipping_cost`, `total`, `notes`, `payment_method`, `payment_status`, `created_at`
 
-### B1. Masalah yang Ditemukan
+**Kolom yang mungkin belum ada di DB eksternal:**
+- `is_self_delivery`, `has_review` (ditambahkan belakangan)
 
-| No | Masalah | Dampak |
-|----|---------|--------|
-| 1 | **Tidak ada ringkasan jumlah item di header** | User tidak tahu berapa item yang di-checkout |
-| 2 | **Form alamat muncul sebelum ringkasan produk** | User harus scroll jauh ke bawah untuk melihat apa yang mereka beli |
-| 3 | **Alamat tersimpan tersembunyi di balik accordion** | User mungkin tidak sadar ada fitur ini |
-| 4 | **Peta wajib diisi meski pilih "Ambil Sendiri"** | Validasi memaksa titik lokasi padahal tidak relevan untuk pickup |
-| 5 | **Bottom fixed summary menutupi konten** | `pb-56` di form, tapi summary bar cukup tinggi dan bisa menutupi catatan/voucher |
-| 6 | **Tidak ada loading indicator saat auto-populate alamat** | Form terlihat kosong sesaat sebelum data profil dimuat |
-| 7 | **Error message generik** | "Data belum lengkap" tanpa menunjukkan field mana yang salah (scroll ke error) |
+**Tabel `order_items`** -- kolom inti:
+- `id`, `order_id`, `product_id`, `product_name`, `product_price`, `quantity`, `subtotal`
 
-### B2. Rencana Perbaikan
+**Tabel `merchants`** -- relasi:
+- `name`, `phone` pasti ada; `user_id` mungkin ada
 
-#### Perbaikan 1: Empty State di OrdersPage
-**File**: `src/pages/OrdersPage.tsx`
-- Cek blok `filteredOrders.length === 0` (sudah ada tapi perlu dipastikan ada untuk tab "Semua")
-- Tambahkan ilustrasi, pesan "Belum ada pesanan", dan tombol "Mulai Belanja"
+## Rencana Perbaikan
 
-#### Perbaikan 2: Reorder Seksi Checkout -- Ringkasan Produk di Atas
-**File**: `src/pages/CheckoutPage.tsx`
-- Pindahkan "Ringkasan Pesanan" (saat ini di baris 938-966) ke posisi PERTAMA sebelum alamat
-- User langsung melihat apa yang mereka beli
+### 1. Perbaiki mekanisme fallback di `OrdersPage.tsx`
 
-#### Perbaikan 3: Sembunyikan Peta Saat "Ambil Sendiri"
-**File**: `src/pages/CheckoutPage.tsx`
-- Pass prop `deliveryType` ke `CheckoutAddressForm`
-- Sembunyikan `LocationPicker` jika `deliveryType === 'PICKUP'`
-- Skip validasi lokasi jika pickup
+Ubah strategi fetch menjadi 4 level fallback yang lebih defensif:
 
-#### Perbaikan 4: Loading State Saat Auto-Populate
-**File**: `src/components/checkout/CheckoutAddressForm.tsx`
-- Tampilkan skeleton/spinner saat `!profileLoaded`
-- Beri feedback visual bahwa data sedang dimuat
+- **Level 1**: Query lengkap (semua kolom + relasi merchants, order_items, products)
+- **Level 2**: Tanpa nested `products`, tanpa `is_self_delivery`/`has_review`/`user_id`
+- **Level 3**: Hanya orders + merchants(name, phone) tanpa order_items
+- **Level 4**: Hanya kolom dasar orders (id, status, total, created_at, merchant_id) tanpa relasi apapun
 
-#### Perbaikan 5: Scroll ke Error Field
-**File**: `src/pages/CheckoutPage.tsx`
-- Setelah `validateForm()` gagal, scroll ke field pertama yang error menggunakan `document.querySelector`
+### 2. Tambahkan penanganan data null yang lebih aman
 
-#### Perbaikan 6: Tambahkan Jumlah Item di Header Checkout
-**File**: `src/pages/CheckoutPage.tsx`
-- Tambahkan badge jumlah item di header: "Checkout (3 item)"
+Pastikan UI tidak crash ketika `is_self_delivery`, `has_review`, `order_items`, atau `merchants` bernilai null/undefined -- gunakan optional chaining dan default values di semua tempat.
 
-### Detail Teknis Perubahan
+### 3. Tambahkan retry limiter
 
-**`src/pages/OrdersPage.tsx`**
-- Di blok `filteredOrders.length === 0` (setelah loading selesai), pastikan ada empty state dengan ikon, teks, dan tombol CTA
+Hapus retry loop tak terbatas yang menyebabkan ratusan request berulang saat error.
 
-**`src/pages/CheckoutPage.tsx`**
-- Pindahkan blok "Ringkasan Pesanan" ke atas, sebelum blok "Alamat Pengiriman"
-- Header: tambahkan `({items.length} item)` di samping "Checkout"
-- Validasi: skip cek lokasi jika `deliveryType === 'PICKUP'`
-- Setelah `validateForm()` return false: `document.querySelector('.text-destructive')?.scrollIntoView({ behavior: 'smooth', block: 'center' })`
+## Detail Teknis
 
-**`src/components/checkout/CheckoutAddressForm.tsx`**
-- Tambahkan prop `hideMap?: boolean`
-- Jika `hideMap` true, sembunyikan section LocationPicker
-- Tambahkan loading skeleton sebelum `profileLoaded`
+```text
+Perubahan file:
+  src/pages/OrdersPage.tsx
+    - Refactor fetchOrders() dengan fallback chain yang lebih robust
+    - Level 4 fallback hanya pakai kolom dasar tanpa is_self_delivery/has_review
+    - Tambah error state agar tidak retry terus-menerus
+    - Pastikan semua akses data di UI menggunakan optional chaining
+```
 
-### Tidak Ada Perubahan Database
-Semua perbaikan ini murni frontend.
+Perubahan hanya di 1 file: `src/pages/OrdersPage.tsx`. Tidak ada perubahan database diperlukan karena ini murni perbaikan di sisi frontend agar kompatibel dengan berbagai versi skema database.
