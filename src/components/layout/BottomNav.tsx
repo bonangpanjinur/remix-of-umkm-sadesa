@@ -53,7 +53,7 @@ export function BottomNav() {
   }, [user]);
 
   const getBadgeCount = (path: string) => {
-    if (path === '/orders') return activeOrders + chatUnread;
+    if (path === '/orders') return activeOrders;
     if (path === '/account') return unreadCount;
     return 0;
   };
