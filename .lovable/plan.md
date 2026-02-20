@@ -1,164 +1,172 @@
 
-# Analisis Bug, UI/UX, dan Perbaikan Alamat Tersimpan
 
-## 1. Bug yang Ditemukan
+# Analisis Lengkap: Bug, UI/UX, dan Fitur yang Kurang
 
-### Bug 1: Tabel `saved_addresses` - RLS Policy "Service Role" Bermasalah
-**Status**: Tabel ada, RLS aktif, data kosong (0 records)
-**Penyebab**: Ada policy `Service role has full access to saved_addresses` yang mengecek `auth.jwt() ->> 'role' = 'service_role'` -- ini tidak akan pernah cocok untuk user biasa. Namun policy INSERT/SELECT/UPDATE/DELETE per-user sudah benar. Kemungkinan besar masalah ada di **environment Live** yang belum memiliki tabel ini, atau ada error silent saat insert yang tidak muncul di UI.
+## A. Bug yang Masih Ada
 
-**Solusi**: Membuat migrasi SQL yang memastikan tabel `saved_addresses` lengkap dengan semua policy di environment manapun, dan menambahkan trigger `updated_at`.
+### Bug 1: React forwardRef Warning (Console)
+**Lokasi**: `ProtectedRoute.tsx` di `App.tsx`
+**Detail**: Warning "Function components cannot be given refs" muncul berulang kali. `ProtectedRoute` mengembalikan `Navigate` component yang memicu warning ini.
+**Dampak**: Tidak crash, tapi memenuhi console dan bisa menutupi error asli.
+**Solusi**: Wrap `ProtectedRoute` dengan `React.forwardRef` atau ubah cara Navigate digunakan.
 
-### Bug 2: Error `column "email" does not exist` di Tabel `profiles`
-**Sumber**: Log database menunjukkan query `SELECT user_id, full_name, email FROM profiles` gagal karena kolom `email` tidak ada.
-**Dampak**: Beberapa fitur yang mencoba mengambil email dari profiles akan error.
-**Solusi**: Menambahkan kolom `email` ke tabel `profiles` dan mengisi dari `auth.users`.
+### Bug 2: Chat Nama "Memuat..." Masih Bisa Muncul
+**Lokasi**: `OrderChat.tsx` baris 230
+**Detail**: Jika pesan baru masuk via realtime SEBELUM `senderNames` selesai di-fetch, label menampilkan "Memuat..." karena `senderNames[id]` belum ada. Fix sebelumnya memoize key tapi tidak menangani kasus realtime insert dari sender baru.
+**Solusi**: Tambahkan fallback fetch saat sender ID baru muncul dari realtime event.
 
-### Bug 3: Warning `Function components cannot be given refs`
-**Sumber**: Console log menunjukkan warning dari React Router di `App.tsx`.
-**Dampak**: Tidak crash tapi menandakan beberapa page component yang di-lazy-load perlu `React.forwardRef`.
-**Solusi**: Minor, tidak blocking -- bisa diabaikan untuk sekarang.
+### Bug 3: Merchant Dashboard - Sequential Fetch
+**Lokasi**: `MerchantDashboardPage.tsx` baris 57-88
+**Detail**: Fetch merchant dan orders dilakukan secara sequential (await merchant, lalu await orders). Ini memperlambat loading.
+**Solusi**: Gabungkan dengan `Promise.all` setelah merchant ID didapat, fetch orders + stats secara paralel.
 
-### Bug 4: Chat sender name kadang muncul "Pengguna" atau "Memuat..."
-**Penyebab**: Race condition -- `senderNames` di-fetch setelah messages dimuat, tapi dependency array di `useEffect` tidak stabil (berubah setiap render karena `messages` array baru).
-**Solusi**: Fix dependency dan tambahkan proper memoization.
+### Bug 4: Cart Total Duplikat di CartPage
+**Lokasi**: `CartPage.tsx` baris 159-169
+**Detail**: Menampilkan "Subtotal Produk" dan "Subtotal" dengan nilai yang sama. Redundan dan membingungkan user.
+**Solusi**: Hapus salah satu, atau tambahkan estimasi ongkir agar terlihat bedanya.
 
----
-
-## 2. Analisis UI/UX
-
-### Buyer (Pembeli)
-
-| Area | Masalah | Rekomendasi |
-|------|---------|-------------|
-| BottomNav | Tab "Chat" menggantikan "Toko" -- pembeli kehilangan akses cepat ke daftar toko | Pertimbangkan 5 tab tetap atau gabungkan Chat ke dalam Pesanan |
-| Halaman Pesanan | Tidak ada progress bar visual yang jelas untuk status pengiriman | Sudah ada `ORDER_STEPS` tapi perlu dipastikan ditampilkan |
-| Alamat Tersimpan | Gagal menyimpan -- ini yang paling kritis | Fix di migration SQL |
-| Chat UI | Nama pengirim kadang "Memuat..." | Fix race condition |
-
-### Merchant (Penjual)
-
-| Area | Masalah | Rekomendasi |
-|------|---------|-------------|
-| Dashboard | Loading data satu per satu (sequential) -- bisa lambat | Gunakan `Promise.all` untuk parallel fetch |
-| Chat Penjual | Tab Kurir ada tapi koneksi ke nama kurir belum optimal | Sudah di-fix di iterasi sebelumnya |
-| Pengaturan Toko | Form panjang tanpa section collapsible | UX bisa ditingkatkan tapi tidak blocking |
+### Bug 5: Produk "low_stock_threshold" Tidak Settable per Merchant
+**Lokasi**: Products table
+**Detail**: Field `low_stock_threshold` ada di database tapi merchant tidak bisa mengaturnya via Settings. Default-nya mungkin null, sehingga StockAlerts tidak berfungsi optimal.
+**Solusi**: Tambahkan input threshold di form produk atau settings merchant.
 
 ---
 
-## 3. SQL Migrasi untuk Supabase
+## B. Analisis UI/UX - Buyer (Pembeli)
 
-Berikut SQL yang perlu dijalankan untuk memperbaiki masalah alamat tersimpan dan bug email:
+### B1. Navigasi (Sudah Dibahas, Belum Diimplementasi)
+| Masalah | Detail |
+|---------|--------|
+| Tab Toko hilang dari BottomNav | Chat menggantikan Toko -- pembeli tidak bisa browse toko dengan cepat |
+| Tidak ada ikon Keranjang di header | Pembeli harus scroll ke FloatingCartButton atau masuk lewat ProductDetail |
+| Chat tidak punya akses cepat | Setelah dipindah dari BottomNav, butuh shortcut di header atau AccountPage |
 
-```sql
--- =============================================
--- MIGRASI: Perbaikan saved_addresses + profiles
--- =============================================
+### B2. Halaman Produk Detail
+| Masalah | Rekomendasi |
+|---------|-------------|
+| Tidak ada galeri foto (hanya 1 foto) | Tambahkan swipeable image gallery |
+| Tidak ada informasi berat/ukuran | Tambahkan field spesifikasi produk |
+| Tidak ada estimasi waktu pengiriman | Tampilkan ETA berdasarkan jarak |
+| Quantity selector tidak ada batasan visual | Tampilkan warning saat mendekati stok habis |
 
--- 1. Pastikan tabel saved_addresses ada dengan benar
-CREATE TABLE IF NOT EXISTS public.saved_addresses (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL,
-  label TEXT NOT NULL DEFAULT 'Rumah',
-  recipient_name TEXT NOT NULL,
-  phone TEXT NOT NULL,
-  province_id TEXT,
-  province_name TEXT,
-  city_id TEXT,
-  city_name TEXT,
-  district_id TEXT,
-  district_name TEXT,
-  village_id TEXT,
-  village_name TEXT,
-  address_detail TEXT,
-  full_address TEXT,
-  lat NUMERIC,
-  lng NUMERIC,
-  is_default BOOLEAN NOT NULL DEFAULT false,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
+### B3. Halaman Checkout
+| Masalah | Rekomendasi |
+|---------|-------------|
+| Form alamat panjang tanpa auto-fill | Integrasikan dengan Alamat Tersimpan (saved_addresses) untuk auto-populate |
+| Tidak ada ringkasan produk yang clear | Tampilkan thumbnail produk di summary |
+| Tidak ada estimasi waktu sampai | Tampilkan ETA delivery |
 
--- 2. Aktifkan RLS
-ALTER TABLE public.saved_addresses ENABLE ROW LEVEL SECURITY;
+### B4. Halaman Pesanan
+| Masalah | Rekomendasi |
+|---------|-------------|
+| Progress bar ada tapi kecil (h-1.5) | Perbesar dan tambahkan step labels |
+| Tidak ada fitur "Lacak Pengiriman" secara real-time di peta | Tambahkan peta tracking kurir |
+| Tombol aksi (bayar/cancel/review) posisinya tidak konsisten | Standardisasi layout tombol aksi |
 
--- 3. Bersihkan dan buat ulang policies
-DROP POLICY IF EXISTS "Service role has full access to saved_addresses" ON public.saved_addresses;
-DROP POLICY IF EXISTS "Users can view own addresses" ON public.saved_addresses;
-DROP POLICY IF EXISTS "Users can insert own addresses" ON public.saved_addresses;
-DROP POLICY IF EXISTS "Users can update own addresses" ON public.saved_addresses;
-DROP POLICY IF EXISTS "Users can delete own addresses" ON public.saved_addresses;
-
-CREATE POLICY "Users can view own addresses" 
-  ON public.saved_addresses FOR SELECT 
-  TO authenticated
-  USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can insert own addresses" 
-  ON public.saved_addresses FOR INSERT 
-  TO authenticated
-  WITH CHECK (auth.uid() = user_id);
-
-CREATE POLICY "Users can update own addresses" 
-  ON public.saved_addresses FOR UPDATE 
-  TO authenticated
-  USING (auth.uid() = user_id)
-  WITH CHECK (auth.uid() = user_id);
-
-CREATE POLICY "Users can delete own addresses" 
-  ON public.saved_addresses FOR DELETE 
-  TO authenticated
-  USING (auth.uid() = user_id);
-
--- 4. Trigger updated_at
-CREATE OR REPLACE FUNCTION public.set_updated_at()
-RETURNS TRIGGER AS $$
-BEGIN
-  NEW.updated_at = now();
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-DROP TRIGGER IF EXISTS set_saved_addresses_updated_at ON public.saved_addresses;
-CREATE TRIGGER set_saved_addresses_updated_at
-  BEFORE UPDATE ON public.saved_addresses
-  FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
-
--- 5. Tambahkan kolom email ke profiles (fix bug column "email" does not exist)
-DO $$ 
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM information_schema.columns 
-    WHERE table_schema = 'public' 
-    AND table_name = 'profiles' 
-    AND column_name = 'email'
-  ) THEN
-    ALTER TABLE public.profiles ADD COLUMN email TEXT;
-  END IF;
-END $$;
-
--- 6. Backfill email dari auth.users
-UPDATE public.profiles p
-SET email = u.email
-FROM auth.users u
-WHERE p.user_id = u.id
-AND p.email IS NULL;
-
--- 7. Enable realtime untuk saved_addresses
-ALTER PUBLICATION supabase_realtime ADD TABLE public.saved_addresses;
-```
+### B5. Fitur yang Kurang untuk Buyer
+1. **Notifikasi Push** - Infrastruktur ada tapi belum ada prompt permission yang user-friendly
+2. **Filter harga** di halaman Explore/Search - Belum bisa filter range harga
+3. **Riwayat pencarian** - Hook `useSearchHistory` ada tapi belum ditampilkan di UI
+4. **Voucher/Kupon** - Sistem ada tapi buyer tidak bisa melihat daftar voucher yang tersedia sebelum checkout
+5. **Rating & Review dengan foto** - Sudah bisa upload tapi preview foto sebelum submit belum optimal
 
 ---
 
-## 4. Perbaikan Kode (setelah SQL dijalankan)
+## C. Analisis UI/UX - Merchant (Penjual)
 
-### File yang perlu dimodifikasi:
+### C1. Dashboard
+| Masalah | Rekomendasi |
+|---------|-------------|
+| Terlalu banyak card di halaman utama | Prioritaskan: Welcome + Pending Orders + Quick Stats, sisanya di tab |
+| Chart revenue 14 hari terlalu padat di mobile | Gunakan 7 hari default, toggle ke 14/30 |
+| Tidak ada ringkasan pendapatan hari ini yang prominent | Buat card pendapatan hari ini yang besar dan mencolok |
 
-1. **`src/components/chat/OrderChat.tsx`** -- Fix race condition pada sender names (memoize message IDs)
-2. **`src/hooks/useSavedAddresses.ts`** -- Tambahkan error logging yang lebih detail untuk debug
-3. **`src/pages/merchant/MerchantDashboardPage.tsx`** -- Parallel data fetching dengan `Promise.all`
+### C2. Manajemen Produk
+| Masalah | Rekomendasi |
+|---------|-------------|
+| Form tambah produk hanya 1 gambar | Sudah ada `MultipleImageUpload` component tapi belum dipakai di form produk |
+| Tidak ada fitur duplikasi produk | Tambahkan "Duplikat" di dropdown menu produk |
+| Tidak ada preview produk sebelum publish | Tambahkan preview mode |
+| Tidak ada bulk update harga/stok | DataTable ada BulkActions tapi belum untuk stok/harga |
 
-### Prioritas:
-1. Jalankan SQL migrasi di atas (paling penting)
-2. Fix chat sender names
-3. Perbaikan UX minor
+### C3. Manajemen Pesanan
+| Masalah | Rekomendasi |
+|---------|-------------|
+| Notifikasi sound ada tapi tidak ada visual alert yang persistent | Tambahkan banner sticky "X pesanan baru" |
+| Tidak ada fitur print label pengiriman | Tambahkan generate label/resi |
+| Self-delivery status tracking kurang detail | Tambahkan step-by-step status untuk self delivery |
+
+### C4. Pengaturan Toko
+| Masalah | Rekomendasi |
+|---------|-------------|
+| Form terlalu panjang (1 scroll tanpa section) | Sudah pakai Card sections -- OK tapi bisa collapsible |
+| Tidak ada preview toko setelah edit | Tambahkan "Lihat Toko Saya" button yang prominent |
+| Cover image tidak bisa diubah | Tambahkan upload cover image |
+| Tidak ada pengaturan hari libur/off day | Tambahkan fitur jadwal tutup per hari |
+
+### C5. Fitur yang Kurang untuk Merchant
+1. **Analitik konversi** - Berapa view yang jadi order (conversion rate)
+2. **Template pesan otomatis** - Auto-reply saat toko tutup atau pesanan diterima
+3. **Pengaturan minimal order** - Minimum pembelian per transaksi
+4. **Notifikasi stok habis** via push/email - Ada StockAlerts tapi hanya di dashboard
+5. **Export laporan keuangan** ke PDF - SalesExport ada tapi hanya CSV
+6. **Multi-image produk** - Component `MultipleImageUpload` sudah ada tapi belum terintegrasi di form produk
+
+---
+
+## D. Prioritas Perbaikan
+
+### Tinggi (Harus segera)
+1. Fix navigasi BottomNav (kembalikan Toko, pindahkan Chat ke header)
+2. Tambahkan ikon Keranjang + Chat di Header
+3. Fix chat sender name untuk realtime messages
+4. Integrasikan saved_addresses di Checkout
+
+### Sedang (Penting)
+5. Merchant: multi-image produk
+6. Merchant: parallel fetch di dashboard
+7. Buyer: tampilkan riwayat pencarian
+8. Buyer: filter harga di Explore
+9. Fix CartPage subtotal duplikat
+
+### Rendah (Nice to have)
+10. Merchant: jadwal tutup per hari
+11. Merchant: template auto-reply
+12. Buyer: galeri foto produk swipeable
+13. Fix React forwardRef warnings
+
+---
+
+## E. Rencana Implementasi Teknis
+
+### File yang Perlu Dimodifikasi:
+
+1. **`src/components/layout/BottomNav.tsx`**
+   - Ganti Chat dengan Store/Toko
+   - Gabungkan badge chat unread ke badge Pesanan
+
+2. **`src/components/layout/Header.tsx`**
+   - Tambahkan ikon ShoppingCart dengan badge dari `useCart()`
+   - Tambahkan ikon MessageCircle dengan badge dari `useChatUnread()`
+
+3. **`src/pages/AccountPage.tsx`**
+   - Tambahkan quick access grid: Chat, Wishlist, Alamat, Bantuan
+
+4. **`src/components/chat/OrderChat.tsx`**
+   - Handle sender baru dari realtime event
+
+5. **`src/pages/CartPage.tsx`**
+   - Hapus duplikasi subtotal
+
+6. **`src/pages/CheckoutPage.tsx`**
+   - Auto-populate dari saved_addresses jika ada default
+
+7. **`src/pages/merchant/MerchantDashboardPage.tsx`**
+   - Parallel fetch dengan `Promise.all`
+
+8. **`src/pages/merchant/MerchantProductsPage.tsx`**
+   - Integrasikan `MultipleImageUpload` di form produk
+
+### Tidak Ada Perubahan Database
+Semua perbaikan ini murni frontend. Database sudah siap (saved_addresses, chat_messages, dll sudah ada).
+
