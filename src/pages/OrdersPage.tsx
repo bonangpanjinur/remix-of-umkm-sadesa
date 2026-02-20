@@ -178,6 +178,41 @@ const OrdersPage = () => {
         }
       }
 
+      // If order_items exist but products info is missing, fetch images separately
+      if (data && data.length > 0) {
+        const needsImages = data.some((o: any) => 
+          o.order_items?.some((i: any) => i.product_id && !i.products)
+        );
+        if (needsImages) {
+          const productIds = [...new Set(
+            data.flatMap((o: any) => (o.order_items || [])
+              .filter((i: any) => i.product_id && !i.products)
+              .map((i: any) => i.product_id)
+            )
+          )] as string[];
+          
+          if (productIds.length > 0) {
+            const { data: productsData } = await supabase
+              .from('products')
+              .select('id, name, image_url')
+              .in('id', productIds);
+            
+            if (productsData) {
+              const productMap = Object.fromEntries(productsData.map(p => [p.id, p]));
+              data = data.map((o: any) => ({
+                ...o,
+                order_items: (o.order_items || []).map((i: any) => ({
+                  ...i,
+                  products: i.products || (i.product_id && productMap[i.product_id] 
+                    ? { name: productMap[i.product_id].name, image_url: productMap[i.product_id].image_url }
+                    : null),
+                })),
+              }));
+            }
+          }
+        }
+      }
+
       setOrders((data as unknown as BuyerOrder[]) || []);
     } catch (e) {
       console.error("Error fetching buyer orders:", e);
