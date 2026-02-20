@@ -1,79 +1,114 @@
 
 
-# Perbaikan Komprehensif Dashboard & Alur Bisnis Merchant
+# Perbaikan Komprehensif Dashboard Merchant
 
-## Masalah yang Ditemukan
-
-### 1. URL Slug 404 - MerchantSlugResolver terlalu ketat
-**File:** `src/pages/MerchantSlugResolver.tsx`
-
-Query slug memfilter `status = 'ACTIVE'` DAN `registration_status = 'APPROVED'`. Jika merchant belum disetujui atau statusnya bukan ACTIVE, URL slug akan selalu 404. Selain itu, `navigate('/404')` dipanggil di fase render yang merupakan anti-pattern React.
-
-**Perbaikan:**
-- Hapus filter `status` dan `registration_status` dari query slug
-- Setelah merchant ditemukan, tampilkan pesan yang sesuai (belum aktif / belum disetujui) alih-alih langsung 404
-- Ganti `navigate('/404')` dengan render komponen NotFound langsung
-
-### 2. Toko Selalu Tutup - Logika pengecekan kuota
-**File:** `src/pages/MerchantProfilePage.tsx`, `src/lib/api.ts`
-
-Alur saat ini: toko dianggap tutup jika `!hasActiveQuota || !operatingStatus.isCurrentlyOpen`.
-
-Fungsi `checkMerchantHasActiveQuota` mengecek subscription dulu, lalu fallback ke free tier. Free tier mengecek jumlah order bulan ini vs limit (default 100). Jika `app_settings` belum punya key `free_tier_quota`, limit default 100 seharusnya cukup. Tetapi jika ada error saat query, fungsi return `false` -> toko tampil tutup.
-
-**Perbaikan:**
-- Tambahkan error handling yang lebih baik di `checkMerchantHasActiveQuota` - default ke `true` jika query gagal (graceful fallback)
-- Pastikan `is_open` default `true` di database sudah benar (sudah dikonfirmasi)
-- Tambahkan log console yang lebih jelas untuk debugging status toko
-
-### 3. Route Mismatch: `/merchant/withdrawal` vs `/merchant/withdrawals`
-**File:** `src/App.tsx` (baris 483)
-
-Sidebar dan dashboard menggunakan `/merchant/withdrawal` (singular), tapi route di App.tsx terdaftar sebagai `/merchant/withdrawals` (plural). Ini menyebabkan halaman penarikan tidak bisa diakses dari sidebar.
-
-**Perbaikan:** Ubah route dari `/merchant/withdrawals` ke `/merchant/withdrawal`
-
-### 4. Statistik Pengunjung - page_views tracking
-**File:** `src/lib/pageViewTracker.ts`
-
-RLS policy sudah benar (INSERT untuk semua, SELECT untuk merchant pemilik). Namun `trackPageView` menggunakan in-memory Set yang di-reset setiap reload halaman, dan tidak tracking product views secara otomatis dari halaman ProductDetail.
-
-**Perbaikan:**
-- Tambahkan tracking product view di `ProductDetail.tsx` menggunakan `trackPageView`
-- Pastikan `page_views` table bisa menerima insert dari user anonim (sudah OK via RLS)
-
-### 5. Analisis Menu Merchant - Error Minor Lainnya
-
-| Masalah | File | Detail |
-|---------|------|--------|
-| Route withdrawal salah | `App.tsx:483` | `/merchant/withdrawals` -> `/merchant/withdrawal` |
-| MerchantSlugResolver terlalu strict | `MerchantSlugResolver.tsx` | Filter status dihapus |
-| Quota check error handling lemah | `api.ts:102-129` | Default true jika error |
-| Product view tidak di-track | `ProductDetail.tsx` | Tambah trackPageView |
+## 6 Masalah Utama & Solusi
 
 ---
 
-## Detail Teknis - File yang Diubah
+### 1. Menu Pesanan: Pilihan Antar Sendiri vs Kurir Desa
 
-### File 1: `src/pages/MerchantSlugResolver.tsx`
-- Hapus filter `.eq('status', 'ACTIVE')` dan `.eq('registration_status', 'APPROVED')` dari query slug
-- Tambahkan pengecekan status SETELAH merchant ditemukan - jika tidak aktif, tampilkan pesan khusus
-- Ganti `navigate('/404')` dengan render inline komponen "tidak ditemukan"
-- Tambahkan try-catch yang lebih baik
+**Masalah:** Saat pembeli memilih "Diantar", merchant langsung mengirim ke status SENT tanpa memilih metode pengiriman. Kolom `is_self_delivery` digunakan di kode (`OrderDetailsDialog.tsx`) tapi **tidak ada di database**.
 
-### File 2: `src/lib/api.ts` (fungsi `checkMerchantHasActiveQuota`)
-- Wrap seluruh fungsi dalam try-catch
-- Jika terjadi error, return `true` (graceful fallback - lebih baik toko tampil buka daripada salah tutup)
-- Tambahkan console.warn untuk debugging
+**Solusi:**
+- Tambah kolom `is_self_delivery` (boolean, default false) ke tabel `orders` via migrasi
+- Modifikasi dialog detail pesanan di `MerchantOrdersPage.tsx`: saat status PROCESSED dan delivery_type = INTERNAL, tampilkan dialog pilihan "Antar Sendiri" atau "Kurir Desa"
+- Jika antar sendiri: set `is_self_delivery = true`, status -> DELIVERING (status baru untuk self-delivery)
+- Jika kurir desa: buka dialog assign kurir, status -> SENT
+- Tambah status DELIVERING di status map merchant & buyer pages
+- Merchant bisa update status: DELIVERING -> DELIVERED -> DONE
 
-### File 3: `src/App.tsx` (baris 483)
-- Ubah `/merchant/withdrawals` menjadi `/merchant/withdrawal`
+**File yang diubah:**
+- Migrasi SQL: tambah kolom `is_self_delivery`
+- `src/pages/merchant/MerchantOrdersPage.tsx`: tambah delivery choice dialog & status DELIVERING
+- `src/hooks/useRealtimeOrders.ts`: tambah DELIVERING di status handling
+- `src/pages/OrdersPage.tsx`: tambah DELIVERING di STATUS_CONFIG
 
-### File 4: `src/pages/ProductDetail.tsx`
-- Tambahkan call `trackPageView({ merchantId, productId, pageType: 'product' })` setelah product data berhasil di-load
+---
 
-### File 5: `src/pages/MerchantProfilePage.tsx`
-- Perbaiki logika `isClosed` agar lebih robust - pisahkan alasan tutup (quota vs jam operasional vs manual)
+### 2. URL `/merchant/pos/subscribe` Error 404
 
-### Total: 5 file diubah, 0 migration baru
+**Masalah:** Route sudah terdaftar di `App.tsx` (baris 528) dan komponen `MerchantPOSSubscribePage.tsx` sudah lengkap. Kemungkinan error karena nested route di bawah `ProtectedRoute` yang menolak akses (role belum terdaftar atau belum login).
+
+**Solusi:**
+- Verifikasi route ordering di `App.tsx` - pastikan `/merchant/pos/subscribe` didefinisikan SEBELUM `/merchant/pos` (route yang lebih spesifik harus di atas)
+- Tambahkan route `/merchant/pos/settings` yang juga perlu diatas `/merchant/pos`
+- Urutkan kembali route merchant di App.tsx
+
+**File yang diubah:**
+- `src/App.tsx`: reorder merchant routes
+
+---
+
+### 3. Handle 404 Error Pages
+
+**Masalah:** Halaman 404 (`NotFound.tsx`) sudah ada dan terdaftar sebagai catch-all di App.tsx. Ini sudah berfungsi. Yang perlu diperbaiki adalah integrasi 404 di level merchant (slug not found sudah diperbaiki sebelumnya).
+
+**Solusi:** Tidak perlu perubahan - sudah diimplementasi. Cukup pastikan MerchantSlugResolver (sudah diperbaiki sebelumnya) menangani kasus tidak ditemukan dengan benar.
+
+---
+
+### 4. Chat Pembeli-Pedagang di Sisi Pembeli
+
+**Masalah:** Komponen `OrderChat` sudah ada dan berfungsi. Di sisi merchant sudah terintegrasi via `MerchantChatPage`. Di sisi buyer:
+- `OrderDetailSheet.tsx` sudah ada tombol chat tapi hanya muncul jika order punya merchant user_id
+- `OrdersPage.tsx` hanya mengarahkan ke WhatsApp (`handleContactSeller`), tidak ada chat in-app
+
+**Solusi:**
+- Di `OrdersPage.tsx`: ganti tombol "Hubungi Penjual" dari WhatsApp ke chat in-app menggunakan `OrderChat`
+- Tambah state untuk chat: `chatOrderId`, `chatMerchantUserId`, `chatMerchantName`
+- Klik "Hubungi Penjual" -> buka `OrderChat` modal
+- Fallback ke WhatsApp jika merchant tidak punya `user_id` (data sudah ada via `merchants(name, phone)` - perlu tambah `user_id` di query)
+
+**File yang diubah:**
+- `src/pages/OrdersPage.tsx`: tambah import OrderChat, state chat, ubah handler, tambah query `merchants(name, phone, user_id)`
+
+---
+
+### 5. Voucher/Promo di Halaman Checkout
+
+**Masalah:** Komponen `VoucherInput` sudah dibuat lengkap di `src/components/checkout/VoucherInput.tsx` dan fungsi database `apply_voucher` sudah ada. Tapi **tidak digunakan di CheckoutPage.tsx**.
+
+**Solusi:**
+- Import `VoucherInput` di `CheckoutPage.tsx`
+- Tambah state untuk voucher: `appliedVoucher` (id, name, discount)
+- Sisipkan komponen `VoucherInput` di antara ringkasan pesanan dan catatan
+- Kurangi total dengan discount voucher
+- Kirim `voucher_id` saat insert order (jika kolom tersedia)
+
+**File yang diubah:**
+- `src/pages/CheckoutPage.tsx`: import VoucherInput, tambah state & logic voucher, update total calculation
+
+---
+
+### 6. Integrasi Merchant-Buyer Lainnya
+
+**Masalah yang ditemukan dari analisis:**
+
+| Issue | Detail |
+|-------|--------|
+| Status DELIVERING tidak dikenali buyer | OrdersPage & OrderDetailSheet tidak punya mapping untuk DELIVERING |
+| `order_items` query di buyer join products salah | Query join `products(name, image_url)` mungkin gagal jika product_id null |
+| Merchant delivery badge salah label | Baris 513: selalu tampil "Diantar Kurir" padahal bisa "Antar Sendiri" |
+
+**Solusi:**
+- Tambah DELIVERING ke STATUS_CONFIG di `OrdersPage.tsx` dan `OrderDetailSheet.tsx`
+- Perbaiki label delivery di `MerchantOrdersPage.tsx` baris 513 untuk membedakan self delivery vs kurir
+- Update `OrderTrackingPage.tsx` jika perlu untuk menampilkan status DELIVERING
+
+---
+
+## Ringkasan Perubahan
+
+| # | File | Perubahan |
+|---|------|-----------|
+| 1 | **Migrasi SQL** | Tambah kolom `is_self_delivery` boolean default false |
+| 2 | `src/pages/merchant/MerchantOrdersPage.tsx` | Dialog pilihan pengiriman (antar sendiri/kurir), status DELIVERING, label delivery yang benar |
+| 3 | `src/App.tsx` | Reorder routes merchant (pos/subscribe & pos/settings sebelum pos) |
+| 4 | `src/pages/OrdersPage.tsx` | Chat in-app, status DELIVERING, query tambah user_id |
+| 5 | `src/pages/CheckoutPage.tsx` | Integrasi VoucherInput |
+| 6 | `src/hooks/useRealtimeOrders.ts` | Tidak perlu diubah (sudah handle semua status) |
+| 7 | `src/components/order/OrderDetailSheet.tsx` | Tambah DELIVERING di statusTimeline |
+
+**Total: 1 migrasi + 5 file diubah**
 
