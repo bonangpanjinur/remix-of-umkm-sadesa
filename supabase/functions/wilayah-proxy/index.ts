@@ -1,5 +1,3 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
@@ -7,8 +5,9 @@ const corsHeaders = {
 };
 
 const BASE_URL = 'https://wilayah.id/api';
+const EMSIFA_URL = 'https://www.emsifa.com/api-wilayah-indonesia/api';
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
@@ -25,64 +24,70 @@ serve(async (req) => {
       );
     }
 
-    let apiUrl: string;
+    // Build URLs for both APIs
+    let wilayahUrl: string;
+    let emsifaUrl: string;
 
     switch (type) {
       case 'provinces':
-        apiUrl = `${BASE_URL}/provinces.json`;
+        wilayahUrl = `${BASE_URL}/provinces.json`;
+        emsifaUrl = `${EMSIFA_URL}/provinces.json`;
         break;
       case 'regencies':
         if (!code) {
-          return new Response(
-            JSON.stringify({ error: 'Missing code parameter' }),
-            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
+          return new Response(JSON.stringify({ error: 'Missing code parameter' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
         }
-        apiUrl = `${BASE_URL}/regencies/${code}.json`;
+        wilayahUrl = `${BASE_URL}/regencies/${code}.json`;
+        emsifaUrl = `${EMSIFA_URL}/regencies/${code}.json`;
         break;
       case 'districts':
         if (!code) {
-          return new Response(
-            JSON.stringify({ error: 'Missing code parameter' }),
-            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
+          return new Response(JSON.stringify({ error: 'Missing code parameter' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
         }
-        apiUrl = `${BASE_URL}/districts/${code}.json`;
+        wilayahUrl = `${BASE_URL}/districts/${code}.json`;
+        emsifaUrl = `${EMSIFA_URL}/districts/${code}.json`;
         break;
       case 'villages':
         if (!code) {
-          return new Response(
-            JSON.stringify({ error: 'Missing code parameter' }),
-            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
+          return new Response(JSON.stringify({ error: 'Missing code parameter' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
         }
-        apiUrl = `${BASE_URL}/villages/${code}.json`;
+        wilayahUrl = `${BASE_URL}/villages/${code}.json`;
+        emsifaUrl = `${EMSIFA_URL}/villages/${code}.json`;
         break;
       default:
-        return new Response(
-          JSON.stringify({ error: 'Invalid type parameter' }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+        return new Response(JSON.stringify({ error: 'Invalid type' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    console.log(`Fetching: ${apiUrl}`);
-    const response = await fetch(apiUrl, {
-      headers: {
-        'Accept': 'application/json',
-        'User-Agent': 'DesaApp/1.0',
-      },
+    // Try wilayah.id first, fallback to emsifa
+    let data;
+    try {
+      console.log(`Fetching: ${wilayahUrl}`);
+      const response = await fetch(wilayahUrl, {
+        headers: { 'Accept': 'application/json', 'User-Agent': 'DesaApp/1.0' },
+      });
+      if (!response.ok) throw new Error(`wilayah.id returned ${response.status}`);
+      const json = await response.json();
+      data = json.data || json;
+    } catch (e) {
+      console.warn('wilayah.id failed, trying emsifa:', e);
+      const response = await fetch(emsifaUrl, {
+        headers: { 'Accept': 'application/json', 'User-Agent': 'DesaApp/1.0' },
+      });
+      if (!response.ok) throw new Error(`emsifa returned ${response.status}`);
+      const json = await response.json();
+      // emsifa uses {id, name} format, normalize to {code, name}
+      data = Array.isArray(json)
+        ? json.map((item: { id: string; name: string }) => ({ code: item.id, name: item.name }))
+        : json;
+    }
+
+    return new Response(JSON.stringify(data), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
-
-    if (!response.ok) {
-      throw new Error(`API returned ${response.status}`);
-    }
-
-    const data = await response.json();
-
-    return new Response(
-      JSON.stringify(data),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
   } catch (error) {
     console.error('Error:', error);
     return new Response(

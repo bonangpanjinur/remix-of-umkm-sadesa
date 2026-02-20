@@ -1,1 +1,16 @@
 project_id = "ygozkcyazayubjicagej"
+
+[functions.wilayah-proxy]
+verify_jwt = false
+
+[functions.assign-courier]
+verify_jwt = false
+
+[functions.send-push-notification]
+verify_jwt = false
+
+[functions.xendit-payment]
+verify_jwt = false
+
+[functions.xendit-webhook]
+verify_jwt = false
