@@ -34,6 +34,7 @@ interface MerchantData {
   status: string;
   registration_status: string;
   image_url: string | null;
+  slug: string | null;
 }
 
 interface OrderData {
@@ -59,7 +60,7 @@ export default function MerchantDashboardPage() {
       try {
         const { data: merchantData } = await supabase
           .from('merchants')
-          .select('id, name, is_open, status, registration_status, image_url')
+          .select('id, name, is_open, status, registration_status, image_url, slug')
           .eq('user_id', user.id)
           .maybeSingle();
 
@@ -233,6 +234,7 @@ export default function MerchantDashboardPage() {
               merchantId={merchant.id} 
               merchantName={merchant.name}
               merchantImage={merchant.image_url}
+              slug={merchant.slug}
             />
             <div className="flex items-center gap-2 bg-muted/30 px-3 py-1.5 rounded-full border border-border">
               <div className={`w-2 h-2 rounded-full ${merchant.is_open ? 'bg-green-500 animate-pulse' : 'bg-muted-foreground'}`} />
