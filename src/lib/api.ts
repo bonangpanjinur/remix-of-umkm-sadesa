@@ -100,32 +100,50 @@ async function getMerchantsWithActiveQuota(): Promise<Set<string>> {
 
 // Check if a specific merchant has active quota
 export async function checkMerchantHasActiveQuota(merchantId: string): Promise<boolean> {
-  // First check subscriptions
-  const { data } = await supabase
-    .from('merchant_subscriptions')
-    .select('transaction_quota, used_quota')
-    .eq('merchant_id', merchantId)
-    .eq('status', 'ACTIVE')
-    .gte('expired_at', new Date().toISOString());
+  try {
+    // First check subscriptions
+    const { data, error: subError } = await supabase
+      .from('merchant_subscriptions')
+      .select('transaction_quota, used_quota')
+      .eq('merchant_id', merchantId)
+      .eq('status', 'ACTIVE')
+      .gte('expired_at', new Date().toISOString());
 
-  if (data && data.length > 0) {
-    const totalRemaining = data.reduce((sum, sub) => sum + (sub.transaction_quota - sub.used_quota), 0);
-    return totalRemaining > 0;
+    if (subError) {
+      console.warn('Error checking merchant subscriptions, defaulting to true:', subError);
+      return true;
+    }
+
+    if (data && data.length > 0) {
+      const totalRemaining = data.reduce((sum, sub) => sum + (sub.transaction_quota - sub.used_quota), 0);
+      console.log(`Merchant ${merchantId} subscription quota remaining: ${totalRemaining}`);
+      return totalRemaining > 0;
+    }
+
+    // Fallback: free tier - check monthly order count
+    const FREE_TIER_LIMIT = await getFreeTierLimit();
+    const startOfMonth = new Date();
+    startOfMonth.setDate(1);
+    startOfMonth.setHours(0, 0, 0, 0);
+
+    const { count, error: countError } = await supabase
+      .from('orders')
+      .select('*', { count: 'exact', head: true })
+      .eq('merchant_id', merchantId)
+      .gte('created_at', startOfMonth.toISOString());
+
+    if (countError) {
+      console.warn('Error checking free tier quota, defaulting to true:', countError);
+      return true;
+    }
+
+    const hasQuota = (count || 0) < FREE_TIER_LIMIT;
+    console.log(`Merchant ${merchantId} free tier: ${count || 0}/${FREE_TIER_LIMIT}, hasQuota: ${hasQuota}`);
+    return hasQuota;
+  } catch (error) {
+    console.warn('Unexpected error in checkMerchantHasActiveQuota, defaulting to true:', error);
+    return true;
   }
-
-  // Fallback: free tier - check monthly order count
-  const FREE_TIER_LIMIT = await getFreeTierLimit();
-  const startOfMonth = new Date();
-  startOfMonth.setDate(1);
-  startOfMonth.setHours(0, 0, 0, 0);
-
-  const { count } = await supabase
-    .from('orders')
-    .select('*', { count: 'exact', head: true })
-    .eq('merchant_id', merchantId)
-    .gte('created_at', startOfMonth.toISOString());
-
-  return (count || 0) < FREE_TIER_LIMIT;
 }
 
 // Fetch products from database (include all, with availability status and location)
