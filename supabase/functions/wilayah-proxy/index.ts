@@ -1,6 +1,6 @@
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version, x-requested-with',
   'Access-Control-Allow-Methods': 'GET, OPTIONS',
 };
 
@@ -62,18 +62,10 @@ Deno.serve(async (req) => {
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    // Try wilayah.id first, fallback to emsifa
+    // Try emsifa first as it's more reliable for public access, fallback to wilayah.id
     let data;
     try {
-      console.log(`Fetching: ${wilayahUrl}`);
-      const response = await fetch(wilayahUrl, {
-        headers: { 'Accept': 'application/json', 'User-Agent': 'DesaApp/1.0' },
-      });
-      if (!response.ok) throw new Error(`wilayah.id returned ${response.status}`);
-      const json = await response.json();
-      data = json.data || json;
-    } catch (e) {
-      console.warn('wilayah.id failed, trying emsifa:', e);
+      console.log(`Fetching: ${emsifaUrl}`);
       const response = await fetch(emsifaUrl, {
         headers: { 'Accept': 'application/json', 'User-Agent': 'DesaApp/1.0' },
       });
@@ -83,6 +75,14 @@ Deno.serve(async (req) => {
       data = Array.isArray(json)
         ? json.map((item: { id: string; name: string }) => ({ code: item.id, name: item.name }))
         : json;
+    } catch (e) {
+      console.warn('emsifa failed, trying wilayah.id:', e);
+      const response = await fetch(wilayahUrl, {
+        headers: { 'Accept': 'application/json', 'User-Agent': 'DesaApp/1.0' },
+      });
+      if (!response.ok) throw new Error(`wilayah.id returned ${response.status}`);
+      const json = await response.json();
+      data = json.data || json;
     }
 
     return new Response(JSON.stringify(data), {
