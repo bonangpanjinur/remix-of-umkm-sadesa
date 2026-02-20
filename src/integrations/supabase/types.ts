@@ -254,8 +254,10 @@ export type Database = {
       chat_messages: {
         Row: {
           auto_delete_at: string | null
+          chat_type: string | null
           created_at: string
           id: string
+          image_url: string | null
           is_read: boolean
           message: string
           order_id: string
@@ -264,8 +266,10 @@ export type Database = {
         }
         Insert: {
           auto_delete_at?: string | null
+          chat_type?: string | null
           created_at?: string
           id?: string
+          image_url?: string | null
           is_read?: boolean
           message: string
           order_id: string
@@ -274,8 +278,10 @@ export type Database = {
         }
         Update: {
           auto_delete_at?: string | null
+          chat_type?: string | null
           created_at?: string
           id?: string
+          image_url?: string | null
           is_read?: boolean
           message?: string
           order_id?: string
@@ -3357,6 +3363,10 @@ export type Database = {
       }
       is_admin: { Args: never; Returns: boolean }
       is_admin_desa: { Args: never; Returns: boolean }
+      is_chat_participant: {
+        Args: { _chat_type: string; _order_id: string; _user_id: string }
+        Returns: boolean
+      }
       is_courier: { Args: never; Returns: boolean }
       is_courier_owner: {
         Args: { _courier_id: string; _user_id: string }

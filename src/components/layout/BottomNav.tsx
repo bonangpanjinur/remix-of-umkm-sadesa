@@ -1,15 +1,16 @@
 import { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Home, Compass, Receipt, User, Store } from 'lucide-react';
+import { Home, Compass, Receipt, User, Store, MessageCircle } from 'lucide-react';
 import { useCart } from '@/contexts/CartContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
+import { useChatUnread } from '@/hooks/useChatUnread';
 
 const navItems = [
   { path: '/', icon: Home, label: 'Beranda' },
   { path: '/explore', icon: Compass, label: 'Jelajah' },
-  { path: '/shops', icon: Store, label: 'Toko' },
+  { path: '/buyer/chat', icon: MessageCircle, label: 'Chat' },
   { path: '/orders', icon: Receipt, label: 'Pesanan' },
   { path: '/account', icon: User, label: 'Akun' },
 ];
@@ -19,6 +20,7 @@ export function BottomNav() {
   const { getItemCount } = useCart();
   const { user } = useAuth();
   const itemCount = getItemCount();
+  const chatUnread = useChatUnread();
   const [unreadCount, setUnreadCount] = useState(0);
   const [activeOrders, setActiveOrders] = useState(0);
 
@@ -53,6 +55,7 @@ export function BottomNav() {
   const getBadgeCount = (path: string) => {
     if (path === '/orders') return activeOrders;
     if (path === '/account') return unreadCount;
+    if (path === '/buyer/chat') return chatUnread;
     return 0;
   };
 

@@ -10,7 +10,9 @@ import {
   RefreshCw,
   Truck,
   CheckCircle,
-  RotateCcw
+  RotateCcw,
+  MessageCircle,
+  Store
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { DeliveryStatusCard } from '@/components/courier/DeliveryStatusCard';
@@ -18,6 +20,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { RefundRequestDialog } from '@/components/order/RefundRequestDialog';
+import { OrderChat, ChatType } from '@/components/chat/OrderChat';
 
 interface OrderDetails {
   id: string;
@@ -55,7 +58,8 @@ export default function OrderTrackingPage() {
   const [loading, setLoading] = useState(true);
   const [completing, setCompleting] = useState(false);
   const [refundDialogOpen, setRefundDialogOpen] = useState(false);
-
+  const [chatOpen, setChatOpen] = useState<{ type: ChatType; userId: string; name: string } | null>(null);
+  const [merchantInfo, setMerchantInfo] = useState<{ userId: string; name: string } | null>(null);
   useEffect(() => {
     if (!authLoading && user && orderId) {
       fetchOrderDetails();
@@ -110,6 +114,18 @@ export default function OrderTrackingPage() {
       }
 
       setOrder(orderData as unknown as OrderDetails);
+
+      // Fetch merchant info for chat
+      if (orderData.merchant_id) {
+        const { data: merchant } = await supabase
+          .from('merchants')
+          .select('user_id, name')
+          .eq('id', orderData.merchant_id)
+          .maybeSingle();
+        if (merchant?.user_id) {
+          setMerchantInfo({ userId: merchant.user_id, name: merchant.name });
+        }
+      }
 
       // Fetch courier if assigned
       if (orderData.courier_id) {
@@ -246,6 +262,35 @@ export default function OrderTrackingPage() {
           </motion.div>
         )}
 
+        {/* Chat buttons */}
+        {['ASSIGNED', 'PICKED_UP', 'SENT', 'DELIVERED'].includes(order.status) && courier && (
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={() => {
+                supabase.from('couriers').select('user_id').eq('id', order.courier_id!).maybeSingle().then(({ data }) => {
+                  if (data?.user_id) setChatOpen({ type: 'buyer_courier', userId: data.user_id, name: courier.name });
+                });
+              }}
+            >
+              <MessageCircle className="h-4 w-4 mr-2" /> Chat Kurir
+            </Button>
+          </motion.div>
+        )}
+
+        {merchantInfo && !['DONE', 'CANCELLED', 'CANCELED'].includes(order.status) && (
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.17 }}>
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={() => setChatOpen({ type: 'buyer_merchant', userId: merchantInfo.userId, name: merchantInfo.name })}
+            >
+              <Store className="h-4 w-4 mr-2" /> Chat Penjual
+            </Button>
+          </motion.div>
+        )}
+
         {/* Delivery Address */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -347,6 +392,18 @@ export default function OrderTrackingPage() {
             open={refundDialogOpen}
             onOpenChange={setRefundDialogOpen}
             onSuccess={fetchOrderDetails}
+          />
+        )}
+
+        {/* Chat Dialog */}
+        {chatOpen && orderId && (
+          <OrderChat
+            orderId={orderId}
+            otherUserId={chatOpen.userId}
+            otherUserName={chatOpen.name}
+            chatType={chatOpen.type}
+            isOpen={!!chatOpen}
+            onClose={() => setChatOpen(null)}
           />
         )}
       </div>
