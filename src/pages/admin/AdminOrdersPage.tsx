@@ -200,6 +200,9 @@ export default function AdminOrdersPage() {
       'PENDING_CONFIRMATION': { label: 'Menunggu Konfirmasi', variant: 'warning' },
       'CONFIRMED': { label: 'Dikonfirmasi', variant: 'info' },
       'PROCESSED': { label: 'Diproses', variant: 'warning' },
+      'ASSIGNED': { label: 'Kurir Ditugaskan', variant: 'pending' },
+      'PICKED_UP': { label: 'Diambil Kurir', variant: 'pending' },
+      'DELIVERING': { label: 'Diantar Penjual', variant: 'pending' },
       'SENT': { label: 'Dikirim', variant: 'pending' },
       'DELIVERED': { label: 'Sampai', variant: 'warning' },
       'DONE': { label: 'Selesai', variant: 'success' },
@@ -232,7 +235,7 @@ export default function AdminOrdersPage() {
     return {
       total: orders.length,
       new: orders.filter(o => o.status === 'NEW').length,
-      processing: orders.filter(o => ['CONFIRMED', 'PROCESSED', 'SENT'].includes(o.status)).length,
+      processing: orders.filter(o => ['CONFIRMED', 'PROCESSED', 'ASSIGNED', 'PICKED_UP', 'DELIVERING', 'SENT', 'DELIVERED'].includes(o.status)).length,
       done: orders.filter(o => o.status === 'DONE').length,
       revenue: totalRevenue
     };
@@ -375,6 +378,9 @@ export default function AdminOrdersPage() {
         { value: 'PENDING_CONFIRMATION', label: 'Menunggu Konfirmasi' },
         { value: 'CONFIRMED', label: 'Dikonfirmasi' },
         { value: 'PROCESSED', label: 'Diproses' },
+        { value: 'ASSIGNED', label: 'Kurir Ditugaskan' },
+        { value: 'PICKED_UP', label: 'Diambil Kurir' },
+        { value: 'DELIVERING', label: 'Diantar Penjual' },
         { value: 'SENT', label: 'Dikirim' },
         { value: 'DELIVERED', label: 'Sampai' },
         { value: 'DONE', label: 'Selesai' },
