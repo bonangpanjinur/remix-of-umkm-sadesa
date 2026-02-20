@@ -10,6 +10,16 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
 import { MerchantDetailSheet } from '@/components/verifikator/MerchantDetailSheet';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -35,12 +45,15 @@ export default function VerifikatorMerchantsPage() {
   const [loading, setLoading] = useState(true);
   const [detailMerchantId, setDetailMerchantId] = useState<string | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
+  const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
+  const [rejectMerchantId, setRejectMerchantId] = useState<string | null>(null);
+  const [rejectReason, setRejectReason] = useState('');
+  const [rejecting, setRejecting] = useState(false);
 
   const fetchMerchants = async () => {
     if (!user) return;
 
     try {
-      // First get codes owned by this verifikator
       const { data: codes } = await supabase
         .from('verifikator_codes')
         .select('code, trade_group')
@@ -55,7 +68,6 @@ export default function VerifikatorMerchantsPage() {
       const codeValues = codes.map(c => c.code);
       const codeToGroup = Object.fromEntries(codes.map(c => [c.code, c.trade_group]));
 
-      // Get merchants using these codes
       const { data, error } = await supabase
         .from('merchants')
         .select('id, name, phone, city, district, business_category, registration_status, verifikator_code, registered_at')
@@ -92,17 +104,28 @@ export default function VerifikatorMerchantsPage() {
     }
   };
 
-  const handleReject = async (id: string) => {
-    const reason = prompt('Alasan penolakan:');
-    if (!reason) return;
-    
-    const success = await rejectMerchant(id, reason);
+  const openRejectDialog = (id: string) => {
+    setRejectMerchantId(id);
+    setRejectReason('');
+    setRejectDialogOpen(true);
+  };
+
+  const handleRejectConfirm = async () => {
+    if (!rejectMerchantId || !rejectReason.trim()) {
+      toast.error('Berikan alasan penolakan');
+      return;
+    }
+
+    setRejecting(true);
+    const success = await rejectMerchant(rejectMerchantId, rejectReason.trim());
     if (success) {
       toast.success('Merchant ditolak');
       fetchMerchants();
+      setRejectDialogOpen(false);
     } else {
       toast.error('Gagal menolak merchant');
     }
+    setRejecting(false);
   };
 
   const getStatusBadge = (status: string) => {
@@ -178,7 +201,7 @@ export default function VerifikatorMerchantsPage() {
                   <Check className="h-4 w-4 mr-2" />
                   Setujui
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleReject(item.id)} className="text-destructive">
+                <DropdownMenuItem onClick={() => openRejectDialog(item.id)} className="text-destructive">
                   <X className="h-4 w-4 mr-2" />
                   Tolak
                 </DropdownMenuItem>
@@ -226,6 +249,41 @@ export default function VerifikatorMerchantsPage() {
         open={detailOpen}
         onOpenChange={setDetailOpen}
       />
+
+      {/* Reject Dialog - replaces browser prompt() */}
+      <Dialog open={rejectDialogOpen} onOpenChange={setRejectDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Tolak Merchant</DialogTitle>
+            <DialogDescription>
+              Berikan alasan penolakan agar merchant dapat memperbaiki pendaftarannya.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <Label htmlFor="reject-reason">Alasan Penolakan *</Label>
+            <Textarea
+              id="reject-reason"
+              value={rejectReason}
+              onChange={(e) => setRejectReason(e.target.value)}
+              placeholder="Contoh: Dokumen KTP tidak jelas, silakan upload ulang..."
+              rows={3}
+              className="mt-2"
+            />
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setRejectDialogOpen(false)}>
+              Batal
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleRejectConfirm}
+              disabled={rejecting || !rejectReason.trim()}
+            >
+              {rejecting ? 'Menolak...' : 'Tolak Merchant'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </VerifikatorLayout>
   );
 }

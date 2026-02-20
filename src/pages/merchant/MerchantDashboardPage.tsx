@@ -321,7 +321,7 @@ export default function MerchantDashboardPage() {
                       <Button
                         size="sm"
                         className="h-8 text-xs"
-                        onClick={() => updateOrderStatus(order.id, 'PROCESSING')}
+                        onClick={() => updateOrderStatus(order.id, 'PROCESSED')}
                       >
                         <CheckCircle className="h-3 w-3 mr-1" />
                         Terima

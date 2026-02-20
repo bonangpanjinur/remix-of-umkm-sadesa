@@ -21,6 +21,7 @@ import { formatDistanceToNow } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
 import { OrderChat } from "@/components/chat/OrderChat";
 import { toast } from "@/hooks/use-toast";
+import { OrderCancelDialog } from "@/components/order/OrderCancelDialog";
 
 interface BuyerOrderItem {
   id: string;
@@ -49,6 +50,8 @@ const STATUS_CONFIG: Record<string, { label: string; icon: React.ElementType; co
   PENDING_CONFIRMATION: { label: "Menunggu Konfirmasi", icon: Clock, color: "bg-orange-50 text-orange-700 border-orange-200" },
   CONFIRMED: { label: "Dikonfirmasi", icon: CheckCircle, color: "bg-sky-50 text-sky-700 border-sky-200" },
   PROCESSED: { label: "Sedang Diproses", icon: Package, color: "bg-blue-50 text-blue-700 border-blue-200" },
+  ASSIGNED: { label: "Kurir Ditugaskan", icon: Truck, color: "bg-teal-50 text-teal-700 border-teal-200" },
+  PICKED_UP: { label: "Pesanan Diambil Kurir", icon: Truck, color: "bg-cyan-50 text-cyan-700 border-cyan-200" },
   DELIVERING: { label: "Diantar Penjual", icon: Truck, color: "bg-cyan-50 text-cyan-700 border-cyan-200" },
   SENT: { label: "Dalam Pengiriman", icon: Truck, color: "bg-indigo-50 text-indigo-700 border-indigo-200" },
   DELIVERED: { label: "Sudah Diantar", icon: MapPin, color: "bg-violet-50 text-violet-700 border-violet-200" },
@@ -57,10 +60,10 @@ const STATUS_CONFIG: Record<string, { label: string; icon: React.ElementType; co
   CANCELED: { label: "Dibatalkan", icon: XCircle, color: "bg-red-50 text-red-700 border-red-200" },
 };
 
-const ORDER_STEPS = ["NEW", "CONFIRMED", "PROCESSED", "SENT", "DELIVERED", "DONE"];
+const ORDER_STEPS = ["NEW", "CONFIRMED", "PROCESSED", "ASSIGNED", "PICKED_UP", "SENT", "DELIVERED", "DONE"];
 
 const PENDING_STATUSES = ["NEW", "PENDING_PAYMENT", "PENDING_CONFIRMATION"];
-const PROCESSING_STATUSES = ["CONFIRMED", "PROCESSED"];
+const PROCESSING_STATUSES = ["CONFIRMED", "PROCESSED", "ASSIGNED", "PICKED_UP"];
 const SHIPPING_STATUSES = ["SENT", "DELIVERING", "DELIVERED"];
 const DONE_STATUSES = ["DONE"];
 const CANCELLED_STATUSES = ["CANCELLED", "CANCELED"];
@@ -101,6 +104,7 @@ const OrdersPage = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState("all");
   const [chatOrder, setChatOrder] = useState<{ orderId: string; merchantUserId: string; merchantName: string } | null>(null);
+  const [cancelOrderId, setCancelOrderId] = useState<string | null>(null);
   const navigate = useNavigate();
   const { addToCart } = useCart();
 
@@ -138,23 +142,36 @@ const OrdersPage = () => {
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'orders', filter: `buyer_id=eq.${user.id}` },
         (payload) => {
+          const newStatus = (payload.new as any).status;
+          const oldOrder = orders.find(o => o.id === payload.new.id);
           setOrders(prev => prev.map(order => 
             order.id === payload.new.id 
-              ? { ...order, status: (payload.new as any).status } 
+              ? { ...order, status: newStatus } 
               : order
           ));
+          // Toast notification for status change
+          if (oldOrder && oldOrder.status !== newStatus) {
+            const statusLabel = STATUS_CONFIG[newStatus]?.label || newStatus;
+            toast({ title: `Pesanan #${(payload.new.id as string).substring(0, 8).toUpperCase()}`, description: `Status berubah: ${statusLabel}` });
+          }
         }
       )
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [user]);
 
-  // Reorder handler
+  // Reorder handler - skip items with null product_id
   const handleReorder = useCallback(async (order: BuyerOrder) => {
     let addedCount = 0;
+    let skippedCount = 0;
     for (const item of order.order_items) {
+      const productId = (item as any).product_id;
+      if (!productId) {
+        skippedCount++;
+        continue;
+      }
       addToCart({
-        id: (item as any).product_id || item.id,
+        id: productId,
         name: item.product_name,
         price: item.product_price,
         image: item.products?.image_url || '/placeholder.svg',
@@ -166,9 +183,14 @@ const OrdersPage = () => {
       } as any, item.quantity);
       addedCount++;
     }
+    if (skippedCount > 0) {
+      toast({ title: `${skippedCount} produk tidak tersedia lagi dan dilewati`, variant: 'destructive' });
+    }
     if (addedCount > 0) {
       toast({ title: `${addedCount} produk ditambahkan ke keranjang` });
       navigate('/cart');
+    } else if (skippedCount > 0) {
+      toast({ title: 'Semua produk dalam pesanan ini sudah tidak tersedia', variant: 'destructive' });
     }
   }, [navigate, addToCart]);
 
@@ -392,14 +414,24 @@ const OrdersPage = () => {
                         )}
                         
                         <div className="flex gap-2 ml-auto">
-                          {PENDING_STATUSES.includes(order.status) && (
-                            <Button
-                              size="sm"
-                              className="text-xs h-8 rounded-full px-4"
-                              onClick={(e) => { e.stopPropagation(); navigate(`/payment/${order.id}`); }}
-                            >
-                              Bayar Sekarang
-                            </Button>
+                        {PENDING_STATUSES.includes(order.status) && (
+                            <>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="text-xs h-8 rounded-full px-3 text-destructive hover:text-destructive"
+                                onClick={(e) => { e.stopPropagation(); setCancelOrderId(order.id); }}
+                              >
+                                <X className="w-3 h-3 mr-1" /> Batalkan
+                              </Button>
+                              <Button
+                                size="sm"
+                                className="text-xs h-8 rounded-full px-4"
+                                onClick={(e) => { e.stopPropagation(); navigate(`/payment/${order.id}`); }}
+                              >
+                                Bayar Sekarang
+                              </Button>
+                            </>
                           )}
                           {SHIPPING_STATUSES.includes(order.status) && (
                             <Button
@@ -489,6 +521,13 @@ const OrdersPage = () => {
           )}
         </DialogContent>
       </Dialog>
+      {/* Cancel Order Dialog */}
+      <OrderCancelDialog
+        open={!!cancelOrderId}
+        onOpenChange={(open) => { if (!open) setCancelOrderId(null); }}
+        orderId={cancelOrderId || ''}
+        onCancelled={() => { setCancelOrderId(null); fetchOrders(); }}
+      />
       <BottomNav />
     </div>
   );

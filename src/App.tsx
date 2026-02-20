@@ -365,17 +365,17 @@ const App = () => (
                 </ProtectedRoute>
               } />
               <Route path="/admin/packages" element={
-                <ProtectedRoute>
+                <ProtectedRoute allowedRoles={['admin']}>
                   <AdminTransactionQuotaPage />
                 </ProtectedRoute>
               } />
               <Route path="/admin/quota-settings" element={
-                <ProtectedRoute>
+                <ProtectedRoute allowedRoles={['admin']}>
                   <AdminTransactionQuotaPage />
                 </ProtectedRoute>
               } />
               <Route path="/admin/transaction-quota" element={
-                <ProtectedRoute>
+                <ProtectedRoute allowedRoles={['admin']}>
                   <AdminTransactionQuotaPage />
                 </ProtectedRoute>
               } />
