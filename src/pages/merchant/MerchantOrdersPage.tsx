@@ -767,9 +767,23 @@ export default function MerchantOrdersPage() {
             <Button 
               className="w-full justify-start gap-3 h-auto py-4"
               variant="outline"
-              onClick={() => {
+              onClick={async () => {
                 if (deliveryChoiceOrderId) {
-                  handleUpdateStatus(deliveryChoiceOrderId, 'SENT');
+                  // Set status to ASSIGNED first, waiting for courier assignment
+                  const { error } = await supabase
+                    .from('orders')
+                    .update({ 
+                      status: 'ASSIGNED',
+                      updated_at: new Date().toISOString()
+                    })
+                    .eq('id', deliveryChoiceOrderId);
+                  
+                  if (error) {
+                    toast.error('Gagal mengubah status');
+                  } else {
+                    toast.success('Pesanan menunggu penugasan kurir desa');
+                    refetch();
+                  }
                   setDeliveryChoiceDialogOpen(false);
                 }
               }}
