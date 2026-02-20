@@ -71,12 +71,15 @@ export default function MerchantDashboardPage() {
 
         setMerchant(merchantData);
 
-        const { data: ordersData } = await supabase
-          .from('orders')
-          .select('id, status, total, created_at')
-          .eq('merchant_id', merchantData.id);
+        // Parallel fetch orders after getting merchant ID
+        const [ordersResult] = await Promise.all([
+          supabase
+            .from('orders')
+            .select('id, status, total, created_at')
+            .eq('merchant_id', merchantData.id),
+        ]);
 
-        setOrders(ordersData || []);
+        setOrders(ordersResult.data || []);
       } catch (error) {
         console.error('Error fetching merchant data:', error);
       } finally {
