@@ -1,91 +1,73 @@
 
-# Perbaikan Frontend: Merchant, Wisata, Pesanan & Bug Fixes
 
-## 1. Merchant Profile Page -- Share Button Fix
+# Redesign UI Halaman Profil Merchant (Tampilan Publik)
 
-**Masalah:** `ShareStoreButton` menggunakan `/store/${merchantId}` sebagai fallback URL, tapi route yang terdaftar di `App.tsx` adalah `/merchant/:id` dan `/store/:id` (keduanya ada). Namun yang lebih penting, saat merchant punya `slug`, link `/s/${slug}` sudah benar. Masalahnya mungkin di cara copy URL yang tidak konsisten.
+## Masalah
 
-**Perbaikan di `src/components/merchant/ShareStoreButton.tsx`:**
-- Pastikan URL menggunakan route yang sesuai: prioritaskan `/s/${slug}` jika ada slug, fallback ke `/merchant/${merchantId}` (lebih standar)
-- Tambahkan prefix `https://` jika belum ada di origin
+Dari screenshot, terlihat bahwa halaman merchant menampilkan terlalu banyak section terpisah (Info Toko, Tentang Toko, Alamat) sebelum pembeli bisa melihat produk. Padahal tujuan utama pembeli adalah **melihat dan membeli produk**.
 
-## 2. Halal Certificate -- Icon + Modal
+## Konsep Baru
 
-**Masalah:** Sertifikat halal saat ini ditampilkan sebagai gambar besar langsung di halaman. Seharusnya cukup ikon kecil, dan baru muncul modal/popup saat diklik.
+Ringkas informasi merchant menjadi **header compact** + **tab system** agar produk langsung terlihat tanpa scroll jauh.
 
-**Perbaikan di `src/pages/MerchantProfilePage.tsx`:**
-- Hapus section besar sertifikat halal (baris 356-373 yang menampilkan gambar full)
-- Badge "HALAL" yang sudah ada di baris 301-306 tetap dipertahankan sebagai ikon
-- Tambahkan state `showHalalModal` dan `Dialog` component
-- Klik badge HALAL akan membuka modal yang menampilkan gambar sertifikat
+### Layout Baru:
 
-## 3. Chat Penjual Button Fix
+```text
++----------------------------------+
+|  [<-]  Hero Image / Gradient [Share] |
++----------------------------------+
+|  Nama Toko  [HALAL] [Badge]     |
+|  * 4.5 (23 ulasan) . Raksasari  |
+|  @ 05.00-20.00 . Buka           |
++----------------------------------+
+|  [Produk (12)] [Info] [Ulasan]   |  <-- 3 tabs
++----------------------------------+
+|                                  |
+|  TAB PRODUK: grid produk         |
+|  TAB INFO: deskripsi + alamat    |
+|  TAB ULASAN: list review         |
+|                                  |
++----------------------------------+
+|  [Chat Penjual]                  |
++----------------------------------+
+```
 
-**Masalah:** Tombol "Chat Penjual" hanya berfungsi jika pembeli punya order aktif dengan merchant tersebut. Jika tidak ada order, fallback ke WhatsApp -- tapi jika merchant tidak punya nomor telepon, tidak terjadi apa-apa.
+## Perubahan Detail
 
-**Perbaikan di `src/pages/MerchantProfilePage.tsx`:**
-- Jika user belum login: arahkan ke halaman login
-- Jika tidak ada order aktif DAN tidak ada nomor telepon: tampilkan toast info "Buat pesanan terlebih dahulu untuk chat dengan penjual"
-- Tampilkan tombol "Chat Penjual" selalu (tidak hanya kalau merchant punya phone)
-- Jika ada order aktif: buka chat in-app
-- Jika tidak ada order tapi ada phone: buka WhatsApp
-- Jika tidak ada keduanya: tampilkan notifikasi
+### File: `src/pages/MerchantProfilePage.tsx`
 
-## 4. UI/UX Merchant Profile Polish
+**1. Header Compact (menggantikan 3 card terpisah)**
+- Gabungkan nama, rating, lokasi, jam operasi, dan status buka/tutup menjadi **satu section** tepat di bawah hero image
+- Semua info penting (jam, lokasi, status) ditampilkan dalam 1 baris menggunakan separator dot (.)
+- Hapus card "Tentang Toko" dan "Alamat" yang terpisah
 
-**Perbaikan di `src/pages/MerchantProfilePage.tsx`:**
-- Fix layout yang broken di area "Quick Info" (baris 342-374) -- ada tag penutup `div` yang salah tempat, menyebabkan sertifikat halal berada di dalam Quick Info section
-- Rapikan spacing dan visual consistency
+**2. Tab System 3 tab (menggantikan 2 tab)**
+- **Produk** (default, langsung aktif) -- grid produk seperti sekarang
+- **Info** -- berisi deskripsi toko, alamat lengkap, desa wisata, klasifikasi harga
+- **Ulasan** -- list review seperti sekarang
 
-## 5. Tourism Page -- Tambah Filter
+Gunakan komponen `Tabs` dari Radix UI yang sudah ada di project (`src/components/ui/tabs.tsx`).
 
-**Masalah:** Halaman wisata (`TourismPage.tsx`) tidak punya filter sama sekali, hanya list polos.
+**3. Tab default = Produk**
+- Saat halaman dibuka, tab Produk langsung aktif
+- Pembeli langsung melihat produk tanpa perlu scroll
 
-**Perbaikan di `src/pages/TourismPage.tsx`:**
-- Tambahkan filter berdasarkan:
-  - **Pencarian** (search bar by nama)
-  - **Fasilitas** (dari data `facilities` array di tabel tourism)
-  - **Desa/Village** (dari relasi village_id)
-- Tambahkan sort: "Terdekat" (default jika GPS aktif) atau "Terpopuler" (by view_count)
-- Gunakan UI pattern yang mirip dengan `ExplorePage` -- search bar + filter chips
+**4. Banner "Toko Tutup" dipindah**
+- Jika merchant tutup/tidak ada kuota, banner muncul di atas grid produk (di dalam tab Produk), bukan di luar tab
 
-## 6. Saran Improvisasi Bagian Pesanan
+**5. Tidak ada perubahan logic**
+- Semua data fetching, chat logic, dan halal modal tetap sama
+- Hanya perubahan layout/struktur JSX
 
-**Perbaikan di `src/pages/OrdersPage.tsx`:**
-- Tambahkan pull-to-refresh visual feedback yang lebih baik
-- Tambahkan estimasi waktu di status card (misal: "Pesanan baru ~30 menit yang lalu")
-- Tambahkan fitur "Hubungi Penjual" langsung dari card order
-- Tambahkan progress bar visual di setiap card (misal: step 1 of 4 completed)
+### Ringkasan Perubahan
 
-## 7. Bug Fixes Lainnya
+| Sebelum | Sesudah |
+|---------|---------|
+| 3 card terpisah (info, deskripsi, alamat) | 1 header compact |
+| 2 tab (Produk, Ulasan) | 3 tab (Produk, Info, Ulasan) |
+| Scroll jauh sebelum lihat produk | Produk langsung terlihat |
+| Info toko memakan banyak ruang | Info ringkas, detail di tab "Info" |
 
-**Console Error: HeroCarousel ref warning**
-- File: `src/components/home/HeroCarousel.tsx`
-- Tambahkan `React.forwardRef` wrapper
+### File yang diubah:
+- `src/pages/MerchantProfilePage.tsx` -- satu-satunya file yang berubah
 
----
-
-## Detail Teknis -- File yang Diubah
-
-### `src/components/merchant/ShareStoreButton.tsx`
-- Fix URL generation: gunakan `/s/${slug}` atau `/merchant/${merchantId}`
-
-### `src/pages/MerchantProfilePage.tsx`
-- Fix broken HTML nesting di Quick Info section (div closing tags)
-- Hapus inline halal certificate image, ganti dengan modal on click badge
-- Perbaiki chat button logic agar selalu muncul dan handle semua case
-- Import `Dialog` components
-
-### `src/pages/TourismPage.tsx`
-- Tambahkan state untuk search, filter fasilitas, filter desa, sort mode
-- Fetch villages data untuk filter dropdown
-- Implementasi filter + search UI
-- Tambahkan empty state yang informatif
-
-### `src/pages/OrdersPage.tsx`
-- Tambahkan progress indicator visual per order card
-- Tambahkan relative time ("30 menit lalu")
-- Tambahkan quick action "Hubungi Penjual"
-
-### `src/components/home/HeroCarousel.tsx`
-- Wrap dengan `React.forwardRef` untuk fix console warning
