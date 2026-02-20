@@ -346,6 +346,7 @@ export default function CheckoutPage() {
     if (deliveryType === 'INTERNAL' && !addressData.location) {
       newErrors.location = 'Tentukan titik lokasi pengiriman di peta';
     }
+    // Skip location validation for PICKUP
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -398,6 +399,10 @@ export default function CheckoutPage() {
         description: 'Silakan lengkapi form checkout',
         variant: 'destructive',
       });
+      // Scroll to first error
+      setTimeout(() => {
+        document.querySelector('.text-destructive')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 100);
       return;
     }
 
@@ -661,7 +666,12 @@ export default function CheckoutPage() {
         >
           <ArrowLeft className="h-5 w-5" />
         </button>
-        <h2 className="font-bold text-lg text-foreground">Checkout</h2>
+        <h2 className="font-bold text-lg text-foreground">
+          Checkout
+          {items.length > 0 && (
+            <Badge variant="secondary" className="ml-2 text-xs">{items.length} item</Badge>
+          )}
+        </h2>
       </div>
       
       <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-4 pb-56">
@@ -723,10 +733,41 @@ export default function CheckoutPage() {
           </div>
         )}
 
+        {/* Order Summary - moved to top */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-card rounded-xl p-4 border border-border shadow-sm mb-4"
+        >
+          <div className="flex items-center gap-2 mb-4">
+            <Package className="h-5 w-5 text-primary" />
+            <h3 className="font-bold text-foreground">Ringkasan Pesanan</h3>
+            <Badge variant="secondary" className="text-xs ml-auto">{items.length} produk</Badge>
+          </div>
+          
+          <div className="space-y-3">
+            {items.map(item => (
+              <div key={item.product.id} className="flex gap-3">
+                <img 
+                  src={item.product.image} 
+                  alt={item.product.name}
+                  className="w-12 h-12 rounded-lg object-cover"
+                />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium line-clamp-1">{item.product.name}</p>
+                  <p className="text-xs text-muted-foreground">{item.quantity}x {formatPrice(item.product.price)}</p>
+                </div>
+                <p className="text-sm font-bold">{formatPrice(item.product.price * item.quantity)}</p>
+              </div>
+            ))}
+          </div>
+        </motion.div>
+
         {/* Delivery Address */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.05 }}
           className="bg-card rounded-xl p-4 border border-border shadow-sm mb-4"
         >
           <div className="flex items-center gap-2 mb-4">
@@ -740,6 +781,7 @@ export default function CheckoutPage() {
             onDistanceChange={setDistanceKm}
             merchantLocation={merchantLocation}
             errors={errors}
+            hideMap={deliveryType === 'PICKUP'}
           />
         </motion.div>
 
@@ -935,35 +977,7 @@ export default function CheckoutPage() {
           )}
         </motion.div>
 
-        {/* Order Summary */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-          className="bg-card rounded-xl p-4 border border-border shadow-sm mb-4"
-        >
-          <div className="flex items-center gap-2 mb-4">
-            <Package className="h-5 w-5 text-primary" />
-            <h3 className="font-bold text-foreground">Ringkasan Pesanan</h3>
-          </div>
-          
-          <div className="space-y-3">
-            {items.map(item => (
-              <div key={item.product.id} className="flex gap-3">
-                <img 
-                  src={item.product.image} 
-                  alt={item.product.name}
-                  className="w-12 h-12 rounded-lg object-cover"
-                />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium line-clamp-1">{item.product.name}</p>
-                  <p className="text-xs text-muted-foreground">{item.quantity}x {formatPrice(item.product.price)}</p>
-                </div>
-                <p className="text-sm font-bold">{formatPrice(item.product.price * item.quantity)}</p>
-              </div>
-            ))}
-          </div>
-        </motion.div>
+        {/* Order Summary moved to top of form */}
 
         {/* Voucher */}
         <motion.div

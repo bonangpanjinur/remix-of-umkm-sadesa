@@ -12,6 +12,7 @@ import { useGeocoding, reverseGeocode } from '@/hooks/useGeocoding';
 import { fetchProvinces, fetchRegencies, fetchDistricts, fetchVillages } from '@/lib/addressApi';
 import { useSavedAddresses, type SavedAddress } from '@/hooks/useSavedAddresses';
 import { AddressCard } from '@/components/address/AddressCard';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export interface CheckoutAddressData {
   name: string;
@@ -26,6 +27,7 @@ interface CheckoutAddressFormProps {
   onChange: (data: CheckoutAddressData) => void;
   onDistanceChange?: (distanceKm: number) => void;
   merchantLocation?: { lat: number; lng: number } | null;
+  hideMap?: boolean;
   errors?: {
     name?: string;
     phone?: string;
@@ -39,6 +41,7 @@ export function CheckoutAddressForm({
   onChange,
   onDistanceChange,
   merchantLocation,
+  hideMap,
   errors,
 }: CheckoutAddressFormProps) {
   const { user } = useAuth();
@@ -357,6 +360,29 @@ export function CheckoutAddressForm({
     }
   }, [value, onChange]);
 
+  if (!profileLoaded && user) {
+    return (
+      <div className="space-y-4">
+        <div className="space-y-3">
+          <Skeleton className="h-4 w-24" />
+          <Skeleton className="h-10 w-full" />
+        </div>
+        <div className="space-y-3">
+          <Skeleton className="h-4 w-32" />
+          <Skeleton className="h-10 w-full" />
+        </div>
+        <div className="space-y-3">
+          <Skeleton className="h-4 w-28" />
+          <Skeleton className="h-10 w-full" />
+          <div className="grid grid-cols-2 gap-2">
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Saved Address Picker */}
@@ -447,20 +473,22 @@ export function CheckoutAddressForm({
         )}
       </div>
 
-      {/* Map Location Picker */}
-      <div className="space-y-4">
-        <LocationPicker
-          value={value.location}
-          onChange={handleLocationChange}
-          merchantLocation={merchantLocation}
-          onDistanceChange={onDistanceChange}
-          onLocationSelected={handleLocationSelected}
-          externalCenter={mapCenter}
-        />
-        {errors?.location && (
-          <p className="text-xs text-destructive">{errors.location}</p>
-        )}
-      </div>
+      {/* Map Location Picker - hidden for pickup */}
+      {!hideMap && (
+        <div className="space-y-4">
+          <LocationPicker
+            value={value.location}
+            onChange={handleLocationChange}
+            merchantLocation={merchantLocation}
+            onDistanceChange={onDistanceChange}
+            onLocationSelected={handleLocationSelected}
+            externalCenter={mapCenter}
+          />
+          {errors?.location && (
+            <p className="text-xs text-destructive">{errors.location}</p>
+          )}
+        </div>
+      )}
     </div>
   );
 }
