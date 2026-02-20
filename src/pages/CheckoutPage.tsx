@@ -415,7 +415,11 @@ export default function CheckoutPage() {
         );
         const merchantShipping = deliveryType === 'INTERNAL' ? shippingCost : 0;
         const merchantCodFee = paymentMethod === 'COD' ? codServiceFee : 0;
-        const merchantTotal = merchantSubtotal + merchantShipping + merchantCodFee;
+        // Apply voucher discount proportionally per merchant
+        const merchantVoucherDiscount = Object.keys(itemsByMerchant).length === 1 
+          ? voucherDiscount 
+          : Math.round(voucherDiscount * (merchantSubtotal / subtotal));
+        const merchantTotal = merchantSubtotal + merchantShipping + merchantCodFee - merchantVoucherDiscount;
 
         // Calculate confirmation deadline for COD orders
         const confirmationDeadline = paymentMethod === 'COD' && codSettings
@@ -452,7 +456,10 @@ export default function CheckoutPage() {
             shipping_cost: merchantShipping,
             subtotal: merchantSubtotal,
             total: merchantTotal,
-            notes: notes || null,
+            notes: appliedVoucher 
+              ? `${notes || ''}\n[Voucher: ${appliedVoucher.name}, Diskon: Rp ${merchantVoucherDiscount.toLocaleString('id-ID')}]`.trim()
+              : notes || null,
+            flash_sale_discount: merchantVoucherDiscount > 0 ? merchantVoucherDiscount : 0,
             payment_method: paymentMethod,
             payment_status: getPaymentStatus(),
             confirmation_deadline: confirmationDeadline,
@@ -484,6 +491,17 @@ export default function CheckoutPage() {
         if (itemsError) {
           console.error('Error creating order items:', itemsError);
           throw itemsError;
+        }
+
+        // Decrement product stock
+        for (const item of merchantData.items) {
+          const { error: stockError } = await supabase.rpc('decrement_stock', {
+            p_product_id: item.product.id,
+            p_quantity: item.quantity,
+          });
+          if (stockError) {
+            console.error('Stock decrement error:', stockError);
+          }
         }
 
         // Calculate credits to use based on product prices

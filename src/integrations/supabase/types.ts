@@ -3313,6 +3313,10 @@ export type Database = {
         Returns: Json
       }
       cleanup_expired_chats: { Args: never; Returns: undefined }
+      decrement_stock: {
+        Args: { p_product_id: string; p_quantity: number }
+        Returns: undefined
+      }
       deduct_merchant_quota: {
         Args: { p_credits: number; p_merchant_id: string }
         Returns: boolean

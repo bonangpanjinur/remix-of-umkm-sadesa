@@ -195,6 +195,12 @@ export default function ReviewsPage() {
 
       if (error) throw error;
 
+      // Update has_review flag on the order
+      await supabase
+        .from('orders')
+        .update({ has_review: true, updated_at: new Date().toISOString() })
+        .eq('id', order.id);
+
       toast.success('Terima kasih atas ulasan Anda!');
       navigate('/orders');
     } catch (error) {

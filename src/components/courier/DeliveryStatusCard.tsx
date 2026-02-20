@@ -3,11 +3,12 @@ import { CheckCircle, Package, Truck, MapPin, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface DeliveryStatus {
-  status: 'NEW' | 'PROCESSING' | 'ASSIGNED' | 'PICKED_UP' | 'SENT' | 'ON_DELIVERY' | 'DELIVERED' | 'DONE';
+  status: 'NEW' | 'PROCESSING' | 'ASSIGNED' | 'PICKED_UP' | 'SENT' | 'ON_DELIVERY' | 'DELIVERING' | 'DELIVERED' | 'DONE';
   created_at: string;
   assigned_at?: string | null;
   picked_up_at?: string | null;
   delivered_at?: string | null;
+  is_self_delivery?: boolean;
 }
 
 interface DeliveryStatusCardProps {
@@ -22,7 +23,7 @@ const statusSteps = [
   { key: 'DELIVERED', label: 'Sampai Tujuan', icon: CheckCircle },
 ];
 
-const statusOrder = ['NEW', 'PROCESSING', 'ASSIGNED', 'PICKED_UP', 'SENT', 'ON_DELIVERY', 'DELIVERED', 'DONE'];
+const statusOrder = ['NEW', 'PROCESSING', 'ASSIGNED', 'PICKED_UP', 'SENT', 'ON_DELIVERY', 'DELIVERING', 'DELIVERED', 'DONE'];
 
 export function DeliveryStatusCard({ order, showEstimate = true }: DeliveryStatusCardProps) {
   const currentIndex = statusOrder.indexOf(order.status);
@@ -48,8 +49,8 @@ export function DeliveryStatusCard({ order, showEstimate = true }: DeliveryStatu
   };
 
   const isStepActive = (stepKey: string): boolean => {
-    // For SENT/ON_DELIVERY, highlight DELIVERED as active
-    if ((order.status === 'ON_DELIVERY' || order.status === 'SENT') && stepKey === 'DELIVERED') {
+    // For SENT/ON_DELIVERY/DELIVERING, highlight DELIVERED as active
+    if ((order.status === 'ON_DELIVERY' || order.status === 'SENT' || order.status === 'DELIVERING') && stepKey === 'DELIVERED') {
       return true;
     }
     return order.status === stepKey;
@@ -84,6 +85,8 @@ export function DeliveryStatusCard({ order, showEstimate = true }: DeliveryStatu
       case 'SENT':
       case 'ON_DELIVERY':
         return 'Kurir Sedang Mengantar';
+      case 'DELIVERING':
+        return 'Penjual Sedang Mengantar';
       case 'DELIVERED':
       case 'DONE':
         return 'Pesanan Terkirim';
@@ -104,7 +107,7 @@ export function DeliveryStatusCard({ order, showEstimate = true }: DeliveryStatu
         )}>
           {order.status === 'DELIVERED' || order.status === 'DONE' ? (
             <CheckCircle className="h-6 w-6 text-white" />
-          ) : order.status === 'ON_DELIVERY' || order.status === 'SENT' || order.status === 'PICKED_UP' ? (
+          ) : order.status === 'ON_DELIVERY' || order.status === 'SENT' || order.status === 'PICKED_UP' || order.status === 'DELIVERING' ? (
             <Truck className="h-6 w-6 text-white" />
           ) : (
             <Package className="h-6 w-6 text-white" />
@@ -112,7 +115,7 @@ export function DeliveryStatusCard({ order, showEstimate = true }: DeliveryStatu
         </div>
         <div className="flex-1">
           <p className="font-bold text-lg">{getStatusLabel()}</p>
-          {showEstimate && (order.status === 'ON_DELIVERY' || order.status === 'SENT') && getEstimatedTime() && (
+          {showEstimate && (order.status === 'ON_DELIVERY' || order.status === 'SENT' || order.status === 'DELIVERING') && getEstimatedTime() && (
             <p className="text-sm text-muted-foreground flex items-center gap-1">
               <Clock className="h-3.5 w-3.5" />
               Estimasi tiba: {getEstimatedTime()}
