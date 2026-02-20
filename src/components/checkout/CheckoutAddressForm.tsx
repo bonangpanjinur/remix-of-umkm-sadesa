@@ -51,12 +51,50 @@ export function CheckoutAddressForm({
   const [showSavedAddresses, setShowSavedAddresses] = useState(false);
   const { addresses: savedAddresses, loading: savedAddressesLoading } = useSavedAddresses();
 
-  // Load profile data on mount
+  // Auto-populate from default saved address or profile on mount
   useEffect(() => {
-    const loadProfile = async () => {
-      if (!user || profileLoaded) return;
+    if (!user || profileLoaded) return;
 
+    const autoPopulate = async () => {
       try {
+        // Priority 1: Check for default saved address
+        const defaultAddr = savedAddresses.find(a => a.is_default) || (savedAddresses.length > 0 ? savedAddresses[0] : null);
+        
+        if (defaultAddr) {
+          const addrData: AddressData = {
+            province: defaultAddr.province_id || '',
+            provinceName: defaultAddr.province_name || '',
+            city: defaultAddr.city_id || '',
+            cityName: defaultAddr.city_name || '',
+            district: defaultAddr.district_id || '',
+            districtName: defaultAddr.district_name || '',
+            village: defaultAddr.village_id || '',
+            villageName: defaultAddr.village_name || '',
+            detail: defaultAddr.address_detail || '',
+          };
+
+          const loc = defaultAddr.lat && defaultAddr.lng ? { lat: defaultAddr.lat, lng: defaultAddr.lng } : null;
+
+          onChange({
+            name: defaultAddr.recipient_name,
+            phone: defaultAddr.phone,
+            address: addrData,
+            location: loc,
+            fullAddress: defaultAddr.full_address || formatFullAddress(addrData),
+          });
+
+          if (loc) {
+            setMapCenter(loc);
+          } else if (addrData.district && addrData.districtName) {
+            const coords = await getCoordinatesFromAddress(addrData.districtName, addrData.villageName, addrData.cityName, addrData.provinceName);
+            if (coords) setMapCenter({ lat: coords.lat, lng: coords.lng });
+          }
+
+          setProfileLoaded(true);
+          return;
+        }
+
+        // Priority 2: Load from user profile
         const { data: profile } = await supabase
           .from('profiles')
           .select('*')
@@ -66,11 +104,9 @@ export function CheckoutAddressForm({
         if (profile) {
           const profileHasAddress = profile.province_id || profile.city_id || profile.district_id;
           setProfileWasEmpty(!profileHasAddress);
-          
-          const hasExistingData = value.name || value.phone || value.address.province;
-          
-          if (!hasExistingData && profileHasAddress) {
-            const addressData: AddressData = {
+
+          if (profileHasAddress) {
+            const addrData: AddressData = {
               province: profile.province_id || '',
               provinceName: profile.province_name || '',
               city: profile.city_id || '',
@@ -85,26 +121,17 @@ export function CheckoutAddressForm({
             onChange({
               name: profile.full_name || '',
               phone: profile.phone || '',
-              address: addressData,
-              location: value.location,
-              fullAddress: formatFullAddress(addressData),
+              address: addrData,
+              location: null,
+              fullAddress: formatFullAddress(addrData),
             });
 
-            // Auto-geocode the address to set map center
-            if (addressData.district && addressData.districtName) {
-              setTimeout(async () => {
-                const coords = await getCoordinatesFromAddress(
-                  addressData.districtName,
-                  addressData.villageName,
-                  addressData.cityName,
-                  addressData.provinceName
-                );
-                if (coords) {
-                  setMapCenter({ lat: coords.lat, lng: coords.lng });
-                }
-              }, 500);
+            if (addrData.district && addrData.districtName) {
+              const coords = await getCoordinatesFromAddress(addrData.districtName, addrData.villageName, addrData.cityName, addrData.provinceName);
+              if (coords) setMapCenter({ lat: coords.lat, lng: coords.lng });
             }
-          } else if (!hasExistingData) {
+          } else {
+            // At minimum, fill name and phone from profile
             onChange({
               ...value,
               name: profile.full_name || '',
@@ -114,13 +141,16 @@ export function CheckoutAddressForm({
         }
         setProfileLoaded(true);
       } catch (error) {
-        console.error('Error loading profile:', error);
+        console.error('Error auto-populating checkout:', error);
         setProfileLoaded(true);
       }
     };
 
-    loadProfile();
-  }, [user, profileLoaded]);
+    // Wait for saved addresses to finish loading before deciding
+    if (!savedAddressesLoading) {
+      autoPopulate();
+    }
+  }, [user, profileLoaded, savedAddressesLoading, savedAddresses.length]);
 
   // Geocode when address changes (forward geocoding)
   useEffect(() => {
