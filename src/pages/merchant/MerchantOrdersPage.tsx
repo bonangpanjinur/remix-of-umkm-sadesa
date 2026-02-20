@@ -51,6 +51,8 @@ export default function MerchantOrdersPage() {
   const [rejectReason, setRejectReason] = useState('');
   const [printDialogOpen, setPrintDialogOpen] = useState(false);
   const [isConnected, setIsConnected] = useState(true);
+  const [deliveryChoiceDialogOpen, setDeliveryChoiceDialogOpen] = useState(false);
+  const [deliveryChoiceOrderId, setDeliveryChoiceOrderId] = useState<string | null>(null);
   const invoiceRef = useRef<HTMLDivElement>(null);
 
   // Fetch merchant info
@@ -81,7 +83,6 @@ export default function MerchantOrdersPage() {
   // Real-time orders hook
   const handleNewOrder = useCallback((order: OrderRow) => {
     setDetailDialogOpen(false);
-    // Focus on the new order if dialog is closed
   }, []);
 
   const { orders, loading, updateOrderStatus, refetch } = useRealtimeOrders({
@@ -142,6 +143,55 @@ export default function MerchantOrdersPage() {
     }
   };
 
+  const handleSelfDelivery = async (orderId: string) => {
+    try {
+      const { error } = await supabase
+        .from('orders')
+        .update({ 
+          is_self_delivery: true,
+          status: 'DELIVERING',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', orderId);
+
+      if (error) throw error;
+      
+      toast.success('Pesanan akan diantar sendiri');
+      setDeliveryChoiceDialogOpen(false);
+      setDetailDialogOpen(false);
+      refetch();
+    } catch (error) {
+      console.error('Error:', error);
+      toast.error('Gagal mengubah status');
+    }
+  };
+
+  const handleSelfDeliveryStatusUpdate = async (orderId: string, newStatus: string) => {
+    try {
+      const updateData: Record<string, unknown> = { 
+        status: newStatus,
+        updated_at: new Date().toISOString()
+      };
+      if (newStatus === 'DELIVERED') {
+        updateData.delivered_at = new Date().toISOString();
+      }
+
+      const { error } = await supabase
+        .from('orders')
+        .update(updateData)
+        .eq('id', orderId);
+
+      if (error) throw error;
+      
+      toast.success('Status pengiriman diperbarui');
+      setDetailDialogOpen(false);
+      refetch();
+    } catch (error) {
+      console.error('Error:', error);
+      toast.error('Gagal mengubah status');
+    }
+  };
+
   const handleVerifyPayment = async (orderId: string) => {
     try {
       const { error } = await supabase
@@ -177,12 +227,18 @@ export default function MerchantOrdersPage() {
     }
   };
 
+  const openDeliveryChoiceDialog = (orderId: string) => {
+    setDeliveryChoiceOrderId(orderId);
+    setDeliveryChoiceDialogOpen(true);
+  };
+
   const getStatusBadge = (status: string) => {
     const statusMap: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' | 'success' | 'warning' | 'info' | 'pending' }> = {
       'NEW': { label: 'Baru', variant: 'info' },
       'PENDING_PAYMENT': { label: 'Menunggu Bayar', variant: 'warning' },
       'PENDING_CONFIRMATION': { label: 'Menunggu', variant: 'warning' },
       'PROCESSED': { label: 'Diproses', variant: 'pending' },
+      'DELIVERING': { label: 'Diantar Sendiri', variant: 'info' },
       'SENT': { label: 'Dikirim', variant: 'info' },
       'DELIVERED': { label: 'Sampai', variant: 'warning' },
       'DONE': { label: 'Selesai', variant: 'success' },
@@ -239,7 +295,8 @@ export default function MerchantOrdersPage() {
       header: 'Pengiriman',
       render: (item: OrderRow) => (
         <Badge variant="outline">
-          {item.delivery_type === 'PICKUP' ? 'Ambil Sendiri' : 'Diantar'}
+          {item.delivery_type === 'PICKUP' ? 'Ambil Sendiri' : 
+           item.is_self_delivery ? 'Antar Sendiri' : 'Diantar'}
         </Badge>
       ),
     },
@@ -298,21 +355,24 @@ export default function MerchantOrdersPage() {
               </>
             )}
             {item.status === 'PROCESSED' && (
-              <DropdownMenuItem onClick={() => handleUpdateStatus(item.id, 'SENT')}>
-                {item.delivery_type === 'PICKUP' ? (
-                  <>
-                    <Package className="h-4 w-4 mr-2" />
-                    Siap Diambil
-                  </>
-                ) : (
-                  <>
-                    <Truck className="h-4 w-4 mr-2" />
-                    Kirim
-                  </>
-                )}
+              item.delivery_type === 'PICKUP' ? (
+                <DropdownMenuItem onClick={() => handleUpdateStatus(item.id, 'SENT')}>
+                  <Package className="h-4 w-4 mr-2" />
+                  Siap Diambil
+                </DropdownMenuItem>
+              ) : (
+                <DropdownMenuItem onClick={() => openDeliveryChoiceDialog(item.id)}>
+                  <Truck className="h-4 w-4 mr-2" />
+                  Kirim Pesanan
+                </DropdownMenuItem>
+              )
+            )}
+            {item.status === 'DELIVERING' && (
+              <DropdownMenuItem onClick={() => handleSelfDeliveryStatusUpdate(item.id, 'DELIVERED')}>
+                <CheckCircle2 className="h-4 w-4 mr-2" />
+                Sudah Sampai
               </DropdownMenuItem>
             )}
-            {/* DELIVERED → DONE hanya oleh pembeli atau sistem otomatis */}
           </DropdownMenuContent>
         </DropdownMenu>
       ),
@@ -328,6 +388,7 @@ export default function MerchantOrdersPage() {
         { value: 'PENDING_PAYMENT', label: 'Menunggu Bayar' },
         { value: 'PENDING_CONFIRMATION', label: 'Menunggu Konfirmasi' },
         { value: 'PROCESSED', label: 'Diproses' },
+        { value: 'DELIVERING', label: 'Antar Sendiri' },
         { value: 'SENT', label: 'Dikirim' },
         { value: 'DELIVERED', label: 'Sampai' },
         { value: 'DONE', label: 'Selesai' },
@@ -347,7 +408,7 @@ export default function MerchantOrdersPage() {
   const stats = {
     new: orders.filter(o => o.status === 'NEW').length,
     processed: orders.filter(o => o.status === 'PROCESSED').length,
-    sent: orders.filter(o => o.status === 'SENT').length,
+    sent: orders.filter(o => ['SENT', 'DELIVERING'].includes(o.status)).length,
     done: orders.filter(o => o.status === 'DONE').length,
     total_revenue: orders.filter(o => o.status === 'DONE').reduce((acc, curr) => acc + curr.total, 0)
   };
@@ -439,7 +500,6 @@ export default function MerchantOrdersPage() {
           )}
         </div>
         <div className="flex items-center gap-2">
-          {/* Real-time connection indicator */}
           <div className="flex items-center gap-1.5 text-xs">
             <Wifi className={`h-3.5 w-3.5 ${isConnected ? 'text-primary animate-pulse' : 'text-muted-foreground'}`} />
             <span className={isConnected ? 'text-primary' : 'text-muted-foreground'}>
@@ -510,7 +570,8 @@ export default function MerchantOrdersPage() {
                   </div>
                 )}
                 <Badge variant="outline" className="mt-2">
-                  {selectedOrder.delivery_type === 'PICKUP' ? 'Ambil Sendiri' : 'Diantar Kurir'}
+                  {selectedOrder.delivery_type === 'PICKUP' ? 'Ambil Sendiri' : 
+                   selectedOrder.is_self_delivery ? 'Antar Sendiri' : 'Diantar Kurir'}
                 </Badge>
               </div>
 
@@ -634,16 +695,36 @@ export default function MerchantOrdersPage() {
                   </Button>
                 </div>
               )}
+              {/* PROCESSED: show delivery choice for INTERNAL, or ready for PICKUP */}
               {selectedOrder.status === 'PROCESSED' && (
+                selectedOrder.delivery_type === 'PICKUP' ? (
+                  <Button 
+                    className="w-full"
+                    onClick={() => handleUpdateStatus(selectedOrder.id, 'SENT')}
+                  >
+                    <Package className="h-4 w-4 mr-2" />
+                    Siap Diambil
+                  </Button>
+                ) : (
+                  <Button 
+                    className="w-full"
+                    onClick={() => openDeliveryChoiceDialog(selectedOrder.id)}
+                  >
+                    <Truck className="h-4 w-4 mr-2" />
+                    Kirim Pesanan
+                  </Button>
+                )
+              )}
+              {/* DELIVERING (self-delivery): mark as delivered */}
+              {selectedOrder.status === 'DELIVERING' && (
                 <Button 
                   className="w-full"
-                  onClick={() => handleUpdateStatus(selectedOrder.id, 'SENT')}
+                  onClick={() => handleSelfDeliveryStatusUpdate(selectedOrder.id, 'DELIVERED')}
                 >
-                  <Truck className="h-4 w-4 mr-2" />
-                  Kirim
+                  <CheckCircle2 className="h-4 w-4 mr-2" />
+                  Sudah Sampai
                 </Button>
               )}
-              {/* Pesanan hanya bisa diselesaikan oleh pembeli atau otomatis oleh sistem */}
               {selectedOrder.status === 'DELIVERED' && (
                 <div className="w-full bg-muted/50 rounded-lg p-3 text-center">
                   <p className="text-xs text-muted-foreground">
@@ -653,6 +734,55 @@ export default function MerchantOrdersPage() {
               )}
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Delivery Choice Dialog */}
+      <Dialog open={deliveryChoiceDialogOpen} onOpenChange={setDeliveryChoiceDialogOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Pilih Metode Pengiriman</DialogTitle>
+          </DialogHeader>
+          <div className="py-4 space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Bagaimana Anda ingin mengirim pesanan ini?
+            </p>
+            <Button 
+              className="w-full justify-start gap-3 h-auto py-4"
+              variant="outline"
+              onClick={() => {
+                if (deliveryChoiceOrderId) {
+                  handleSelfDelivery(deliveryChoiceOrderId);
+                }
+              }}
+            >
+              <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                <User className="h-5 w-5 text-primary" />
+              </div>
+              <div className="text-left">
+                <p className="font-bold text-sm">Antar Sendiri</p>
+                <p className="text-xs text-muted-foreground">Anda mengirim langsung ke pembeli</p>
+              </div>
+            </Button>
+            <Button 
+              className="w-full justify-start gap-3 h-auto py-4"
+              variant="outline"
+              onClick={() => {
+                if (deliveryChoiceOrderId) {
+                  handleUpdateStatus(deliveryChoiceOrderId, 'SENT');
+                  setDeliveryChoiceDialogOpen(false);
+                }
+              }}
+            >
+              <div className="h-10 w-10 rounded-full bg-info/10 flex items-center justify-center flex-shrink-0">
+                <Truck className="h-5 w-5 text-info" />
+              </div>
+              <div className="text-left">
+                <p className="font-bold text-sm">Kurir Desa</p>
+                <p className="text-xs text-muted-foreground">Dikirim oleh kurir desa</p>
+              </div>
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
 

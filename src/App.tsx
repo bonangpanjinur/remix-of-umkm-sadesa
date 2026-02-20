@@ -520,11 +520,6 @@ const App = () => (
                   <MerchantChatPage />
                 </ProtectedRoute>
               } />
-              <Route path="/merchant/pos" element={
-                <ProtectedRoute allowedRoles={['merchant', 'admin']}>
-                  <MerchantPOSPage />
-                </ProtectedRoute>
-              } />
               <Route path="/merchant/pos/subscribe" element={
                 <ProtectedRoute allowedRoles={['merchant', 'admin']}>
                   <MerchantPOSSubscribePage />
@@ -533,6 +528,11 @@ const App = () => (
               <Route path="/merchant/pos/settings" element={
                 <ProtectedRoute allowedRoles={['merchant', 'admin']}>
                   <MerchantPOSSettingsPage />
+                </ProtectedRoute>
+              } />
+              <Route path="/merchant/pos" element={
+                <ProtectedRoute allowedRoles={['merchant', 'admin']}>
+                  <MerchantPOSPage />
                 </ProtectedRoute>
               } />
               <Route path="/merchant/dues" element={

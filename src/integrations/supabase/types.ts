@@ -1263,6 +1263,7 @@ export type Database = {
           has_review: boolean | null
           id: string
           is_flash_sale: boolean | null
+          is_self_delivery: boolean | null
           merchant_id: string | null
           notes: string | null
           payment_channel: string | null
@@ -1312,6 +1313,7 @@ export type Database = {
           has_review?: boolean | null
           id?: string
           is_flash_sale?: boolean | null
+          is_self_delivery?: boolean | null
           merchant_id?: string | null
           notes?: string | null
           payment_channel?: string | null
@@ -1361,6 +1363,7 @@ export type Database = {
           has_review?: boolean | null
           id?: string
           is_flash_sale?: boolean | null
+          is_self_delivery?: boolean | null
           merchant_id?: string | null
           notes?: string | null
           payment_channel?: string | null
