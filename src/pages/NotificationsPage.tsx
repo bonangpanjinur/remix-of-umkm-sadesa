@@ -130,96 +130,99 @@ export default function NotificationsPage() {
   const unreadCount = notifications.filter(n => !n.is_read).length;
 
   return (
-    <div className="min-h-screen bg-background pb-20">
-      <header className="bg-card sticky top-0 z-40 shadow-md px-5 py-3">
-        <div className="flex items-center gap-3">
-          <button onClick={() => navigate(-1)} className="p-1">
-            <ChevronLeft className="h-5 w-5" />
-          </button>
-          <div className="flex-1">
-            <h1 className="font-bold text-lg">Notifikasi</h1>
+    <div className="mobile-shell bg-background flex flex-col min-h-screen">
+      <Header />
+      <div className="flex-1 overflow-y-auto pb-24">
+        <div className="px-5 py-3">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <button onClick={() => navigate(-1)} className="p-1">
+                <ChevronLeft className="h-5 w-5" />
+              </button>
+              <div>
+                <h1 className="font-bold text-lg">Notifikasi</h1>
+                {unreadCount > 0 && (
+                  <p className="text-xs text-muted-foreground">{unreadCount} belum dibaca</p>
+                )}
+              </div>
+            </div>
             {unreadCount > 0 && (
-              <p className="text-xs text-muted-foreground">{unreadCount} belum dibaca</p>
+              <Button variant="ghost" size="sm" onClick={markAllAsRead}>
+                <CheckCheck className="h-4 w-4 mr-1" />
+                Tandai Semua
+              </Button>
             )}
           </div>
-          {unreadCount > 0 && (
-            <Button variant="ghost" size="sm" onClick={markAllAsRead}>
-              <CheckCheck className="h-4 w-4 mr-1" />
-              Tandai Semua
-            </Button>
-          )}
-        </div>
-      </header>
 
-      <div className="p-4">
-        {loading ? (
-          <div className="flex items-center justify-center py-20">
-            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-          </div>
-        ) : notifications.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
-            <Bell className="h-12 w-12 mb-3 opacity-50" />
-            <p className="font-medium">Belum ada notifikasi</p>
-            <p className="text-sm">Notifikasi akan muncul di sini</p>
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {notifications.map((notification) => (
-              <div
-                key={notification.id}
-                className={cn(
-                  'bg-card rounded-xl border border-border p-4 cursor-pointer transition-colors',
-                  !notification.is_read && 'bg-primary/5 border-primary/20'
-                )}
-                onClick={() => {
-                  if (!notification.is_read) {
-                    markAsRead(notification.id);
-                  }
-                  if (notification.link) {
-                    navigate(notification.link);
-                  }
-                }}
-              >
-                <div className="flex gap-3">
-                  <div className="mt-0.5">{getIcon(notification.type)}</div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-start justify-between gap-2">
-                      <p className={cn(
-                        'font-medium',
-                        !notification.is_read && 'font-semibold'
-                      )}>
-                        {notification.title}
+          {loading ? (
+            <div className="flex items-center justify-center py-20">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            </div>
+          ) : notifications.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
+              <Bell className="h-12 w-12 mb-3 opacity-50" />
+              <p className="font-medium">Belum ada notifikasi</p>
+              <p className="text-sm">Notifikasi akan muncul di sini</p>
+            </div>
+          ) : (
+            <div className="space-y-2 mt-4">
+              {notifications.map((notification) => (
+                <div
+                  key={notification.id}
+                  className={cn(
+                    'bg-card rounded-xl border border-border p-4 cursor-pointer transition-colors',
+                    !notification.is_read && 'bg-primary/5 border-primary/20'
+                  )}
+                  onClick={() => {
+                    if (!notification.is_read) {
+                      markAsRead(notification.id);
+                    }
+                    if (notification.link) {
+                      navigate(notification.link);
+                    }
+                  }}
+                >
+                  <div className="flex gap-3">
+                    <div className="mt-0.5">{getIcon(notification.type)}</div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between gap-2">
+                        <p className={cn(
+                          'font-medium',
+                          !notification.is_read && 'font-semibold'
+                        )}>
+                          {notification.title}
+                        </p>
+                        {!notification.is_read && (
+                          <div className="w-2 h-2 bg-primary rounded-full flex-shrink-0 mt-2" />
+                        )}
+                      </div>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        {notification.message}
                       </p>
-                      {!notification.is_read && (
-                        <div className="w-2 h-2 bg-primary rounded-full flex-shrink-0 mt-2" />
-                      )}
-                    </div>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      {notification.message}
-                    </p>
-                    <div className="flex items-center justify-between mt-2">
-                      <p className="text-xs text-muted-foreground">
-                        {formatDistanceToNow(new Date(notification.created_at), {
-                          addSuffix: true,
-                          locale: id,
-                        })}
-                      </p>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          deleteNotification(notification.id);
-                        }}
-                        className="p-1 text-muted-foreground hover:text-destructive transition-colors"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
+                      <div className="flex items-center justify-between mt-2">
+                        <p className="text-xs text-muted-foreground">
+                          {formatDistanceToNow(new Date(notification.created_at), {
+                            addSuffix: true,
+                            locale: id,
+                          })}
+                        </p>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            deleteNotification(notification.id);
+                          }}
+                          className="p-1 text-muted-foreground hover:text-destructive transition-colors"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        )}
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       <BottomNav />
