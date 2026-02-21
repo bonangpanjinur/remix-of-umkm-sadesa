@@ -1,130 +1,91 @@
 
-# Analisis dan Rencana Perbaikan Menu Akun
+# Analisis Bug Menu Pesanan & Pesanan Saya
 
-## A. BUG YANG DITEMUKAN
+## Bug yang Ditemukan
 
-### Bug 1: Wishlist "Add to Cart" menggunakan `stock: 99` hardcoded
-- **File**: `src/pages/buyer/WishlistPage.tsx` baris 99
-- **Masalah**: Sama seperti bug reorder sebelumnya, saat menambah item wishlist ke keranjang, stok di-hardcode `99`. User bisa memesan melebihi stok sebenarnya.
-- **Perbaikan**: Fetch stok aktual dari tabel `products` sebelum menambahkan ke keranjang.
+### Bug 1: Tombol "Batalkan" muncul untuk status PENDING_PAYMENT tapi OrderCancelDialog hanya mengizinkan status NEW dan PENDING_CONFIRMATION
+- **File**: `OrdersPage.tsx` baris 65 vs `OrderCancelDialog.tsx` baris 71
+- **Masalah**: `PENDING_STATUSES` di OrdersPage mencakup `["NEW", "PENDING_PAYMENT", "PENDING_CONFIRMATION"]`, sehingga tombol "Batalkan" muncul untuk pesanan PENDING_PAYMENT. Namun `OrderCancelDialog` hanya mengizinkan cancel untuk `.in('status', ['NEW', 'PENDING_CONFIRMATION'])`. Artinya user klik Batalkan pada pesanan PENDING_PAYMENT, dialog muncul, tapi update ke database gagal tanpa error yang jelas (RLS/query mengembalikan 0 rows updated tanpa error).
+- **Perbaikan**: Sinkronkan status yang diizinkan -- tambahkan `PENDING_PAYMENT` ke `OrderCancelDialog` atau hapus tombol Batalkan untuk status tersebut.
 
-### Bug 2: Wishlist "Add to Cart" tidak menyertakan `merchantId`
-- **File**: `src/pages/buyer/WishlistPage.tsx` baris 94
-- **Masalah**: `merchantId` diisi string kosong `''`. Ini menyebabkan pengelompokan keranjang berdasarkan toko tidak berfungsi, dan checkout bisa error karena `merchant_id` kosong.
-- **Perbaikan**: Fetch `merchant_id` dari relasi produk dan sertakan saat addToCart.
+### Bug 2: Stale closure pada realtime di OrderTrackingPage
+- **File**: `OrderTrackingPage.tsx` baris 82
+- **Masalah**: Di dalam callback realtime, `courier` diakses dari closure tapi `courier` tidak ada di dependency array useEffect (baris 95). Kondisi `!courier` selalu `true` pada saat subscription dibuat, sehingga setiap update akan memicu `fetchCourierInfo` ulang meskipun courier sudah di-load.
+- **Perbaikan**: Gunakan ref atau functional state update untuk mengecek courier.
 
-### Bug 3: MyReviewsPage melakukan N+1 query
-- **File**: `src/pages/buyer/MyReviewsPage.tsx` baris 51-61
-- **Masalah**: Untuk setiap review, dilakukan query terpisah ke `products` dan `merchants` (loop `for` dengan `await`). Jika user punya 20 review, ini menghasilkan 40+ query database. Sangat lambat dan tidak efisien.
-- **Perbaikan**: Kumpulkan semua `product_id` dan `merchant_id`, lalu batch query menggunakan `.in()`.
+### Bug 3: OrderTrackingPage tidak menampilkan daftar item pesanan
+- **File**: `OrderTrackingPage.tsx`
+- **Masalah**: Halaman tracking hanya menampilkan status, kurir, alamat, dan ringkasan harga. Tidak ada daftar produk yang dipesan. Buyer harus kembali ke halaman sebelumnya untuk melihat apa yang mereka pesan. Ini UX yang kurang lengkap.
+- **Perbaikan**: Tambahkan fetch `order_items` dan tampilkan daftar produk.
 
-### Bug 4: ReviewsPage tidak memvalidasi review-images storage bucket
-- **File**: `src/pages/buyer/ReviewsPage.tsx` baris 147-149
-- **Masalah**: Upload ke bucket `review-images` yang mungkin belum ada. Tidak ada error handling yang jelas jika bucket tidak tersedia.
-- **Perbaikan**: Tambahkan error handling yang informatif.
+### Bug 4: DeliveryStatusCard tidak menangani status PROCESSED dan READY
+- **File**: `DeliveryStatusCard.tsx` baris 6, 19
+- **Masalah**: Status `PROCESSED` dan `READY` ada di database constraint tapi tidak ada di `statusSteps`. Ketika pesanan dalam status PROCESSED, step "Pesanan Dibuat" sudah selesai tapi tidak ada step "Diproses" -- langsung ke "Kurir Ditugaskan". Timeline terlihat loncat.
+- **Perbaikan**: Tambahkan step "Sedang Diproses" di antara "Pesanan Dibuat" dan "Kurir Ditugaskan".
 
-### Bug 5: Halaman Pengaturan (SettingsPage) -- fitur non-fungsional
-- **File**: `src/pages/SettingsPage.tsx` baris 66-94
-- **Masalah**: Kartu "Tampilan" (Mode Gelap) dan "Bahasa" hanya menampilkan teks statis tanpa interaksi apapun. Tombol "Kebijakan Privasi" dan "Syarat & Ketentuan" di-`disabled`. Ini membingungkan pengguna karena terlihat seperti fitur yang rusak.
-- **Perbaikan**: Tambahkan toggle dark mode yang fungsional menggunakan `next-themes` (sudah terinstall), dan tambahkan catatan "Segera hadir" pada fitur yang belum tersedia.
+### Bug 5: Tombol "Bayar Sekarang" muncul untuk semua PENDING_STATUSES termasuk PENDING_CONFIRMATION
+- **File**: `OrdersPage.tsx` baris 590-606
+- **Masalah**: Untuk pesanan status PENDING_CONFIRMATION (menunggu konfirmasi penjual), tombol "Bayar Sekarang" tetap muncul. Seharusnya bayar hanya relevan untuk NEW atau PENDING_PAYMENT, bukan saat menunggu konfirmasi merchant.
+- **Perbaikan**: Tampilkan "Bayar Sekarang" hanya untuk `NEW` dan `PENDING_PAYMENT`. Untuk `PENDING_CONFIRMATION`, tampilkan label "Menunggu Konfirmasi" saja.
 
-### Bug 6: handleProfileSave menimpa data alamat
-- **File**: `src/pages/AccountPage.tsx` baris 70-73
-- **Masalah**: Saat `handleProfileSave` dipanggil, semua field alamat (province_id, city_id, dll) di-reset ke `null` karena spread `...data` tidak mengandung field alamat. Data alamat yang sudah disimpan oleh `ProfileEditor` (langsung ke Supabase) tetap aman di database, tapi state lokal menjadi tidak sinkron -- alamat hilang dari tampilan sampai halaman di-refresh.
-- **Perbaikan**: Setelah save, refetch profil dari database alih-alih merge manual.
+### Bug 6: Console warning -- Header dan BottomNav tidak mendukung ref
+- **File**: `AccountPage.tsx`
+- **Masalah**: Console menunjukkan "Function components cannot be given refs" untuk `Header` dan `BottomNav`. Ini terjadi karena komponen ini digunakan di dalam konteks yang mencoba memberi ref tapi komponen belum menggunakan `forwardRef`.
+- **Perbaikan**: Wrap `Header` dan `BottomNav` dengan `React.forwardRef` atau pastikan tidak ada ref yang dicoba diberikan.
 
-### Bug 7: Terakhir Dilihat menggunakan localStorage saja
-- **File**: `src/pages/buyer/RecentlyViewedPage.tsx`
-- **Masalah**: Data "Terakhir Dilihat" disimpan hanya di localStorage, bukan di database (`page_views` table sudah ada). Ini berarti:
-  - Data hilang saat user ganti device/browser
-  - Data hilang saat clear cache
-  - Tidak sinkron dengan `page_views` yang sudah di-track ke database oleh `trackPageView`
-- **Perbaikan**: Tetap gunakan localStorage untuk performa, tapi tambahkan fallback fetch dari tabel `page_views` jika localStorage kosong.
-
-### Bug 8: NotificationsPage tidak menggunakan mobile-shell layout
-- **File**: `src/pages/NotificationsPage.tsx` baris 133
-- **Masalah**: Menggunakan `<div className="min-h-screen ...">` bukan `<div className="mobile-shell ...">` seperti halaman lain. Ini menyebabkan layout inkonsisten pada layar lebar -- konten melebar tanpa batas.
-- **Perbaikan**: Ganti wrapper ke `mobile-shell` dan gunakan `Header` komponen yang konsisten.
+### Bug 7: OrderTrackingPage tidak memverifikasi kepemilikan pesanan
+- **File**: `OrderTrackingPage.tsx` baris 102-106
+- **Masalah**: Query `orders` hanya filter `.eq('id', orderId)` tanpa `.eq('buyer_id', user.id)`. Siapapun yang tahu order ID bisa melihat detail pesanan orang lain (RLS di database mungkin sudah mencegah ini, tapi lebih aman menambahkan filter eksplisit).
+- **Perbaikan**: Tambahkan `.eq('buyer_id', user.id)` pada query.
 
 ---
 
-## B. KEKURANGAN UX
+## Rencana Perbaikan
 
-### B1. Menu duplikat di Akun
-- **Masalah**: Quick Access Grid (baris 220-238) dan daftar menu (baris 308-395) menampilkan item yang sama: Chat, Wishlist, Alamat, dan Bantuan muncul di kedua tempat. Ini membingungkan dan membuang ruang.
-- **Perbaikan**: Quick Access Grid cukup untuk shortcut. Hapus duplikasi di menu list, atau bedakan kontennya.
+### Prioritas 1 -- Bug Kritis
+1. **Sinkronisasi status cancel** -- Tambahkan `PENDING_PAYMENT` ke query cancel dialog, atau pisahkan tombol Batalkan dan Bayar berdasarkan status yang tepat
+2. **Fix stale closure tracking page** -- Gunakan ref untuk courier state di realtime callback
+3. **Verifikasi kepemilikan pesanan** -- Tambah filter `buyer_id` di OrderTrackingPage query
 
-### B2. Menu "Pesanan Saya" menggunakan ikon Store
-- **File**: `AccountPage.tsx` baris 314
-- **Masalah**: Menu "Pesanan Saya" menggunakan ikon `Store` (toko), bukan ikon yang mewakili pesanan seperti `Package` atau `ShoppingBag`.
-- **Perbaikan**: Ganti ikon ke `Package`.
+### Prioritas 2 -- UX Improvement
+4. **Pisahkan aksi per status**:
+   - `NEW` / `PENDING_PAYMENT`: Tampilkan "Bayar Sekarang" + "Batalkan"
+   - `PENDING_CONFIRMATION`: Tampilkan "Menunggu Konfirmasi" (tanpa tombol bayar) + "Batalkan"
+5. **Tambah step PROCESSED di DeliveryStatusCard** -- Agar timeline tidak loncat
+6. **Tambah daftar item di OrderTrackingPage** -- Fetch dan tampilkan order_items
 
-### B3. Menu list tidak tersembunyi untuk user yang belum login
-- **Masalah**: Menu seperti "Pesanan Saya", "Wishlist", "Ulasan Saya", "Terakhir Dilihat", "Alamat Tersimpan", "Notifikasi" tetap tampil meskipun user belum login. Klik akan redirect ke auth, tapi ini UX yang buruk.
-- **Perbaikan**: Bungkus menu list dalam kondisi `{user && (...)}` agar hanya tampil saat login.
-
-### B4. Tidak ada fitur "Hapus Akun"
-- **Masalah**: Di bagian Privasi & Keamanan (SettingsPage), tidak ada opsi untuk menghapus akun. Ini bisa menjadi masalah regulasi privasi data.
-- **Perbaikan**: Tambahkan tombol "Hapus Akun" dengan konfirmasi dialog dan proses penghapusan.
-
-### B5. Tidak ada fitur "Ubah Password"
-- **Masalah**: Tidak ada cara bagi user untuk mengganti password dari halaman Pengaturan.
-- **Perbaikan**: Tambahkan opsi "Ubah Password" di kartu Privasi & Keamanan.
+### Prioritas 3 -- Minor Fix
+7. **Fix console warning ref** -- Wrap Header/BottomNav dengan forwardRef atau hapus ref usage
 
 ---
 
-## C. RENCANA PERBAIKAN (Prioritas)
-
-### Prioritas 1 -- Bug Kritis (Data Integrity)
-1. Fix Wishlist addToCart: stock hardcode dan merchantId kosong
-2. Fix handleProfileSave: refetch profile setelah save
-3. Fix NotificationsPage layout: gunakan mobile-shell
-
-### Prioritas 2 -- Performance
-4. Fix MyReviewsPage N+1 query: batch fetch dengan `.in()`
-
-### Prioritas 3 -- UX
-5. Hapus duplikasi menu di AccountPage
-6. Fix ikon "Pesanan Saya" (Store -> Package)
-7. Sembunyikan menu list untuk user yang belum login
-8. Aktifkan dark mode toggle di SettingsPage
-9. Tambahkan fitur Ubah Password di SettingsPage
-
-### Prioritas 4 -- Nice to Have
-10. Sinkronisasi "Terakhir Dilihat" dengan tabel page_views
-11. Tambah tombol "Hapus Akun" di SettingsPage
-12. Tampilkan label "Segera hadir" pada fitur Bahasa
-
----
-
-## D. DETAIL TEKNIS
+## Detail Teknis
 
 ```text
 File yang perlu diubah:
 
-1. src/pages/buyer/WishlistPage.tsx
-   - Fix addToCart: fetch stok dan merchant_id aktual dari products table
-   - Ganti stock: 99 dan merchantId: '' dengan data real
+1. src/components/order/OrderCancelDialog.tsx
+   - Baris 71: Tambah 'PENDING_PAYMENT' ke .in('status', [...])
 
-2. src/pages/AccountPage.tsx
-   - handleProfileSave: panggil fetchProfile() setelah save alih-alih merge manual
-   - Hapus duplikasi menu (quick grid vs menu list)
-   - Ganti ikon Store -> Package untuk "Pesanan Saya"
-   - Bungkus menu list dalam {user && (...)}
+2. src/pages/OrdersPage.tsx
+   - Baris 590-607: Pisahkan logika tombol:
+     * status NEW/PENDING_PAYMENT -> "Bayar Sekarang" + "Batalkan"
+     * status PENDING_CONFIRMATION -> "Menunggu Konfirmasi" + "Batalkan"
 
-3. src/pages/buyer/MyReviewsPage.tsx
-   - Ganti loop for-await dengan batch query menggunakan .in()
-   - Kumpulkan product_ids dan merchant_ids, query sekali
+3. src/pages/OrderTrackingPage.tsx
+   - Baris 82: Fix stale closure courier dengan useRef
+   - Baris 102-106: Tambah .eq('buyer_id', user.id)
+   - Tambah fetch order_items dan section daftar produk
 
-4. src/pages/NotificationsPage.tsx
-   - Ganti wrapper div ke mobile-shell
-   - Gunakan komponen Header yang konsisten
+4. src/components/courier/DeliveryStatusCard.tsx
+   - Baris 19-24: Tambah step { key: 'PROCESSED', label: 'Sedang Diproses', icon: Package }
+   - Baris 6: Tambah 'PROCESSED' ke interface union type
 
-5. src/pages/SettingsPage.tsx
-   - Tambah dark mode toggle fungsional (useTheme dari next-themes)
-   - Tambah fitur "Ubah Password" (supabase.auth.updateUser)
-   - Ubah tombol disabled jadi "Segera hadir" label
-   - Tambah tombol "Hapus Akun" (opsional)
+5. src/components/layout/Header.tsx
+   - Wrap dengan React.forwardRef untuk mengatasi console warning
 
-Total: 5 file, ~12 perbaikan
+6. src/components/layout/BottomNav.tsx
+   - Wrap dengan React.forwardRef untuk mengatasi console warning
+
+Total: 6 file, ~8 perbaikan
 ```
