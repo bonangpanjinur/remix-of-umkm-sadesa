@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { 
   User, Settings, HelpCircle, LogIn, LogOut, Store, ChevronRight, Edit, Heart, 
   Bell, LayoutDashboard, Shield, CheckCircle, Bike, Building2, MapPin, Star, Clock,
-  MessageCircle
+  MessageCircle, Package
 } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
 import { BottomNav } from '@/components/layout/BottomNav';
@@ -67,9 +67,10 @@ export default function AccountPage() {
     }
   };
 
-  const handleProfileSave = (data: { full_name: string; phone: string | null; address: string | null; avatar_url?: string | null }) => {
-    setProfile(prev => prev ? { ...prev, ...data } : { ...data, province_id: null, province_name: null, city_id: null, city_name: null, district_id: null, district_name: null, village_id: null, village_name: null, address_detail: null });
+  const handleProfileSave = async () => {
     setEditing(false);
+    // Refetch profile from database to keep state in sync
+    await fetchProfile();
   };
 
   const handleSignOut = async () => {
@@ -306,82 +307,53 @@ export default function AccountPage() {
           
           {/* Menu Items */}
           <div className="space-y-2">
-            <button 
-              onClick={() => navigate('/orders')}
-              className="w-full flex items-center justify-between p-4 bg-card rounded-xl border border-border hover:bg-secondary transition"
-            >
-              <div className="flex items-center gap-3">
-                <Store className="h-5 w-5 text-muted-foreground" />
-                <span className="font-medium">Pesanan Saya</span>
-              </div>
-              <ChevronRight className="h-4 w-4 text-muted-foreground" />
-            </button>
+            {user && (
+              <>
+                <button 
+                  onClick={() => navigate('/orders')}
+                  className="w-full flex items-center justify-between p-4 bg-card rounded-xl border border-border hover:bg-secondary transition"
+                >
+                  <div className="flex items-center gap-3">
+                    <Package className="h-5 w-5 text-muted-foreground" />
+                    <span className="font-medium">Pesanan Saya</span>
+                  </div>
+                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                </button>
 
-            <button 
-              onClick={() => navigate('/wishlist')}
-              className="w-full flex items-center justify-between p-4 bg-card rounded-xl border border-border hover:bg-secondary transition"
-            >
-              <div className="flex items-center gap-3">
-                <Heart className="h-5 w-5 text-muted-foreground" />
-                <span className="font-medium">Wishlist</span>
-              </div>
-              <ChevronRight className="h-4 w-4 text-muted-foreground" />
-            </button>
+                <button 
+                  onClick={() => navigate('/reviews/mine')}
+                  className="w-full flex items-center justify-between p-4 bg-card rounded-xl border border-border hover:bg-secondary transition"
+                >
+                  <div className="flex items-center gap-3">
+                    <Star className="h-5 w-5 text-muted-foreground" />
+                    <span className="font-medium">Ulasan Saya</span>
+                  </div>
+                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                </button>
 
-            <button 
-              onClick={() => navigate('/reviews/mine')}
-              className="w-full flex items-center justify-between p-4 bg-card rounded-xl border border-border hover:bg-secondary transition"
-            >
-              <div className="flex items-center gap-3">
-                <Star className="h-5 w-5 text-muted-foreground" />
-                <span className="font-medium">Ulasan Saya</span>
-              </div>
-              <ChevronRight className="h-4 w-4 text-muted-foreground" />
-            </button>
+                <button 
+                  onClick={() => navigate('/recently-viewed')}
+                  className="w-full flex items-center justify-between p-4 bg-card rounded-xl border border-border hover:bg-secondary transition"
+                >
+                  <div className="flex items-center gap-3">
+                    <Clock className="h-5 w-5 text-muted-foreground" />
+                    <span className="font-medium">Terakhir Dilihat</span>
+                  </div>
+                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                </button>
 
-            <button 
-              onClick={() => navigate('/recently-viewed')}
-              className="w-full flex items-center justify-between p-4 bg-card rounded-xl border border-border hover:bg-secondary transition"
-            >
-              <div className="flex items-center gap-3">
-                <Clock className="h-5 w-5 text-muted-foreground" />
-                <span className="font-medium">Terakhir Dilihat</span>
-              </div>
-              <ChevronRight className="h-4 w-4 text-muted-foreground" />
-            </button>
-
-            <button 
-              onClick={() => navigate('/addresses')}
-              className="w-full flex items-center justify-between p-4 bg-card rounded-xl border border-border hover:bg-secondary transition"
-            >
-              <div className="flex items-center gap-3">
-                <MapPin className="h-5 w-5 text-muted-foreground" />
-                <span className="font-medium">Alamat Tersimpan</span>
-              </div>
-              <ChevronRight className="h-4 w-4 text-muted-foreground" />
-            </button>
-
-            <button 
-              onClick={() => navigate('/notifications')}
-              className="w-full flex items-center justify-between p-4 bg-card rounded-xl border border-border hover:bg-secondary transition"
-            >
-              <div className="flex items-center gap-3">
-                <Bell className="h-5 w-5 text-muted-foreground" />
-                <span className="font-medium">Notifikasi</span>
-              </div>
-              <ChevronRight className="h-4 w-4 text-muted-foreground" />
-            </button>
-
-            <button 
-              onClick={() => navigate('/help')}
-              className="w-full flex items-center justify-between p-4 bg-card rounded-xl border border-border hover:bg-secondary transition"
-            >
-              <div className="flex items-center gap-3">
-                <HelpCircle className="h-5 w-5 text-muted-foreground" />
-                <span className="font-medium">Bantuan</span>
-              </div>
-              <ChevronRight className="h-4 w-4 text-muted-foreground" />
-            </button>
+                <button 
+                  onClick={() => navigate('/notifications')}
+                  className="w-full flex items-center justify-between p-4 bg-card rounded-xl border border-border hover:bg-secondary transition"
+                >
+                  <div className="flex items-center gap-3">
+                    <Bell className="h-5 w-5 text-muted-foreground" />
+                    <span className="font-medium">Notifikasi</span>
+                  </div>
+                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                </button>
+              </>
+            )}
             
             <button 
               onClick={() => navigate('/settings')}

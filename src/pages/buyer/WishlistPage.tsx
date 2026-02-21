@@ -86,22 +86,48 @@ export default function WishlistPage() {
     }
   };
 
-  const handleAddToCart = (item: WishlistItemData) => {
+  const handleAddToCart = async (item: WishlistItemData) => {
     if (!item.products) return;
     
-    addToCart({
-      id: item.products.id,
-      merchantId: '',
-      merchantName: item.products.merchants?.name || 'Toko',
-      name: item.products.name,
-      description: '',
-      price: item.products.price,
-      stock: 99,
-      image: item.products.image_url || '',
-      category: 'kuliner',
-      isActive: true,
-    });
-    toast.success('Ditambahkan ke keranjang');
+    try {
+      // Fetch actual stock and merchant_id from products table
+      const { data: productData, error } = await supabase
+        .from('products')
+        .select('stock, is_active, merchant_id')
+        .eq('id', item.products.id)
+        .maybeSingle();
+
+      if (error || !productData) {
+        toast.error('Gagal memuat data produk');
+        return;
+      }
+
+      if (!productData.is_active) {
+        toast.error('Produk sudah tidak tersedia');
+        return;
+      }
+
+      if (productData.stock <= 0) {
+        toast.error('Stok produk habis');
+        return;
+      }
+
+      addToCart({
+        id: item.products.id,
+        merchantId: productData.merchant_id || '',
+        merchantName: item.products.merchants?.name || 'Toko',
+        name: item.products.name,
+        description: '',
+        price: item.products.price,
+        stock: productData.stock,
+        image: item.products.image_url || '',
+        category: 'kuliner',
+        isActive: productData.is_active,
+      });
+      toast.success('Ditambahkan ke keranjang');
+    } catch (err) {
+      toast.error('Gagal menambahkan ke keranjang');
+    }
   };
 
   if (authLoading || loading) {

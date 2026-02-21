@@ -46,24 +46,28 @@ export default function MyReviewsPage() {
 
       if (error) throw error;
 
-      // Fetch product and merchant details separately
-      const reviewItems: ReviewItem[] = [];
-      for (const r of data || []) {
-        let product = null;
-        let merchant = null;
-        if (r.product_id) {
-          const { data: pData } = await supabase.from('products').select('name, image_url').eq('id', r.product_id).maybeSingle();
-          product = pData;
-        }
-        if (r.merchant_id) {
-          const { data: mData } = await supabase.from('merchants').select('name').eq('id', r.merchant_id).maybeSingle();
-          merchant = mData;
-        }
-        reviewItems.push({ ...r, product, merchant });
-      }
-      setReviews(reviewItems);
+      // Batch fetch product and merchant details
+      const productIds = [...new Set((data || []).map((r: any) => r.product_id).filter(Boolean))];
+      const merchantIds = [...new Set((data || []).map((r: any) => r.merchant_id).filter(Boolean))];
 
-      // already handled above
+      const [productsResult, merchantsResult] = await Promise.all([
+        productIds.length > 0
+          ? supabase.from('products').select('id, name, image_url').in('id', productIds)
+          : Promise.resolve({ data: [] }),
+        merchantIds.length > 0
+          ? supabase.from('merchants').select('id, name').in('id', merchantIds)
+          : Promise.resolve({ data: [] }),
+      ]);
+
+      const productsMap = new Map((productsResult.data || []).map((p: any) => [p.id, { name: p.name, image_url: p.image_url }]));
+      const merchantsMap = new Map((merchantsResult.data || []).map((m: any) => [m.id, { name: m.name }]));
+
+      const reviewItems: ReviewItem[] = (data || []).map((r: any) => ({
+        ...r,
+        product: r.product_id ? productsMap.get(r.product_id) || null : null,
+        merchant: r.merchant_id ? merchantsMap.get(r.merchant_id) || null : null,
+      }));
+      setReviews(reviewItems);
     } catch (error) {
       console.error('Error fetching reviews:', error);
     } finally {
