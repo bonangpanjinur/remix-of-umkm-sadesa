@@ -76,7 +76,9 @@ export default function MerchantDashboardPage() {
           supabase
             .from('orders')
             .select('id, status, total, created_at')
-            .eq('merchant_id', merchantData.id),
+            .eq('merchant_id', merchantData.id)
+            .order('created_at', { ascending: false })
+            .limit(500),
         ]);
 
         setOrders(ordersResult.data || []);
