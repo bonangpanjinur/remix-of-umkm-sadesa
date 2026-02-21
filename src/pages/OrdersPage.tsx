@@ -268,30 +268,52 @@ const OrdersPage = () => {
         { event: 'UPDATE', schema: 'public', table: 'orders', filter: `buyer_id=eq.${user.id}` },
         (payload) => {
           const newStatus = (payload.new as any).status;
-          const oldOrder = orders.find(o => o.id === payload.new.id);
-          setOrders(prev => prev.map(order => 
-            order.id === payload.new.id 
-              ? { ...order, status: newStatus } 
-              : order
-          ));
-          // Toast notification for status change
-          if (oldOrder && oldOrder.status !== newStatus) {
-            const statusLabel = STATUS_CONFIG[newStatus]?.label || newStatus;
-            toast({ title: `Pesanan #${(payload.new.id as string).substring(0, 8).toUpperCase()}`, description: `Status berubah: ${statusLabel}` });
-          }
+          setOrders(prev => {
+            const oldOrder = prev.find(o => o.id === payload.new.id);
+            if (oldOrder && oldOrder.status !== newStatus) {
+              const statusLabel = STATUS_CONFIG[newStatus]?.label || newStatus;
+              toast({ title: `Pesanan #${(payload.new.id as string).substring(0, 8).toUpperCase()}`, description: `Status berubah: ${statusLabel}` });
+            }
+            return prev.map(order => 
+              order.id === payload.new.id 
+                ? { ...order, status: newStatus } 
+                : order
+            );
+          });
         }
       )
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [user]);
 
-  // Reorder handler - skip items with null product_id
+  // Reorder handler - fetch actual stock from DB
   const handleReorder = useCallback(async (order: BuyerOrder) => {
     let addedCount = 0;
     let skippedCount = 0;
+    const productIds = (order.order_items || [])
+      .map((i: any) => i.product_id)
+      .filter(Boolean) as string[];
+
+    // Fetch actual stock for all products
+    let stockMap: Record<string, number> = {};
+    if (productIds.length > 0) {
+      const { data: stockData } = await supabase
+        .from('products')
+        .select('id, stock, is_active')
+        .in('id', productIds);
+      if (stockData) {
+        stockMap = Object.fromEntries(stockData.filter(p => p.is_active).map(p => [p.id, p.stock]));
+      }
+    }
+
     for (const item of order.order_items) {
       const productId = (item as any).product_id;
-      if (!productId) {
+      if (!productId || stockMap[productId] === undefined) {
+        skippedCount++;
+        continue;
+      }
+      const actualStock = stockMap[productId];
+      if (actualStock <= 0) {
         skippedCount++;
         continue;
       }
@@ -300,12 +322,12 @@ const OrdersPage = () => {
         name: item.product_name,
         price: item.product_price,
         image: item.products?.image_url || '/placeholder.svg',
-        stock: 99,
+        stock: actualStock,
         merchantId: order.merchant_id || '',
         merchantName: order.merchants?.name || '',
         category: '',
         description: '',
-      } as any, item.quantity);
+      } as any, Math.min(item.quantity, actualStock));
       addedCount++;
     }
     if (skippedCount > 0) {
@@ -423,7 +445,7 @@ const OrdersPage = () => {
                     <tab.icon className="w-3.5 h-3.5" />
                     {tab.label}
                     {count > 0 && (
-                      <span className="ml-0.5 min-w-[18px] h-[18px] rounded-full bg-current/10 text-[10px] font-bold flex items-center justify-center">
+                      <span className="ml-0.5 min-w-[18px] h-[18px] rounded-full bg-muted-foreground/15 data-[state=active]:bg-primary-foreground/20 text-[10px] font-bold flex items-center justify-center">
                         {count}
                       </span>
                     )}

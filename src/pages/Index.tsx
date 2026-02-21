@@ -1,9 +1,10 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Link } from 'react-router-dom';
-import { ChevronRight, Sparkles, Flame, TrendingUp, MapPin } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { ChevronRight, Sparkles, Flame, TrendingUp, MapPin, ShoppingBag, Store, Map } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
 import { BottomNav } from '@/components/layout/BottomNav';
 import { FloatingCartButton } from '@/components/layout/FloatingCartButton';
+import { Button } from '@/components/ui/button';
 import { CategoryIcon } from '@/components/CategoryIcon';
 import { useCategories } from '@/hooks/useCategories';
 import { VillageCard } from '@/components/VillageCard';
@@ -21,6 +22,7 @@ import { useUserLocation, sortByDistance } from '@/hooks/useUserLocation';
 import type { Product, Village, Tourism } from '@/types';
 
 const Index = () => {
+  const navigate = useNavigate();
   const [products, setProducts] = useState<Product[]>([]);
   const [villages, setVillages] = useState<Village[]>([]);
   const [tourismSpots, setTourismSpots] = useState<Tourism[]>([]);
@@ -276,6 +278,26 @@ const Index = () => {
                 {renderSection(section.id)}
               </div>
             ))}
+            {/* Empty state when all data is empty */}
+            {products.length === 0 && villages.length === 0 && tourismSpots.length === 0 && (
+              <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
+                <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mb-5">
+                  <ShoppingBag className="h-10 w-10 text-primary" />
+                </div>
+                <h3 className="text-lg font-bold text-foreground mb-2">Selamat Datang! 🎉</h3>
+                <p className="text-sm text-muted-foreground max-w-[280px] mb-6">
+                  Platform ini baru diluncurkan. Jelajahi toko dan desa wisata di sekitar Anda.
+                </p>
+                <div className="flex gap-3">
+                  <Button variant="outline" onClick={() => navigate('/shops')} className="rounded-full">
+                    <Store className="h-4 w-4 mr-2" /> Lihat Toko
+                  </Button>
+                  <Button onClick={() => navigate('/tourism')} className="rounded-full">
+                    <Map className="h-4 w-4 mr-2" /> Wisata
+                  </Button>
+                </div>
+              </div>
+            )}
           </>
         )}
       </div>

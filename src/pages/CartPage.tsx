@@ -1,7 +1,18 @@
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ArrowLeft, Minus, Plus, Trash2, ShoppingBag, Store } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { useCart } from '@/contexts/CartContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatPrice } from '@/lib/utils';
@@ -10,6 +21,7 @@ export default function CartPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { items, updateQuantity, removeFromCart, getCartTotal, clearCart } = useCart();
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
   
   const total = getCartTotal();
 
@@ -64,7 +76,7 @@ export default function CartPage() {
           <h2 className="font-bold text-lg text-foreground">Keranjang Belanja</h2>
         </div>
         <button
-          onClick={clearCart}
+          onClick={() => setShowClearConfirm(true)}
           className="text-xs text-destructive font-medium hover:underline"
         >
           Hapus Semua
@@ -139,8 +151,9 @@ export default function CartPage() {
                           {item.quantity}
                         </span>
                         <button 
-                          onClick={() => updateQuantity(item.product.id, item.quantity + 1)}
+                          onClick={() => updateQuantity(item.product.id, Math.min(item.product.stock, item.quantity + 1))}
                           className="w-8 h-8 text-muted-foreground hover:text-primary transition"
+                          disabled={item.quantity >= item.product.stock}
                         >
                           <Plus className="h-4 w-4 mx-auto" />
                         </button>
@@ -172,6 +185,24 @@ export default function CartPage() {
           {user ? 'Lanjut ke Checkout' : 'Masuk untuk Checkout'}
         </Button>
       </div>
+
+      {/* Clear Cart Confirmation */}
+      <AlertDialog open={showClearConfirm} onOpenChange={setShowClearConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Hapus Semua Item?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Semua produk di keranjang akan dihapus. Tindakan ini tidak dapat dibatalkan.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Batal</AlertDialogCancel>
+            <AlertDialogAction onClick={clearCart} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Hapus Semua
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

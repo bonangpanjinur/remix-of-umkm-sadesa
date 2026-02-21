@@ -47,7 +47,7 @@ export default function ShopsPage() {
   useEffect(() => {
     async function fetchShops() {
       try {
-        console.log('Fetching shops from Supabase...');
+        // Fetch shops
         // Fetch merchants with their products and location
         // Note: villages table has location_lat and location_lng (not lat/lng)
         const { data: merchantsData, error } = await supabase
@@ -59,7 +59,7 @@ export default function ShopsPage() {
             products(id, category)
           `);
 
-        console.log('Shops raw data result:', merchantsData);
+        
         if (error) {
           console.error('Supabase error fetching shops:', error);
           throw error;
@@ -99,7 +99,7 @@ export default function ShopsPage() {
           };
         });
 
-        console.log('Mapped shops data:', mappedShops);
+        
         setShops(mappedShops);
       } catch (error) {
         console.error('Error fetching shops:', error);

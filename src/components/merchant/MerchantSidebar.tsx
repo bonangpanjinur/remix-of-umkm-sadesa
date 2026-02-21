@@ -133,7 +133,9 @@ export function MerchantSidebar() {
 
       <nav className="flex-1 p-3 space-y-1 overflow-y-auto scrollbar-thin scrollbar-thumb-border">
         {menuItems.map((item) => {
-          const isActive = location.pathname === item.href;
+          const isActive = item.href === '/merchant' 
+            ? location.pathname === '/merchant' 
+            : location.pathname.startsWith(item.href);
           
           return (
             <Link

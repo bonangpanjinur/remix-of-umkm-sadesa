@@ -374,7 +374,7 @@ export default function ProductDetail() {
       </div>
 
       {/* Sticky Bottom Actions */}
-      <div className="absolute bottom-0 w-full bg-card border-t border-border p-4 shadow-lg z-20">
+      <div className="fixed bottom-0 left-0 right-0 max-w-[480px] mx-auto bg-card border-t border-border p-4 shadow-lg z-20">
         <div className="flex items-center gap-4 mb-3">
           {/* Quantity Selector */}
           <div className="flex items-center border border-border rounded-xl h-10 px-2">
