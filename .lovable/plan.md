@@ -1,144 +1,130 @@
 
-# Analisis UI/UX dan Bug - Buyer & Merchant
+# Analisis dan Rencana Perbaikan Menu Akun
 
 ## A. BUG YANG DITEMUKAN
 
-### Bug 1: Tombol "Beri Rating" mengarah ke route yang mungkin error
-- **Lokasi**: `OrdersPage.tsx` baris 604
-- **Masalah**: Tombol navigasi ke `/orders/${order.id}/review` tapi route ini mengarah ke `ReviewsPage` yang mungkin tidak menerima `orderId` param dengan benar. Perlu verifikasi apakah `ReviewsPage` menghandle param ini.
+### Bug 1: Wishlist "Add to Cart" menggunakan `stock: 99` hardcoded
+- **File**: `src/pages/buyer/WishlistPage.tsx` baris 99
+- **Masalah**: Sama seperti bug reorder sebelumnya, saat menambah item wishlist ke keranjang, stok di-hardcode `99`. User bisa memesan melebihi stok sebenarnya.
+- **Perbaikan**: Fetch stok aktual dari tabel `products` sebelum menambahkan ke keranjang.
 
-### Bug 2: Reorder menggunakan `stock: 99` hardcoded
-- **Lokasi**: `OrdersPage.tsx` baris 303
-- **Masalah**: Saat user menekan "Pesan Lagi", produk ditambahkan ke keranjang dengan `stock: 99` hardcoded, bukan stok aktual. Ini bisa menyebabkan user memesan melebihi stok.
+### Bug 2: Wishlist "Add to Cart" tidak menyertakan `merchantId`
+- **File**: `src/pages/buyer/WishlistPage.tsx` baris 94
+- **Masalah**: `merchantId` diisi string kosong `''`. Ini menyebabkan pengelompokan keranjang berdasarkan toko tidak berfungsi, dan checkout bisa error karena `merchant_id` kosong.
+- **Perbaikan**: Fetch `merchant_id` dari relasi produk dan sertakan saat addToCart.
 
-### Bug 3: Cart tidak validasi stok maksimum saat menambah quantity
-- **Lokasi**: `CartPage.tsx` baris 147
-- **Masalah**: Tombol `+` pada quantity di keranjang tidak ada batas maksimum berdasarkan stok produk. User bisa menambah quantity tanpa batas.
+### Bug 3: MyReviewsPage melakukan N+1 query
+- **File**: `src/pages/buyer/MyReviewsPage.tsx` baris 51-61
+- **Masalah**: Untuk setiap review, dilakukan query terpisah ke `products` dan `merchants` (loop `for` dengan `await`). Jika user punya 20 review, ini menghasilkan 40+ query database. Sangat lambat dan tidak efisien.
+- **Perbaikan**: Kumpulkan semua `product_id` dan `merchant_id`, lalu batch query menggunakan `.in()`.
 
-### Bug 4: Realtime order update di OrdersPage menggunakan stale closure
-- **Lokasi**: `OrdersPage.tsx` baris 271
-- **Masalah**: `orders` dalam dependency realtime subscribe mereferensi state lama karena `orders` tidak ada di dependency array useEffect (baris 286). Toast notifikasi mungkin tidak akurat.
+### Bug 4: ReviewsPage tidak memvalidasi review-images storage bucket
+- **File**: `src/pages/buyer/ReviewsPage.tsx` baris 147-149
+- **Masalah**: Upload ke bucket `review-images` yang mungkin belum ada. Tidak ada error handling yang jelas jika bucket tidak tersedia.
+- **Perbaikan**: Tambahkan error handling yang informatif.
 
-### Bug 5: Halaman homepage menampilkan data kosong tanpa fallback yang jelas
-- **Lokasi**: `Index.tsx`
-- **Masalah**: Console log menunjukkan semua data (products, villages, tourism) kosong. Tidak ada empty state atau CTA untuk admin/merchant menambah data ketika database kosong.
+### Bug 5: Halaman Pengaturan (SettingsPage) -- fitur non-fungsional
+- **File**: `src/pages/SettingsPage.tsx` baris 66-94
+- **Masalah**: Kartu "Tampilan" (Mode Gelap) dan "Bahasa" hanya menampilkan teks statis tanpa interaksi apapun. Tombol "Kebijakan Privasi" dan "Syarat & Ketentuan" di-`disabled`. Ini membingungkan pengguna karena terlihat seperti fitur yang rusak.
+- **Perbaikan**: Tambahkan toggle dark mode yang fungsional menggunakan `next-themes` (sudah terinstall), dan tambahkan catatan "Segera hadir" pada fitur yang belum tersedia.
 
-### Bug 6: ShopsPage menampilkan `console.log` di production
-- **Lokasi**: `ShopsPage.tsx` baris 50, 62, 102
-- **Masalah**: Debug `console.log` statements dibiarkan di production code.
+### Bug 6: handleProfileSave menimpa data alamat
+- **File**: `src/pages/AccountPage.tsx` baris 70-73
+- **Masalah**: Saat `handleProfileSave` dipanggil, semua field alamat (province_id, city_id, dll) di-reset ke `null` karena spread `...data` tidak mengandung field alamat. Data alamat yang sudah disimpan oleh `ProfileEditor` (langsung ke Supabase) tetap aman di database, tapi state lokal menjadi tidak sinkron -- alamat hilang dari tampilan sampai halaman di-refresh.
+- **Perbaikan**: Setelah save, refetch profil dari database alih-alih merge manual.
 
----
+### Bug 7: Terakhir Dilihat menggunakan localStorage saja
+- **File**: `src/pages/buyer/RecentlyViewedPage.tsx`
+- **Masalah**: Data "Terakhir Dilihat" disimpan hanya di localStorage, bukan di database (`page_views` table sudah ada). Ini berarti:
+  - Data hilang saat user ganti device/browser
+  - Data hilang saat clear cache
+  - Tidak sinkron dengan `page_views` yang sudah di-track ke database oleh `trackPageView`
+- **Perbaikan**: Tetap gunakan localStorage untuk performa, tapi tambahkan fallback fetch dari tabel `page_views` jika localStorage kosong.
 
-## B. KEKURANGAN UI/UX - BUYER
-
-### B1. Homepage kosong tidak informatif
-- Ketika belum ada produk/desa/wisata, halaman langsung kosong tanpa pesan atau panduan.
-- **Perbaikan**: Tampilkan empty state dengan ilustrasi dan CTA "Mulai Jelajahi" atau info bahwa platform baru diluncurkan.
-
-### B2. Keranjang tidak menampilkan status ketersediaan real-time
-- Produk di keranjang tidak dicek ulang ketersediaannya (stok, toko buka/tutup) sebelum checkout.
-- **Perbaikan**: Tambahkan pengecekan ketersediaan saat membuka CartPage, tandai item yang sudah tidak tersedia.
-
-### B3. Halaman Pesanan - tab badge menggunakan warna yang sulit dibaca
-- Badge count pada tab filter (baris 426) menggunakan `bg-current/10` yang transparansinya tergantung warna parent, bisa tidak terlihat.
-- **Perbaikan**: Gunakan warna badge yang konsisten dan kontras tinggi.
-
-### B4. Tidak ada konfirmasi sebelum "Hapus Semua" di keranjang
-- Tombol "Hapus Semua" langsung menghapus tanpa konfirmasi dialog.
-- **Perbaikan**: Tambahkan dialog konfirmasi sebelum menghapus seluruh keranjang.
-
-### B5. Halaman Auth tidak menampilkan link "Lupa Password" saat mode register
-- Ini sudah benar, tapi saat login, posisi "Lupa password" terlalu dekat dengan tombol submit, rentan tertekan tidak sengaja di mobile.
-- **Perbaikan**: Beri jarak yang lebih baik atau pindahkan di bawah form.
-
-### B6. ProductDetail - sticky bottom bar menggunakan `position: absolute`
-- **Lokasi**: `ProductDetail.tsx` baris 377
-- **Masalah**: Menggunakan `absolute` bukan `fixed` atau `sticky`, sehingga bisa tertutup saat scroll panjang.
+### Bug 8: NotificationsPage tidak menggunakan mobile-shell layout
+- **File**: `src/pages/NotificationsPage.tsx` baris 133
+- **Masalah**: Menggunakan `<div className="min-h-screen ...">` bukan `<div className="mobile-shell ...">` seperti halaman lain. Ini menyebabkan layout inkonsisten pada layar lebar -- konten melebar tanpa batas.
+- **Perbaikan**: Ganti wrapper ke `mobile-shell` dan gunakan `Header` komponen yang konsisten.
 
 ---
 
-## C. KEKURANGAN UI/UX - MERCHANT
+## B. KEKURANGAN UX
 
-### C1. MerchantSidebar tidak menandai sub-route dengan benar
-- **Lokasi**: `MerchantSidebar.tsx` baris 113
-- **Masalah**: Pengecekan `isActive` hanya `location.pathname === item.href` (exact match). Halaman seperti `/merchant/products/123` tidak akan menandai menu "Produk" sebagai aktif.
-- **Perbaikan**: Gunakan `startsWith` untuk matching.
+### B1. Menu duplikat di Akun
+- **Masalah**: Quick Access Grid (baris 220-238) dan daftar menu (baris 308-395) menampilkan item yang sama: Chat, Wishlist, Alamat, dan Bantuan muncul di kedua tempat. Ini membingungkan dan membuang ruang.
+- **Perbaikan**: Quick Access Grid cukup untuk shortcut. Hapus duplikasi di menu list, atau bedakan kontennya.
 
-### C2. Dashboard merchant memuat semua pesanan tanpa limit
-- **Lokasi**: `MerchantDashboardPage.tsx` baris 76-79
-- **Masalah**: Query `orders` tanpa `.limit()`, bisa sangat lambat jika merchant punya ribuan pesanan.
-- **Perbaikan**: Tambahkan limit (misal 100 atau 500) atau filter berdasarkan periode.
+### B2. Menu "Pesanan Saya" menggunakan ikon Store
+- **File**: `AccountPage.tsx` baris 314
+- **Masalah**: Menu "Pesanan Saya" menggunakan ikon `Store` (toko), bukan ikon yang mewakili pesanan seperti `Package` atau `ShoppingBag`.
+- **Perbaikan**: Ganti ikon ke `Package`.
 
-### C3. Badge count di sidebar di-fetch tanpa cache/debounce
-- **Lokasi**: `MerchantSidebar.tsx`
-- **Masalah**: Setiap kali sidebar dirender, 4 query terpisah dijalankan ke database. Tidak ada caching atau pembatasan frekuensi.
-- **Perbaikan**: Gunakan react-query atau tambahkan interval refresh.
+### B3. Menu list tidak tersembunyi untuk user yang belum login
+- **Masalah**: Menu seperti "Pesanan Saya", "Wishlist", "Ulasan Saya", "Terakhir Dilihat", "Alamat Tersimpan", "Notifikasi" tetap tampil meskipun user belum login. Klik akan redirect ke auth, tapi ini UX yang buruk.
+- **Perbaikan**: Bungkus menu list dalam kondisi `{user && (...)}` agar hanya tampil saat login.
 
-### C4. Merchant Products page tidak ada fitur search/filter
-- Halaman produk merchant hanya menampilkan daftar tabel tanpa search bar atau filter kategori/status.
-- **Perbaikan**: Tambahkan search bar dan filter minimal (aktif/nonaktif, kategori).
+### B4. Tidak ada fitur "Hapus Akun"
+- **Masalah**: Di bagian Privasi & Keamanan (SettingsPage), tidak ada opsi untuk menghapus akun. Ini bisa menjadi masalah regulasi privasi data.
+- **Perbaikan**: Tambahkan tombol "Hapus Akun" dengan konfirmasi dialog dan proses penghapusan.
 
-### C5. Merchant tidak bisa melihat preview toko dari dashboard
-- Tidak ada tombol "Lihat Toko" yang langsung membuka halaman profil publik merchant.
-- **Perbaikan**: Tambahkan tombol preview di dashboard dan settings.
+### B5. Tidak ada fitur "Ubah Password"
+- **Masalah**: Tidak ada cara bagi user untuk mengganti password dari halaman Pengaturan.
+- **Perbaikan**: Tambahkan opsi "Ubah Password" di kartu Privasi & Keamanan.
 
 ---
 
-## D. RENCANA PERBAIKAN (Prioritas)
+## C. RENCANA PERBAIKAN (Prioritas)
 
-### Prioritas 1 - Bug Fix (Kritis)
-1. **Fix reorder stock hardcode** - Ganti `stock: 99` dengan fetch stok aktual atau minimal pakai nilai dari order_items
-2. **Fix realtime stale closure** - Tambahkan `orders` ke dependency atau gunakan functional state update
-3. **Fix ProductDetail sticky bar** - Ubah dari `absolute` ke `fixed` dengan max-width constraint
-4. **Hapus console.log** di ShopsPage
+### Prioritas 1 -- Bug Kritis (Data Integrity)
+1. Fix Wishlist addToCart: stock hardcode dan merchantId kosong
+2. Fix handleProfileSave: refetch profile setelah save
+3. Fix NotificationsPage layout: gunakan mobile-shell
 
-### Prioritas 2 - UX Improvement (Buyer)
-5. **Tambah empty state homepage** - Tampilan informatif ketika data kosong
-6. **Dialog konfirmasi "Hapus Semua"** di keranjang
-7. **Fix tab badge warna** di OrdersPage
-8. **Validasi stok di CartPage** - Cek stok real-time saat buka keranjang
+### Prioritas 2 -- Performance
+4. Fix MyReviewsPage N+1 query: batch fetch dengan `.in()`
 
-### Prioritas 3 - UX Improvement (Merchant)
-9. **Fix sidebar active state** - Gunakan `startsWith` untuk sub-route matching
-10. **Tambah limit query dashboard** - Batasi fetch orders di dashboard
-11. **Cache sidebar badge counts** - Gunakan interval atau react-query
-12. **Tambah search/filter produk** - Di halaman MerchantProductsPage
-13. **Tambah tombol "Preview Toko"** - Di MerchantDashboardPage
+### Prioritas 3 -- UX
+5. Hapus duplikasi menu di AccountPage
+6. Fix ikon "Pesanan Saya" (Store -> Package)
+7. Sembunyikan menu list untuk user yang belum login
+8. Aktifkan dark mode toggle di SettingsPage
+9. Tambahkan fitur Ubah Password di SettingsPage
+
+### Prioritas 4 -- Nice to Have
+10. Sinkronisasi "Terakhir Dilihat" dengan tabel page_views
+11. Tambah tombol "Hapus Akun" di SettingsPage
+12. Tampilkan label "Segera hadir" pada fitur Bahasa
 
 ---
 
-## E. DETAIL TEKNIS
+## D. DETAIL TEKNIS
 
 ```text
 File yang perlu diubah:
 
-1. src/pages/OrdersPage.tsx
-   - Fix reorder stock (baris 303): fetch stok aktual atau gunakan default yang wajar
-   - Fix realtime closure (baris 262-286): gunakan functional state update
-   - Fix badge warna (baris 426): ganti bg-current/10 ke warna solid
+1. src/pages/buyer/WishlistPage.tsx
+   - Fix addToCart: fetch stok dan merchant_id aktual dari products table
+   - Ganti stock: 99 dan merchantId: '' dengan data real
 
-2. src/pages/ProductDetail.tsx
-   - Fix sticky bar (baris 377): ubah absolute ke fixed + max-w-[480px] mx-auto
+2. src/pages/AccountPage.tsx
+   - handleProfileSave: panggil fetchProfile() setelah save alih-alih merge manual
+   - Hapus duplikasi menu (quick grid vs menu list)
+   - Ganti ikon Store -> Package untuk "Pesanan Saya"
+   - Bungkus menu list dalam {user && (...)}
 
-3. src/pages/CartPage.tsx
-   - Tambah konfirmasi dialog sebelum clearCart
-   - Tambah validasi stok saat mount
+3. src/pages/buyer/MyReviewsPage.tsx
+   - Ganti loop for-await dengan batch query menggunakan .in()
+   - Kumpulkan product_ids dan merchant_ids, query sekali
 
-4. src/pages/ShopsPage.tsx
-   - Hapus console.log (baris 50, 62, 102)
+4. src/pages/NotificationsPage.tsx
+   - Ganti wrapper div ke mobile-shell
+   - Gunakan komponen Header yang konsisten
 
-5. src/pages/Index.tsx
-   - Tambah empty state komponen ketika semua data kosong
+5. src/pages/SettingsPage.tsx
+   - Tambah dark mode toggle fungsional (useTheme dari next-themes)
+   - Tambah fitur "Ubah Password" (supabase.auth.updateUser)
+   - Ubah tombol disabled jadi "Segera hadir" label
+   - Tambah tombol "Hapus Akun" (opsional)
 
-6. src/components/merchant/MerchantSidebar.tsx
-   - Ubah exact match ke startsWith (baris 113)
-
-7. src/pages/merchant/MerchantDashboardPage.tsx
-   - Tambah .limit(500) pada query orders
-   - Tambah tombol "Preview Toko"
-
-8. src/pages/merchant/MerchantProductsPage.tsx
-   - Tambah search input dan filter kategori
+Total: 5 file, ~12 perbaikan
 ```
-
-Total: 8 file, ~13 perbaikan. Disarankan dikerjakan secara bertahap per prioritas.
