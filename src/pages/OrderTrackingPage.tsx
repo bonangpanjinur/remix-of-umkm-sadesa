@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { 
@@ -12,7 +12,8 @@ import {
   CheckCircle,
   RotateCcw,
   MessageCircle,
-  Store
+  Store,
+  ShoppingBag
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { DeliveryStatusCard } from '@/components/courier/DeliveryStatusCard';
@@ -60,11 +61,16 @@ export default function OrderTrackingPage() {
   const [refundDialogOpen, setRefundDialogOpen] = useState(false);
   const [chatOpen, setChatOpen] = useState<{ type: ChatType; userId: string; name: string } | null>(null);
   const [merchantInfo, setMerchantInfo] = useState<{ userId: string; name: string } | null>(null);
+  const [orderItems, setOrderItems] = useState<Array<{ id: string; product_name: string; quantity: number; product_price: number; subtotal: number; product_id: string | null }>>([]);
+  const courierRef = useRef<CourierInfo | null>(null);
+
+  // Keep ref in sync
+  useEffect(() => { courierRef.current = courier; }, [courier]);
+
   useEffect(() => {
     if (!authLoading && user && orderId) {
       fetchOrderDetails();
       
-      // Set up realtime subscription for order status updates
       const channel = supabase
         .channel(`order-tracking-${orderId}`)
         .on(
@@ -78,8 +84,7 @@ export default function OrderTrackingPage() {
           (payload) => {
             const updated = payload.new as OrderDetails;
             setOrder(updated);
-            // Refetch courier if assigned
-            if (updated.courier_id && !courier) {
+            if (updated.courier_id && !courierRef.current) {
               fetchCourierInfo(updated.courier_id);
             }
           }
@@ -103,6 +108,7 @@ export default function OrderTrackingPage() {
         .from('orders')
         .select('*')
         .eq('id', orderId)
+        .eq('buyer_id', user!.id)
         .maybeSingle();
 
       if (orderError) throw orderError;
@@ -114,6 +120,13 @@ export default function OrderTrackingPage() {
       }
 
       setOrder(orderData as unknown as OrderDetails);
+
+      // Fetch order items
+      const { data: itemsData } = await supabase
+        .from('order_items')
+        .select('id, product_name, quantity, product_price, subtotal, product_id')
+        .eq('order_id', orderId);
+      setOrderItems(itemsData || []);
 
       // Fetch merchant info for chat
       if (orderData.merchant_id) {
@@ -310,6 +323,34 @@ export default function OrderTrackingPage() {
             </div>
           </div>
         </motion.div>
+
+        {/* Order Items */}
+        {orderItems.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.25 }}
+            className="bg-card rounded-2xl p-4 border border-border"
+          >
+            <h3 className="font-medium text-sm text-muted-foreground mb-3">Daftar Produk</h3>
+            <div className="space-y-3">
+              {orderItems.map((item) => (
+                <div key={item.id} className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                    <div className="w-10 h-10 bg-muted rounded-lg flex items-center justify-center flex-shrink-0">
+                      <ShoppingBag className="h-4 w-4 text-muted-foreground" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium truncate">{item.product_name}</p>
+                      <p className="text-xs text-muted-foreground">{item.quantity}x Rp {item.product_price.toLocaleString('id-ID')}</p>
+                    </div>
+                  </div>
+                  <p className="text-sm font-medium flex-shrink-0">Rp {item.subtotal.toLocaleString('id-ID')}</p>
+                </div>
+              ))}
+            </div>
+          </motion.div>
+        )}
 
         {/* Order Summary */}
         <motion.div

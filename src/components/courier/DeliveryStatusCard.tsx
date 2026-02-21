@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { CheckCircle, Package, Truck, MapPin, Clock } from 'lucide-react';
+import { CheckCircle, Package, Truck, MapPin, Clock, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface DeliveryStatus {
@@ -18,12 +18,13 @@ interface DeliveryStatusCardProps {
 
 const statusSteps = [
   { key: 'NEW', label: 'Pesanan Dibuat', icon: Package },
+  { key: 'PROCESSED', label: 'Sedang Diproses', icon: Clock },
   { key: 'ASSIGNED', label: 'Kurir Ditugaskan', icon: Truck },
   { key: 'PICKED_UP', label: 'Pesanan Diambil', icon: MapPin },
   { key: 'DELIVERED', label: 'Sampai Tujuan', icon: CheckCircle },
 ];
 
-const statusOrder = ['NEW', 'PROCESSING', 'ASSIGNED', 'PICKED_UP', 'SENT', 'ON_DELIVERY', 'DELIVERING', 'DELIVERED', 'DONE'];
+const statusOrder = ['NEW', 'PROCESSING', 'PROCESSED', 'READY', 'ASSIGNED', 'PICKED_UP', 'SENT', 'ON_DELIVERY', 'DELIVERING', 'DELIVERED', 'DONE'];
 
 export function DeliveryStatusCard({ order, showEstimate = true }: DeliveryStatusCardProps) {
   const currentIndex = statusOrder.indexOf(order.status);
@@ -32,6 +33,8 @@ export function DeliveryStatusCard({ order, showEstimate = true }: DeliveryStatu
     switch (stepKey) {
       case 'NEW':
         return order.created_at;
+      case 'PROCESSED':
+        return null; // no specific timestamp for this
       case 'ASSIGNED':
         return order.assigned_at || null;
       case 'PICKED_UP':
