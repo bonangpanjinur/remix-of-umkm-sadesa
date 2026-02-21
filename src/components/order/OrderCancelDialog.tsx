@@ -68,7 +68,7 @@ export function OrderCancelDialog({
         })
         .eq('id', orderId)
         .eq('buyer_id', user.id)
-        .in('status', ['NEW', 'PENDING_CONFIRMATION']); // Only allow cancelling new orders
+        .in('status', ['NEW', 'PENDING_PAYMENT', 'PENDING_CONFIRMATION']); // Only allow cancelling new/pending orders
 
       if (error) throw error;
 

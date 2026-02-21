@@ -597,13 +597,19 @@ const OrdersPage = () => {
                               >
                                 <X className="w-3 h-3 mr-1" /> Batalkan
                               </Button>
-                              <Button
-                                size="sm"
-                                className="text-xs h-8 rounded-full px-4"
-                                onClick={(e) => { e.stopPropagation(); navigate(`/payment/${order.id}`); }}
-                              >
-                                Bayar Sekarang
-                              </Button>
+                              {['NEW', 'PENDING_PAYMENT'].includes(order.status) ? (
+                                <Button
+                                  size="sm"
+                                  className="text-xs h-8 rounded-full px-4"
+                                  onClick={(e) => { e.stopPropagation(); navigate(`/payment/${order.id}`); }}
+                                >
+                                  Bayar Sekarang
+                                </Button>
+                              ) : (
+                                <Badge variant="outline" className="text-xs h-8 rounded-full px-3 bg-orange-50 text-orange-700 border-orange-200">
+                                  Menunggu Konfirmasi
+                                </Badge>
+                              )}
                             </>
                           )}
                           {SHIPPING_STATUSES.includes(order.status) && (
