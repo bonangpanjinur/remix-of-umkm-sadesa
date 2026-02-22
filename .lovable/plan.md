@@ -1,91 +1,127 @@
 
-# Analisis Bug Menu Pesanan & Pesanan Saya
+# Analisis Bug dan Perbaikan UI/UX - Buyer & Merchant (Batch 3)
 
-## Bug yang Ditemukan
+## A. BUG YANG DITEMUKAN
 
-### Bug 1: Tombol "Batalkan" muncul untuk status PENDING_PAYMENT tapi OrderCancelDialog hanya mengizinkan status NEW dan PENDING_CONFIRMATION
-- **File**: `OrdersPage.tsx` baris 65 vs `OrderCancelDialog.tsx` baris 71
-- **Masalah**: `PENDING_STATUSES` di OrdersPage mencakup `["NEW", "PENDING_PAYMENT", "PENDING_CONFIRMATION"]`, sehingga tombol "Batalkan" muncul untuk pesanan PENDING_PAYMENT. Namun `OrderCancelDialog` hanya mengizinkan cancel untuk `.in('status', ['NEW', 'PENDING_CONFIRMATION'])`. Artinya user klik Batalkan pada pesanan PENDING_PAYMENT, dialog muncul, tapi update ke database gagal tanpa error yang jelas (RLS/query mengembalikan 0 rows updated tanpa error).
-- **Perbaikan**: Sinkronkan status yang diizinkan -- tambahkan `PENDING_PAYMENT` ke `OrderCancelDialog` atau hapus tombol Batalkan untuk status tersebut.
+### Bug 1: `console.log` masif di `src/lib/api.ts` (Production Leak)
+- **File**: `src/lib/api.ts` baris 119, 141, 154, 175, 246, 372, 377, 395, 401, 411, 433
+- **Masalah**: 11 statement `console.log` di file API utama yang dipanggil di setiap halaman. Menyebabkan console penuh di production dan memperlambat debugging.
+- **Perbaikan**: Hapus semua `console.log` debug, pertahankan hanya `console.error`.
 
-### Bug 2: Stale closure pada realtime di OrderTrackingPage
-- **File**: `OrderTrackingPage.tsx` baris 82
-- **Masalah**: Di dalam callback realtime, `courier` diakses dari closure tapi `courier` tidak ada di dependency array useEffect (baris 95). Kondisi `!courier` selalu `true` pada saat subscription dibuat, sehingga setiap update akan memicu `fetchCourierInfo` ulang meskipun courier sudah di-load.
-- **Perbaikan**: Gunakan ref atau functional state update untuk mengecek courier.
+### Bug 2: `getMerchantsWithActiveQuota()` melakukan N+1 query per merchant
+- **File**: `src/lib/api.ts` baris 76-96
+- **Masalah**: Untuk setiap merchant tanpa subscription, dilakukan query individual ke `orders` untuk cek free tier. Jika ada 50 merchant, ini menghasilkan 50+ query database. Sangat lambat dan menyebabkan homepage loading lama.
+- **Perbaikan**: Batch query menggunakan `merchant_id.in(...)` atau gunakan aggregation query.
 
-### Bug 3: OrderTrackingPage tidak menampilkan daftar item pesanan
-- **File**: `OrderTrackingPage.tsx`
-- **Masalah**: Halaman tracking hanya menampilkan status, kurir, alamat, dan ringkasan harga. Tidak ada daftar produk yang dipesan. Buyer harus kembali ke halaman sebelumnya untuk melihat apa yang mereka pesan. Ini UX yang kurang lengkap.
-- **Perbaikan**: Tambahkan fetch `order_items` dan tampilkan daftar produk.
+### Bug 3: `ShopsPage` tidak memfilter merchant berdasarkan `registration_status`
+- **File**: `src/pages/ShopsPage.tsx` baris 53-60
+- **Masalah**: Query `merchants` tidak menyertakan `.eq('registration_status', 'APPROVED')` atau `.eq('status', 'ACTIVE')`. Merchant yang masih PENDING atau REJECTED bisa muncul di daftar toko (RLS mungkin mencegah ini tergantung user, tapi anon users bisa melihat sesuai policy).
+- **Perbaikan**: Tambahkan filter eksplisit `.eq('status', 'ACTIVE').eq('registration_status', 'APPROVED')`.
 
-### Bug 4: DeliveryStatusCard tidak menangani status PROCESSED dan READY
-- **File**: `DeliveryStatusCard.tsx` baris 6, 19
-- **Masalah**: Status `PROCESSED` dan `READY` ada di database constraint tapi tidak ada di `statusSteps`. Ketika pesanan dalam status PROCESSED, step "Pesanan Dibuat" sudah selesai tapi tidak ada step "Diproses" -- langsung ke "Kurir Ditugaskan". Timeline terlihat loncat.
-- **Perbaikan**: Tambahkan step "Sedang Diproses" di antara "Pesanan Dibuat" dan "Kurir Ditugaskan".
+### Bug 4: `WithdrawalManager` melakukan update balance secara client-side (Race Condition)
+- **File**: `src/components/merchant/WithdrawalManager.tsx` baris 158-165
+- **Masalah**: Setelah insert `withdrawal_requests`, balance di-update langsung dari client (`available_balance - amount`). Jika dua tab terbuka dan keduanya submit withdrawal bersamaan, saldo bisa minus karena tidak ada locking atau server-side validation.
+- **Perbaikan**: Gunakan RPC database function untuk atomic withdrawal atau setidaknya tambahkan validasi server-side.
 
-### Bug 5: Tombol "Bayar Sekarang" muncul untuk semua PENDING_STATUSES termasuk PENDING_CONFIRMATION
-- **File**: `OrdersPage.tsx` baris 590-606
-- **Masalah**: Untuk pesanan status PENDING_CONFIRMATION (menunggu konfirmasi penjual), tombol "Bayar Sekarang" tetap muncul. Seharusnya bayar hanya relevan untuk NEW atau PENDING_PAYMENT, bukan saat menunggu konfirmasi merchant.
-- **Perbaikan**: Tampilkan "Bayar Sekarang" hanya untuk `NEW` dan `PENDING_PAYMENT`. Untuk `PENDING_CONFIRMATION`, tampilkan label "Menunggu Konfirmasi" saja.
+### Bug 5: `ExplorePage` dan `SearchResultsPage` memiliki `console.log` debug
+- **File**: `src/pages/ExplorePage.tsx` baris 51, 57-59
+- **Masalah**: Console log di production code.
+- **Perbaikan**: Hapus.
 
-### Bug 6: Console warning -- Header dan BottomNav tidak mendukung ref
-- **File**: `AccountPage.tsx`
-- **Masalah**: Console menunjukkan "Function components cannot be given refs" untuk `Header` dan `BottomNav`. Ini terjadi karena komponen ini digunakan di dalam konteks yang mencoba memberi ref tapi komponen belum menggunakan `forwardRef`.
-- **Perbaikan**: Wrap `Header` dan `BottomNav` dengan `React.forwardRef` atau pastikan tidak ada ref yang dicoba diberikan.
+### Bug 6: `HelpPage` menggunakan nomor WhatsApp placeholder
+- **File**: `src/pages/HelpPage.tsx` baris 98
+- **Masalah**: `href="https://wa.me/6281234567890"` dan `support@desamart.id` adalah placeholder yang seharusnya dikonfigurasi dari `app_settings`.
+- **Perbaikan**: Fetch dari `app_settings` atau setidaknya tandai sebagai configurable.
 
-### Bug 7: OrderTrackingPage tidak memverifikasi kepemilikan pesanan
-- **File**: `OrderTrackingPage.tsx` baris 102-106
-- **Masalah**: Query `orders` hanya filter `.eq('id', orderId)` tanpa `.eq('buyer_id', user.id)`. Siapapun yang tahu order ID bisa melihat detail pesanan orang lain (RLS di database mungkin sudah mencegah ini, tapi lebih aman menambahkan filter eksplisit).
-- **Perbaikan**: Tambahkan `.eq('buyer_id', user.id)` pada query.
+### Bug 7: Checkout tidak memvalidasi stok sebelum submit
+- **File**: `src/pages/CheckoutPage.tsx` baris 411-584
+- **Masalah**: Saat `handleSubmit`, stok produk tidak dicek ulang terhadap database. Jika produk sudah habis antara saat user menambahkan ke keranjang dan saat checkout, pesanan tetap dibuat dan stok bisa minus.
+- **Perbaikan**: Tambahkan validasi stok sebelum membuat order.
 
 ---
 
-## Rencana Perbaikan
+## B. KEKURANGAN UI/UX
+
+### B1. ShopsPage tidak menampilkan status buka/tutup secara visual
+- Kartu toko tidak menunjukkan apakah toko sedang buka atau tutup. Buyer baru tahu saat masuk ke detail toko.
+- **Perbaikan**: Tambahkan indikator visual (dot hijau/merah atau badge) pada kartu toko.
+
+### B2. ShopsPage tidak menampilkan jumlah produk
+- Kartu toko sudah punya data `productCount` tapi tidak ditampilkan di UI.
+- **Perbaikan**: Tampilkan jumlah produk pada kartu toko.
+
+### B3. CartPage tidak menampilkan status toko (buka/tutup) per item
+- Buyer bisa menambahkan produk saat toko buka, tapi saat checkout toko sudah tutup. CartPage tidak menunjukkan ini.
+- **Perbaikan**: Tampilkan indikator status toko pada setiap grup merchant di keranjang.
+
+### B4. ExplorePage menampilkan debug console log
+- Sudah disebutkan di Bug 5.
+
+### B5. Merchant halaman produk -- tidak ada indikator `low_stock_threshold`
+- Produk dengan stok rendah tidak diberi highlight khusus di tabel produk merchant.
+- **Perbaikan**: Tambahkan highlight warning jika stok di bawah threshold.
+
+### B6. MerchantDashboardPage tidak ada tombol "Preview Toko"
+- Sudah direncanakan di batch sebelumnya tapi belum diimplementasikan.
+- **Perbaikan**: Tambahkan tombol "Lihat Toko Saya" di store status card.
+
+---
+
+## C. RENCANA PERBAIKAN
 
 ### Prioritas 1 -- Bug Kritis
-1. **Sinkronisasi status cancel** -- Tambahkan `PENDING_PAYMENT` ke query cancel dialog, atau pisahkan tombol Batalkan dan Bayar berdasarkan status yang tepat
-2. **Fix stale closure tracking page** -- Gunakan ref untuk courier state di realtime callback
-3. **Verifikasi kepemilikan pesanan** -- Tambah filter `buyer_id` di OrderTrackingPage query
+1. **Hapus semua `console.log` debug** dari `src/lib/api.ts` dan `src/pages/ExplorePage.tsx`
+2. **Fix ShopsPage filter** -- tambah `.eq('status', 'ACTIVE').eq('registration_status', 'APPROVED')`
+3. **Fix N+1 query di `getMerchantsWithActiveQuota`** -- batch query order counts
+4. **Tambah validasi stok di checkout** -- cek stok real-time sebelum insert order
 
-### Prioritas 2 -- UX Improvement
-4. **Pisahkan aksi per status**:
-   - `NEW` / `PENDING_PAYMENT`: Tampilkan "Bayar Sekarang" + "Batalkan"
-   - `PENDING_CONFIRMATION`: Tampilkan "Menunggu Konfirmasi" (tanpa tombol bayar) + "Batalkan"
-5. **Tambah step PROCESSED di DeliveryStatusCard** -- Agar timeline tidak loncat
-6. **Tambah daftar item di OrderTrackingPage** -- Fetch dan tampilkan order_items
+### Prioritas 2 -- UX Buyer
+5. **Tambah indikator buka/tutup di ShopsPage** -- dot + badge pada kartu toko
+6. **Tampilkan product count di ShopsPage** -- info jumlah produk per toko
+7. **Tambah warning status toko di CartPage** -- indikator per merchant group
+8. **Fix HelpPage placeholder** -- fetch kontak dari `app_settings` atau gunakan default yang masuk akal
 
-### Prioritas 3 -- Minor Fix
-7. **Fix console warning ref** -- Wrap Header/BottomNav dengan forwardRef atau hapus ref usage
+### Prioritas 3 -- UX Merchant
+9. **Tambah tombol "Lihat Toko"** di MerchantDashboardPage store card
+10. **Highlight produk stok rendah** di MerchantProductsPage
 
 ---
 
-## Detail Teknis
+## D. DETAIL TEKNIS
 
 ```text
 File yang perlu diubah:
 
-1. src/components/order/OrderCancelDialog.tsx
-   - Baris 71: Tambah 'PENDING_PAYMENT' ke .in('status', [...])
+1. src/lib/api.ts
+   - Hapus 11 console.log statements
+   - Refactor getMerchantsWithActiveQuota: batch query order counts
+     menggunakan single query dengan group by merchant_id
 
-2. src/pages/OrdersPage.tsx
-   - Baris 590-607: Pisahkan logika tombol:
-     * status NEW/PENDING_PAYMENT -> "Bayar Sekarang" + "Batalkan"
-     * status PENDING_CONFIRMATION -> "Menunggu Konfirmasi" + "Batalkan"
+2. src/pages/ExplorePage.tsx
+   - Hapus console.log baris 51, 57-59
 
-3. src/pages/OrderTrackingPage.tsx
-   - Baris 82: Fix stale closure courier dengan useRef
-   - Baris 102-106: Tambah .eq('buyer_id', user.id)
-   - Tambah fetch order_items dan section daftar produk
+3. src/pages/ShopsPage.tsx
+   - Tambah .eq('status', 'ACTIVE').eq('registration_status', 'APPROVED')
+   - Tambah indikator buka/tutup pada kartu toko
+   - Tampilkan productCount
 
-4. src/components/courier/DeliveryStatusCard.tsx
-   - Baris 19-24: Tambah step { key: 'PROCESSED', label: 'Sedang Diproses', icon: Package }
-   - Baris 6: Tambah 'PROCESSED' ke interface union type
+4. src/pages/CartPage.tsx
+   - Fetch status toko (is_open) saat mount
+   - Tampilkan warning jika toko tutup pada grup merchant
 
-5. src/components/layout/Header.tsx
-   - Wrap dengan React.forwardRef untuk mengatasi console warning
+5. src/pages/CheckoutPage.tsx
+   - Tambah validasi stok sebelum order creation loop
+   - Cek products stock dengan .in('id', productIds)
 
-6. src/components/layout/BottomNav.tsx
-   - Wrap dengan React.forwardRef untuk mengatasi console warning
+6. src/pages/merchant/MerchantDashboardPage.tsx
+   - Tambah tombol "Lihat Toko Saya" pada store status card
 
-Total: 6 file, ~8 perbaikan
+7. src/pages/merchant/MerchantProductsPage.tsx
+   - Tambah warning color pada stok rendah (< 5 atau low_stock_threshold)
+
+8. src/pages/HelpPage.tsx
+   - Fetch kontak support dari app_settings
+   - Fallback ke nilai placeholder saat ini
+
+Total: 8 file, ~10 perbaikan
 ```
