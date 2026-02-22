@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Minus, Plus, Trash2, ShoppingBag, Store } from 'lucide-react';
+import { ArrowLeft, Minus, Plus, Trash2, ShoppingBag, Store, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   AlertDialog,
@@ -16,14 +16,39 @@ import {
 import { useCart } from '@/contexts/CartContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatPrice } from '@/lib/utils';
+import { supabase } from '@/integrations/supabase/client';
 
 export default function CartPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { items, updateQuantity, removeFromCart, getCartTotal, clearCart } = useCart();
   const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [merchantStatuses, setMerchantStatuses] = useState<Record<string, boolean>>({});
   
   const total = getCartTotal();
+
+  // Fetch merchant open/close statuses
+  useEffect(() => {
+    const merchantNames = [...new Set(items.map(i => i.product.merchantName || 'Toko'))];
+    const merchantIds = [...new Set(items.map(i => i.product.merchantId).filter(Boolean))];
+    
+    if (merchantIds.length === 0) return;
+
+    const fetchStatuses = async () => {
+      const { data } = await supabase
+        .from('merchants')
+        .select('id, is_open')
+        .in('id', merchantIds);
+      
+      if (data) {
+        const statuses: Record<string, boolean> = {};
+        data.forEach(m => { statuses[m.id] = m.is_open; });
+        setMerchantStatuses(statuses);
+      }
+    };
+
+    fetchStatuses();
+  }, [items]);
 
   const handleCheckout = () => {
     if (!user) {
@@ -62,6 +87,14 @@ export default function CartPage() {
     );
   }
 
+  // Group items by merchantName
+  const grouped: Record<string, typeof items> = {};
+  items.forEach(item => {
+    const key = item.product.merchantName || 'Toko';
+    if (!grouped[key]) grouped[key] = [];
+    grouped[key].push(item);
+  });
+
   return (
     <div className="mobile-shell bg-secondary flex flex-col min-h-screen">
       {/* Header */}
@@ -85,23 +118,34 @@ export default function CartPage() {
       
       {/* Cart Items - Grouped by Merchant */}
       <div className="flex-1 overflow-y-auto p-4 pb-48">
-        {(() => {
-          // Group items by merchantName
-          const grouped: Record<string, typeof items> = {};
-          items.forEach(item => {
-            const key = item.product.merchantName || 'Toko';
-            if (!grouped[key]) grouped[key] = [];
-            grouped[key].push(item);
-          });
+        {Object.entries(grouped).map(([merchantName, merchantItems]) => {
+          const merchantId = merchantItems[0]?.product.merchantId;
+          const isOpen = merchantId ? merchantStatuses[merchantId] : undefined;
+          const isClosed = isOpen === false;
 
-          return Object.entries(grouped).map(([merchantName, merchantItems]) => (
+          return (
             <div key={merchantName} className="mb-4">
               {/* Merchant Header */}
               <div className="flex items-center gap-2 mb-2 px-1">
                 <Store className="h-4 w-4 text-primary" />
                 <span className="font-semibold text-sm text-foreground">{merchantName}</span>
                 <span className="text-[10px] text-muted-foreground">({merchantItems.length} item)</span>
+                {isOpen !== undefined && (
+                  <span className={`inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full ${isOpen ? 'bg-green-500/10 text-green-600' : 'bg-destructive/10 text-destructive'}`}>
+                    <span className={`w-1.5 h-1.5 rounded-full ${isOpen ? 'bg-green-500' : 'bg-destructive'}`} />
+                    {isOpen ? 'Buka' : 'Tutup'}
+                  </span>
+                )}
               </div>
+
+              {/* Closed warning */}
+              {isClosed && (
+                <div className="flex items-center gap-2 mb-2 p-2.5 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-xs">
+                  <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0" />
+                  <span>Toko sedang tutup. Produk ini tidak bisa di-checkout saat ini.</span>
+                </div>
+              )}
+
               <div className="space-y-3">
                 {merchantItems.map((item, index) => (
                   <motion.div
@@ -109,7 +153,7 @@ export default function CartPage() {
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: index * 0.05 }}
-                    className="bg-card rounded-xl p-3 border border-border shadow-sm"
+                    className={`bg-card rounded-xl p-3 border border-border shadow-sm ${isClosed ? 'opacity-60' : ''}`}
                   >
                     <div className="flex gap-3">
                       <img 
@@ -163,8 +207,8 @@ export default function CartPage() {
                 ))}
               </div>
             </div>
-          ));
-        })()}
+          );
+        })}
       </div>
 
       {/* Checkout Summary */}

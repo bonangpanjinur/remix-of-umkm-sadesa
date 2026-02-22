@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Package, Receipt, TrendingUp, DollarSign, AlertCircle, Settings,
-  BarChart3, Star, Wallet, Percent, CreditCard, QrCode, CheckCircle, XCircle, Bell
+  BarChart3, Star, Wallet, Percent, CreditCard, QrCode, CheckCircle, XCircle, Bell, Eye
 } from 'lucide-react';
 import { MerchantLayout } from '@/components/merchant/MerchantLayout';
 import { StatsCard } from '@/components/admin/StatsCard';
@@ -235,6 +235,15 @@ export default function MerchantDashboardPage() {
             </div>
           </div>
           <div className="flex items-center gap-3 flex-wrap">
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-xs"
+              onClick={() => navigate(`/merchant/${merchant.slug || merchant.id}`)}
+            >
+              <Eye className="h-3.5 w-3.5 mr-1.5" />
+              Lihat Toko
+            </Button>
             <StoreQRCode 
               merchantId={merchant.id} 
               merchantName={merchant.name}

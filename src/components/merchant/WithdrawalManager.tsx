@@ -142,6 +142,22 @@ export function WithdrawalManager({ merchantId }: WithdrawalManagerProps) {
 
     setSaving(true);
     try {
+      // Re-fetch current balance to prevent race conditions
+      const { data: freshBalance, error: balanceError } = await supabase
+        .from('merchants')
+        .select('available_balance, pending_balance')
+        .eq('id', merchantId)
+        .single();
+
+      if (balanceError || !freshBalance) throw new Error('Gagal memverifikasi saldo');
+
+      if (amount > freshBalance.available_balance) {
+        toast.error('Saldo tidak mencukupi. Silakan coba lagi.');
+        setSaving(false);
+        fetchData();
+        return;
+      }
+
       const { error } = await supabase
         .from('withdrawal_requests')
         .insert({
@@ -155,12 +171,12 @@ export function WithdrawalManager({ merchantId }: WithdrawalManagerProps) {
 
       if (error) throw error;
 
-      // Update merchant balance (move to pending)
+      // Update merchant balance (move to pending) using fresh values
       await supabase
         .from('merchants')
         .update({
-          available_balance: balance.available_balance - amount,
-          pending_balance: balance.pending_balance + amount,
+          available_balance: freshBalance.available_balance - amount,
+          pending_balance: (freshBalance.pending_balance || 0) + amount,
         })
         .eq('id', merchantId);
 

@@ -48,15 +48,11 @@ export default function ExplorePage() {
   useEffect(() => {
     async function loadData() {
       try {
-        console.log('Loading all data for ExplorePage...');
         const [villagesData, tourismData, productsData] = await Promise.all([
           fetchVillages(),
           fetchTourism(),
           fetchProducts(),
         ]);
-        console.log('Villages data:', villagesData);
-        console.log('Tourism data:', tourismData);
-        console.log('Products data:', productsData);
         
         setVillages(villagesData);
         setTourismSpots(tourismData);
