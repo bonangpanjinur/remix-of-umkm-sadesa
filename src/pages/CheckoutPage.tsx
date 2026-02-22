@@ -409,6 +409,37 @@ export default function CheckoutPage() {
     setLoading(true);
 
     try {
+      // Validate stock before creating orders
+      const allProductIds = items.map(item => item.product.id);
+      const { data: currentStocks, error: stockCheckError } = await supabase
+        .from('products')
+        .select('id, name, stock')
+        .in('id', allProductIds);
+
+      if (stockCheckError) {
+        throw new Error('Gagal memeriksa stok produk');
+      }
+
+      const stockMap = new Map(currentStocks?.map(p => [p.id, p]) || []);
+      const outOfStockItems: string[] = [];
+
+      for (const item of items) {
+        const product = stockMap.get(item.product.id);
+        if (!product || product.stock < item.quantity) {
+          outOfStockItems.push(`${item.product.name} (tersisa: ${product?.stock ?? 0}, diminta: ${item.quantity})`);
+        }
+      }
+
+      if (outOfStockItems.length > 0) {
+        setLoading(false);
+        toast({
+          title: 'Stok tidak mencukupi',
+          description: outOfStockItems.join(', '),
+          variant: 'destructive',
+        });
+        return;
+      }
+
       const fullAddress = formatFullAddress(addressData.address);
       let lastCreatedOrderId: string | null = null;
 

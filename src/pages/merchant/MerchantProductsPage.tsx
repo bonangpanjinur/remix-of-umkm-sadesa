@@ -304,11 +304,31 @@ export default function MerchantProductsPage() {
     {
       key: 'stock',
       header: 'Stok',
-      render: (item: ProductRow) => (
-        <span className={item.stock === 0 ? 'text-destructive font-medium' : ''}>
-          {item.stock}
-        </span>
-      ),
+      render: (item: ProductRow) => {
+        const LOW_STOCK_THRESHOLD = 5;
+        const isOutOfStock = item.stock === 0;
+        const isLowStock = !isOutOfStock && item.stock <= LOW_STOCK_THRESHOLD;
+        return (
+          <div className="flex items-center gap-1.5">
+            <span className={
+              isOutOfStock ? 'text-destructive font-medium' : 
+              isLowStock ? 'text-warning font-medium' : ''
+            }>
+              {item.stock}
+            </span>
+            {isLowStock && (
+              <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 border-warning/50 text-warning">
+                Rendah
+              </Badge>
+            )}
+            {isOutOfStock && (
+              <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 border-destructive/50 text-destructive">
+                Habis
+              </Badge>
+            )}
+          </div>
+        );
+      },
     },
     {
       key: 'stats',

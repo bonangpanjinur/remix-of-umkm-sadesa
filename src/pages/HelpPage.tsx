@@ -1,5 +1,6 @@
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, MessageCircle, Mail, Phone, ChevronDown } from 'lucide-react';
+import { ArrowLeft, MessageCircle, Mail } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
 import { BottomNav } from '@/components/layout/BottomNav';
 import {
@@ -8,8 +9,8 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
-import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { supabase } from '@/integrations/supabase/client';
 
 const FAQ_ITEMS = [
   {
@@ -42,8 +43,31 @@ const FAQ_ITEMS = [
   },
 ];
 
+const DEFAULT_WA = '6281234567890';
+const DEFAULT_EMAIL = 'support@desamart.id';
+
 export default function HelpPage() {
   const navigate = useNavigate();
+  const [waNumber, setWaNumber] = useState(DEFAULT_WA);
+  const [email, setEmail] = useState(DEFAULT_EMAIL);
+
+  useEffect(() => {
+    const fetchContact = async () => {
+      const { data } = await supabase
+        .from('app_settings')
+        .select('key, value')
+        .in('key', ['support_whatsapp', 'support_email']);
+
+      if (data) {
+        for (const row of data) {
+          const val = typeof row.value === 'string' ? row.value : (row.value as any)?.value;
+          if (row.key === 'support_whatsapp' && val) setWaNumber(val);
+          if (row.key === 'support_email' && val) setEmail(val);
+        }
+      }
+    };
+    fetchContact();
+  }, []);
 
   return (
     <div className="mobile-shell bg-background flex flex-col min-h-screen">
@@ -93,7 +117,7 @@ export default function HelpPage() {
             </CardHeader>
             <CardContent className="space-y-3">
               <a
-                href="https://wa.me/6281234567890"
+                href={`https://wa.me/${waNumber}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-3 p-3 rounded-lg bg-primary/10 border border-primary/20 hover:bg-primary/20 transition"
@@ -105,13 +129,13 @@ export default function HelpPage() {
                 </div>
               </a>
               <a
-                href="mailto:support@desamart.id"
+                href={`mailto:${email}`}
                 className="flex items-center gap-3 p-3 rounded-lg bg-primary/10 border border-primary/20 hover:bg-primary/20 transition"
               >
                 <Mail className="h-5 w-5 text-primary" />
                 <div>
                   <p className="font-medium text-sm">Email</p>
-                  <p className="text-xs text-muted-foreground">support@desamart.id</p>
+                  <p className="text-xs text-muted-foreground">{email}</p>
                 </div>
               </a>
             </CardContent>

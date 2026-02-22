@@ -66,31 +66,47 @@ async function getMerchantsWithActiveQuota(): Promise<Set<string>> {
     }
   }
 
-  // Get order counts for free tier calculation (current month)
-  const startOfMonth = new Date();
-  startOfMonth.setDate(1);
-  startOfMonth.setHours(0, 0, 0, 0);
-
+  // Separate merchants with and without subscriptions
   const merchantIds = new Set<string>();
+  const freeTierMerchantIds: string[] = [];
   
   for (const m of allMerchants) {
     if (subQuotaMap.has(m.id)) {
-      // Has subscription - check remaining quota
       if ((subQuotaMap.get(m.id) || 0) > 0) {
         merchantIds.add(m.id);
       }
     } else {
-      // No subscription - use free tier
-      // For performance, we assume free tier has quota unless we verify
-      // We'll check individual merchants' order counts
-      const { count } = await supabase
-        .from('orders')
-        .select('*', { count: 'exact', head: true })
-        .eq('merchant_id', m.id)
-        .gte('created_at', startOfMonth.toISOString());
+      freeTierMerchantIds.push(m.id);
+    }
+  }
 
-      if ((count || 0) < FREE_TIER_LIMIT) {
-        merchantIds.add(m.id);
+  // Batch query: get order counts for all free tier merchants in a single query
+  if (freeTierMerchantIds.length > 0) {
+    const startOfMonth = new Date();
+    startOfMonth.setDate(1);
+    startOfMonth.setHours(0, 0, 0, 0);
+
+    // Query orders grouped by merchant_id for free tier merchants
+    const { data: orderCounts } = await supabase
+      .from('orders')
+      .select('merchant_id')
+      .in('merchant_id', freeTierMerchantIds)
+      .gte('created_at', startOfMonth.toISOString());
+
+    // Count orders per merchant
+    const countMap = new Map<string, number>();
+    if (orderCounts) {
+      for (const row of orderCounts) {
+        if (row.merchant_id) {
+          countMap.set(row.merchant_id, (countMap.get(row.merchant_id) || 0) + 1);
+        }
+      }
+    }
+
+    // Add merchants under free tier limit
+    for (const mid of freeTierMerchantIds) {
+      if ((countMap.get(mid) || 0) < FREE_TIER_LIMIT) {
+        merchantIds.add(mid);
       }
     }
   }
@@ -116,7 +132,6 @@ export async function checkMerchantHasActiveQuota(merchantId: string): Promise<b
 
     if (data && data.length > 0) {
       const totalRemaining = data.reduce((sum, sub) => sum + (sub.transaction_quota - sub.used_quota), 0);
-      console.log(`Merchant ${merchantId} subscription quota remaining: ${totalRemaining}`);
       return totalRemaining > 0;
     }
 
@@ -137,9 +152,7 @@ export async function checkMerchantHasActiveQuota(merchantId: string): Promise<b
       return true;
     }
 
-    const hasQuota = (count || 0) < FREE_TIER_LIMIT;
-    console.log(`Merchant ${merchantId} free tier: ${count || 0}/${FREE_TIER_LIMIT}, hasQuota: ${hasQuota}`);
-    return hasQuota;
+    return (count || 0) < FREE_TIER_LIMIT;
   } catch (error) {
     console.warn('Unexpected error in checkMerchantHasActiveQuota, defaulting to true:', error);
     return true;
@@ -151,7 +164,6 @@ export async function fetchProducts(): Promise<Product[]> {
   // First get merchants with active quota
   const merchantsWithQuota = await getMerchantsWithActiveQuota();
 
-  console.log('Fetching products from Supabase...');
   const { data, error } = await supabase
     .from('products')
     .select(`
@@ -172,7 +184,6 @@ export async function fetchProducts(): Promise<Product[]> {
       )
     `);
 
-  console.log('Products raw data result:', data);
   if (error) {
     console.error('Error fetching products:', error);
     return [];
@@ -183,7 +194,6 @@ export async function fetchProducts(): Promise<Product[]> {
     const merchant = p.merchants;
     
     // Check if merchant is currently open based on operating hours
-    // Use the same logic as in merchantOperatingHours.ts for consistency
     const isManuallyOpen = merchant?.is_open ?? true;
     const openTime = merchant?.open_time || '08:00';
     const closeTime = merchant?.close_time || '17:00';
@@ -243,7 +253,6 @@ export async function fetchProducts(): Promise<Product[]> {
     };
   });
 
-  console.log('Mapped products data:', mappedProducts);
   return mappedProducts;
 }
 
@@ -369,18 +378,16 @@ export async function fetchMerchant(id: string): Promise<Merchant | null> {
 
 // Fetch villages
 export async function fetchVillages(): Promise<Village[]> {
-  console.log('Fetching villages from Supabase...');
   const { data, error } = await supabase
     .from('villages')
     .select('*');
 
-  console.log('Villages raw data result:', data);
   if (error) {
     console.error('Error fetching villages:', error);
     return [];
   }
 
-  const mappedVillages = (data || []).map(v => ({
+  return (data || []).map(v => ({
     id: v.id,
     name: v.name,
     district: v.district,
@@ -391,14 +398,10 @@ export async function fetchVillages(): Promise<Village[]> {
     locationLat: v.location_lat ? Number(v.location_lat) : null,
     locationLng: v.location_lng ? Number(v.location_lng) : null,
   }));
-
-  console.log('Mapped villages data:', mappedVillages);
-  return mappedVillages;
 }
 
 // Fetch tourism spots
 export async function fetchTourism(): Promise<Tourism[]> {
-  console.log('Fetching tourism from Supabase...');
   const { data, error } = await supabase
     .from('tourism')
     .select(`
@@ -408,13 +411,12 @@ export async function fetchTourism(): Promise<Tourism[]> {
       )
     `);
 
-  console.log('Tourism raw data result:', data);
   if (error) {
     console.error('Error fetching tourism:', error);
     return [];
   }
 
-  const mappedTourism = (data || []).map(t => ({
+  return (data || []).map(t => ({
     id: t.id,
     villageId: t.village_id,
     villageName: t.villages?.name || '',
@@ -429,9 +431,6 @@ export async function fetchTourism(): Promise<Tourism[]> {
     isActive: t.is_active,
     viewCount: t.view_count,
   }));
-
-  console.log('Mapped tourism data:', mappedTourism);
-  return mappedTourism;
 }
 
 // Fetch single tourism

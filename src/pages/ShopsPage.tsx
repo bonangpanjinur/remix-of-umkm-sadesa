@@ -57,7 +57,9 @@ export default function ShopsPage() {
             village_id, location_lat, location_lng, slug, business_category,
             villages(name, location_lat, location_lng),
             products(id, category)
-          `);
+          `)
+          .eq('status', 'ACTIVE')
+          .eq('registration_status', 'APPROVED');
 
         
         if (error) {
@@ -315,7 +317,7 @@ export default function ShopsPage() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
-                          <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2">
                             <h3 className="font-semibold text-foreground truncate">
                               {shop.name}
                             </h3>
@@ -324,10 +326,18 @@ export default function ShopsPage() {
                                 {shop.badge}
                               </Badge>
                             )}
+                            <span className={`inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full ${shop.isOpen ? 'bg-green-500/10 text-green-600' : 'bg-destructive/10 text-destructive'}`}>
+                              <span className={`w-1.5 h-1.5 rounded-full ${shop.isOpen ? 'bg-green-500' : 'bg-destructive'}`} />
+                              {shop.isOpen ? 'Buka' : 'Tutup'}
+                            </span>
                           </div>
-                          <div className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5">
-                            <MapPinIcon className="h-3 w-3" />
-                            <span className="truncate">{shop.villageName || 'Lokasi tidak tersedia'}</span>
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
+                            <div className="flex items-center gap-1">
+                              <MapPinIcon className="h-3 w-3" />
+                              <span className="truncate">{shop.villageName || 'Lokasi tidak tersedia'}</span>
+                            </div>
+                            <span className="text-[10px]">•</span>
+                            <span className="text-[10px]">{shop.productCount} produk</span>
                           </div>
                         </div>
                         <div className="flex items-center gap-1 bg-secondary/50 px-1.5 py-0.5 rounded-md flex-shrink-0">
