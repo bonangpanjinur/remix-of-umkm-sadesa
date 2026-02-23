@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Header } from "@/components/layout/Header";
 
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -388,11 +389,9 @@ const OrdersPage = () => {
   // Not logged in state
   if (!user) {
     return (
-      <div className="min-h-screen bg-background pb-20">
-        <div className="bg-primary px-5 pt-12 pb-8">
-          <h1 className="text-xl font-bold text-primary-foreground">Pesanan Saya</h1>
-        </div>
-        <div className="container max-w-md mx-auto p-6 flex flex-col items-center justify-center min-h-[60vh] text-center">
+      <div className="mobile-shell bg-background pb-20">
+        <Header />
+        <div className="p-6 flex flex-col items-center justify-center min-h-[60vh] text-center">
           <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mb-5">
             <LogIn className="w-10 h-10 text-primary" />
           </div>
@@ -410,24 +409,27 @@ const OrdersPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-muted/30 pb-20">
-      {/* Header */}
-      <div className="bg-primary px-5 pt-12 pb-6">
-        <div className="flex items-center justify-between mb-1">
-          <h1 className="text-xl font-bold text-primary-foreground">Pesanan Saya</h1>
+    <div className="mobile-shell bg-muted/30 pb-20">
+      <Header />
+      {/* Page Title */}
+      <div className="px-5 py-4 bg-card border-b border-border">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-lg font-bold text-foreground">Pesanan Saya</h1>
+            {activeOrderCount > 0 && (
+              <p className="text-xs text-muted-foreground">
+                {activeOrderCount} pesanan aktif
+              </p>
+            )}
+          </div>
           <button
             onClick={() => fetchOrders(true)}
             disabled={refreshing}
-            className="p-2 rounded-full hover:bg-white/10 transition-colors"
+            className="p-2 rounded-full hover:bg-secondary transition-colors"
           >
-            <RefreshCw className={`w-5 h-5 text-primary-foreground ${refreshing ? "animate-spin" : ""}`} />
+            <RefreshCw className={`w-5 h-5 text-muted-foreground ${refreshing ? "animate-spin" : ""}`} />
           </button>
         </div>
-        {activeOrderCount > 0 && (
-          <p className="text-primary-foreground/80 text-sm">
-            {activeOrderCount} pesanan aktif
-          </p>
-        )}
       </div>
 
       <div className="container max-w-md mx-auto px-4 -mt-3">

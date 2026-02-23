@@ -126,7 +126,6 @@ export function ProductCard({ product, index = 0, showCategoryBadge = false }: P
           className="text-[9px] text-muted-foreground mb-0.5 truncate flex items-center gap-1"
         >
           {product.merchantName}
-          <Star className="h-2 w-2 text-gold fill-gold" />
         </div>
         <h3 className="font-bold text-xs text-card-foreground line-clamp-2 min-h-[2.5em]">
           {product.name}

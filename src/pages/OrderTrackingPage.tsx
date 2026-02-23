@@ -397,29 +397,35 @@ export default function OrderTrackingPage() {
             )}
 
             <div className="bg-card rounded-2xl p-4 border border-border space-y-3">
-              <p className="text-sm text-muted-foreground text-center">
-                Pesanan telah sampai. Silakan selesaikan pesanan atau ajukan refund jika ada masalah.
-              </p>
-              <p className="text-xs text-muted-foreground text-center">
-                Pesanan akan otomatis diselesaikan dalam 24 jam jika tidak ada tindakan.
-              </p>
-              <div className="flex gap-2">
-                <Button 
-                  className="flex-1"
-                  onClick={handleCompleteOrder}
-                  disabled={completing}
-                >
-                  <CheckCircle className="h-4 w-4 mr-2" />
-                  {completing ? 'Memproses...' : 'Selesaikan Pesanan'}
-                </Button>
-                <Button 
-                  variant="outline"
-                  onClick={() => setRefundDialogOpen(true)}
-                >
-                  <RotateCcw className="h-4 w-4 mr-2" />
-                  Refund
-                </Button>
+              <div className="text-center mb-2">
+                <div className="inline-flex items-center gap-2 px-4 py-2 bg-primary/10 rounded-full mb-2 animate-pulse">
+                  <CheckCircle className="h-5 w-5 text-primary" />
+                  <span className="font-bold text-primary text-sm">Pesanan Telah Sampai!</span>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Konfirmasi penerimaan atau ajukan refund jika ada masalah.
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Otomatis selesai dalam 24 jam jika tidak ada tindakan.
+                </p>
               </div>
+              <Button 
+                className="w-full h-12 text-base font-bold shadow-brand"
+                size="lg"
+                onClick={handleCompleteOrder}
+                disabled={completing}
+              >
+                <CheckCircle className="h-5 w-5 mr-2" />
+                {completing ? 'Memproses...' : '✅ Pesanan Diterima - Selesaikan'}
+              </Button>
+              <Button 
+                variant="outline"
+                className="w-full"
+                onClick={() => setRefundDialogOpen(true)}
+              >
+                <RotateCcw className="h-4 w-4 mr-2" />
+                Ada Masalah? Ajukan Refund
+              </Button>
             </div>
           </motion.div>
         )}
