@@ -23,9 +23,7 @@ export default function ProductsPage() {
   useEffect(() => {
     async function loadData() {
       try {
-        console.log('Loading products data via fetchProducts...');
         const data = await fetchProducts();
-        console.log('Products data loaded:', data);
         setProducts(data);
       } catch (error) {
         console.error('Error loading products:', error);

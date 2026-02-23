@@ -28,6 +28,7 @@ import { addToRecentlyViewed } from '@/pages/buyer/RecentlyViewedPage';
 import type { Product } from '@/types';
 import { ProductReviews } from '@/components/product/ProductReviews';
 import { SimilarProducts } from '@/components/product/SimilarProducts';
+import { ProductImageGallery } from '@/components/product/ProductImageGallery';
 
 interface MerchantInfo {
   id: string;
@@ -184,7 +185,28 @@ export default function ProductDetail() {
     }
     
     addToCart(product, quantity);
-    navigate('/cart');
+    toast({
+      title: '✅ Ditambahkan ke keranjang',
+      description: `${quantity}x ${product.name}`,
+      action: (
+        <Button size="sm" variant="outline" onClick={() => navigate('/cart')}>
+          Lihat Keranjang
+        </Button>
+      ),
+    });
+  };
+
+  const handleBuyNow = () => {
+    if (!hasActiveQuota) {
+      toast({ title: 'Toko tidak dapat menerima pesanan', description: 'Toko ini tidak memiliki kuota aktif', variant: 'destructive' });
+      return;
+    }
+    if (merchantStatus && !merchantStatus.isCurrentlyOpen) {
+      toast({ title: 'Toko sedang tutup', description: merchantStatus.reason, variant: 'destructive' });
+      return;
+    }
+    addToCart(product, quantity);
+    navigate('/checkout');
   };
 
   const canOrder = hasActiveQuota && merchantStatus?.isCurrentlyOpen !== false;
@@ -194,40 +216,26 @@ export default function ProductDetail() {
       {/* Scrollable Content */}
       <div className="flex-1 overflow-y-auto pb-36">
         {/* Product Image */}
-        <div className="relative h-72 bg-muted">
-          <img 
-            src={product.image} 
-            alt={product.name}
-            className="w-full h-full object-cover"
-          />
+        <ProductImageGallery productId={product.id} mainImage={product.image} productName={product.name} />
           
-          {/* Top Navigation */}
-          <div className="absolute top-0 left-0 w-full p-4 flex justify-between items-center z-20">
-            <button 
-              onClick={() => navigate(-1)}
-              className="w-10 h-10 bg-foreground/20 backdrop-blur rounded-full flex items-center justify-center text-primary-foreground hover:bg-foreground/40 transition border border-primary-foreground/20"
-            >
-              <ArrowLeft className="h-5 w-5" />
-            </button>
-            <div className="flex items-center gap-2">
-              <WishlistButton productId={id || ''} size="md" />
-              <div className="w-10 h-10 bg-foreground/20 backdrop-blur rounded-full flex items-center justify-center text-primary-foreground hover:bg-foreground/40 transition border border-primary-foreground/20">
-                <ShareProduct 
-                  productId={id || ''} 
-                  productName={product?.name || ''} 
-                  productImage={product?.image}
-                />
-              </div>
+        {/* Top Navigation - now outside gallery */}
+        <div className="absolute top-0 left-0 w-full p-4 flex justify-between items-center z-20">
+          <button 
+            onClick={() => navigate(-1)}
+            className="w-10 h-10 bg-foreground/20 backdrop-blur rounded-full flex items-center justify-center text-primary-foreground hover:bg-foreground/40 transition border border-primary-foreground/20"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </button>
+          <div className="flex items-center gap-2">
+            <WishlistButton productId={id || ''} size="md" />
+            <div className="w-10 h-10 bg-foreground/20 backdrop-blur rounded-full flex items-center justify-center text-primary-foreground hover:bg-foreground/40 transition border border-primary-foreground/20">
+              <ShareProduct 
+                productId={id || ''} 
+                productName={product?.name || ''} 
+                productImage={product?.image}
+              />
             </div>
           </div>
-          
-          {product.isPromo && (
-            <div className="absolute bottom-4 left-4">
-              <span className="bg-destructive text-destructive-foreground text-xs font-bold px-2 py-1 rounded">
-                PROMO
-              </span>
-            </div>
-          )}
         </div>
         
         {/* Content */}
@@ -416,29 +424,38 @@ export default function ProductDetail() {
           </div>
         </div>
         
-        <Button
-          onClick={handleAddToCart}
-          className="w-full shadow-brand"
-          size="lg"
-          disabled={!canOrder}
-        >
-          {!hasActiveQuota ? (
-            <>
-              <AlertTriangle className="h-4 w-4 mr-2" />
-              Tidak Dapat Memesan
-            </>
-          ) : canOrder ? (
-            <>
+        {canOrder ? (
+          <div className="flex gap-2">
+            <Button
+              onClick={handleAddToCart}
+              variant="outline"
+              className="flex-1"
+              size="lg"
+            >
               <ShoppingCart className="h-4 w-4 mr-2" />
-              Tambah ke Keranjang
-            </>
-          ) : (
-            <>
-              <Clock className="h-4 w-4 mr-2" />
-              Toko Sedang Tutup
-            </>
-          )}
-        </Button>
+              Keranjang
+            </Button>
+            <Button
+              onClick={handleBuyNow}
+              className="flex-1 shadow-brand"
+              size="lg"
+            >
+              Beli Langsung
+            </Button>
+          </div>
+        ) : (
+          <Button
+            disabled
+            className="w-full"
+            size="lg"
+          >
+            {!hasActiveQuota ? (
+              <><AlertTriangle className="h-4 w-4 mr-2" />Tidak Dapat Memesan</>
+            ) : (
+              <><Clock className="h-4 w-4 mr-2" />Toko Sedang Tutup</>
+            )}
+          </Button>
+        )}
       </div>
     </div>
   );

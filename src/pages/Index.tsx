@@ -177,6 +177,13 @@ const Index = () => {
                   {userLocation?.source === 'gps' ? 'Berdasarkan lokasi Anda' : 'Sekitar Anda'}
                 </p>
               </div>
+              <Link 
+                to="/products"
+                className="text-[10px] text-primary font-bold hover:underline flex items-center gap-0.5 ml-auto"
+              >
+                Lihat Semua
+                <ChevronRight className="h-3 w-3" />
+              </Link>
             </div>
             <div className="grid grid-cols-2 gap-3 pb-4">
               {sortedProducts.map((product, idx) => (

@@ -10,6 +10,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { formatPrice } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
 import { PaymentProofUpload } from '@/components/checkout/PaymentProofUpload';
+import { PaymentCountdown } from '@/components/checkout/PaymentCountdown';
 
 interface PaymentInfo {
   bankName: string;
@@ -27,6 +28,7 @@ interface OrderInfo {
   created_at: string;
   merchant_name?: string;
   payment_proof_url?: string | null;
+  confirmation_deadline?: string | null;
 }
 
 export default function PaymentConfirmationPage() {
@@ -49,7 +51,7 @@ export default function PaymentConfirmationPage() {
       // Fetch order
       const { data: orderData, error: orderError } = await supabase
         .from('orders')
-        .select('id, total, payment_method, payment_status, merchant_id, created_at, payment_proof_url')
+        .select('id, total, payment_method, payment_status, merchant_id, created_at, payment_proof_url, confirmation_deadline')
         .eq('id', orderId!)
         .eq('buyer_id', user!.id)
         .single();
@@ -164,6 +166,9 @@ export default function PaymentConfirmationPage() {
                   Menunggu Pembayaran
                 </Badge>
               </div>
+              {order.confirmation_deadline && (
+                <PaymentCountdown deadline={order.confirmation_deadline} />
+              )}
               <div className="flex items-center justify-between p-3 bg-primary/5 rounded-lg border border-primary/20">
                 <span className="text-sm font-medium">Total Pembayaran</span>
                 <div className="flex items-center gap-2">

@@ -14,7 +14,7 @@ import { FilterSheet, FilterButton, FilterOptions } from '@/components/explore/F
 import { SortDropdown, SortOption } from '@/components/explore/SortDropdown';
 import { ViewToggle, ViewMode } from '@/components/explore/ViewToggle';
 import { EmptyState } from '@/components/explore/EmptyState';
-import { fetchVillages, fetchTourism, fetchProducts } from '@/lib/api';
+import { supabase } from '@/integrations/supabase/client';
 import type { Village, Tourism, Product } from '@/types';
 
 export default function SearchResultsPage() {
@@ -39,15 +39,42 @@ export default function SearchResultsPage() {
 
   useEffect(() => {
     async function loadData() {
+      if (!initialQuery || initialQuery.length < 2) {
+        setLoading(false);
+        return;
+      }
       try {
-        const [villagesData, tourismData, productsData] = await Promise.all([
-          fetchVillages(),
-          fetchTourism(),
-          fetchProducts(),
+        const searchTerm = `%${initialQuery}%`;
+        const [productsRes, villagesRes, tourismRes] = await Promise.all([
+          supabase.from('products').select('id, name, description, price, image_url, stock, category, is_active, is_promo, original_price, merchant_id, merchants(name, village_id, villages(name), location_lat, location_lng, is_open, halal_status)').ilike('name', searchTerm).eq('is_active', true).limit(50),
+          supabase.from('villages').select('id, name, district, regency, description, image_url, is_active').ilike('name', searchTerm).eq('is_active', true).limit(20),
+          supabase.from('tourism').select('id, name, description, image_url, village_id, villages(name), location_lat, location_lng, wa_link, facilities, is_active, view_count').ilike('name', searchTerm).eq('is_active', true).limit(20),
         ]);
-        setVillages(villagesData);
-        setTourismSpots(tourismData);
-        setProducts(productsData);
+        
+        // Map to app types
+        const mappedProducts: Product[] = (productsRes.data || []).map((p: any) => ({
+          id: p.id, name: p.name, description: p.description || '', price: p.price, image: p.image_url || '/placeholder.svg',
+          stock: p.stock || 0, category: p.category || '', isActive: p.is_active, isPromo: p.is_promo,
+          originalPrice: p.original_price, merchantId: p.merchant_id, merchantName: p.merchants?.name || '',
+          merchantVillage: p.merchants?.villages?.name || '',
+          locationLat: p.merchants?.location_lat, locationLng: p.merchants?.location_lng,
+          isMerchantOpen: p.merchants?.is_open, isAvailable: p.is_active && p.stock > 0,
+          halal_status: p.merchants?.halal_status,
+        }));
+        const mappedVillages: Village[] = (villagesRes.data || []).map((v: any) => ({
+          id: v.id, name: v.name, district: v.district || '', regency: v.regency || '',
+          description: v.description || '', image: v.image_url || '/placeholder.svg', isActive: v.is_active,
+        }));
+        const mappedTourism: Tourism[] = (tourismRes.data || []).map((t: any) => ({
+          id: t.id, name: t.name, description: t.description || '', image: t.image_url || '/placeholder.svg',
+          villageId: t.village_id || '', villageName: t.villages?.name || '',
+          locationLat: t.location_lat || 0, locationLng: t.location_lng || 0,
+          waLink: t.wa_link || '', facilities: t.facilities || [], isActive: t.is_active,
+          viewCount: t.view_count,
+        }));
+        setProducts(mappedProducts);
+        setVillages(mappedVillages);
+        setTourismSpots(mappedTourism);
       } catch (error) {
         console.error('Error loading data:', error);
       } finally {
@@ -55,7 +82,7 @@ export default function SearchResultsPage() {
       }
     }
     loadData();
-  }, []);
+  }, [initialQuery]);
 
   // Update URL when search changes
   useEffect(() => {
