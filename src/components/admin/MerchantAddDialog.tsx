@@ -390,6 +390,21 @@ export function MerchantAddDialog({
 
       if (error) throw error;
 
+      // Assign both buyer and merchant roles to user if linked
+      const linkedUserId = (formData.user_id === 'none_value' || !formData.user_id) ? null : formData.user_id;
+      if (linkedUserId) {
+        // Assign buyer role
+        await supabase.from('user_roles').upsert(
+          { user_id: linkedUserId, role: 'buyer' },
+          { onConflict: 'user_id,role' }
+        );
+        // Assign merchant role
+        await supabase.from('user_roles').upsert(
+          { user_id: linkedUserId, role: 'merchant' },
+          { onConflict: 'user_id,role' }
+        );
+      }
+
       toast.success('Merchant baru berhasil ditambahkan');
       onSuccess();
       onOpenChange(false);

@@ -158,7 +158,20 @@ export async function fetchPendingCouriers(): Promise<Courier[]> {
 
 // Approval actions
 export async function approveMerchant(id: string): Promise<boolean> {
-  const { error } = await supabase
+  // 1. Get merchant data to find user_id
+  const { data: merchant, error: fetchError } = await supabase
+    .from('merchants')
+    .select('user_id')
+    .eq('id', id)
+    .single();
+
+  if (fetchError || !merchant) {
+    console.error('Error fetching merchant for approval:', fetchError);
+    return false;
+  }
+
+  // 2. Update merchant status
+  const { error: updateError } = await supabase
     .from('merchants')
     .update({
       registration_status: 'APPROVED',
@@ -167,9 +180,23 @@ export async function approveMerchant(id: string): Promise<boolean> {
     })
     .eq('id', id);
 
-  if (error) {
-    console.error('Error approving merchant:', error);
+  if (updateError) {
+    console.error('Error approving merchant:', updateError);
     return false;
+  }
+
+  // 3. Assign both buyer and merchant roles to user if linked
+  if (merchant.user_id) {
+    // Assign buyer role
+    await supabase.from('user_roles').upsert(
+      { user_id: merchant.user_id, role: 'buyer' },
+      { onConflict: 'user_id,role' }
+    );
+    // Assign merchant role
+    await supabase.from('user_roles').upsert(
+      { user_id: merchant.user_id, role: 'merchant' },
+      { onConflict: 'user_id,role' }
+    );
   }
 
   return true;
