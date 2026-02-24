@@ -156,7 +156,7 @@ export default function AdminTransactionQuotaPage() {
         .order('created_at', { ascending: false });
 
       if (reqError) throw reqError;
-      console.log('Fetched subscription requests:', reqData);
+      
       setRequests((reqData || []) as any[]);
 
       // Fetch tiers

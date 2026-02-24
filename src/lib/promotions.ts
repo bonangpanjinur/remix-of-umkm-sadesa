@@ -60,14 +60,12 @@ export async function fetchBannerPromotions(): Promise<Promotion[]> {
   return fetchPromotions('banner');
 }
 
-// Increment view count (simplified - just log for now, can add RPC later)
-export async function incrementPromotionView(id: string): Promise<void> {
-  // For now, we'll just log - admin dashboard can implement proper tracking
-  console.log('View tracked for promotion:', id);
+// Increment view count (no-op placeholder - can add RPC later)
+export async function incrementPromotionView(_id: string): Promise<void> {
+  // Placeholder - admin dashboard can implement proper tracking via RPC
 }
 
 // Increment click count  
-export async function incrementPromotionClick(id: string): Promise<void> {
-  // For now, we'll just log - admin dashboard can implement proper tracking
-  console.log('Click tracked for promotion:', id);
+export async function incrementPromotionClick(_id: string): Promise<void> {
+  // Placeholder - admin dashboard can implement proper tracking via RPC
 }

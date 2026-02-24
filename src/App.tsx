@@ -376,16 +376,6 @@ const App = () => (
                   <AdminWithdrawalsPage />
                 </ProtectedRoute>
               } />
-              <Route path="/admin/packages" element={
-                <ProtectedRoute allowedRoles={['admin']}>
-                  <AdminTransactionQuotaPage />
-                </ProtectedRoute>
-              } />
-              <Route path="/admin/quota-settings" element={
-                <ProtectedRoute allowedRoles={['admin']}>
-                  <AdminTransactionQuotaPage />
-                </ProtectedRoute>
-              } />
               <Route path="/admin/transaction-quota" element={
                 <ProtectedRoute allowedRoles={['admin']}>
                   <AdminTransactionQuotaPage />

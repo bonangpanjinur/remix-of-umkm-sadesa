@@ -186,7 +186,7 @@ export default function RegisterVillagePage() {
                   <Label htmlFor="contactPhone" className="text-xs">Nomor WhatsApp *</Label>
                   <div className="relative mt-1.5">
                     <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input id="contactPhone" placeholder="08xxxxxxxxxx" {...register('contactPhone')} className="pl-10" />
+                    <Input id="contactPhone" placeholder="Nomor telepon" {...register('contactPhone')} className="pl-10" />
                   </div>
                   {errors.contactPhone && <p className="text-destructive text-xs mt-1">{errors.contactPhone.message}</p>}
                 </div>

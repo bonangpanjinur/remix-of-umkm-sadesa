@@ -365,6 +365,15 @@ export default function RegisterMerchantPage() {
       });
 
       if (error) throw error;
+
+      // If auto-approve is enabled, also assign merchant role to user
+      if (isAutoApproveEnabled && user) {
+        await supabase.from('user_roles').upsert(
+          { user_id: user.id, role: 'merchant' },
+          { onConflict: 'user_id,role' }
+        );
+      }
+
       // Clear draft on success
       localStorage.removeItem(DRAFT_KEY);
       setHasDraft(false);

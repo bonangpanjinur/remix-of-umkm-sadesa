@@ -195,7 +195,7 @@ export default function RegisterCourierPage() {
 
             <div className="space-y-2">
               <Label htmlFor="phone">Nomor HP/WhatsApp *</Label>
-              <Input id="phone" type="tel" value={formData.phone || ''} onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))} placeholder="08xxxxxxxxxx" />
+              <Input id="phone" type="tel" value={formData.phone || ''} onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))} placeholder="Nomor telepon" />
               {errors.phone && <p className="text-xs text-destructive">{errors.phone}</p>}
             </div>
 

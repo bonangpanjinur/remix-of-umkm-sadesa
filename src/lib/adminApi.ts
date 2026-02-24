@@ -559,5 +559,5 @@ export async function clearAllSystemCache(): Promise<void> {
   const OTHER_CACHES = ['user_location', 'search_history'];
   OTHER_CACHES.forEach(key => localStorage.removeItem(key));
   
-  console.log('System cache cleared successfully');
+  
 }

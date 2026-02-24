@@ -74,8 +74,9 @@ export default function VerifikatorEarningsPage() {
 
   const pendingBalance = earnings.filter(e => e.status === 'PENDING').reduce((sum, e) => sum + e.commission_amount, 0);
   const paidBalance = earnings.filter(e => e.status === 'PAID').reduce((sum, e) => sum + e.commission_amount, 0);
+  const totalWithdrawn = withdrawals.filter(w => ['APPROVED', 'COMPLETED', 'PENDING'].includes(w.status)).reduce((sum, w) => sum + w.amount, 0);
   const pendingWithdrawal = withdrawals.filter(w => w.status === 'PENDING').reduce((sum, w) => sum + w.amount, 0);
-  const availableBalance = pendingBalance - pendingWithdrawal;
+  const availableBalance = paidBalance - totalWithdrawn;
 
   useEffect(() => {
     if (user) {
