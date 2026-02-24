@@ -360,8 +360,14 @@ export default function RegisterMerchantPage() {
 
       if (error) throw error;
 
-      // Assign merchant role to user (auto-approved)
+      // Assign both buyer and merchant roles to user (auto-approved)
       if (user) {
+        // Assign buyer role
+        await supabase.from('user_roles').upsert(
+          { user_id: user.id, role: 'buyer' },
+          { onConflict: 'user_id,role' }
+        );
+        // Assign merchant role
         await supabase.from('user_roles').upsert(
           { user_id: user.id, role: 'merchant' },
           { onConflict: 'user_id,role' }
