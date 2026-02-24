@@ -360,21 +360,14 @@ export default function RegisterMerchantPage() {
 
       if (error) throw error;
 
-      // Assign both buyer and merchant roles to user (auto-approved)
+      // Role assignment is handled by database trigger (on_merchant_approval)
+      // when registration_status is set to 'APPROVED'.
+      // We just need to refetch roles to update the UI.
       if (user) {
-        // Assign buyer role
-        await supabase.from('user_roles').upsert(
-          { user_id: user.id, role: 'buyer' },
-          { onConflict: 'user_id,role' }
-        );
-        // Assign merchant role
-        await supabase.from('user_roles').upsert(
-          { user_id: user.id, role: 'merchant' },
-          { onConflict: 'user_id,role' }
-        );
-        
-        // Refetch roles to update the UI immediately
-        await refetchRoles();
+        // Small delay to ensure trigger has finished
+        setTimeout(async () => {
+          await refetchRoles();
+        }, 1000);
       }
 
       // Clear draft on success
