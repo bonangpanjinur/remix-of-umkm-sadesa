@@ -41,13 +41,13 @@ export async function requestPushPermission(): Promise<boolean> {
 export async function subscribeToPush(userId: string): Promise<boolean> {
   try {
     if (!(await isPushSupported())) {
-      console.log('Push not supported');
+      
       return false;
     }
 
     const permission = await requestPushPermission();
     if (!permission) {
-      console.log('Push permission denied');
+      
       return false;
     }
 
@@ -78,7 +78,7 @@ export async function subscribeToPush(userId: string): Promise<boolean> {
 
     if (error) throw error;
 
-    console.log('Push subscription saved');
+    
     return true;
   } catch (error) {
     console.error('Error subscribing to push:', error);

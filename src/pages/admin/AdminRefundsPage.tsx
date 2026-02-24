@@ -138,12 +138,28 @@ export default function AdminRefundsPage() {
 
       if (error) throw error;
 
-      // If approved, update order status
+      // If approved, update order status and deduct merchant balance
       if (processAction === 'approve') {
         await supabase
           .from('orders')
           .update({ status: 'REFUNDED' })
           .eq('id', selectedRefund.orderId);
+
+        // Deduct refund amount from merchant's available balance
+        const { data: merchant } = await supabase
+          .from('merchants')
+          .select('available_balance')
+          .eq('id', selectedRefund.merchantId)
+          .single();
+
+        if (merchant) {
+          await supabase
+            .from('merchants')
+            .update({
+              available_balance: Math.max(0, (merchant.available_balance || 0) - selectedRefund.amount),
+            })
+            .eq('id', selectedRefund.merchantId);
+        }
       }
 
       await logAdminAction(

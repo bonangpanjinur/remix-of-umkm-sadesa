@@ -154,7 +154,7 @@ export function useRealtimeStats() {
         'postgres_changes',
         { event: '*', schema: 'public', table: 'orders' },
         (payload) => {
-          console.log('Order change:', payload);
+          
           addEvent({
             type: 'order',
             action: payload.eventType as 'INSERT' | 'UPDATE' | 'DELETE',
@@ -177,7 +177,7 @@ export function useRealtimeStats() {
         'postgres_changes',
         { event: '*', schema: 'public', table: 'merchants' },
         (payload) => {
-          console.log('Merchant change:', payload);
+          
           addEvent({
             type: 'merchant',
             action: payload.eventType as 'INSERT' | 'UPDATE' | 'DELETE',
@@ -196,7 +196,7 @@ export function useRealtimeStats() {
         'postgres_changes',
         { event: '*', schema: 'public', table: 'couriers' },
         (payload) => {
-          console.log('Courier change:', payload);
+          
           addEvent({
             type: 'courier',
             action: payload.eventType as 'INSERT' | 'UPDATE' | 'DELETE',
@@ -215,7 +215,7 @@ export function useRealtimeStats() {
         'postgres_changes',
         { event: '*', schema: 'public', table: 'villages' },
         (payload) => {
-          console.log('Village change:', payload);
+          
           addEvent({
             type: 'village',
             action: payload.eventType as 'INSERT' | 'UPDATE' | 'DELETE',
@@ -234,7 +234,7 @@ export function useRealtimeStats() {
         'postgres_changes',
         { event: '*', schema: 'public', table: 'products' },
         (payload) => {
-          console.log('Product change:', payload);
+          
           addEvent({
             type: 'product',
             action: payload.eventType as 'INSERT' | 'UPDATE' | 'DELETE',

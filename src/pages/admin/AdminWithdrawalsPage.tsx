@@ -146,11 +146,17 @@ export default function AdminWithdrawalsPage() {
     setProcessing(true);
 
     try {
-      // Refund the balance back to merchant
+      // Refund the balance back to merchant using re-fetched data to avoid race condition
+      const { data: freshMerchant } = await supabase
+        .from('merchants')
+        .select('available_balance')
+        .eq('id', selectedWithdrawal.merchant_id)
+        .single();
+
       await supabase
         .from('merchants')
         .update({
-          available_balance: (selectedWithdrawal.merchant?.available_balance || 0) + selectedWithdrawal.amount,
+          available_balance: (freshMerchant?.available_balance || 0) + selectedWithdrawal.amount,
         })
         .eq('id', selectedWithdrawal.merchant_id);
 

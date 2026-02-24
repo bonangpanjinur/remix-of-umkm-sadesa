@@ -110,12 +110,22 @@ export default function DesaTourismPage() {
           .eq('user_id', user.id)
           .maybeSingle();
 
-        if (!userVillage) {
+        let currentVillageId = userVillage?.village_id;
+
+        // Fallback: check villages.user_id directly
+        if (!currentVillageId) {
+          const { data: directVillage } = await supabase
+            .from('villages')
+            .select('id')
+            .eq('user_id', user.id)
+            .maybeSingle();
+          currentVillageId = directVillage?.id;
+        }
+
+        if (!currentVillageId) {
           setLoading(false);
           return;
         }
-
-        const currentVillageId = userVillage.village_id;
         setVillageId(currentVillageId);
 
         const { data, error } = await supabase
