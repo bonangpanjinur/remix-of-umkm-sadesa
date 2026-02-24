@@ -16,7 +16,7 @@ export function PhoneInput({
   value,
   onChange,
   onValidationChange,
-  placeholder = '08xx-xxxx-xxxx',
+  placeholder = 'Nomor telepon',
   disabled,
   className,
 }: PhoneInputProps) {
@@ -36,8 +36,8 @@ export function PhoneInput({
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const input = e.target.value;
     
-    // Only allow digits and dashes
-    const filtered = input.replace(/[^\d-]/g, '');
+    // Only allow digits, dashes, plus, spaces
+    const filtered = input.replace(/[^\d\-+\s]/g, '');
     
     // Normalize and update
     const normalized = normalizePhone(filtered);
