@@ -92,9 +92,16 @@ export function ProductCardHorizontal({ product, index = 0 }: ProductCardHorizon
         </div>
         
         <div className="flex items-center justify-between mt-1">
-          <p className="text-primary font-bold text-sm">
-            {formatPrice(product.price)}
-          </p>
+          <div className="flex flex-col">
+            <p className="text-primary font-bold text-sm">
+              {formatPrice(product.price)}
+            </p>
+            {(product as any).sold_count > 0 && (
+              <span className="text-[9px] text-muted-foreground">
+                {(product as any).sold_count >= 100 ? '100+ terjual' : `${(product as any).sold_count} terjual`}
+              </span>
+            )}
+          </div>
           {isAvailable && (
             <button
               onClick={handleAddToCart}

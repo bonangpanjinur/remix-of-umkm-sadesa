@@ -131,19 +131,24 @@ export function ProductCard({ product, index = 0, showCategoryBadge = false }: P
           {product.name}
         </h3>
         <div className="flex justify-between items-center mt-1.5">
-          <div className="flex flex-col">
-            {originalPrice && isAvailable && (
-              <span className="text-[9px] text-muted-foreground line-through">
-                {formatPrice(originalPrice)}
-              </span>
-            )}
-            <p className={cn(
-              "font-bold text-xs",
-              flashSale && isAvailable ? "text-destructive" : "text-primary"
-            )}>
-              {formatPrice(displayPrice)}
-            </p>
-          </div>
+            <div className="flex flex-col">
+              {originalPrice && isAvailable && (
+                <span className="text-[9px] text-muted-foreground line-through">
+                  {formatPrice(originalPrice)}
+                </span>
+              )}
+              <p className={cn(
+                "font-bold text-xs",
+                flashSale && isAvailable ? "text-destructive" : "text-primary"
+              )}>
+                {formatPrice(displayPrice)}
+              </p>
+              {(product as any).sold_count > 0 && (
+                <span className="text-[9px] text-muted-foreground">
+                  {(product as any).sold_count >= 100 ? '100+ terjual' : `${(product as any).sold_count} terjual`}
+                </span>
+              )}
+            </div>
           {isAvailable && (
             <button
               onClick={handleAddToCart}

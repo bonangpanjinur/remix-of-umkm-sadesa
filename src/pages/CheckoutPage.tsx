@@ -705,6 +705,28 @@ export default function CheckoutPage() {
         </h2>
       </div>
       
+      {/* Step Indicator */}
+      <div className="px-4 pt-3 pb-1 bg-card border-b border-border">
+        <div className="flex items-center justify-between">
+          {[
+            { icon: Package, label: 'Pesanan' },
+            { icon: MapPin, label: 'Alamat' },
+            { icon: Truck, label: 'Pengiriman' },
+            { icon: CreditCard, label: 'Bayar' },
+          ].map((step, i) => (
+            <div key={step.label} className="flex items-center">
+              <div className="flex flex-col items-center gap-0.5">
+                <div className="w-7 h-7 rounded-full bg-primary/10 text-primary flex items-center justify-center">
+                  <step.icon className="h-3.5 w-3.5" />
+                </div>
+                <span className="text-[9px] text-muted-foreground font-medium">{step.label}</span>
+              </div>
+              {i < 3 && <div className="w-6 h-px bg-border mx-1 mb-4" />}
+            </div>
+          ))}
+        </div>
+      </div>
+
       <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-4 pb-56">
         {/* Quota Blocked Alert */}
         {!quotaLoading && blockedMerchants.length > 0 && (
