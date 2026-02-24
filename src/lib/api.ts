@@ -250,6 +250,7 @@ export async function fetchProducts(): Promise<Product[]> {
       hasQuota,
       locationLat,
       locationLng,
+      sold_count: p.sold_count || 0,
     };
   });
 

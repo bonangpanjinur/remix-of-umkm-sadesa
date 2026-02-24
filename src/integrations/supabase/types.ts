@@ -1907,6 +1907,7 @@ export type Database = {
           name: string
           order_count: number | null
           price: number
+          sold_count: number
           stock: number
           updated_at: string
           view_count: number | null
@@ -1927,6 +1928,7 @@ export type Database = {
           name: string
           order_count?: number | null
           price: number
+          sold_count?: number
           stock?: number
           updated_at?: string
           view_count?: number | null
@@ -1947,6 +1949,7 @@ export type Database = {
           name?: string
           order_count?: number | null
           price?: number
+          sold_count?: number
           stock?: number
           updated_at?: string
           view_count?: number | null
