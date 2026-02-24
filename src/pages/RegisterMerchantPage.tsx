@@ -95,7 +95,7 @@ interface DraftData {
 
 export default function RegisterMerchantPage() {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, refetchRoles } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [showEmailModal, setShowEmailModal] = useState(false);
@@ -372,6 +372,9 @@ export default function RegisterMerchantPage() {
           { user_id: user.id, role: 'merchant' },
           { onConflict: 'user_id,role' }
         );
+        
+        // Refetch roles to update the UI immediately
+        await refetchRoles();
       }
 
       // Clear draft on success
