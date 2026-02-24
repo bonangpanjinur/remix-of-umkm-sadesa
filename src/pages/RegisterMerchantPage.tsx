@@ -325,16 +325,10 @@ export default function RegisterMerchantPage() {
         return;
       }
 
-      // Check if merchant auto-approve is enabled
-      const { data: autoApproveSettings } = await supabase
-        .from('app_settings')
-        .select('value')
-        .eq('key', 'merchant_auto_approve')
-        .single();
-      
-      const isAutoApproveEnabled = (autoApproveSettings?.value as any)?.enabled ?? false;
-      const registrationStatus = isAutoApproveEnabled ? 'APPROVED' : 'PENDING';
-      const merchantStatus = isAutoApproveEnabled ? 'ACTIVE' : 'PENDING';
+      // Auto-approve merchants on registration (direct ACC without admin approval)
+      const isAutoApproveEnabled = true;
+      const registrationStatus = 'APPROVED';
+      const merchantStatus = 'ACTIVE';
 
       const { error } = await supabase.from('merchants').insert({
         name: data.name.trim(),
@@ -366,8 +360,8 @@ export default function RegisterMerchantPage() {
 
       if (error) throw error;
 
-      // If auto-approve is enabled, also assign merchant role to user
-      if (isAutoApproveEnabled && user) {
+      // Assign merchant role to user (auto-approved)
+      if (user) {
         await supabase.from('user_roles').upsert(
           { user_id: user.id, role: 'merchant' },
           { onConflict: 'user_id,role' }
@@ -402,7 +396,7 @@ export default function RegisterMerchantPage() {
           </motion.div>
           <h2 className="text-2xl font-bold mb-2">Pendaftaran Terkirim!</h2>
           <p className="text-muted-foreground mb-8">
-            Terima kasih telah mendaftar sebagai mitra merchant. Tim kami akan melakukan verifikasi data Anda dalam 1-3 hari kerja.
+            Akun merchant Anda telah disetujui! Anda sekarang dapat mengakses dashboard dan mulai mengelola produk serta pesanan.
           </p>
           <Button onClick={() => navigate('/')} className="w-full max-w-xs">
             Kembali ke Beranda
@@ -687,7 +681,7 @@ export default function RegisterMerchantPage() {
             <AlertDialogTitle className="text-center text-xl">Pendaftaran Berhasil!</AlertDialogTitle>
             <AlertDialogDescription className="text-center space-y-3">
               <p>
-                Data pendaftaran Anda telah kami terima dan sedang dalam proses verifikasi.
+                Selamat! Akun merchant Anda telah disetujui dan siap digunakan.
               </p>
               <div className="bg-muted p-3 rounded-lg text-xs text-left space-y-2">
                 <div className="flex items-center gap-2">
@@ -695,9 +689,9 @@ export default function RegisterMerchantPage() {
                   <span className="font-semibold">Apa selanjutnya?</span>
                 </div>
                 <ul className="list-disc list-inside space-y-1 text-muted-foreground">
-                  <li>Verifikasi data (1-3 hari kerja)</li>
-                  <li>Pemberitahuan via WhatsApp/Email</li>
-                  <li>Akses ke Dashboard Merchant</li>
+                  <li>Akses langsung ke Dashboard Merchant</li>
+                  <li>Mulai tambahkan produk Anda</li>
+                  <li>Terima pesanan dari pembeli</li>
                 </ul>
               </div>
             </AlertDialogDescription>
