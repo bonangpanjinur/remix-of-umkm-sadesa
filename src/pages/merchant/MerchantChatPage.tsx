@@ -97,7 +97,14 @@ export default function MerchantChatPage() {
         const profile = (profiles || []).find(p => p.user_id === thread.otherUserId);
         const merchant = (merchants || []).find(m => m.user_id === thread.otherUserId);
         const courier = (couriers || []).find(c => c.user_id === thread.otherUserId);
-        thread.otherUserName = profile?.full_name || merchant?.name || courier?.name || (thread.chatType === 'merchant_courier' ? 'Kurir' : 'Pembeli');
+        
+        // If it's a buyer_merchant chat, the other user is the buyer
+        if (thread.chatType === 'buyer_merchant') {
+          thread.otherUserName = profile?.full_name || 'Pembeli';
+        } else {
+          // If it's merchant_courier, the other user is the courier
+          thread.otherUserName = courier?.name || 'Kurir';
+        }
       }
 
       // Fetch order items for product info

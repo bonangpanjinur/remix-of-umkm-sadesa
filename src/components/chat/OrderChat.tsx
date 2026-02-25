@@ -45,12 +45,6 @@ const QUICK_REPLIES: Record<string, string[]> = {
   buyer_merchant: [],
 };
 
-const ROLE_LABELS: Record<string, { self: string; other: string }> = {
-  buyer_merchant: { self: 'Pembeli', other: 'Penjual' },
-  buyer_courier: { self: 'Pembeli', other: 'Kurir' },
-  merchant_courier: { self: 'Penjual', other: 'Kurir' },
-};
-
 export function OrderChat({ orderId, otherUserId, otherUserName, isOpen, onClose, chatType = 'buyer_merchant', senderRole }: OrderChatProps) {
   const { user } = useAuth();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -246,60 +240,12 @@ export function OrderChat({ orderId, otherUserId, otherUserName, isOpen, onClose
   const getRoleLabel = (senderId: string): string => {
     if (!orderInfo || !user) return '';
     
-    // Determine current user's role based on chat type and order info
-    let currentUserRole: 'buyer' | 'merchant' | 'courier' | null = null;
+    // Determine sender's role based on order data
+    if (senderId === orderInfo.buyerId) return 'Pembeli';
+    if (senderId === orderInfo.merchantId) return 'Penjual';
     
-    if (chatType === 'buyer_merchant') {
-      // In buyer_merchant chat, determine if current user is buyer or merchant
-      if (user.id === orderInfo.buyerId) {
-        currentUserRole = 'buyer';
-      } else if (user.id === orderInfo.merchantId) {
-        currentUserRole = 'merchant';
-      }
-    } else if (chatType === 'buyer_courier') {
-      // In buyer_courier chat, determine if current user is buyer or courier
-      if (user.id === orderInfo.buyerId) {
-        currentUserRole = 'buyer';
-      } else {
-        currentUserRole = 'courier';
-      }
-    } else if (chatType === 'merchant_courier') {
-      // In merchant_courier chat, determine if current user is merchant or courier
-      if (user.id === orderInfo.merchantId) {
-        currentUserRole = 'merchant';
-      } else {
-        currentUserRole = 'courier';
-      }
-    }
-    
-    // Determine sender's role
-    let senderRole: 'buyer' | 'merchant' | 'courier' | null = null;
-    
-    if (chatType === 'buyer_merchant') {
-      if (senderId === orderInfo.buyerId) {
-        senderRole = 'buyer';
-      } else if (senderId === orderInfo.merchantId) {
-        senderRole = 'merchant';
-      }
-    } else if (chatType === 'buyer_courier') {
-      if (senderId === orderInfo.buyerId) {
-        senderRole = 'buyer';
-      } else {
-        senderRole = 'courier';
-      }
-    } else if (chatType === 'merchant_courier') {
-      if (senderId === orderInfo.merchantId) {
-        senderRole = 'merchant';
-      } else {
-        senderRole = 'courier';
-      }
-    }
-    
-    // Return appropriate label
-    if (senderRole === 'buyer') return 'Pembeli';
-    if (senderRole === 'merchant') return 'Penjual';
-    if (senderRole === 'courier') return 'Kurir';
-    return '';
+    // If not buyer or merchant, it's likely a courier in this context
+    return 'Kurir';
   };
 
   const quickReplies = QUICK_REPLIES[chatType] || [];
@@ -315,134 +261,143 @@ export function OrderChat({ orderId, otherUserId, otherUserName, isOpen, onClose
       <div className="relative w-full max-w-md bg-card border border-border rounded-t-2xl sm:rounded-2xl shadow-xl flex flex-col max-h-[80vh]">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-border">
-          <div className="flex items-center gap-2">
-            <MessageCircle className="h-5 w-5 text-primary" />
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+              <MessageCircle className="h-5 w-5 text-primary" />
+            </div>
             <div>
               <h3 className="font-semibold text-sm">{otherUserName}</h3>
-              <p className="text-xs text-muted-foreground">
-                {chatType === 'buyer_merchant' ? 'Chat Pesanan' : 
-                 chatType === 'buyer_courier' ? 'Chat Kurir' : 'Chat Penjual-Kurir'}
-                {orderInfo && <span className="ml-1 font-mono">#{orderInfo.shortId}</span>}
+              <p className="text-[10px] text-muted-foreground">
+                Order #{orderInfo?.shortId || '...'}
               </p>
             </div>
           </div>
-          <Button variant="ghost" size="icon" onClick={onClose}>
-            <X className="h-4 w-4" />
+          <Button variant="ghost" size="icon" onClick={onClose} className="rounded-full">
+            <X className="h-5 w-5" />
           </Button>
         </div>
 
-        {/* Order Info Card */}
-        {orderInfo && firstItem && (
-          <div className="px-4 py-2.5 border-b border-border bg-secondary/30">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-muted overflow-hidden flex-shrink-0">
-                {firstItem.imageUrl ? (
-                  <img src={firstItem.imageUrl} alt={firstItem.productName} className="w-full h-full object-cover" />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center">
-                    <ShoppingBag className="w-5 h-5 text-muted-foreground" />
-                  </div>
-                )}
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-medium truncate">{firstItem.productName}</p>
-                <p className="text-[11px] text-muted-foreground">
-                  {firstItem.quantity}x
-                  {otherItemsCount > 0 && ` +${otherItemsCount} produk lainnya`}
-                  <span className="mx-1">•</span>
-                  <span className="font-medium text-foreground">{formatPrice(orderInfo.total)}</span>
-                </p>
-              </div>
+        {/* Order Brief */}
+        {orderInfo && (
+          <div className="p-3 bg-accent/30 border-b border-border flex items-center gap-3">
+            <div className="w-10 h-10 rounded bg-background overflow-hidden border border-border flex-shrink-0">
+              {firstItem?.imageUrl ? (
+                <img src={firstItem.imageUrl} alt="" className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center bg-muted">
+                  <ShoppingBag className="h-4 w-4 text-muted-foreground" />
+                </div>
+              )}
             </div>
-          </div>
-        )}
-
-        {/* Auto-delete warning */}
-        {autoDeleteInfo && (
-          <div className="px-4 py-2 bg-warning/10 text-warning text-xs flex items-center gap-1.5">
-            <Clock className="h-3 w-3" />
-            Chat akan otomatis dihapus {formatDistanceToNow(new Date(autoDeleteInfo), { locale: idLocale, addSuffix: true })}
+            <div className="flex-1 min-w-0">
+              <p className="text-[11px] font-medium truncate">
+                {firstItem?.productName}
+                {otherItemsCount > 0 && ` +${otherItemsCount} produk lainnya`}
+              </p>
+              <p className="text-[10px] text-primary font-semibold">{formatPrice(orderInfo.total)}</p>
+            </div>
           </div>
         )}
 
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-3 min-h-[200px]">
-          {messages.length === 0 && (
-            <div className="text-center text-muted-foreground text-sm py-8">
-              Belum ada pesan. Mulai chat tentang pesanan ini.
+        <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-[300px]">
+          {autoDeleteInfo && (
+            <div className="flex items-center justify-center gap-1.5 p-2 bg-warning/10 rounded-lg border border-warning/20 mb-4">
+              <Clock className="h-3 w-3 text-warning" />
+              <p className="text-[10px] text-warning font-medium">
+                Pesan akan dihapus otomatis setelah pesanan selesai
+              </p>
             </div>
           )}
-          {messages.map((msg) => {
-            const isMine = msg.sender_id === user?.id;
-            const senderDisplayName = senderNames[msg.sender_id] || 'Memuat...';
-            const roleLabel = getRoleLabel(msg.sender_id);
-            return (
-              <div key={msg.id} className={cn('flex', isMine ? 'justify-end' : 'justify-start')}>
-                <div className={cn(
-                  'max-w-[75%] rounded-2xl px-3 py-2',
-                  isMine
-                    ? 'bg-primary text-primary-foreground rounded-br-md'
-                    : 'bg-secondary text-secondary-foreground rounded-bl-md'
-                )}>
-                  {/* Sender name label with role */}
-                  <p className={cn(
-                    'text-[11px] font-semibold mb-0.5',
-                    isMine ? 'text-primary-foreground/80' : 'text-primary'
-                  )}>
-                    {isMine ? 'Anda' : senderDisplayName}
-                    {roleLabel && (
-                      <span className={cn(
-                        'ml-1 font-normal',
-                        isMine ? 'text-primary-foreground/60' : 'text-muted-foreground'
-                      )}>
-                        ({roleLabel})
+
+          {messages.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-10 text-center opacity-40">
+              <MessageCircle className="h-10 w-10 mb-2" />
+              <p className="text-xs">Belum ada pesan. Mulai percakapan sekarang!</p>
+            </div>
+          ) : (
+            messages.map((msg, idx) => {
+              const isMe = msg.sender_id === user?.id;
+              const showDate = idx === 0 || 
+                format(new Date(messages[idx-1].created_at), 'yyyy-MM-dd') !== format(new Date(msg.created_at), 'yyyy-MM-dd');
+              
+              return (
+                <div key={msg.id} className="space-y-2">
+                  {showDate && (
+                    <div className="flex justify-center my-4">
+                      <span className="text-[10px] bg-muted px-2 py-0.5 rounded-full text-muted-foreground">
+                        {format(new Date(msg.created_at), 'd MMMM yyyy', { locale: idLocale })}
                       </span>
-                    )}
-                  </p>
-                  {msg.image_url && (
-                    <img src={msg.image_url} alt="Chat image" className="rounded-lg mb-1 max-h-40 object-cover" />
+                    </div>
                   )}
-                  <p className="text-sm whitespace-pre-wrap break-words">{msg.message}</p>
-                  <p className={cn(
-                    'text-[10px] mt-1',
-                    isMine ? 'text-primary-foreground/70' : 'text-muted-foreground'
-                  )}>
-                    {format(new Date(msg.created_at), 'HH:mm')}
-                  </p>
+                  <div className={cn("flex flex-col", isMe ? "items-end" : "items-start")}>
+                    <div className="flex items-center gap-1.5 mb-1 px-1">
+                      <span className="text-[10px] font-semibold text-muted-foreground">
+                        {isMe ? 'Anda' : (senderNames[msg.sender_id] || otherUserName)}
+                      </span>
+                      <span className="text-[9px] px-1 bg-muted rounded text-muted-foreground uppercase">
+                        {getRoleLabel(msg.sender_id)}
+                      </span>
+                    </div>
+                    <div className={cn(
+                      "max-w-[85%] px-3 py-2 rounded-2xl text-sm shadow-sm",
+                      isMe ? "bg-primary text-primary-foreground rounded-tr-none" : "bg-muted rounded-tl-none"
+                    )}>
+                      {msg.message}
+                      <div className={cn(
+                        "text-[9px] mt-1 flex items-center justify-end gap-1 opacity-70",
+                        isMe ? "text-primary-foreground" : "text-muted-foreground"
+                      )}>
+                        {format(new Date(msg.created_at), 'HH:mm')}
+                        {isMe && (
+                          <span className="text-[10px] font-bold">
+                            {msg.is_read ? '✓✓' : '✓'}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })
+          )}
           <div ref={messagesEndRef} />
         </div>
 
-        {/* Quick Replies */}
-        {quickReplies.length > 0 && messages.length === 0 && (
-          <div className="px-3 pb-2 flex gap-1.5 flex-wrap">
-            {quickReplies.map((reply) => (
-              <button
-                key={reply}
-                onClick={() => handleSend(reply)}
-                className="text-xs px-3 py-1.5 rounded-full bg-secondary text-secondary-foreground hover:bg-secondary/80 transition"
-              >
-                {reply}
-              </button>
-            ))}
+        {/* Footer */}
+        <div className="p-4 border-t border-border bg-background rounded-b-2xl">
+          {quickReplies.length > 0 && (
+            <div className="flex gap-2 overflow-x-auto pb-3 no-scrollbar">
+              {quickReplies.map((reply) => (
+                <Button
+                  key={reply}
+                  variant="outline"
+                  size="sm"
+                  className="text-[10px] h-7 rounded-full whitespace-nowrap bg-accent/50 hover:bg-accent"
+                  onClick={() => handleSend(reply)}
+                >
+                  {reply}
+                </Button>
+              ))}
+            </div>
+          )}
+          <div className="flex items-center gap-2">
+            <Input
+              placeholder="Ketik pesan..."
+              value={newMessage}
+              onChange={(e) => setNewMessage(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+              className="flex-1 h-10 rounded-full bg-muted border-none focus-visible:ring-primary"
+            />
+            <Button 
+              size="icon" 
+              className="rounded-full h-10 w-10 shrink-0" 
+              disabled={!newMessage.trim() || sending}
+              onClick={() => handleSend()}
+            >
+              <Send className="h-4 w-4" />
+            </Button>
           </div>
-        )}
-
-        {/* Input */}
-        <div className="p-3 border-t border-border flex gap-2">
-          <Input
-            value={newMessage}
-            onChange={(e) => setNewMessage(e.target.value)}
-            placeholder="Ketik pesan..."
-            onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
-            className="flex-1"
-          />
-          <Button size="icon" onClick={() => handleSend()} disabled={!newMessage.trim() || sending}>
-            <Send className="h-4 w-4" />
-          </Button>
         </div>
       </div>
     </div>
