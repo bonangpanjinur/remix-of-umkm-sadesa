@@ -58,7 +58,7 @@ export function OrderChat({ orderId, otherUserId, otherUserName, isOpen, onClose
   const [sending, setSending] = useState(false);
   const [autoDeleteInfo, setAutoDeleteInfo] = useState<string | null>(null);
   const [senderNames, setSenderNames] = useState<Record<string, string>>({});
-  const [orderInfo, setOrderInfo] = useState<OrderInfo | null>(null);
+  const [orderInfo, setOrderInfo] = useState<OrderInfo & { buyerId: string; merchantId: string | null } | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Fetch order info (items + products)
@@ -68,7 +68,7 @@ export function OrderChat({ orderId, otherUserId, otherUserName, isOpen, onClose
     const fetchOrderInfo = async () => {
       const { data: order } = await supabase
         .from('orders')
-        .select('id, total')
+        .select('id, total, buyer_id, merchant_id')
         .eq('id', orderId)
         .single();
 
@@ -95,6 +95,8 @@ export function OrderChat({ orderId, otherUserId, otherUserName, isOpen, onClose
       setOrderInfo({
         shortId: order.id.substring(0, 8).toUpperCase(),
         total: order.total,
+        buyerId: order.buyer_id,
+        merchantId: order.merchant_id,
         items: items.map(i => ({
           productName: i.product_name,
           quantity: i.quantity,
@@ -242,6 +244,15 @@ export function OrderChat({ orderId, otherUserId, otherUserName, isOpen, onClose
   };
 
   const getRoleLabel = (senderId: string): string => {
+    if (!orderInfo) return '';
+    
+    // Logic for buyer_merchant chat
+    if (chatType === 'buyer_merchant') {
+      if (senderId === orderInfo.buyerId) return 'Pembeli';
+      return 'Penjual';
+    }
+    
+    // Logic for courier chats (simplified fallback)
     const labels = ROLE_LABELS[chatType];
     if (!labels) return '';
     if (senderId === user?.id) return labels.self;
