@@ -143,10 +143,7 @@ const OrdersPage = () => {
           .order("created_at", { ascending: false });
         
         if (!r2.error) {
-          data = (r2.data || []).map((o: any) => ({
-            ...o,
-            order_items: (o.order_items || []).map((i: any) => ({ ...i, products: null })),
-          }));
+          data = r2.data;
         } else {
           console.warn("L2 failed:", r2.error.message);
           
@@ -158,7 +155,7 @@ const OrdersPage = () => {
             .order("created_at", { ascending: false });
           
           if (!r3.error) {
-            data = (r3.data || []).map((o: any) => ({ ...o, order_items: [], is_self_delivery: false, has_review: false }));
+            data = r3.data;
           } else {
             console.warn("L3 failed:", r3.error.message);
             
@@ -170,7 +167,7 @@ const OrdersPage = () => {
               .order("created_at", { ascending: false });
             
             if (!r4.error) {
-              data = (r4.data || []).map((o: any) => ({ ...o, merchants: null, order_items: [], is_self_delivery: false, has_review: false }));
+              data = r4.data;
             } else {
               console.error("All query levels failed:", r4.error.message);
               setFetchError(true);
@@ -546,7 +543,8 @@ const OrdersPage = () => {
             ) : filteredOrders.length > 0 ? (
               filteredOrders.map((order) => {
                 const firstItem = order.order_items?.[0];
-                const imageUrl = firstItem?.products?.image_url;
+                // Support both image_url from DB and image from mapped Product interface
+                const imageUrl = firstItem?.products?.image_url || (firstItem?.products as any)?.image;
                 const productName = firstItem?.product_name || firstItem?.products?.name || "Produk";
                 const itemCount = order.order_items?.length || 0;
                 const statusConf = STATUS_CONFIG[order.status] || STATUS_CONFIG.NEW;
