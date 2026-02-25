@@ -61,7 +61,7 @@ export default function OrderTrackingPage() {
   const [refundDialogOpen, setRefundDialogOpen] = useState(false);
   const [chatOpen, setChatOpen] = useState<{ type: ChatType; userId: string; name: string } | null>(null);
   const [merchantInfo, setMerchantInfo] = useState<{ userId: string; name: string } | null>(null);
-  const [orderItems, setOrderItems] = useState<Array<{ id: string; product_name: string; quantity: number; product_price: number; subtotal: number; product_id: string | null }>>([]);
+  const [orderItems, setOrderItems] = useState<Array<{ id: string; product_name: string; quantity: number; product_price: number; subtotal: number; product_id: string | null; products?: { image_url: string | null } | null }>>([]);
   const courierRef = useRef<CourierInfo | null>(null);
 
   // Keep ref in sync
@@ -121,12 +121,12 @@ export default function OrderTrackingPage() {
 
       setOrder(orderData as unknown as OrderDetails);
 
-      // Fetch order items
+      // Fetch order items with product images
       const { data: itemsData } = await supabase
         .from('order_items')
-        .select('id, product_name, quantity, product_price, subtotal, product_id')
+        .select('id, product_name, quantity, product_price, subtotal, product_id, products(image_url)')
         .eq('order_id', orderId);
-      setOrderItems(itemsData || []);
+      setOrderItems((itemsData as any) || []);
 
       // Fetch merchant info for chat
       if (orderData.merchant_id) {
@@ -337,8 +337,16 @@ export default function OrderTrackingPage() {
               {orderItems.map((item) => (
                 <div key={item.id} className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-3 flex-1 min-w-0">
-                    <div className="w-10 h-10 bg-muted rounded-lg flex items-center justify-center flex-shrink-0">
-                      <ShoppingBag className="h-4 w-4 text-muted-foreground" />
+                    <div className="w-12 h-12 bg-muted rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden border border-border">
+                      {item.products?.image_url ? (
+                        <img 
+                          src={item.products.image_url} 
+                          alt={item.product_name} 
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <ShoppingBag className="h-5 w-5 text-muted-foreground" />
+                      )}
                     </div>
                     <div className="min-w-0">
                       <p className="text-sm font-medium truncate">{item.product_name}</p>
