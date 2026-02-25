@@ -244,19 +244,62 @@ export function OrderChat({ orderId, otherUserId, otherUserName, isOpen, onClose
   };
 
   const getRoleLabel = (senderId: string): string => {
-    if (!orderInfo) return '';
+    if (!orderInfo || !user) return '';
     
-    // Logic for buyer_merchant chat
+    // Determine current user's role based on chat type and order info
+    let currentUserRole: 'buyer' | 'merchant' | 'courier' | null = null;
+    
     if (chatType === 'buyer_merchant') {
-      if (senderId === orderInfo.buyerId) return 'Pembeli';
-      return 'Penjual';
+      // In buyer_merchant chat, determine if current user is buyer or merchant
+      if (user.id === orderInfo.buyerId) {
+        currentUserRole = 'buyer';
+      } else if (user.id === orderInfo.merchantId) {
+        currentUserRole = 'merchant';
+      }
+    } else if (chatType === 'buyer_courier') {
+      // In buyer_courier chat, determine if current user is buyer or courier
+      if (user.id === orderInfo.buyerId) {
+        currentUserRole = 'buyer';
+      } else {
+        currentUserRole = 'courier';
+      }
+    } else if (chatType === 'merchant_courier') {
+      // In merchant_courier chat, determine if current user is merchant or courier
+      if (user.id === orderInfo.merchantId) {
+        currentUserRole = 'merchant';
+      } else {
+        currentUserRole = 'courier';
+      }
     }
     
-    // Logic for courier chats (simplified fallback)
-    const labels = ROLE_LABELS[chatType];
-    if (!labels) return '';
-    if (senderId === user?.id) return labels.self;
-    return labels.other;
+    // Determine sender's role
+    let senderRole: 'buyer' | 'merchant' | 'courier' | null = null;
+    
+    if (chatType === 'buyer_merchant') {
+      if (senderId === orderInfo.buyerId) {
+        senderRole = 'buyer';
+      } else if (senderId === orderInfo.merchantId) {
+        senderRole = 'merchant';
+      }
+    } else if (chatType === 'buyer_courier') {
+      if (senderId === orderInfo.buyerId) {
+        senderRole = 'buyer';
+      } else {
+        senderRole = 'courier';
+      }
+    } else if (chatType === 'merchant_courier') {
+      if (senderId === orderInfo.merchantId) {
+        senderRole = 'merchant';
+      } else {
+        senderRole = 'courier';
+      }
+    }
+    
+    // Return appropriate label
+    if (senderRole === 'buyer') return 'Pembeli';
+    if (senderRole === 'merchant') return 'Penjual';
+    if (senderRole === 'courier') return 'Kurir';
+    return '';
   };
 
   const quickReplies = QUICK_REPLIES[chatType] || [];
