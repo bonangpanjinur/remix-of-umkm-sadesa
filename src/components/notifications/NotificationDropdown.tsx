@@ -24,10 +24,11 @@ interface Notification {
   link: string | null;
   is_read: boolean;
   created_at: string;
+  order_id?: string | null;
 }
 
 export function NotificationDropdown() {
-  const { user } = useAuth();
+  const { user, roles } = useAuth();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [open, setOpen] = useState(false);
@@ -140,6 +141,41 @@ export function NotificationDropdown() {
     }
   };
 
+  // Generate dynamic link based on user role and notification type
+  const generateDynamicLink = (link: string, type: string, userRoles: string[]): string => {
+    // Extract order ID from the link if it exists
+    const orderIdMatch = link.match(/\/(\w+)$/) || link.match(/orderId[=:]([\w-]+)/);
+    const orderId = orderIdMatch ? (orderIdMatch[1] || '') : '';
+
+    // Determine user's primary role
+    const isMerchant = userRoles.includes('merchant');
+    const isCourier = userRoles.includes('courier');
+    const isAdmin = userRoles.includes('admin');
+    const isAdminDesa = userRoles.includes('admin_desa');
+    const isVerifikator = userRoles.includes('verifikator');
+
+    // Route based on notification type and user role
+    if (type === 'order') {
+      if (isMerchant) {
+        return orderId ? `/merchant/orders?orderId=${orderId}` : '/merchant/orders';
+      } else if (isCourier) {
+        return orderId ? `/courier?orderId=${orderId}` : '/courier';
+      } else if (isAdmin) {
+        return orderId ? `/admin/orders?orderId=${orderId}` : '/admin/orders';
+      } else if (isAdminDesa) {
+        return orderId ? `/desa?orderId=${orderId}` : '/desa';
+      } else if (isVerifikator) {
+        return orderId ? `/verifikator?orderId=${orderId}` : '/verifikator';
+      } else {
+        // Default for buyer
+        return orderId ? `/orders?orderId=${orderId}` : '/orders';
+      }
+    }
+
+    // For other notification types, return the original link or a safe fallback
+    return link || '/';
+  };
+
   if (!user) return null;
 
   return (
@@ -194,7 +230,9 @@ export function NotificationDropdown() {
                   }
                   if (notification.link) {
                     setOpen(false);
-                    window.location.href = notification.link;
+                    // Generate dynamic URL based on user role and notification type
+                    const dynamicLink = generateDynamicLink(notification.link, notification.type, roles);
+                    window.location.href = dynamicLink;
                   }
                 }}
               >

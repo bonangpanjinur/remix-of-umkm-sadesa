@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -24,6 +24,7 @@ import { id as idLocale } from "date-fns/locale";
 import { OrderChat } from "@/components/chat/OrderChat";
 import { toast } from "@/hooks/use-toast";
 import { OrderCancelDialog } from "@/components/order/OrderCancelDialog";
+import { OrderDetailSheet } from "@/components/order/OrderDetailSheet";
 
 interface BuyerOrderItem {
   id: string;
@@ -108,12 +109,27 @@ const OrdersPage = () => {
   const [chatOrder, setChatOrder] = useState<{ orderId: string; merchantUserId: string; merchantName: string } | null>(null);
   const [cancelOrderId, setCancelOrderId] = useState<string | null>(null);
   const [fetchError, setFetchError] = useState(false);
+  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
+  const [isDetailSheetOpen, setIsDetailSheetOpen] = useState(false);
   const navigate = useNavigate();
   const { addToCart } = useCart();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);
+
+  // Handle orderId query parameter from notification click
+  useEffect(() => {
+    const orderIdFromUrl = searchParams.get('orderId');
+    if (orderIdFromUrl) {
+      setSelectedOrderId(orderIdFromUrl);
+      setIsDetailSheetOpen(true);
+      // Clean up URL after opening sheet
+      searchParams.delete('orderId');
+      setSearchParams(searchParams, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
 
   const fetchOrders = useCallback(async (isRefresh = false) => {
     if (!user) { setLoading(false); return; }
@@ -728,6 +744,17 @@ const OrdersPage = () => {
           </div>
         </Tabs>
       </div>
+      {/* Order Detail Sheet - opened from notification */}
+      <OrderDetailSheet
+        orderId={selectedOrderId}
+        open={isDetailSheetOpen}
+        onOpenChange={(open) => {
+          setIsDetailSheetOpen(open);
+          if (!open) {
+            setSelectedOrderId(null);
+          }
+        }}
+      />
       {/* Chat - rendered directly without Dialog wrapper */}
       {chatOrder && (
         <OrderChat

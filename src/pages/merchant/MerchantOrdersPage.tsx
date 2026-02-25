@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Receipt, Check, X, Package, MoreHorizontal, User, MapPin, Phone, Truck, CreditCard, MessageSquare, Printer, RefreshCw, Wifi, Search, Download, TrendingUp, Clock, CheckCircle2, ImageIcon } from 'lucide-react';
 import { MerchantLayout } from '@/components/merchant/MerchantLayout';
 import { DataTable } from '@/components/admin/DataTable';
@@ -52,6 +53,7 @@ export default function MerchantOrdersPage() {
   const [printDialogOpen, setPrintDialogOpen] = useState(false);
   const [isConnected, setIsConnected] = useState(true);
   const invoiceRef = useRef<HTMLDivElement>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
 
   // Fetch merchant info
   useEffect(() => {
@@ -88,6 +90,20 @@ export default function MerchantOrdersPage() {
     onNewOrder: handleNewOrder,
   });
 
+  // Handle orderId query parameter from notification click
+  useEffect(() => {
+    const orderIdFromUrl = searchParams.get('orderId');
+    if (orderIdFromUrl && orders.length > 0) {
+      const order = orders.find(o => o.id === orderIdFromUrl);
+      if (order) {
+        viewOrderDetail(order);
+        // Clean up URL after opening detail
+        searchParams.delete('orderId');
+        setSearchParams(searchParams, { replace: true });
+      }
+    }
+  }, [searchParams, setSearchParams, orders]);
+
   // Connection status listener
   useEffect(() => {
     const handleOnline = () => setIsConnected(true);
@@ -102,7 +118,7 @@ export default function MerchantOrdersPage() {
     };
   }, []);
 
-  const viewOrderDetail = async (order: OrderRow) => {
+  const viewOrderDetail = useCallback(async (order: OrderRow) => {
     setSelectedOrder(order);
     
     const { data: items } = await supabase
@@ -112,9 +128,9 @@ export default function MerchantOrdersPage() {
 
     setOrderItems(items || []);
     setDetailDialogOpen(true);
-  };
+  }, []);
 
-  const openPrintDialog = async (order: OrderRow) => {
+  const openPrintDialog = useCallback(async (order: OrderRow) => {
     setSelectedOrder(order);
     
     const { data: items } = await supabase
@@ -124,7 +140,7 @@ export default function MerchantOrdersPage() {
 
     setOrderItems(items || []);
     setPrintDialogOpen(true);
-  };
+  }, []);
 
   const handlePrint = () => {
     if (invoiceRef.current) {
