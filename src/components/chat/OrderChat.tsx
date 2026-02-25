@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useChatNotification } from '@/hooks/useChatNotification';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Send, MessageCircle, X, Clock, ShoppingBag, User, Store, Truck } from 'lucide-react';
+import { Send, MessageCircle, X, Clock, ShoppingBag, User, Store, Truck, Volume2, VolumeX } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { id as idLocale } from 'date-fns/locale';
@@ -47,6 +48,7 @@ const QUICK_REPLIES: Record<string, string[]> = {
 
 export function OrderChat({ orderId, otherUserId, otherUserName, isOpen, onClose, chatType = 'buyer_merchant', senderRole }: OrderChatProps) {
   const { user } = useAuth();
+  const { playNotificationSound, isEnabled: isSoundEnabled, setIsEnabled: setIsSoundEnabled } = useChatNotification();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [sending, setSending] = useState(false);
@@ -219,6 +221,8 @@ export function OrderChat({ orderId, otherUserId, otherUserName, isOpen, onClose
             setMessages(prev => [...prev, newMsg]);
             if (newMsg.receiver_id === user.id) {
               supabase.from('chat_messages').update({ is_read: true }).eq('id', newMsg.id);
+              // Play notification sound when receiving a message
+              playNotificationSound();
             }
           }
         }
@@ -307,9 +311,24 @@ export function OrderChat({ orderId, otherUserId, otherUserName, isOpen, onClose
               </p>
             </div>
           </div>
-          <Button variant="ghost" size="icon" onClick={onClose} className="rounded-full">
-            <X className="h-5 w-5" />
-          </Button>
+          <div className="flex items-center gap-1">
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              onClick={() => setIsSoundEnabled(!isSoundEnabled)}
+              className="rounded-full"
+              title={isSoundEnabled ? 'Matikan notifikasi suara' : 'Nyalakan notifikasi suara'}
+            >
+              {isSoundEnabled ? (
+                <Volume2 className="h-5 w-5" />
+              ) : (
+                <VolumeX className="h-5 w-5" />
+              )}
+            </Button>
+            <Button variant="ghost" size="icon" onClick={onClose} className="rounded-full">
+              <X className="h-5 w-5" />
+            </Button>
+          </div>
         </div>
 
         {/* Order Brief */}
