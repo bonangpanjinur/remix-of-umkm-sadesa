@@ -498,7 +498,7 @@ const OrdersPage = () => {
               filteredOrders.map((order) => {
                 const firstItem = order.order_items?.[0];
                 const imageUrl = firstItem?.products?.image_url;
-                const productName = firstItem?.products?.name || firstItem?.product_name || "Produk";
+                const productName = firstItem?.product_name || firstItem?.products?.name || "Produk";
                 const itemCount = order.order_items?.length || 0;
                 const statusConf = STATUS_CONFIG[order.status] || STATUS_CONFIG.NEW;
                 const StatusIcon = statusConf.icon;

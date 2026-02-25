@@ -6,7 +6,7 @@ import { OrderChat, ChatType } from '@/components/chat/OrderChat';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { MessageCircle, AlertCircle, Clock, User, Truck } from 'lucide-react';
+import { MessageCircle, AlertCircle, Clock, User, Truck, ShoppingBag } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { id as idLocale } from 'date-fns/locale';
 
@@ -19,6 +19,8 @@ interface ChatThread {
   unreadCount: number;
   chatType: ChatType;
   autoDeleteAt: string | null;
+  productName?: string;
+  productImage?: string | null;
 }
 
 export default function MerchantChatPage() {
@@ -98,6 +100,35 @@ export default function MerchantChatPage() {
         thread.otherUserName = profile?.full_name || merchant?.name || courier?.name || (thread.chatType === 'merchant_courier' ? 'Kurir' : 'Pembeli');
       }
 
+      // Fetch order items for product info
+      const orderIds = [...new Set([...threadMap.values()].map(t => t.orderId))];
+      if (orderIds.length > 0) {
+        const { data: orderItems } = await supabase
+          .from('order_items')
+          .select('order_id, product_name, product_id')
+          .in('order_id', orderIds);
+
+        const productIds = [...new Set((orderItems || []).map(i => i.product_id).filter(Boolean))] as string[];
+        let imageMap: Record<string, string | null> = {};
+        if (productIds.length > 0) {
+          const { data: products } = await supabase
+            .from('products')
+            .select('id, image_url')
+            .in('id', productIds);
+          if (products) {
+            imageMap = Object.fromEntries(products.map(p => [p.id, p.image_url]));
+          }
+        }
+
+        for (const thread of threadMap.values()) {
+          const firstItem = (orderItems || []).find(i => i.order_id === thread.orderId);
+          if (firstItem) {
+            thread.productName = firstItem.product_name;
+            thread.productImage = firstItem.product_id ? (imageMap[firstItem.product_id] || null) : null;
+          }
+        }
+      }
+
       setThreads(Array.from(threadMap.values()));
     } catch (error) {
       console.error('Error fetching threads:', error);
@@ -156,12 +187,18 @@ export default function MerchantChatPage() {
           {filtered.map(thread => (
             <Card key={`${thread.orderId}-${thread.chatType}`} className="cursor-pointer hover:bg-accent/50 transition" onClick={() => setSelectedThread(thread)}>
               <CardContent className="p-4 flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                  {thread.chatType === 'merchant_courier' ? <Truck className="h-5 w-5 text-primary" /> : <User className="h-5 w-5 text-primary" />}
+                <div className="w-10 h-10 rounded-lg bg-muted overflow-hidden flex-shrink-0">
+                  {thread.productImage ? (
+                    <img src={thread.productImage} alt={thread.productName || ''} className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <ShoppingBag className="h-5 w-5 text-muted-foreground" />
+                    </div>
+                  )}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <span className="font-medium text-sm">{thread.otherUserName}</span>
+                    <span className="font-medium text-sm truncate">{thread.otherUserName}</span>
                     <Badge variant="outline" className="text-[10px] px-1.5 py-0">
                       {thread.chatType === 'merchant_courier' ? 'Kurir' : 'Pembeli'}
                     </Badge>
@@ -169,6 +206,9 @@ export default function MerchantChatPage() {
                       <Badge variant="destructive" className="text-[10px] px-1.5 py-0">{thread.unreadCount}</Badge>
                     )}
                   </div>
+                  {thread.productName && (
+                    <p className="text-[11px] text-primary/80 truncate">{thread.productName}</p>
+                  )}
                   <p className="text-xs text-muted-foreground truncate">{thread.lastMessage}</p>
                 </div>
                 <div className="text-right flex-shrink-0">

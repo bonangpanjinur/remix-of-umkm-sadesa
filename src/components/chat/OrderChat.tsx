@@ -3,10 +3,11 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Send, MessageCircle, X, Clock } from 'lucide-react';
+import { Send, MessageCircle, X, Clock, ShoppingBag } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format, formatDistanceToNow } from 'date-fns';
 import { id as idLocale } from 'date-fns/locale';
+import { formatPrice } from '@/lib/utils';
 
 export type ChatType = 'buyer_merchant' | 'buyer_courier' | 'merchant_courier';
 
@@ -20,6 +21,12 @@ interface ChatMessage {
   auto_delete_at: string | null;
   chat_type: string | null;
   image_url: string | null;
+}
+
+interface OrderInfo {
+  shortId: string;
+  total: number;
+  items: { productName: string; quantity: number; imageUrl: string | null }[];
 }
 
 interface OrderChatProps {
@@ -38,6 +45,12 @@ const QUICK_REPLIES: Record<string, string[]> = {
   buyer_merchant: [],
 };
 
+const ROLE_LABELS: Record<string, { self: string; other: string }> = {
+  buyer_merchant: { self: 'Pembeli', other: 'Penjual' },
+  buyer_courier: { self: 'Pembeli', other: 'Kurir' },
+  merchant_courier: { self: 'Penjual', other: 'Kurir' },
+};
+
 export function OrderChat({ orderId, otherUserId, otherUserName, isOpen, onClose, chatType = 'buyer_merchant', senderRole }: OrderChatProps) {
   const { user } = useAuth();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -45,7 +58,53 @@ export function OrderChat({ orderId, otherUserId, otherUserName, isOpen, onClose
   const [sending, setSending] = useState(false);
   const [autoDeleteInfo, setAutoDeleteInfo] = useState<string | null>(null);
   const [senderNames, setSenderNames] = useState<Record<string, string>>({});
+  const [orderInfo, setOrderInfo] = useState<OrderInfo | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Fetch order info (items + products)
+  useEffect(() => {
+    if (!isOpen || !orderId) return;
+
+    const fetchOrderInfo = async () => {
+      const { data: order } = await supabase
+        .from('orders')
+        .select('id, total')
+        .eq('id', orderId)
+        .single();
+
+      const { data: items } = await supabase
+        .from('order_items')
+        .select('product_name, quantity, product_id')
+        .eq('order_id', orderId);
+
+      if (!order || !items) return;
+
+      // Fetch product images
+      const productIds = items.map(i => i.product_id).filter(Boolean) as string[];
+      let imageMap: Record<string, string | null> = {};
+      if (productIds.length > 0) {
+        const { data: products } = await supabase
+          .from('products')
+          .select('id, image_url')
+          .in('id', productIds);
+        if (products) {
+          imageMap = Object.fromEntries(products.map(p => [p.id, p.image_url]));
+        }
+      }
+
+      setOrderInfo({
+        shortId: order.id.substring(0, 8).toUpperCase(),
+        total: order.total,
+        items: items.map(i => ({
+          productName: i.product_name,
+          quantity: i.quantity,
+          imageUrl: i.product_id ? (imageMap[i.product_id] || null) : null,
+        })),
+      });
+    };
+
+    fetchOrderInfo();
+  }, [isOpen, orderId]);
 
   // Memoize unique sender IDs to avoid re-fetching on every render
   const senderIdsKey = useMemo(() => {
@@ -62,13 +121,11 @@ export function OrderChat({ orderId, otherUserId, otherUserName, isOpen, onClose
     if (missingIds.length === 0) return;
 
     const fetchNames = async () => {
-      // Fetch from profiles
       const { data: profiles } = await supabase
         .from('profiles')
         .select('user_id, full_name')
         .in('user_id', missingIds);
 
-      // Also check merchants and couriers for their names
       const { data: merchants } = await supabase
         .from('merchants')
         .select('user_id, name')
@@ -82,7 +139,6 @@ export function OrderChat({ orderId, otherUserId, otherUserName, isOpen, onClose
       const nameMap: Record<string, string> = { ...senderNames };
 
       missingIds.forEach(id => {
-        // Priority: merchant name > courier name > profile full_name > 'Pengguna'
         const merchant = merchants?.find(m => m.user_id === id);
         const courier = couriers?.find(c => c.user_id === id);
         const profile = profiles?.find(p => p.user_id === id);
@@ -185,9 +241,19 @@ export function OrderChat({ orderId, otherUserId, otherUserName, isOpen, onClose
     }
   };
 
+  const getRoleLabel = (senderId: string): string => {
+    const labels = ROLE_LABELS[chatType];
+    if (!labels) return '';
+    if (senderId === user?.id) return labels.self;
+    return labels.other;
+  };
+
   const quickReplies = QUICK_REPLIES[chatType] || [];
 
   if (!isOpen) return null;
+
+  const firstItem = orderInfo?.items?.[0];
+  const otherItemsCount = (orderInfo?.items?.length || 0) - 1;
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
@@ -202,6 +268,7 @@ export function OrderChat({ orderId, otherUserId, otherUserName, isOpen, onClose
               <p className="text-xs text-muted-foreground">
                 {chatType === 'buyer_merchant' ? 'Chat Pesanan' : 
                  chatType === 'buyer_courier' ? 'Chat Kurir' : 'Chat Penjual-Kurir'}
+                {orderInfo && <span className="ml-1 font-mono">#{orderInfo.shortId}</span>}
               </p>
             </div>
           </div>
@@ -209,6 +276,32 @@ export function OrderChat({ orderId, otherUserId, otherUserName, isOpen, onClose
             <X className="h-4 w-4" />
           </Button>
         </div>
+
+        {/* Order Info Card */}
+        {orderInfo && firstItem && (
+          <div className="px-4 py-2.5 border-b border-border bg-secondary/30">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-muted overflow-hidden flex-shrink-0">
+                {firstItem.imageUrl ? (
+                  <img src={firstItem.imageUrl} alt={firstItem.productName} className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center">
+                    <ShoppingBag className="w-5 h-5 text-muted-foreground" />
+                  </div>
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-medium truncate">{firstItem.productName}</p>
+                <p className="text-[11px] text-muted-foreground">
+                  {firstItem.quantity}x
+                  {otherItemsCount > 0 && ` +${otherItemsCount} produk lainnya`}
+                  <span className="mx-1">•</span>
+                  <span className="font-medium text-foreground">{formatPrice(orderInfo.total)}</span>
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Auto-delete warning */}
         {autoDeleteInfo && (
@@ -228,6 +321,7 @@ export function OrderChat({ orderId, otherUserId, otherUserName, isOpen, onClose
           {messages.map((msg) => {
             const isMine = msg.sender_id === user?.id;
             const senderDisplayName = senderNames[msg.sender_id] || 'Memuat...';
+            const roleLabel = getRoleLabel(msg.sender_id);
             return (
               <div key={msg.id} className={cn('flex', isMine ? 'justify-end' : 'justify-start')}>
                 <div className={cn(
@@ -236,12 +330,20 @@ export function OrderChat({ orderId, otherUserId, otherUserName, isOpen, onClose
                     ? 'bg-primary text-primary-foreground rounded-br-md'
                     : 'bg-secondary text-secondary-foreground rounded-bl-md'
                 )}>
-                  {/* Sender name label */}
+                  {/* Sender name label with role */}
                   <p className={cn(
                     'text-[11px] font-semibold mb-0.5',
                     isMine ? 'text-primary-foreground/80' : 'text-primary'
                   )}>
                     {isMine ? 'Anda' : senderDisplayName}
+                    {roleLabel && (
+                      <span className={cn(
+                        'ml-1 font-normal',
+                        isMine ? 'text-primary-foreground/60' : 'text-muted-foreground'
+                      )}>
+                        ({roleLabel})
+                      </span>
+                    )}
                   </p>
                   {msg.image_url && (
                     <img src={msg.image_url} alt="Chat image" className="rounded-lg mb-1 max-h-40 object-cover" />
