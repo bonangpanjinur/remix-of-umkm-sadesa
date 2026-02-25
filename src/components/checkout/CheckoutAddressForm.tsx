@@ -1,14 +1,15 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { MapPin, User, Loader2, BookMarked, ChevronDown } from 'lucide-react';
+import { MapPin, User, Loader2, BookMarked, ChevronDown, AlertCircle } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
 import { AddressSelector, type AddressData, formatFullAddress, createEmptyAddressData } from '@/components/AddressSelector';
 import { LocationPicker } from './LocationPicker';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { PhoneInput } from '@/components/ui/PhoneInput';
-import { useGeocoding, reverseGeocode } from '@/hooks/useGeocoding';
+import { useGeocoding, reverseGeocode, formatAddressSummary, type ReverseGeocodingResult } from '@/hooks/useGeocoding';
 import { fetchProvinces, fetchRegencies, fetchDistricts, fetchVillages } from '@/lib/addressApi';
 import { useSavedAddresses, type SavedAddress } from '@/hooks/useSavedAddresses';
 import { AddressCard } from '@/components/address/AddressCard';
@@ -20,6 +21,7 @@ export interface CheckoutAddressData {
   address: AddressData;
   location: { lat: number; lng: number } | null;
   fullAddress: string;
+  detailAddress?: string;
 }
 
 interface CheckoutAddressFormProps {
@@ -49,6 +51,8 @@ export function CheckoutAddressForm({
   const [profileWasEmpty, setProfileWasEmpty] = useState(false);
   const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number } | null>(null);
   const [reverseGeocodingLoading, setReverseGeocodingLoading] = useState(false);
+  const [detectedAddress, setDetectedAddress] = useState<ReverseGeocodingResult | null>(null);
+  const [showAddressSelector, setShowAddressSelector] = useState(false);
   const { loading: geocodingLoading, getCoordinatesFromAddress } = useGeocoding();
   const isUpdatingFromMap = useRef(false);
   const [showSavedAddresses, setShowSavedAddresses] = useState(false);
@@ -84,10 +88,14 @@ export function CheckoutAddressForm({
             address: addrData,
             location: loc,
             fullAddress: defaultAddr.full_address || formatFullAddress(addrData),
+            detailAddress: defaultAddr.address_detail || '',
           });
 
           if (loc) {
             setMapCenter(loc);
+            // Get detected address from coordinates
+            const detected = await reverseGeocode(loc.lat, loc.lng);
+            setDetectedAddress(detected);
           } else if (addrData.district && addrData.districtName) {
             const coords = await getCoordinatesFromAddress(addrData.districtName, addrData.villageName, addrData.cityName, addrData.provinceName);
             if (coords) setMapCenter({ lat: coords.lat, lng: coords.lng });
@@ -127,6 +135,7 @@ export function CheckoutAddressForm({
               address: addrData,
               location: null,
               fullAddress: formatFullAddress(addrData),
+              detailAddress: profile.address_detail || '',
             });
 
             if (addrData.district && addrData.districtName) {
@@ -229,6 +238,10 @@ export function CheckoutAddressForm({
     }
   };
 
+  const handleDetailAddressChange = (detail: string) => {
+    onChange({ ...value, detailAddress: detail });
+  };
+
   const handleLocationChange = (location: { lat: number; lng: number }) => {
     onChange({ ...value, location });
   };
@@ -255,11 +268,15 @@ export function CheckoutAddressForm({
       address: addressData,
       location,
       fullAddress: address.full_address || formatFullAddress(addressData),
+      detailAddress: address.address_detail || '',
     });
 
     // Update map center if coordinates exist
     if (address.lat && address.lng) {
       setMapCenter({ lat: address.lat, lng: address.lng });
+      // Get detected address from coordinates
+      const detected = await reverseGeocode(address.lat, address.lng);
+      setDetectedAddress(detected);
     } else if (addressData.district && addressData.districtName) {
       const coords = await getCoordinatesFromAddress(
         addressData.districtName,
@@ -282,6 +299,7 @@ export function CheckoutAddressForm({
     
     try {
       const result = await reverseGeocode(lat, lng);
+      setDetectedAddress(result);
       
       if (result) {
         // Try to match the reverse geocoded address to our region codes
@@ -454,28 +472,17 @@ export function CheckoutAddressForm({
         </div>
       </div>
 
-      {/* Address Selection */}
-      <div className="space-y-4">
-        <div className="flex items-center gap-2">
-          <MapPin className="h-4 w-4 text-primary" />
-          <h4 className="font-medium text-sm">Alamat Pengiriman</h4>
-          {(geocodingLoading || reverseGeocodingLoading) && (
-            <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
-          )}
-        </div>
-
-        <AddressSelector
-          value={value.address}
-          onChange={handleAddressChange}
-        />
-        {errors?.address && (
-          <p className="text-xs text-destructive">{errors.address}</p>
-        )}
-      </div>
-
-      {/* Map Location Picker - hidden for pickup */}
+      {/* Map-First Address Input */}
       {!hideMap && (
         <div className="space-y-4">
+          <div className="flex items-center gap-2">
+            <MapPin className="h-4 w-4 text-primary" />
+            <h4 className="font-medium text-sm">Titik Lokasi Pengiriman</h4>
+            {(geocodingLoading || reverseGeocodingLoading) && (
+              <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+            )}
+          </div>
+
           <LocationPicker
             value={value.location}
             onChange={handleLocationChange}
@@ -489,6 +496,82 @@ export function CheckoutAddressForm({
           )}
         </div>
       )}
+
+      {/* Detected Address Summary */}
+      {value.location && detectedAddress && (
+        <div className="rounded-lg border border-primary/20 bg-primary/5 p-4">
+          <div className="flex items-start gap-3">
+            <MapPin className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-xs text-muted-foreground mb-1">Alamat Terdeteksi:</p>
+              <p className="text-sm font-medium text-primary break-words">
+                {formatAddressSummary(detectedAddress)}
+              </p>
+              {detectedAddress.postcode && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  Kode Pos: {detectedAddress.postcode}
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Detail Address Input */}
+      <div className="space-y-4">
+        <div className="flex items-center gap-2">
+          <AlertCircle className="h-4 w-4 text-muted-foreground" />
+          <h4 className="font-medium text-sm">Detail Alamat</h4>
+        </div>
+
+        <div className="space-y-1.5">
+          <Label htmlFor="checkout-detail" className="text-xs text-muted-foreground">
+            Nomor Rumah, Patokan, atau Informasi Tambahan
+          </Label>
+          <Textarea
+            id="checkout-detail"
+            placeholder="Contoh: Rumah nomor 42, depan toko kelontong, sebelah masjid"
+            value={value.detailAddress || ''}
+            onChange={(e) => handleDetailAddressChange(e.target.value)}
+            className="min-h-20 resize-none"
+          />
+          <p className="text-xs text-muted-foreground">
+            Informasi ini membantu kurir menemukan lokasi Anda dengan lebih mudah
+          </p>
+        </div>
+      </div>
+
+      {/* Optional: Show Address Selector for manual editing */}
+      {showAddressSelector && (
+        <div className="space-y-4 p-4 rounded-lg border border-border bg-muted/50">
+          <div className="flex items-center justify-between">
+            <h4 className="font-medium text-sm">Edit Alamat Manual</h4>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowAddressSelector(false)}
+            >
+              Tutup
+            </Button>
+          </div>
+          <AddressSelector
+            value={value.address}
+            onChange={handleAddressChange}
+          />
+        </div>
+      )}
+
+      {/* Show/Hide Address Selector Button */}
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        onClick={() => setShowAddressSelector(!showAddressSelector)}
+        className="w-full"
+      >
+        {showAddressSelector ? 'Sembunyikan' : 'Edit'} Alamat Manual
+      </Button>
     </div>
   );
 }
@@ -500,5 +583,6 @@ export function createEmptyCheckoutAddress(): CheckoutAddressData {
     address: createEmptyAddressData(),
     location: null,
     fullAddress: '',
+    detailAddress: '',
   };
 }

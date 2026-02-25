@@ -12,6 +12,17 @@ export interface ReverseGeocodingResult {
   district?: string;
   village?: string;
   displayName?: string;
+  fullAddress?: string;
+  postcode?: string;
+}
+
+export interface AddressSummary {
+  province?: string;
+  city?: string;
+  district?: string;
+  village?: string;
+  detail?: string;
+  coordinates?: { lat: number; lng: number };
 }
 
 // Nominatim API for geocoding (OpenStreetMap)
@@ -124,18 +135,70 @@ export async function reverseGeocode(lat: number, lng: number): Promise<ReverseG
     
     if (result.address) {
       const addr = result.address;
+      
+      // Extract address components with priority order for Indonesian regions
+      const province = addr.state || addr.province;
+      const city = addr.city || addr.county || addr.municipality || addr.regency;
+      const district = addr.suburb || addr.subdistrict || addr.district || addr.town;
+      const village = addr.village || addr.neighbourhood || addr.hamlet || addr.locality;
+      const postcode = addr.postcode;
+      
       return {
-        province: addr.state || addr.province,
-        city: addr.city || addr.county || addr.municipality || addr.regency,
-        district: addr.suburb || addr.subdistrict || addr.district || addr.town,
-        village: addr.village || addr.neighbourhood || addr.hamlet || addr.locality,
+        province,
+        city,
+        district,
+        village,
         displayName: result.display_name,
+        fullAddress: result.display_name,
+        postcode,
       };
     }
     
     return null;
   } catch (error) {
     console.error('Reverse geocoding error:', error);
+    return null;
+  }
+}
+
+/**
+ * Format address summary for display
+ */
+export function formatAddressSummary(address: ReverseGeocodingResult | null): string {
+  if (!address) return 'Alamat tidak terdeteksi';
+  
+  const parts: string[] = [];
+  
+  if (address.village) parts.push(address.village);
+  if (address.district) parts.push(`Kec. ${address.district}`);
+  if (address.city) parts.push(`Kota ${address.city}`);
+  if (address.province) {
+    // Remove 'Provinsi' prefix if present
+    const provinceName = address.province.replace(/^Provinsi\s+/i, '');
+    parts.push(`Prov. ${provinceName}`);
+  }
+  
+  return parts.join(', ');
+}
+
+/**
+ * Get address summary from coordinates (optimized for display)
+ */
+export async function getAddressSummary(lat: number, lng: number): Promise<AddressSummary | null> {
+  try {
+    const result = await reverseGeocode(lat, lng);
+    
+    if (!result) return null;
+    
+    return {
+      province: result.province?.replace(/^Provinsi\s+/i, ''),
+      city: result.city?.replace(/^Kota\s+|^Kab\.\s+/i, ''),
+      district: result.district,
+      village: result.village,
+      coordinates: { lat, lng },
+    };
+  } catch (error) {
+    console.error('Error getting address summary:', error);
     return null;
   }
 }
