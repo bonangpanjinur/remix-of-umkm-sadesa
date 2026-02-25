@@ -52,7 +52,13 @@ export function OrderChat({ orderId, otherUserId, otherUserName, isOpen, onClose
   const [sending, setSending] = useState(false);
   const [autoDeleteInfo, setAutoDeleteInfo] = useState<string | null>(null);
   const [senderNames, setSenderNames] = useState<Record<string, string>>({});
-  const [orderInfo, setOrderInfo] = useState<OrderInfo & { buyerId: string; merchantId: string | null; courierId: string | null } | null>(null);
+  const [orderInfo, setOrderInfo] = useState<OrderInfo & { 
+    buyerId: string; 
+    merchantId: string | null; 
+    merchantUserId: string | null;
+    courierId: string | null;
+    courierUserId: string | null;
+  } | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Fetch order info (items + products)
@@ -60,9 +66,18 @@ export function OrderChat({ orderId, otherUserId, otherUserName, isOpen, onClose
     if (!isOpen || !orderId) return;
 
     const fetchOrderInfo = async () => {
+      // Fetch order with joined merchant and courier user_ids
       const { data: order } = await supabase
         .from('orders')
-        .select('id, total, buyer_id, merchant_id, courier_id')
+        .select(`
+          id, 
+          total, 
+          buyer_id, 
+          merchant_id, 
+          courier_id,
+          merchants (user_id),
+          couriers (user_id)
+        `)
         .eq('id', orderId)
         .single();
 
@@ -86,12 +101,18 @@ export function OrderChat({ orderId, otherUserId, otherUserName, isOpen, onClose
         }
       }
 
+      // Safely extract merchant and courier user_ids from joined data
+      const merchantData = order.merchants as any;
+      const courierData = order.couriers as any;
+
       setOrderInfo({
         shortId: order.id.substring(0, 8).toUpperCase(),
         total: order.total,
         buyerId: order.buyer_id,
         merchantId: order.merchant_id,
+        merchantUserId: merchantData?.user_id || null,
         courierId: order.courier_id,
+        courierUserId: courierData?.user_id || null,
         items: items.map(i => ({
           productName: i.product_name,
           quantity: i.quantity,
@@ -243,19 +264,18 @@ export function OrderChat({ orderId, otherUserId, otherUserName, isOpen, onClose
   const getRoleInfo = (senderId: string) => {
     if (!orderInfo) return { label: '', color: 'bg-muted', icon: null };
     
-    // Determine sender's role based on order data
+    // Determine sender's role based on order data (matching against user_id)
     if (senderId === orderInfo.buyerId) {
       return { label: 'Pembeli', color: 'bg-blue-100 text-blue-700', icon: <User className="h-2 w-2 mr-0.5" /> };
     }
     
-    // Check if sender is merchant (can be by ID or by checking if they own the merchant_id)
-    // We'll use a simple comparison with merchantId first
-    if (senderId === orderInfo.merchantId) {
+    // Check if sender is merchant (matching against merchant's user_id)
+    if (senderId === orderInfo.merchantUserId) {
       return { label: 'Pedagang', color: 'bg-orange-100 text-orange-700', icon: <Store className="h-2 w-2 mr-0.5" /> };
     }
     
-    // Check if sender is courier
-    if (senderId === orderInfo.courierId) {
+    // Check if sender is courier (matching against courier's user_id)
+    if (senderId === orderInfo.courierUserId) {
       return { label: 'Kurir', color: 'bg-green-100 text-green-700', icon: <Truck className="h-2 w-2 mr-0.5" /> };
     }
     
