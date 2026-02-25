@@ -18,6 +18,7 @@ import { Header } from "@/components/layout/Header";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCart } from "@/contexts/CartContext";
+import type { Product } from "@/types";
 import { formatDistanceToNow } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
 import { OrderChat } from "@/components/chat/OrderChat";
@@ -137,7 +138,7 @@ const OrdersPage = () => {
         // Level 2: Without nested products, without user_id
         const r2 = await supabase
           .from("orders")
-          .select("id, status, total, created_at, merchant_id, is_self_delivery, has_review, merchants(name, phone), order_items(id, quantity, product_name, product_price)")
+          .select("id, status, total, created_at, merchant_id, is_self_delivery, has_review, merchants(name, phone), order_items(id, quantity, product_name, product_price, product_id)")
           .eq("buyer_id", user.id)
           .order("created_at", { ascending: false });
         
@@ -152,7 +153,7 @@ const OrdersPage = () => {
           // Level 3: Orders + merchants only, no order_items
           const r3 = await supabase
             .from("orders")
-            .select("id, status, total, created_at, merchant_id, merchants(name, phone)")
+            .select("id, status, total, created_at, merchant_id, merchants(name, phone), order_items(id, quantity, product_name, product_price, product_id)")
             .eq("buyer_id", user.id)
             .order("created_at", { ascending: false });
           
@@ -164,7 +165,7 @@ const OrdersPage = () => {
             // Level 4: Absolute minimum - only core order columns
             const r4 = await supabase
               .from("orders")
-              .select("id, status, total, created_at, merchant_id")
+              .select("id, status, total, created_at, merchant_id, order_items(id, quantity, product_name, product_price, product_id)")
               .eq("buyer_id", user.id)
               .order("created_at", { ascending: false });
             
@@ -295,42 +296,90 @@ const OrdersPage = () => {
       .map((i: any) => i.product_id)
       .filter(Boolean) as string[];
 
-    // Fetch actual stock for all products
-    let stockMap: Record<string, number> = {};
-    if (productIds.length > 0) {
-      const { data: stockData } = await supabase
-        .from('products')
-        .select('id, stock, is_active')
-        .in('id', productIds);
-      if (stockData) {
-        stockMap = Object.fromEntries(stockData.filter(p => p.is_active).map(p => [p.id, p.stock]));
-      }
+    if (productIds.length === 0) {
+      toast({ title: 'Tidak ada produk dalam pesanan ini', variant: 'destructive' });
+      return;
     }
+
+    // Fetch complete product data including all metadata
+    const { data: productsData } = await supabase
+      .from('products')
+      .select(`
+        id, 
+        name, 
+        description, 
+        price, 
+        stock, 
+        is_active, 
+        image_url,
+        category,
+        merchant_id,
+        merchants(id, name, is_open, status, registration_status)
+      `)
+      .in('id', productIds);
+
+    if (!productsData || productsData.length === 0) {
+      toast({ title: 'Tidak dapat memuat data produk', variant: 'destructive' });
+      return;
+    }
+
+    // Build product map for quick lookup
+    const productMap = new Map(productsData.map((p: any) => [p.id, p]));
 
     for (const item of order.order_items) {
       const productId = (item as any).product_id;
-      if (!productId || stockMap[productId] === undefined) {
+      if (!productId) {
         skippedCount++;
         continue;
       }
-      const actualStock = stockMap[productId];
+
+      const product = productMap.get(productId);
+      if (!product) {
+        skippedCount++;
+        continue;
+      }
+
+      // Check if product is available
+      if (!product.is_active) {
+        skippedCount++;
+        continue;
+      }
+
+      // Check if merchant is active
+      const merchant = product.merchants;
+      if (!merchant || merchant.status !== 'ACTIVE' || merchant.registration_status !== 'APPROVED') {
+        skippedCount++;
+        continue;
+      }
+
+      // Check stock
+      const actualStock = product.stock || 0;
       if (actualStock <= 0) {
         skippedCount++;
         continue;
       }
-      addToCart({
-        id: productId,
-        name: item.product_name,
-        price: item.product_price,
-        image: item.products?.image_url || '/placeholder.svg',
+
+      // Construct complete Product object with all required fields
+      const productToAdd = {
+        id: product.id,
+        name: product.name,
+        description: product.description || '',
+        price: product.price,
         stock: actualStock,
-        merchantId: order.merchant_id || '',
-        merchantName: order.merchants?.name || '',
-        category: '',
-        description: '',
-      } as any, Math.min(item.quantity, actualStock));
+        image: product.image_url || '/placeholder.svg',
+        category: product.category || '',
+        merchantId: product.merchant_id,
+        merchantName: merchant?.name || '',
+        isActive: product.is_active,
+        isAvailable: true,
+        isMerchantOpen: merchant?.is_open ?? true,
+        hasQuota: true,
+      };
+
+      addToCart(productToAdd, Math.min(item.quantity, actualStock));
       addedCount++;
     }
+
     if (skippedCount > 0) {
       toast({ title: `${skippedCount} produk tidak tersedia lagi dan dilewati`, variant: 'destructive' });
     }
