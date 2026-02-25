@@ -3,9 +3,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Send, MessageCircle, X, Clock, ShoppingBag } from 'lucide-react';
+import { Send, MessageCircle, X, Clock, ShoppingBag, User, Store, Truck } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { format, formatDistanceToNow } from 'date-fns';
+import { format } from 'date-fns';
 import { id as idLocale } from 'date-fns/locale';
 import { formatPrice } from '@/lib/utils';
 
@@ -42,7 +42,7 @@ interface OrderChatProps {
 const QUICK_REPLIES: Record<string, string[]> = {
   merchant_courier: ['Barang sudah siap diambil', 'Tolong hubungi saya dulu', 'Alamat pickup berubah'],
   buyer_courier: ['Sudah di mana?', 'Saya tunggu di depan rumah', 'Tolong hubungi saya'],
-  buyer_merchant: [],
+  buyer_merchant: ['Apakah stok masih ada?', 'Kapan pesanan saya dikirim?', 'Terima kasih!'],
 };
 
 export function OrderChat({ orderId, otherUserId, otherUserName, isOpen, onClose, chatType = 'buyer_merchant', senderRole }: OrderChatProps) {
@@ -52,7 +52,7 @@ export function OrderChat({ orderId, otherUserId, otherUserName, isOpen, onClose
   const [sending, setSending] = useState(false);
   const [autoDeleteInfo, setAutoDeleteInfo] = useState<string | null>(null);
   const [senderNames, setSenderNames] = useState<Record<string, string>>({});
-  const [orderInfo, setOrderInfo] = useState<OrderInfo & { buyerId: string; merchantId: string | null } | null>(null);
+  const [orderInfo, setOrderInfo] = useState<OrderInfo & { buyerId: string; merchantId: string | null; courierId: string | null } | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Fetch order info (items + products)
@@ -62,7 +62,7 @@ export function OrderChat({ orderId, otherUserId, otherUserName, isOpen, onClose
     const fetchOrderInfo = async () => {
       const { data: order } = await supabase
         .from('orders')
-        .select('id, total, buyer_id, merchant_id')
+        .select('id, total, buyer_id, merchant_id, courier_id')
         .eq('id', orderId)
         .single();
 
@@ -91,6 +91,7 @@ export function OrderChat({ orderId, otherUserId, otherUserName, isOpen, onClose
         total: order.total,
         buyerId: order.buyer_id,
         merchantId: order.merchant_id,
+        courierId: order.courier_id,
         items: items.map(i => ({
           productName: i.product_name,
           quantity: i.quantity,
@@ -164,11 +165,13 @@ export function OrderChat({ orderId, otherUserId, otherUserName, isOpen, onClose
         .from('chat_messages')
         .select('*')
         .eq('order_id', orderId)
-        .eq('chat_type', chatType)
         .order('created_at', { ascending: true });
 
       if (data) {
-        setMessages(data as ChatMessage[]);
+        // Filter by chat type if needed, or show all for this order
+        const filtered = chatType ? data.filter(m => m.chat_type === chatType) : data;
+        setMessages(filtered as ChatMessage[]);
+        
         const withDelete = data.find(m => m.auto_delete_at);
         if (withDelete) setAutoDeleteInfo(withDelete.auto_delete_at);
         
@@ -191,7 +194,7 @@ export function OrderChat({ orderId, otherUserId, otherUserName, isOpen, onClose
         { event: 'INSERT', schema: 'public', table: 'chat_messages', filter: `order_id=eq.${orderId}` },
         (payload) => {
           const newMsg = payload.new as ChatMessage;
-          if (newMsg.chat_type === chatType) {
+          if (!chatType || newMsg.chat_type === chatType) {
             setMessages(prev => [...prev, newMsg]);
             if (newMsg.receiver_id === user.id) {
               supabase.from('chat_messages').update({ is_read: true }).eq('id', newMsg.id);
@@ -237,15 +240,27 @@ export function OrderChat({ orderId, otherUserId, otherUserName, isOpen, onClose
     }
   };
 
-  const getRoleLabel = (senderId: string): string => {
-    if (!orderInfo || !user) return '';
+  const getRoleInfo = (senderId: string) => {
+    if (!orderInfo) return { label: '', color: 'bg-muted', icon: null };
     
     // Determine sender's role based on order data
-    if (senderId === orderInfo.buyerId) return 'Pembeli';
-    if (senderId === orderInfo.merchantId) return 'Penjual';
+    if (senderId === orderInfo.buyerId) {
+      return { label: 'Pembeli', color: 'bg-blue-100 text-blue-700', icon: <User className="h-2 w-2 mr-0.5" /> };
+    }
     
-    // If not buyer or merchant, it's likely a courier in this context
-    return 'Kurir';
+    // Check if sender is merchant (can be by ID or by checking if they own the merchant_id)
+    // We'll use a simple comparison with merchantId first
+    if (senderId === orderInfo.merchantId) {
+      return { label: 'Pedagang', color: 'bg-orange-100 text-orange-700', icon: <Store className="h-2 w-2 mr-0.5" /> };
+    }
+    
+    // Check if sender is courier
+    if (senderId === orderInfo.courierId) {
+      return { label: 'Kurir', color: 'bg-green-100 text-green-700', icon: <Truck className="h-2 w-2 mr-0.5" /> };
+    }
+    
+    // Fallback for when roles are not explicitly linked yet or different user
+    return { label: 'Pengguna', color: 'bg-muted text-muted-foreground', icon: null };
   };
 
   const quickReplies = QUICK_REPLIES[chatType] || [];
@@ -311,13 +326,14 @@ export function OrderChat({ orderId, otherUserId, otherUserName, isOpen, onClose
           )}
 
           {messages.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-10 text-center opacity-40">
-              <MessageCircle className="h-10 w-10 mb-2" />
+            <div className="flex flex-col items-center justify-center h-full text-muted-foreground py-10">
+              <MessageCircle className="h-12 w-12 opacity-20 mb-2" />
               <p className="text-xs">Belum ada pesan. Mulai percakapan sekarang!</p>
             </div>
           ) : (
             messages.map((msg, idx) => {
               const isMe = msg.sender_id === user?.id;
+              const roleInfo = getRoleInfo(msg.sender_id);
               const showDate = idx === 0 || 
                 format(new Date(messages[idx-1].created_at), 'yyyy-MM-dd') !== format(new Date(msg.created_at), 'yyyy-MM-dd');
               
@@ -335,8 +351,9 @@ export function OrderChat({ orderId, otherUserId, otherUserName, isOpen, onClose
                       <span className="text-[10px] font-semibold text-muted-foreground">
                         {isMe ? 'Anda' : (senderNames[msg.sender_id] || otherUserName)}
                       </span>
-                      <span className="text-[9px] px-1 bg-muted rounded text-muted-foreground uppercase">
-                        {getRoleLabel(msg.sender_id)}
+                      <span className={cn("text-[9px] px-1.5 py-0.5 rounded flex items-center font-bold uppercase tracking-wider", roleInfo.color)}>
+                        {roleInfo.icon}
+                        {roleInfo.label}
                       </span>
                     </div>
                     <div className={cn(
