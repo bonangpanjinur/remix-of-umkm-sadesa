@@ -689,41 +689,44 @@ export default function CheckoutPage() {
 
   return (
     <div className="mobile-shell bg-secondary flex flex-col min-h-screen">
-      {/* Header */}
-      <div className="p-4 border-b border-border bg-card flex items-center gap-3">
-        <button 
-          onClick={() => navigate(-1)}
-          className="w-8 h-8 rounded-full hover:bg-secondary flex items-center justify-center"
-        >
-          <ArrowLeft className="h-5 w-5" />
-        </button>
-        <h2 className="font-bold text-lg text-foreground">
-          Checkout
-          {items.length > 0 && (
-            <Badge variant="secondary" className="ml-2 text-xs">{items.length} item</Badge>
-          )}
-        </h2>
-      </div>
-      
-      {/* Step Indicator */}
-      <div className="px-4 pt-3 pb-1 bg-card border-b border-border">
-        <div className="flex items-center justify-between">
-          {[
-            { icon: Package, label: 'Pesanan' },
-            { icon: MapPin, label: 'Alamat' },
-            { icon: Truck, label: 'Pengiriman' },
-            { icon: CreditCard, label: 'Bayar' },
-          ].map((step, i) => (
-            <div key={step.label} className="flex items-center">
-              <div className="flex flex-col items-center gap-0.5">
-                <div className="w-7 h-7 rounded-full bg-primary/10 text-primary flex items-center justify-center">
-                  <step.icon className="h-3.5 w-3.5" />
+      {/* Sticky Header & Step Indicator */}
+      <div className="sticky top-0 z-50 bg-card shadow-sm">
+        {/* Header */}
+        <div className="p-4 border-b border-border flex items-center gap-3">
+          <button 
+            onClick={() => navigate(-1)}
+            className="w-8 h-8 rounded-full hover:bg-secondary flex items-center justify-center"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </button>
+          <h2 className="font-bold text-lg text-foreground">
+            Checkout
+            {items.length > 0 && (
+              <Badge variant="secondary" className="ml-2 text-xs">{items.length} item</Badge>
+            )}
+          </h2>
+        </div>
+        
+        {/* Step Indicator */}
+        <div className="px-4 pt-3 pb-1 border-b border-border">
+          <div className="flex items-center justify-between">
+            {[
+              { icon: Package, label: 'Pesanan' },
+              { icon: MapPin, label: 'Alamat' },
+              { icon: Truck, label: 'Pengiriman' },
+              { icon: CreditCard, label: 'Bayar' },
+            ].map((step, i) => (
+              <div key={step.label} className="flex items-center">
+                <div className="flex flex-col items-center gap-0.5">
+                  <div className="w-7 h-7 rounded-full bg-primary/10 text-primary flex items-center justify-center">
+                    <step.icon className="h-3.5 w-3.5" />
+                  </div>
+                  <span className="text-[9px] text-muted-foreground font-medium">{step.label}</span>
                 </div>
-                <span className="text-[9px] text-muted-foreground font-medium">{step.label}</span>
+                {i < 3 && <div className="w-6 h-px bg-border mx-1 mb-4" />}
               </div>
-              {i < 3 && <div className="w-6 h-px bg-border mx-1 mb-4" />}
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       </div>
 
