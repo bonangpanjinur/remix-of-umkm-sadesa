@@ -13,7 +13,14 @@ interface CourierLocationUpdaterProps {
 }
 
 export function CourierLocationUpdater({ courierId, onLocationUpdate }: CourierLocationUpdaterProps) {
-  const [isTracking, setIsTracking] = useState(false);
+  const [isTracking, setIsTracking] = useState(() => {
+    // Restore tracking state from localStorage
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem(`courier-tracking-${courierId}`);
+      return saved === 'true';
+    }
+    return false;
+  });
   const [currentLocation, setCurrentLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -21,6 +28,7 @@ export function CourierLocationUpdater({ courierId, onLocationUpdate }: CourierL
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const channelRef = useRef<RealtimeChannel | null>(null);
   const locationRef = useRef<{ lat: number; lng: number } | null>(null);
+  const isInitialMount = useRef(true);
 
   const updateLocationToServer = async (lat: number, lng: number) => {
     try {
@@ -134,6 +142,7 @@ export function CourierLocationUpdater({ courierId, onLocationUpdate }: CourierL
     }
 
     setIsTracking(false);
+    localStorage.removeItem(`courier-tracking-${courierId}`);
     toast({
       title: 'Tracking dinonaktifkan',
     });
@@ -141,11 +150,23 @@ export function CourierLocationUpdater({ courierId, onLocationUpdate }: CourierL
 
   const handleToggle = (checked: boolean) => {
     if (checked) {
+      localStorage.setItem(`courier-tracking-${courierId}`, 'true');
       startTracking();
     } else {
       stopTracking();
     }
   };
+
+  // Restore tracking state on mount if it was previously active
+  useEffect(() => {
+    if (!isInitialMount.current) return;
+    isInitialMount.current = false;
+
+    // If tracking was enabled before reload, restart it
+    if (isTracking) {
+      startTracking();
+    }
+  }, []);
 
   useEffect(() => {
     return () => {
