@@ -22,6 +22,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { RefundRequestDialog } from '@/components/order/RefundRequestDialog';
 import { OrderChat, ChatType } from '@/components/chat/OrderChat';
+import { CourierMap } from '@/components/CourierMap';
 
 interface OrderDetails {
   id: string;
@@ -272,6 +273,22 @@ export default function OrderTrackingPage() {
                 <Phone className="h-5 w-5 text-primary" />
               </a>
             </div>
+          </motion.div>
+        )}
+
+        {/* Live Tracking Map */}
+        {courier && order.courier_id && ['ASSIGNED', 'PICKED_UP', 'SENT'].includes(order.status) && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.12 }}
+            className="bg-card rounded-2xl p-4 border border-border"
+          >
+            <h3 className="font-medium text-sm text-muted-foreground mb-3 flex items-center gap-2">
+              <MapPin className="h-4 w-4 text-primary" />
+              Live Tracking Kurir
+            </h3>
+            <CourierMap courierId={order.courier_id} height="250px" />
           </motion.div>
         )}
 

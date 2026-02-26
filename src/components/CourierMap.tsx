@@ -56,8 +56,7 @@ function MapUpdater({ center }: { center: [number, number] }) {
 export function CourierMap({ courierId, showAllCouriers = false, height = '400px' }: CourierMapProps) {
   const [couriers, setCouriers] = useState<CourierLocation[]>([]);
   const [loading, setLoading] = useState(true);
-  const [center, setCenter] = useState<[number, number]>([-6.2088, 106.8456]); // Jakarta default
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const [center, setCenter] = useState<[number, number]>([-6.2088, 106.8456]);
 
   const fetchCouriers = async () => {
     try {
@@ -104,9 +103,31 @@ export function CourierMap({ courierId, showAllCouriers = false, height = '400px
   useEffect(() => {
     fetchCouriers();
 
-    // Set up real-time subscription
-    const channel = supabase
-      .channel('courier-locations')
+    // Set up channel with broadcast + postgres_changes
+    const channelName = courierId ? `courier-tracking-${courierId}` : 'courier-locations';
+    const channel = supabase.channel(channelName);
+
+    channel
+      // Broadcast listener — instant marker movement
+      .on('broadcast', { event: 'location-update' }, (payload) => {
+        const data = payload.payload as { id: string; lat: number; lng: number; timestamp: string };
+        setCouriers((prev) => {
+          const exists = prev.some((c) => c.id === data.id);
+          if (exists) {
+            return prev.map((c) =>
+              c.id === data.id
+                ? { ...c, lat: data.lat, lng: data.lng, lastUpdate: data.timestamp }
+                : c
+            );
+          }
+          return prev;
+        });
+        // Auto-center when tracking a specific courier
+        if (courierId) {
+          setCenter([data.lat, data.lng]);
+        }
+      })
+      // Postgres changes — checkpoint fallback
       .on(
         'postgres_changes',
         {
@@ -136,14 +157,8 @@ export function CourierMap({ courierId, showAllCouriers = false, height = '400px
       )
       .subscribe();
 
-    // Polling fallback every 30 seconds
-    intervalRef.current = setInterval(fetchCouriers, 30000);
-
     return () => {
       supabase.removeChannel(channel);
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-      }
     };
   }, [courierId, showAllCouriers]);
 

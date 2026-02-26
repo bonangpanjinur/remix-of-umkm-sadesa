@@ -5,6 +5,7 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
+import type { RealtimeChannel } from '@supabase/supabase-js';
 
 interface CourierLocationUpdaterProps {
   courierId: string;
@@ -18,6 +19,8 @@ export function CourierLocationUpdater({ courierId, onLocationUpdate }: CourierL
   const [error, setError] = useState<string | null>(null);
   const watchIdRef = useRef<number | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const channelRef = useRef<RealtimeChannel | null>(null);
+  const locationRef = useRef<{ lat: number; lng: number } | null>(null);
 
   const updateLocationToServer = async (lat: number, lng: number) => {
     try {
@@ -72,11 +75,29 @@ export function CourierLocationUpdater({ courierId, onLocationUpdate }: CourierL
       }
     );
 
+    // Initialize broadcast channel
+    const channel = supabase.channel(`courier-tracking-${courierId}`);
+    channel.subscribe((status) => {
+      if (status === 'SUBSCRIBED') {
+        channelRef.current = channel;
+      }
+    });
+
     // Watch position for real-time updates
     watchIdRef.current = navigator.geolocation.watchPosition(
       (position) => {
         const { latitude, longitude } = position.coords;
         setCurrentLocation({ lat: latitude, lng: longitude });
+        locationRef.current = { lat: latitude, lng: longitude };
+
+        // Broadcast via websocket (no DB write)
+        if (channelRef.current) {
+          channelRef.current.send({
+            type: 'broadcast',
+            event: 'location-update',
+            payload: { id: courierId, lat: latitude, lng: longitude, timestamp: new Date().toISOString() },
+          });
+        }
       },
       (err) => {
         console.error('Watch position error:', err);
@@ -88,10 +109,10 @@ export function CourierLocationUpdater({ courierId, onLocationUpdate }: CourierL
       }
     );
 
-    // Update server every 30 seconds
+    // Checkpoint to DB every 30 seconds
     intervalRef.current = setInterval(() => {
-      if (currentLocation) {
-        updateLocationToServer(currentLocation.lat, currentLocation.lng);
+      if (locationRef.current) {
+        updateLocationToServer(locationRef.current.lat, locationRef.current.lng);
       }
     }, 30000);
   };
@@ -105,6 +126,11 @@ export function CourierLocationUpdater({ courierId, onLocationUpdate }: CourierL
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
       intervalRef.current = null;
+    }
+
+    if (channelRef.current) {
+      supabase.removeChannel(channelRef.current);
+      channelRef.current = null;
     }
 
     setIsTracking(false);
@@ -128,6 +154,9 @@ export function CourierLocationUpdater({ courierId, onLocationUpdate }: CourierL
       }
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
+      }
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
       }
     };
   }, []);
