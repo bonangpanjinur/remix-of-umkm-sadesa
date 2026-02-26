@@ -1,11 +1,10 @@
-import { useEffect, useRef, useState } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import { useEffect, useState } from 'react';
+import { MapContainer, TileLayer, Marker, Popup, useMap, Polyline } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { Loader2, Navigation, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
-import { toast } from '@/hooks/use-toast';
 
 // Fix for default marker icons in Leaflet with Vite
 import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
@@ -20,9 +19,19 @@ L.Icon.Default.mergeOptions({
   shadowUrl: markerShadow,
 });
 
-// Custom courier icon
+// Custom courier icon (green)
 const courierIcon = new L.Icon({
   iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',
+  shadowUrl: markerShadow,
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+  shadowSize: [41, 41],
+});
+
+// Destination icon (red)
+const destinationIcon = new L.Icon({
+  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
   shadowUrl: markerShadow,
   iconSize: [25, 41],
   iconAnchor: [12, 41],
@@ -40,9 +49,12 @@ interface CourierLocation {
 }
 
 interface CourierMapProps {
-  courierId?: string; // Optional: track specific courier
-  showAllCouriers?: boolean; // Show all available couriers
+  courierId?: string;
+  showAllCouriers?: boolean;
   height?: string;
+  destinationLat?: number | null;
+  destinationLng?: number | null;
+  destinationLabel?: string;
 }
 
 function MapUpdater({ center }: { center: [number, number] }) {
@@ -53,10 +65,24 @@ function MapUpdater({ center }: { center: [number, number] }) {
   return null;
 }
 
-export function CourierMap({ courierId, showAllCouriers = false, height = '400px' }: CourierMapProps) {
+function FitBounds({ points }: { points: [number, number][] }) {
+  const map = useMap();
+  useEffect(() => {
+    if (points.length >= 2) {
+      const bounds = L.latLngBounds(points.map(p => L.latLng(p[0], p[1])));
+      map.fitBounds(bounds, { padding: [40, 40], maxZoom: 16 });
+    }
+  }, [points, map]);
+  return null;
+}
+
+export function CourierMap({ courierId, showAllCouriers = false, height = '400px', destinationLat, destinationLng, destinationLabel = 'Tujuan Pengiriman' }: CourierMapProps) {
   const [couriers, setCouriers] = useState<CourierLocation[]>([]);
   const [loading, setLoading] = useState(true);
   const [center, setCenter] = useState<[number, number]>([-6.2088, 106.8456]);
+  const [hasFittedBounds, setHasFittedBounds] = useState(false);
+
+  const hasDestination = destinationLat != null && destinationLng != null;
 
   const fetchCouriers = async () => {
     try {
@@ -73,7 +99,6 @@ export function CourierMap({ courierId, showAllCouriers = false, height = '400px
       }
 
       const { data, error } = await query;
-
       if (error) throw error;
 
       const locations: CourierLocation[] = (data || []).map((c) => ({
@@ -87,10 +112,7 @@ export function CourierMap({ courierId, showAllCouriers = false, height = '400px
 
       setCouriers(locations);
 
-      // Center on first courier if available
-      if (locations.length > 0 && !courierId) {
-        setCenter([locations[0].lat, locations[0].lng]);
-      } else if (locations.length > 0) {
+      if (locations.length > 0) {
         setCenter([locations[0].lat, locations[0].lng]);
       }
     } catch (error) {
@@ -103,12 +125,10 @@ export function CourierMap({ courierId, showAllCouriers = false, height = '400px
   useEffect(() => {
     fetchCouriers();
 
-    // Set up channel with broadcast + postgres_changes
     const channelName = courierId ? `courier-tracking-${courierId}` : 'courier-locations';
     const channel = supabase.channel(channelName);
 
     channel
-      // Broadcast listener — instant marker movement
       .on('broadcast', { event: 'location-update' }, (payload) => {
         const data = payload.payload as { id: string; lat: number; lng: number; timestamp: string };
         setCouriers((prev) => {
@@ -122,33 +142,20 @@ export function CourierMap({ courierId, showAllCouriers = false, height = '400px
           }
           return prev;
         });
-        // Auto-center when tracking a specific courier
-        if (courierId) {
+        if (courierId && !hasDestination) {
           setCenter([data.lat, data.lng]);
         }
       })
-      // Postgres changes — checkpoint fallback
       .on(
         'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'couriers',
-          filter: courierId ? `id=eq.${courierId}` : undefined,
-        },
+        { event: 'UPDATE', schema: 'public', table: 'couriers', filter: courierId ? `id=eq.${courierId}` : undefined },
         (payload) => {
           const updated = payload.new as any;
           if (updated.current_lat && updated.current_lng) {
             setCouriers((prev) =>
               prev.map((c) =>
                 c.id === updated.id
-                  ? {
-                      ...c,
-                      lat: updated.current_lat,
-                      lng: updated.current_lng,
-                      lastUpdate: updated.last_location_update || '',
-                      isAvailable: updated.is_available,
-                    }
+                  ? { ...c, lat: updated.current_lat, lng: updated.current_lng, lastUpdate: updated.last_location_update || '', isAvailable: updated.is_available }
                   : c
               )
             );
@@ -162,13 +169,17 @@ export function CourierMap({ courierId, showAllCouriers = false, height = '400px
     };
   }, [courierId, showAllCouriers]);
 
+  // Compute fit-bounds points
+  const fitPoints: [number, number][] = [];
+  if (couriers.length > 0) fitPoints.push([couriers[0].lat, couriers[0].lng]);
+  if (hasDestination) fitPoints.push([destinationLat!, destinationLng!]);
+
   const formatLastUpdate = (dateStr: string) => {
     if (!dateStr) return 'Tidak diketahui';
     const date = new Date(dateStr);
     const now = new Date();
     const diffMs = now.getTime() - date.getTime();
     const diffMins = Math.floor(diffMs / 60000);
-    
     if (diffMins < 1) return 'Baru saja';
     if (diffMins < 60) return `${diffMins} menit lalu`;
     const diffHours = Math.floor(diffMins / 60);
@@ -178,10 +189,7 @@ export function CourierMap({ courierId, showAllCouriers = false, height = '400px
 
   if (loading) {
     return (
-      <div 
-        className="flex items-center justify-center bg-muted rounded-xl"
-        style={{ height }}
-      >
+      <div className="flex items-center justify-center bg-muted rounded-xl" style={{ height }}>
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
@@ -191,35 +199,52 @@ export function CourierMap({ courierId, showAllCouriers = false, height = '400px
     <div className="relative rounded-xl overflow-hidden border border-border" style={{ height }}>
       <MapContainer
         center={center}
-        zoom={13}
+        zoom={14}
         style={{ height: '100%', width: '100%' }}
-        zoomControl={true}
+        zoomControl={false}
       >
         <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
-        <MapUpdater center={center} />
-        
+
+        {/* Auto-fit when we have courier + destination */}
+        {fitPoints.length >= 2 && !hasFittedBounds ? (
+          <FitBounds points={fitPoints} />
+        ) : (
+          <MapUpdater center={center} />
+        )}
+
+        {/* Courier markers */}
         {couriers.map((courier) => (
-          <Marker
-            key={courier.id}
-            position={[courier.lat, courier.lng]}
-            icon={courierIcon}
-          >
+          <Marker key={courier.id} position={[courier.lat, courier.lng]} icon={courierIcon}>
             <Popup>
               <div className="text-sm">
-                <p className="font-bold">{courier.name}</p>
-                <p className={courier.isAvailable ? 'text-success' : 'text-destructive'}>
-                  {courier.isAvailable ? '🟢 Tersedia' : '🔴 Tidak tersedia'}
-                </p>
-                <p className="text-muted-foreground text-xs">
-                  Update: {formatLastUpdate(courier.lastUpdate)}
-                </p>
+                <p className="font-bold">🛵 {courier.name}</p>
+                <p className="text-xs mt-1">Update: {formatLastUpdate(courier.lastUpdate)}</p>
               </div>
             </Popup>
           </Marker>
         ))}
+
+        {/* Destination marker */}
+        {hasDestination && (
+          <Marker position={[destinationLat!, destinationLng!]} icon={destinationIcon}>
+            <Popup>
+              <div className="text-sm">
+                <p className="font-bold">📍 {destinationLabel}</p>
+              </div>
+            </Popup>
+          </Marker>
+        )}
+
+        {/* Dashed line between courier and destination */}
+        {hasDestination && couriers.length > 0 && (
+          <Polyline
+            positions={[[couriers[0].lat, couriers[0].lng], [destinationLat!, destinationLng!]]}
+            pathOptions={{ color: 'hsl(var(--primary))', weight: 3, dashArray: '8, 8', opacity: 0.6 }}
+          />
+        )}
       </MapContainer>
 
       {/* Refresh button */}
@@ -227,13 +252,21 @@ export function CourierMap({ courierId, showAllCouriers = false, height = '400px
         size="icon"
         variant="secondary"
         className="absolute top-3 right-3 z-[1000] shadow-md"
-        onClick={() => {
-          setLoading(true);
-          fetchCouriers();
-        }}
+        onClick={() => { setLoading(true); fetchCouriers(); }}
       >
         <RefreshCw className="h-4 w-4" />
       </Button>
+
+      {/* Live indicator */}
+      {couriers.length > 0 && courierId && (
+        <div className="absolute top-3 left-3 z-[1000] bg-background/90 backdrop-blur-sm px-3 py-1.5 rounded-full text-xs font-medium shadow-md border border-border flex items-center gap-2">
+          <span className="relative flex h-2.5 w-2.5">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500" />
+          </span>
+          Live
+        </div>
+      )}
 
       {/* Courier count badge */}
       {showAllCouriers && couriers.length > 0 && (
