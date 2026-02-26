@@ -21,13 +21,20 @@ L.Icon.Default.mergeOptions({
 
 // Custom courier icon (motorcycle)
 const courierIcon = new L.Icon({
-  iconUrl: '/motorcycle-icon.png',
-  shadowUrl: markerShadow,
-  iconSize: [40, 40],
-  iconAnchor: [20, 20],
-  popupAnchor: [0, -20],
-  shadowSize: [41, 41],
-  className: 'courier-motorcycle-icon',
+  // Arahkan ke file gambar di folder public
+  iconUrl: '/motor-icon.png', 
+  
+  // Sesuaikan ukuran gambar (px) agar tidak terlalu besar/kecil di layar
+  iconSize: [40, 40], 
+  
+  // Titik Anchor (Sumbu X, Y). 
+  // Bagian mana dari gambar yang menjadi "titik akurat" koordinat?
+  // Jika ukurannya 40x40, titik tengah bawah (ban motor menapak jalan) adalah [20, 40]
+  iconAnchor: [20, 40], 
+  
+  // Posisi munculnya kotak keterangan (popup) saat motor di-klik.
+  // Muncul pas di atas motor (X: 0, Y: -40 ditarik ke atas)
+  popupAnchor: [0, -40], 
 });
 
 // Destination icon (red)
