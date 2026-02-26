@@ -14,9 +14,12 @@ import markerShadow from 'leaflet/dist/images/marker-shadow.png';
 // @ts-ignore
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
-  iconRetinaUrl: markerIcon2x,
-  iconUrl: markerIcon,
+  iconUrl: '/motor-icon.png',
+  iconRetinaUrl: '/motor-icon.png',
   shadowUrl: markerShadow,
+  iconSize: [40, 40],
+  iconAnchor: [20, 40],
+  popupAnchor: [0, -40],
 });
 
 // Custom courier icon (motorcycle)
