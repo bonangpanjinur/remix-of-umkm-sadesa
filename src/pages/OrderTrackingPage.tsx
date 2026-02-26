@@ -30,6 +30,8 @@ interface OrderDetails {
   delivery_name: string | null;
   delivery_phone: string | null;
   delivery_address: string | null;
+  delivery_lat: number | null;
+  delivery_lng: number | null;
   total: number;
   subtotal: number;
   shipping_cost: number;
@@ -282,13 +284,28 @@ export default function OrderTrackingPage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.12 }}
-            className="bg-card rounded-2xl p-4 border border-border"
+            className="bg-card rounded-2xl overflow-hidden border border-border"
           >
-            <h3 className="font-medium text-sm text-muted-foreground mb-3 flex items-center gap-2">
-              <MapPin className="h-4 w-4 text-primary" />
-              Live Tracking Kurir
-            </h3>
-            <CourierMap courierId={order.courier_id} height="250px" />
+            <div className="px-4 pt-4 pb-2 flex items-center justify-between">
+              <h3 className="font-medium text-sm text-muted-foreground flex items-center gap-2">
+                <MapPin className="h-4 w-4 text-primary" />
+                Live Tracking Kurir
+              </h3>
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
+                </span>
+                Realtime
+              </div>
+            </div>
+            <CourierMap 
+              courierId={order.courier_id} 
+              height="280px"
+              destinationLat={order.delivery_lat}
+              destinationLng={order.delivery_lng}
+              destinationLabel={order.delivery_address || 'Tujuan Pengiriman'}
+            />
           </motion.div>
         )}
 
