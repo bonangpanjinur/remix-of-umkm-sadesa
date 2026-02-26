@@ -1,73 +1,77 @@
 
 
-# Perbaikan Chat & Pesanan: Info Produk dan Identitas Pengguna
+# Real-Time Courier Tracking via Supabase Broadcast
 
-## Masalah yang Ditemukan
+## Ringkasan
 
-Berdasarkan screenshot dan analisis kode:
+Mengubah sistem pelacakan kurir dari yang sebelumnya mengandalkan `UPDATE` database setiap kali GPS bergerak, menjadi menggunakan **Supabase Realtime Broadcast** (websocket). Database hanya di-update setiap 30 detik sebagai checkpoint. Hasilnya: marker kurir bergerak mulus di peta pembeli, hemat kuota database, dan baterai kurir lebih awet.
 
-1. **Chat tidak menampilkan info pesanan/produk** -- Saat membuka chat, tidak ada konteks produk apa yang dibicarakan. Hanya judul "Chat Pesanan" tanpa detail.
-2. **Halaman Pesanan menampilkan "Produk" generik** -- Jika `products` relation gagal di-resolve, nama produk jatuh ke teks generik "Produk" dan menampilkan ikon placeholder, bukan foto asli.
-3. **Chat menampilkan "Pengguna" bukan nama asli** -- Sender label menampilkan "Pengguna" jika profil belum dimuat. Perlu menampilkan nama yang jelas beserta role (Pembeli/Penjual/Kurir).
+## Arsitektur Perubahan
 
-## Rencana Perubahan
+```text
+SEBELUM:
+  Kurir GPS → UPDATE couriers (setiap gerak) → postgres_changes → Peta pembeli
+  Masalah: Terlalu banyak write DB, delay antrean
 
-### 1. OrderChat -- Tambah Kartu Info Pesanan di Atas Chat
+SESUDAH:
+  Kurir GPS → Broadcast via websocket (setiap gerak) → Peta pembeli (instan)
+                ↘ UPDATE couriers (setiap 30 detik, checkpoint saja)
+```
 
-**File**: `src/components/chat/OrderChat.tsx`
+## File yang Diubah
 
-- Fetch `order_items` + `orders(merchant_id, merchants(name))` berdasarkan `orderId` saat chat dibuka
-- Tampilkan kartu ringkas di bawah header berisi:
-  - Thumbnail produk pertama (dari `products.image_url`)
-  - Nama produk + jumlah item lainnya
-  - Total harga pesanan
-  - Order ID pendek
-- Fetch data produk terpisah jika `order_items.product_id` tersedia untuk mendapatkan `image_url`
-- Tampilkan nama pengirim dengan label role yang jelas:
-  - Untuk `buyer_merchant`: Pembeli / Penjual
-  - Untuk `buyer_courier`: Pembeli / Kurir
-  - Untuk `merchant_courier`: Penjual / Kurir
+### 1. `src/components/CourierLocationUpdater.tsx` (Sisi Kurir)
+- Tambah Supabase channel `courier-tracking-{courierId}` saat tracking aktif
+- Di `watchPosition` callback, kirim lokasi via `channel.send({ type: 'broadcast', event: 'location-update', payload })` -- ini TIDAK menyentuh database
+- Pertahankan interval 30 detik untuk `updateLocationToServer()` sebagai checkpoint DB
+- Cleanup channel saat tracking dimatikan atau komponen unmount
+- Gunakan ref untuk channel agar tidak stale di callback watchPosition
 
-### 2. OrdersPage -- Perbaiki Tampilan Produk
+### 2. `src/components/CourierMap.tsx` (Peta Admin/Pembeli)
+- Tambah listener `.on('broadcast', { event: 'location-update' })` di channel yang sama
+- Broadcast listener langsung update state `couriers` -- marker bergerak instan
+- Pertahankan `postgres_changes` listener sebagai fallback untuk checkpoint 30 detik
+- Hapus polling interval 30 detik (tidak perlu lagi karena sudah ada broadcast + postgres_changes)
+- Jika tracking 1 kurir spesifik, auto-center peta mengikuti pergerakan
 
-**File**: `src/pages/OrdersPage.tsx`
-
-- Prioritaskan `product_name` dari `order_items` sebagai sumber utama (karena ini selalu tersimpan saat order dibuat)
-- Ubah urutan fallback: `firstItem?.product_name || firstItem?.products?.name || "Produk"`
-- Ini memastikan nama produk selalu tampil meskipun relasi `products` gagal
-
-### 3. Chat Thread Lists -- Tambah Info Produk di Thread
-
-**File**: `src/pages/buyer/BuyerChatPage.tsx`, `src/pages/merchant/MerchantChatPage.tsx`, `src/pages/courier/CourierChatPage.tsx`
-
-- Setelah membangun thread map, fetch `order_items` untuk semua `orderId` yang unik
-- Tampilkan nama produk pertama + thumbnail kecil di setiap card thread
-- Tampilkan order ID pendek agar konteks lebih jelas
+### 3. `src/pages/OrderTrackingPage.tsx` (Halaman Pembeli)
+- Import dan render `<CourierMap>` saat status pesanan `ASSIGNED`, `PICKED_UP`, atau `SENT` dan ada `courier_id`
+- Tampilkan di bawah info kurir dengan judul "Live Tracking Kurir"
+- Tambah juga marker tujuan (alamat pengiriman) jika `delivery_lat`/`delivery_lng` tersedia
+- Height peta: `250px` agar tidak terlalu besar di mobile
 
 ## Detail Teknis
 
+### Broadcast Flow (CourierLocationUpdater)
 ```text
-File yang diubah:
+watchPosition callback:
+  1. setCurrentLocation(lat, lng)        -- update UI lokal
+  2. channelRef.current.send({           -- broadcast via websocket
+       type: 'broadcast',
+       event: 'location-update',
+       payload: { id: courierId, lat, lng, timestamp }
+     })
+  3. TIDAK ada database write
 
-1. src/components/chat/OrderChat.tsx
-   - Tambah state orderInfo (items, merchant name, total)
-   - Tambah useEffect untuk fetch order_items + products
-   - Tambah komponen OrderInfoCard di bawah header
-   - Perbaiki sender name: tambah role label (Pembeli/Penjual/Kurir)
-
-2. src/pages/OrdersPage.tsx
-   - Baris 501: Ubah prioritas fallback nama produk
-
-3. src/pages/buyer/BuyerChatPage.tsx
-   - Fetch order_items per thread untuk tampilkan produk
-   - Tambah thumbnail + product name di thread card
-
-4. src/pages/merchant/MerchantChatPage.tsx
-   - Sama seperti BuyerChatPage
-
-5. src/pages/courier/CourierChatPage.tsx
-   - Sama seperti BuyerChatPage
-
-Total: 5 file
+Interval 30 detik (tetap ada):
+  1. updateLocationToServer(lat, lng)    -- UPDATE couriers SET current_lat, current_lng
+  2. Ini trigger postgres_changes        -- fallback untuk penerima yang baru join
 ```
+
+### Broadcast Listener (CourierMap)
+```text
+Channel setup:
+  1. supabase.channel(`courier-tracking-${courierId}`)
+  2. .on('broadcast', { event: 'location-update' }, handler)  -- pergerakan instan
+  3. .on('postgres_changes', { ... }, handler)                 -- checkpoint fallback
+  4. .subscribe()
+```
+
+### Tidak Ada Perubahan Database
+- Tidak perlu migrasi SQL
+- Tidak perlu tabel baru
+- Broadcast berjalan murni via websocket, tidak menyentuh database
+- Supabase Realtime Broadcast sudah aktif secara default
+
+## Total: 3 file diubah, 0 migrasi database
 
