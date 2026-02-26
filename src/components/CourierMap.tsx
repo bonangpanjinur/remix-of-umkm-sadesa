@@ -19,14 +19,15 @@ L.Icon.Default.mergeOptions({
   shadowUrl: markerShadow,
 });
 
-// Custom courier icon (green)
+// Custom courier icon (motorcycle)
 const courierIcon = new L.Icon({
-  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',
+  iconUrl: '/motorcycle-icon.png',
   shadowUrl: markerShadow,
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-  popupAnchor: [1, -34],
+  iconSize: [40, 40],
+  iconAnchor: [20, 20],
+  popupAnchor: [0, -20],
   shadowSize: [41, 41],
+  className: 'courier-motorcycle-icon',
 });
 
 // Destination icon (red)
@@ -217,15 +218,16 @@ export function CourierMap({ courierId, showAllCouriers = false, height = '400px
 
         {/* Courier markers */}
         {couriers.map((courier) => (
-          <Marker key={courier.id} position={[courier.lat, courier.lng]} icon={courierIcon}>
+          <Marker key={courier.id} position={[courier.lat, courier.lng]} icon={courierIcon} title={courier.name}>
             <Popup>
               <div className="text-sm">
-                <p className="font-bold">🛵 {courier.name}</p>
-                <p className="text-xs mt-1">Update: {formatLastUpdate(courier.lastUpdate)}</p>
+                <p className="font-bold">🏍️ {courier.name}</p>
+                <p className="text-xs text-muted-foreground mt-1">Status: {courier.isAvailable ? 'Tersedia' : 'Tidak Tersedia'}</p>
+                <p className="text-xs text-muted-foreground mt-1">Update: {formatLastUpdate(courier.lastUpdate)}</p>
               </div>
             </Popup>
           </Marker>
-        ))}
+        ))
 
         {/* Destination marker */}
         {hasDestination && (
