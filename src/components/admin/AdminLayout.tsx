@@ -92,6 +92,18 @@ export function AdminLayout({ children, title, subtitle, rightElement }: AdminLa
     loadStats();
   }, []);
 
+  // Close sidebar when window is resized to lg breakpoint
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth >= 1024) {
+        setSidebarOpen(false);
+      }
+    };
+    
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   return (
     <div className="flex min-h-screen bg-background">
       {/* Mobile sidebar overlay */}
@@ -105,7 +117,7 @@ export function AdminLayout({ children, title, subtitle, rightElement }: AdminLa
       {/* Sidebar */}
       <div
         className={cn(
-          'fixed inset-y-0 left-0 z-50 lg:relative lg:z-0 transform transition-transform duration-200',
+          'fixed inset-y-0 left-0 z-50 w-full sm:w-64 lg:relative lg:z-0 lg:w-64 transform transition-transform duration-200 ease-in-out',
           sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         )}
       >
@@ -117,41 +129,51 @@ export function AdminLayout({ children, title, subtitle, rightElement }: AdminLa
           pendingRefunds={pendingRefunds}
           pendingWithdrawals={pendingWithdrawals}
           pendingVerifikatorWithdrawals={pendingVerifikatorWithdrawals}
+          onClose={() => setSidebarOpen(false)}
         />
       </div>
 
       {/* Main content */}
       <div className="flex-1 flex flex-col min-w-0 h-screen">
         {/* Header (Fixed) */}
-        <div className="flex items-center justify-between p-4 lg:px-8 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-30">
-          <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" className="lg:hidden" onClick={() => setSidebarOpen(true)}>
-              <Menu className="h-5 w-5" />
+        <div className="flex items-center justify-between p-3 sm:p-4 lg:px-6 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-30 gap-2">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="lg:hidden h-8 w-8 sm:h-9 sm:w-9" 
+              onClick={() => setSidebarOpen(true)}
+              aria-label="Open menu"
+            >
+              <Menu className="h-4 w-4 sm:h-5 sm:w-5" />
             </Button>
-            <div>
-              <h1 className="font-semibold lg:text-xl truncate">{title}</h1>
-              {subtitle && <p className="hidden lg:block text-muted-foreground text-xs">{subtitle}</p>}
+            <div className="min-w-0">
+              <h1 className="font-semibold text-sm sm:text-base lg:text-xl truncate">{title}</h1>
+              {subtitle && <p className="hidden sm:block text-muted-foreground text-xs lg:text-sm">{subtitle}</p>}
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
             <Button
               variant="ghost"
               size="icon"
-              className={cn("h-8 w-8 rounded-full border border-border bg-secondary text-secondary-foreground hover:scale-105 transition", isRefreshing && "animate-spin")}
+              className={cn("h-8 w-8 sm:h-9 sm:w-9 rounded-full border border-border bg-secondary text-secondary-foreground hover:scale-105 transition", isRefreshing && "animate-spin")}
               onClick={handleRefreshCache}
               disabled={isRefreshing}
               title="Segarkan Data"
+              aria-label="Refresh data"
             >
               <RefreshCw className={cn("h-4 w-4", isRefreshing && "animate-spin")} />
             </Button>
-            <NotificationDropdown />
-            {rightElement && <div>{rightElement}</div>}
+            <div className="hidden sm:block">
+              <NotificationDropdown />
+            </div>
+            {rightElement && <div className="hidden sm:block">{rightElement}</div>}
           </div>
         </div>
 
         {/* Content (Scrollable) */}
-        <div className="flex-1 overflow-y-auto p-4 lg:p-8">
-          <div className="max-w-6xl mx-auto">
+        <div className="flex-1 overflow-y-auto p-3 sm:p-4 lg:p-6 xl:p-8">
+          <div className="max-w-7xl mx-auto">
             {children}
           </div>
         </div>
