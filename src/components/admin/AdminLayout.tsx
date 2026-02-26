@@ -114,11 +114,12 @@ export function AdminLayout({ children, title, subtitle, rightElement }: AdminLa
         />
       )}
 
-      {/* Sidebar */}
+      {/* Sidebar - Responsive positioning */}
       <div
         className={cn(
-          'fixed inset-y-0 left-0 z-50 w-full sm:w-64 lg:relative lg:z-0 lg:w-64 transform transition-transform duration-200 ease-in-out',
-          sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
+          'w-full sm:w-64 lg:w-64 flex-shrink-0 transition-all duration-300 ease-in-out',
+          'fixed sm:relative inset-y-0 left-0 z-50 lg:z-0',
+          sidebarOpen ? 'translate-x-0' : '-translate-x-full sm:translate-x-0'
         )}
       >
         <AdminSidebar
@@ -133,19 +134,23 @@ export function AdminLayout({ children, title, subtitle, rightElement }: AdminLa
         />
       </div>
 
-      {/* Main content */}
-      <div className="flex-1 flex flex-col min-w-0 h-screen">
+      {/* Main content - Adjusts with sidebar */}
+      <div className="flex-1 flex flex-col min-w-0 h-screen w-full">
         {/* Header (Fixed) */}
         <div className="flex items-center justify-between p-3 sm:p-4 lg:px-6 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-30 gap-2">
           <div className="flex items-center gap-2 sm:gap-3 min-w-0">
             <Button 
               variant="ghost" 
               size="icon" 
-              className="lg:hidden h-8 w-8 sm:h-9 sm:w-9" 
-              onClick={() => setSidebarOpen(true)}
-              aria-label="Open menu"
+              className="sm:hidden h-8 w-8" 
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+              aria-label="Toggle menu"
             >
-              <Menu className="h-4 w-4 sm:h-5 sm:w-5" />
+              {sidebarOpen ? (
+                <X className="h-5 w-5" />
+              ) : (
+                <Menu className="h-5 w-5" />
+              )}
             </Button>
             <div className="min-w-0">
               <h1 className="font-semibold text-sm sm:text-base lg:text-xl truncate">{title}</h1>

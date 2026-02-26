@@ -88,7 +88,7 @@ export function AdminSidebar({
   ];
 
   return (
-    <div className="w-full sm:w-64 h-screen bg-card border-r border-border flex flex-col sticky top-0 overflow-hidden">
+    <div className="w-full h-screen bg-card border-r border-border flex flex-col sticky top-0 overflow-hidden">
       {/* Header */}
       <div className="p-3 sm:p-4 border-b border-border flex items-center justify-between">
         <div className="flex items-center gap-2 min-w-0">
@@ -97,7 +97,7 @@ export function AdminSidebar({
         </div>
         <button
           onClick={onClose}
-          className="lg:hidden p-1 hover:bg-secondary rounded-md transition-colors"
+          className="sm:hidden p-1 hover:bg-secondary rounded-md transition-colors"
           aria-label="Close sidebar"
         >
           <X className="h-5 w-5" />
@@ -124,8 +124,7 @@ export function AdminSidebar({
             >
               <div className="flex items-center gap-2 sm:gap-3 min-w-0">
                 <span className="flex-shrink-0">{item.icon}</span>
-                <span className="truncate hidden sm:inline">{item.label}</span>
-                <span className="truncate sm:hidden">{item.label.substring(0, 3)}</span>
+                <span className="truncate">{item.label}</span>
               </div>
               {item.badge !== undefined && item.badge > 0 && (
                 <span className={cn(
@@ -150,8 +149,7 @@ export function AdminSidebar({
           className="flex items-center gap-2 px-2 sm:px-3 py-2 sm:py-2.5 rounded-lg text-xs sm:text-sm font-medium text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
         >
           <ChevronLeft className="h-4 w-4 flex-shrink-0" />
-          <span className="truncate hidden sm:inline">Kembali ke Aplikasi</span>
-          <span className="truncate sm:hidden">Kembali</span>
+          <span className="truncate">Kembali ke Aplikasi</span>
         </Link>
       </div>
     </div>
