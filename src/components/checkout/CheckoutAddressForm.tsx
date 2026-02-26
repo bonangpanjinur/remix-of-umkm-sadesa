@@ -441,7 +441,7 @@ export function CheckoutAddressForm({
         </div>
 
         <div className="space-y-3">
-          <div className="space-y-1.5">
+          <div className="space-y-1.5" id="error-name">
             <Label htmlFor="checkout-name" className="text-xs text-muted-foreground">
               Nama Penerima
             </Label>
@@ -450,13 +450,14 @@ export function CheckoutAddressForm({
               placeholder="Nama lengkap penerima"
               value={value.name}
               onChange={(e) => handleNameChange(e.target.value)}
+              className={errors?.name ? 'border-destructive' : ''}
             />
             {errors?.name && (
               <p className="text-xs text-destructive">{errors.name}</p>
             )}
           </div>
 
-          <div className="space-y-1.5">
+          <div className="space-y-1.5" id="error-phone">
             <Label htmlFor="checkout-phone" className="text-xs text-muted-foreground">
               No. Telepon (WhatsApp)
             </Label>
@@ -464,6 +465,7 @@ export function CheckoutAddressForm({
               value={value.phone}
               onChange={handlePhoneChange}
               placeholder="08xxxxxxxxxx"
+              className={errors?.phone ? 'border-destructive' : ''}
             />
             {errors?.phone && (
               <p className="text-xs text-destructive">{errors.phone}</p>
@@ -474,7 +476,7 @@ export function CheckoutAddressForm({
 
       {/* Map-First Address Input */}
       {!hideMap && (
-        <div className="space-y-4">
+        <div className="space-y-4" id="error-location">
           <div className="flex items-center gap-2">
             <MapPin className="h-4 w-4 text-primary" />
             <h4 className="font-medium text-sm">Titik Lokasi Pengiriman</h4>
@@ -483,14 +485,16 @@ export function CheckoutAddressForm({
             )}
           </div>
 
-          <LocationPicker
-            value={value.location}
-            onChange={handleLocationChange}
-            merchantLocation={merchantLocation}
-            onDistanceChange={onDistanceChange}
-            onLocationSelected={handleLocationSelected}
-            externalCenter={mapCenter}
-          />
+          <div className={errors?.location ? 'rounded-lg border border-destructive p-1' : ''}>
+            <LocationPicker
+              value={value.location}
+              onChange={handleLocationChange}
+              merchantLocation={merchantLocation}
+              onDistanceChange={onDistanceChange}
+              onLocationSelected={handleLocationSelected}
+              externalCenter={mapCenter}
+            />
+          </div>
           {errors?.location && (
             <p className="text-xs text-destructive">{errors.location}</p>
           )}
@@ -563,15 +567,20 @@ export function CheckoutAddressForm({
       )}
 
       {/* Show/Hide Address Selector Button */}
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        onClick={() => setShowAddressSelector(!showAddressSelector)}
-        className="w-full"
-      >
-        {showAddressSelector ? 'Sembunyikan' : 'Edit'} Alamat Manual
-      </Button>
+      <div id="error-address">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => setShowAddressSelector(!showAddressSelector)}
+          className={`w-full ${errors?.address ? 'border-destructive text-destructive' : ''}`}
+        >
+          {showAddressSelector ? 'Sembunyikan' : 'Edit'} Alamat Manual
+        </Button>
+        {errors?.address && (
+          <p className="text-xs text-destructive mt-1 text-center">{errors.address}</p>
+        )}
+      </div>
     </div>
   );
 }

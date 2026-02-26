@@ -326,7 +326,7 @@ export default function CheckoutPage() {
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
 
-    if (!addressData.name || addressData.name.length < 2) {
+    if (!addressData.name || addressData.name.trim().length < 2) {
       newErrors.name = 'Nama minimal 2 karakter';
     }
 
@@ -339,14 +339,29 @@ export default function CheckoutPage() {
       newErrors.phone = 'Untuk COD, gunakan format WhatsApp (08xxx)';
     }
 
-    if (!addressData.address.village) {
-      newErrors.address = 'Pilih alamat lengkap sampai kelurahan/desa';
+    if (!addressData.address.province) {
+      newErrors.address = 'Pilih provinsi';
+    } else if (!addressData.address.city) {
+      newErrors.address = 'Pilih kota/kabupaten';
+    } else if (!addressData.address.district) {
+      newErrors.address = 'Pilih kecamatan';
+    } else if (!addressData.address.village) {
+      newErrors.address = 'Pilih kelurahan/desa';
     }
 
     if (deliveryType === 'INTERNAL' && !addressData.location) {
       newErrors.location = 'Tentukan titik lokasi pengiriman di peta';
     }
-    // Skip location validation for PICKUP
+    
+    if (Object.keys(newErrors).length > 0) {
+      console.warn('Validation failed:', newErrors);
+      // Scroll to the first error
+      const firstErrorField = Object.keys(newErrors)[0];
+      const element = document.getElementById(`error-${firstErrorField}`);
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;

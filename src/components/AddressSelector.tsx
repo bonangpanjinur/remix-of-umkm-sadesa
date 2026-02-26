@@ -168,11 +168,16 @@ export function AddressSelector({
 
     const loadVillages = async () => {
       setLoadingVillages(true);
+      setError(null);
       try {
         const data = await fetchVillages(value.district);
         setVillages(data);
+        if (data.length === 0) {
+          console.warn('No villages found for district:', value.district);
+        }
       } catch (err) {
         console.error('Error loading villages:', err);
+        setError('Gagal memuat data desa/kelurahan. Silakan coba lagi.');
       } finally {
         setLoadingVillages(false);
       }
@@ -382,24 +387,35 @@ export function AddressSelector({
           onValueChange={handleVillageChange}
           disabled={disabled || !value.district || loadingVillages}
         >
-          <SelectTrigger className="h-10">
+          <SelectTrigger className={`h-10 ${!value.village && value.district && !loadingVillages && villages.length === 0 ? 'border-warning' : ''}`}>
             {loadingVillages ? (
               <div className="flex items-center gap-2">
                 <Loader2 className="h-4 w-4 animate-spin" />
-                <span className="text-muted-foreground">Memuat kelurahan...</span>
+                <span className="text-muted-foreground">Memuat desa...</span>
               </div>
             ) : (
-              <SelectValue placeholder="Pilih Kelurahan/Desa" />
+              <SelectValue placeholder={villages.length === 0 && value.district ? "Data desa tidak tersedia" : "Pilih Kelurahan/Desa"} />
             )}
           </SelectTrigger>
           <SelectContent>
-            {villages.map((village) => (
-              <SelectItem key={village.code} value={village.code}>
-                {village.name}
-              </SelectItem>
-            ))}
+            {villages.length > 0 ? (
+              villages.map((village) => (
+                <SelectItem key={village.code} value={village.code}>
+                  {village.name}
+                </SelectItem>
+              ))
+            ) : (
+              <div className="p-2 text-xs text-center text-muted-foreground">
+                {value.district ? "Tidak ada data desa" : "Pilih kecamatan terlebih dahulu"}
+              </div>
+            )}
           </SelectContent>
         </Select>
+        {value.district && !loadingVillages && villages.length === 0 && (
+          <p className="text-[10px] text-amber-600 mt-1">
+            Jika data desa tidak muncul, coba pilih ulang kecamatan atau refresh halaman.
+          </p>
+        )}
       </div>
 
       {/* Detail Address */}
