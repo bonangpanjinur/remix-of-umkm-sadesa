@@ -39,6 +39,7 @@ export default defineConfig(({ mode }) => ({
         ]
       },
       workbox: {
+        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024, // 5 MB instead of default 2 MB
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
         runtimeCaching: [
           {
@@ -81,8 +82,24 @@ export default defineConfig(({ mode }) => ({
   build: {
     rollupOptions: {
       output: {
-        manualChunks: {
-          workbox: ['workbox-window'],
+        manualChunks(id) {
+          // Split vendor libraries into separate chunks
+          if (id.includes('node_modules')) {
+            if (id.includes('react') || id.includes('react-dom')) {
+              return 'react-vendor';
+            }
+            if (id.includes('supabase')) {
+              return 'supabase-vendor';
+            }
+            if (id.includes('recharts')) {
+              return 'recharts-vendor';
+            }
+            return 'vendor';
+          }
+          // Split workbox into its own chunk
+          if (id.includes('workbox-window')) {
+            return 'workbox';
+          }
         },
       },
     },
