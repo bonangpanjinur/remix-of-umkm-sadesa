@@ -25,11 +25,15 @@ export function usePWA() {
     // Check if already installed
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
     const isIOSInstalled = (navigator as any).standalone === true;
+    const isPWA = isStandalone || isIOSInstalled;
     
     setStatus(prev => ({
       ...prev,
-      isInstalled: isStandalone || isIOSInstalled,
+      isInstalled: isPWA,
     }));
+
+    // If it's already a PWA, we don't need to listen for install prompts
+    if (isPWA) return;
 
     // Listen for install prompt
     const handleBeforeInstallPrompt = (e: Event) => {
@@ -59,17 +63,19 @@ export function usePWA() {
 
     // Check for service worker updates
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.ready.then(registration => {
-        registration.addEventListener('updatefound', () => {
-          const newWorker = registration.installing;
-          if (newWorker) {
-            newWorker.addEventListener('statechange', () => {
-              if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                setStatus(prev => ({ ...prev, isUpdateAvailable: true }));
-              }
-            });
-          }
-        });
+      navigator.serviceWorker.getRegistration().then(registration => {
+        if (registration) {
+          registration.addEventListener('updatefound', () => {
+            const newWorker = registration.installing;
+            if (newWorker) {
+              newWorker.addEventListener('statechange', () => {
+                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                  setStatus(prev => ({ ...prev, isUpdateAvailable: true }));
+                }
+              });
+            }
+          });
+        }
       });
     }
 
