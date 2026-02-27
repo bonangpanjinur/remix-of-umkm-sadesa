@@ -66,6 +66,10 @@ interface CourierMapProps {
   destinationLat?: number | null;
   destinationLng?: number | null;
   destinationLabel?: string;
+  /** For merchant self-delivery: listen to order-specific broadcast */
+  selfDeliveryOrderId?: string;
+  /** Merchant name for self-delivery popup label */
+  selfDeliveryLabel?: string;
 }
 
 function MapUpdater({ center }: { center: [number, number] }) {
@@ -76,18 +80,19 @@ function MapUpdater({ center }: { center: [number, number] }) {
   return null;
 }
 
-function FitBounds({ points }: { points: [number, number][] }) {
+function FitBounds({ points, onFitted }: { points: [number, number][]; onFitted: () => void }) {
   const map = useMap();
   useEffect(() => {
     if (points.length >= 2) {
       const bounds = L.latLngBounds(points.map(p => L.latLng(p[0], p[1])));
       map.fitBounds(bounds, { padding: [40, 40], maxZoom: 16 });
+      onFitted();
     }
-  }, [points, map]);
+  }, [points, map, onFitted]);
   return null;
 }
 
-export function CourierMap({ courierId, showAllCouriers = false, height = '400px', destinationLat, destinationLng, destinationLabel = 'Tujuan Pengiriman' }: CourierMapProps) {
+export function CourierMap({ courierId, showAllCouriers = false, height = '400px', destinationLat, destinationLng, destinationLabel = 'Tujuan Pengiriman', selfDeliveryOrderId, selfDeliveryLabel = 'Kurir Toko' }: CourierMapProps) {
   const [couriers, setCouriers] = useState<CourierLocation[]>([]);
   const [loading, setLoading] = useState(true);
   const [center, setCenter] = useState<[number, number]>([-6.2088, 106.8456]);
@@ -134,6 +139,57 @@ export function CourierMap({ courierId, showAllCouriers = false, height = '400px
   };
 
   useEffect(() => {
+    // For self-delivery mode, we don't fetch couriers from DB - we listen to broadcast only
+    if (selfDeliveryOrderId) {
+      // Try fetching merchant location as initial position
+      const fetchMerchantLocation = async () => {
+        if (!courierId) { setLoading(false); return; }
+        const { data } = await supabase
+          .from('merchants')
+          .select('id, name, location_lat, location_lng')
+          .eq('id', courierId)
+          .maybeSingle();
+        
+        if (data?.location_lat && data?.location_lng) {
+          setCouriers([{
+            id: data.id,
+            name: selfDeliveryLabel,
+            lat: data.location_lat,
+            lng: data.location_lng,
+            lastUpdate: new Date().toISOString(),
+            isAvailable: true,
+          }]);
+          setCenter([data.location_lat, data.location_lng]);
+        }
+        setLoading(false);
+      };
+      fetchMerchantLocation();
+
+      const channel = supabase.channel(`merchant-delivery-${selfDeliveryOrderId}`);
+      channel
+        .on('broadcast', { event: 'location-update' }, (payload) => {
+          const data = payload.payload as { id: string; lat: number; lng: number; timestamp: string };
+          setCouriers((prev) => {
+            if (prev.length === 0) {
+              return [{
+                id: data.id,
+                name: selfDeliveryLabel,
+                lat: data.lat,
+                lng: data.lng,
+                lastUpdate: data.timestamp,
+                isAvailable: true,
+              }];
+            }
+            return prev.map((c) => ({ ...c, lat: data.lat, lng: data.lng, lastUpdate: data.timestamp }));
+          });
+          setCenter([data.lat, data.lng]);
+        })
+        .subscribe();
+
+      return () => { supabase.removeChannel(channel); };
+    }
+
+    // Regular courier tracking mode
     fetchCouriers();
 
     const channelName = courierId ? `courier-tracking-${courierId}` : 'courier-locations';
@@ -178,7 +234,7 @@ export function CourierMap({ courierId, showAllCouriers = false, height = '400px
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [courierId, showAllCouriers]);
+  }, [courierId, showAllCouriers, selfDeliveryOrderId]);
 
   // Compute fit-bounds points
   const fitPoints: [number, number][] = [];
@@ -221,7 +277,7 @@ export function CourierMap({ courierId, showAllCouriers = false, height = '400px
 
         {/* Auto-fit when we have courier + destination */}
         {fitPoints.length >= 2 && !hasFittedBounds ? (
-          <FitBounds points={fitPoints} />
+          <FitBounds points={fitPoints} onFitted={() => setHasFittedBounds(true)} />
         ) : (
           <MapUpdater center={center} />
         )}
@@ -237,7 +293,7 @@ export function CourierMap({ courierId, showAllCouriers = false, height = '400px
               </div>
             </Popup>
           </Marker>
-        ))
+        ))}
 
         {/* Destination marker */}
         {hasDestination && (
@@ -264,17 +320,17 @@ export function CourierMap({ courierId, showAllCouriers = false, height = '400px
         size="icon"
         variant="secondary"
         className="absolute top-3 right-3 z-[1000] shadow-md"
-        onClick={() => { setLoading(true); fetchCouriers(); }}
+        onClick={() => { if (!selfDeliveryOrderId) { setLoading(true); fetchCouriers(); } }}
       >
         <RefreshCw className="h-4 w-4" />
       </Button>
 
       {/* Live indicator */}
-      {couriers.length > 0 && courierId && (
+      {couriers.length > 0 && (courierId || selfDeliveryOrderId) && (
         <div className="absolute top-3 left-3 z-[1000] bg-background/90 backdrop-blur-sm px-3 py-1.5 rounded-full text-xs font-medium shadow-md border border-border flex items-center gap-2">
           <span className="relative flex h-2.5 w-2.5">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
-            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500" />
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500" />
           </span>
           Live
         </div>

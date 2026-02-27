@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Receipt, Check, X, Package, MoreHorizontal, User, MapPin, Phone, Truck, CreditCard, MessageSquare, Printer, RefreshCw, Wifi, Search, Download, TrendingUp, Clock, CheckCircle2, ImageIcon } from 'lucide-react';
+import { Receipt, Check, X, Package, MoreHorizontal, User, MapPin, Phone, Truck, CreditCard, MessageSquare, Printer, RefreshCw, Wifi, Search, Download, TrendingUp, Clock, CheckCircle2, ImageIcon, Navigation } from 'lucide-react';
 import { MerchantLayout } from '@/components/merchant/MerchantLayout';
 import { DataTable } from '@/components/admin/DataTable';
 import { Badge } from '@/components/ui/badge';
@@ -27,6 +27,7 @@ import { toast } from 'sonner';
 import { formatPrice } from '@/lib/utils';
 import { OrderInvoice, printInvoice } from '@/components/merchant/OrderInvoice';
 import { useRealtimeOrders } from '@/hooks/useRealtimeOrders';
+import { MerchantDeliveryTracker } from '@/components/merchant/MerchantDeliveryTracker';
 
 interface OrderItem {
   id: string;
@@ -766,15 +767,21 @@ export default function MerchantOrdersPage() {
                   </div>
                 )
               )}
-              {/* DELIVERING (self-delivery): mark as delivered */}
-              {selectedOrder.status === 'DELIVERING' && (
-                <Button 
-                  className="w-full"
-                  onClick={() => handleSelfDeliveryStatusUpdate(selectedOrder.id, 'DELIVERED')}
-                >
-                  <CheckCircle2 className="h-4 w-4 mr-2" />
-                  Sudah Sampai
-                </Button>
+              {/* DELIVERING (self-delivery): location tracker + mark as delivered */}
+              {selectedOrder.status === 'DELIVERING' && merchantId && (
+                <>
+                  <MerchantDeliveryTracker
+                    orderId={selectedOrder.id}
+                    merchantId={merchantId}
+                  />
+                  <Button 
+                    className="w-full"
+                    onClick={() => handleSelfDeliveryStatusUpdate(selectedOrder.id, 'DELIVERED')}
+                  >
+                    <CheckCircle2 className="h-4 w-4 mr-2" />
+                    Sudah Sampai
+                  </Button>
+                </>
               )}
               {selectedOrder.status === 'DELIVERED' && (
                 <div className="w-full bg-muted/50 rounded-lg p-3 text-center">
