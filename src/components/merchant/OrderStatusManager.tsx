@@ -189,7 +189,28 @@ export function OrderStatusManager({ merchantId }: OrderStatusManagerProps) {
     if (!courierOrderId) return;
     
     if (deliveryMethod === 'self') {
-      await updateOrderStatus(courierOrderId, 'SENT');
+      // Set self-delivery with DELIVERING status
+      setUpdating(true);
+      try {
+        const { error } = await supabase
+          .from('orders')
+          .update({ 
+            is_self_delivery: true,
+            status: 'DELIVERING',
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', courierOrderId);
+
+        if (error) throw error;
+        setOrders(prev => prev.map(o => 
+          o.id === courierOrderId ? { ...o, status: 'DELIVERING' } : o
+        ));
+        toast.success('Pesanan akan diantar sendiri');
+      } catch (error) {
+        toast.error('Gagal mengubah status');
+      } finally {
+        setUpdating(false);
+      }
     } else if (deliveryMethod === 'village' && selectedCourierId) {
       await updateOrderStatus(courierOrderId, 'SENT', selectedCourierId);
     }

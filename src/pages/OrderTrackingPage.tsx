@@ -44,6 +44,7 @@ interface OrderDetails {
   merchant_id: string | null;
   buyer_id: string | null;
   pod_image_url: string | null;
+  is_self_delivery: boolean | null;
 }
 
 interface CourierInfo {
@@ -249,7 +250,7 @@ export default function OrderTrackingPage() {
         </motion.div>
 
         {/* Courier Info */}
-        {courier && (
+        {courier && !order.is_self_delivery && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -278,8 +279,32 @@ export default function OrderTrackingPage() {
           </motion.div>
         )}
 
-        {/* Live Tracking Map */}
-        {courier && order.courier_id && ['ASSIGNED', 'PICKED_UP', 'SENT'].includes(order.status) && (
+        {/* Merchant Self-Delivery Info */}
+        {order.is_self_delivery && merchantInfo && ['DELIVERING'].includes(order.status) && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            className="bg-card rounded-2xl p-4 border border-border"
+          >
+            <h3 className="font-medium text-sm text-muted-foreground mb-3">Diantar oleh Penjual</h3>
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
+                <Store className="h-6 w-6 text-primary" />
+              </div>
+              <div className="flex-1">
+                <p className="font-medium">{merchantInfo.name}</p>
+                <p className="text-xs text-muted-foreground flex items-center gap-1">
+                  <Truck className="h-3 w-3" />
+                  Kurir Toko
+                </p>
+              </div>
+            </div>
+          </motion.div>
+        )}
+
+        {/* Live Tracking Map - Courier */}
+        {courier && order.courier_id && !order.is_self_delivery && ['ASSIGNED', 'PICKED_UP', 'SENT'].includes(order.status) && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -309,8 +334,41 @@ export default function OrderTrackingPage() {
           </motion.div>
         )}
 
+        {/* Live Tracking Map - Merchant Self-Delivery */}
+        {order.is_self_delivery && order.merchant_id && ['DELIVERING'].includes(order.status) && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.12 }}
+            className="bg-card rounded-2xl overflow-hidden border border-border"
+          >
+            <div className="px-4 pt-4 pb-2 flex items-center justify-between">
+              <h3 className="font-medium text-sm text-muted-foreground flex items-center gap-2">
+                <MapPin className="h-4 w-4 text-primary" />
+                Live Tracking Penjual
+              </h3>
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
+                </span>
+                Realtime
+              </div>
+            </div>
+            <CourierMap 
+              courierId={order.merchant_id}
+              selfDeliveryOrderId={order.id}
+              selfDeliveryLabel={merchantInfo?.name || 'Kurir Toko'}
+              height="280px"
+              destinationLat={order.delivery_lat}
+              destinationLng={order.delivery_lng}
+              destinationLabel={order.delivery_address || 'Tujuan Pengiriman'}
+            />
+          </motion.div>
+        )}
+
         {/* Chat buttons */}
-        {['ASSIGNED', 'PICKED_UP', 'SENT', 'DELIVERED'].includes(order.status) && courier && (
+        {['ASSIGNED', 'PICKED_UP', 'SENT', 'DELIVERED'].includes(order.status) && courier && !order.is_self_delivery && (
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
             <Button
               variant="outline"
