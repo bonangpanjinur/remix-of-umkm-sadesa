@@ -1,77 +1,67 @@
 
 
-# Real-Time Courier Tracking via Supabase Broadcast
+# Rencana Perbaikan: Pemisahan Pendapatan & Sistem Keuangan Kurir
 
-## Ringkasan
+## Bug Kritis: Build Error
+File `src/main.tsx` mengimpor `virtual:pwa-register` yang gagal resolve. PWA plugin dengan `registerType: 'autoUpdate'` sudah auto-register. Solusi: hapus import manual dan gunakan inline check.
 
-Mengubah sistem pelacakan kurir dari yang sebelumnya mengandalkan `UPDATE` database setiap kali GPS bergerak, menjadi menggunakan **Supabase Realtime Broadcast** (websocket). Database hanya di-update setiap 30 detik sebagai checkpoint. Hasilnya: marker kurir bergerak mulus di peta pembeli, hemat kuota database, dan baterai kurir lebih awet.
+## Bagian 1: Pemisahan Pendapatan Merchant
 
-## Arsitektur Perubahan
+### Masalah Saat Ini
+- `MerchantOrdersPage.tsx` baris 427: `stats.total_revenue` dihitung dari `order.total` (termasuk ongkir + biaya COD + biaya platform)
+- `QuickStats.tsx` baris 87-89: `todayRevenue` juga dari `order.total`
+- `DailySummaryCard.tsx`: sama, pakai `order.total`
+- `MerchantDashboardPage.tsx` baris 122: chart revenue dari `order.total`
+- Seharusnya pendapatan merchant = `order.subtotal` saja (harga produk x qty), BUKAN `order.total`
 
+### Perubahan
+1. **`MerchantOrdersPage.tsx`** -- Ubah stat "Pendapatan" dari `curr.total` ke `curr.subtotal`, rename label jadi "Pendapatan Produk"
+2. **`QuickStats.tsx`** -- Ubah `todayRevenue` dari `o.total` ke `o.subtotal`
+3. **`DailySummaryCard.tsx`** -- Ubah revenue calc dari `total` ke `subtotal`
+4. **`MerchantDashboardPage.tsx`** -- Ubah chart revenue dari `order.total` ke `order.subtotal`, fetch `subtotal` field
+5. **`WithdrawalManager.tsx`** -- Tidak perlu diubah (saldo sudah di-manage admin)
+
+## Bagian 2: Sistem Keuangan Kurir (Deposit/Kredit)
+
+### Konsep Baru
 ```text
-SEBELUM:
-  Kurir GPS → UPDATE couriers (setiap gerak) → postgres_changes → Peta pembeli
-  Masalah: Terlalu banyak write DB, delay antrean
+Alur Saldo Kurir:
+1. Kurir wajib setor deposit awal ke admin (transfer) → saldo bertambah
+2. Kurir dapat pesanan COD (terima cash dari pembeli) → saldo BERKURANG sebesar ongkir
+   (karena dia sudah pegang cash, tapi ongkir bukan miliknya sepenuhnya)
+3. Kurir dapat pesanan Transfer (ongkir sudah dibayar online) → saldo BERTAMBAH sebesar komisi ongkir
+4. Kurir bisa tarik saldo, tapi harus menyisakan saldo minimum (diatur admin)
+5. Jika saldo < minimum, kurir wajib setor dulu sebelum bisa tarik
 
-SESUDAH:
-  Kurir GPS → Broadcast via websocket (setiap gerak) → Peta pembeli (instan)
-                ↘ UPDATE couriers (setiap 30 detik, checkpoint saja)
+Rumus:
+- Komisi kurir = shipping_cost × (courier_commission% / 100)
+- COD: kurir terima cash = order.total, harus setor ke admin = order.total - komisi
+  → saldo berkurang sebesar (order.total - komisi kurir)
+- Transfer: kurir tidak pegang cash → saldo bertambah sebesar komisi kurir
 ```
 
-## File yang Diubah
+### Database: Tambah setting & tabel
+1. **`app_settings`** -- Tambah key `courier_minimum_balance` dengan value `{ amount: 50000 }` (default Rp 50.000)
+2. **`courier_deposits`** (tabel baru) -- Track setiap setoran kurir ke admin:
+   - `id`, `courier_id`, `amount`, `proof_url`, `status` (PENDING/APPROVED/REJECTED), `admin_notes`, `approved_by`, `created_at`, `processed_at`
+3. **`courier_balance_logs`** (tabel baru) -- Log setiap perubahan saldo:
+   - `id`, `courier_id`, `order_id`, `type` (DEPOSIT/COD_DEBIT/TRANSFER_CREDIT/WITHDRAWAL), `amount`, `balance_before`, `balance_after`, `description`, `created_at`
 
-### 1. `src/components/CourierLocationUpdater.tsx` (Sisi Kurir)
-- Tambah Supabase channel `courier-tracking-{courierId}` saat tracking aktif
-- Di `watchPosition` callback, kirim lokasi via `channel.send({ type: 'broadcast', event: 'location-update', payload })` -- ini TIDAK menyentuh database
-- Pertahankan interval 30 detik untuk `updateLocationToServer()` sebagai checkpoint DB
-- Cleanup channel saat tracking dimatikan atau komponen unmount
-- Gunakan ref untuk channel agar tidak stale di callback watchPosition
+### File yang Diubah/Dibuat
 
-### 2. `src/components/CourierMap.tsx` (Peta Admin/Pembeli)
-- Tambah listener `.on('broadcast', { event: 'location-update' })` di channel yang sama
-- Broadcast listener langsung update state `couriers` -- marker bergerak instan
-- Pertahankan `postgres_changes` listener sebagai fallback untuk checkpoint 30 detik
-- Hapus polling interval 30 detik (tidak perlu lagi karena sudah ada broadcast + postgres_changes)
-- Jika tracking 1 kurir spesifik, auto-center peta mengikuti pergerakan
+4. **`CourierEarningsPage.tsx`** -- Perbaiki kalkulasi: tampilkan rincian per pesanan (komisi dari ongkir, bukan total), tambah indikator COD vs Transfer
+5. **`CourierWithdrawalPage.tsx`** -- Tambah validasi saldo minimum (fetch dari `app_settings.courier_minimum_balance`), tampilkan info "saldo minimal harus tersisa Rp X"
+6. **`CourierDashboardPage.tsx`** -- Tambah card saldo ringkas (saldo tersedia, saldo minimum, status), tambah tombol "Setor Saldo"
+7. **`CourierDepositPage.tsx`** (baru) -- Form setoran: upload bukti transfer, input jumlah, riwayat setoran
+8. **`AdminSettingsPage.tsx`** -- Tambah input "Saldo Minimum Kurir" di tab Pengiriman
+9. **`AdminCouriersPage.tsx`** -- Tambah kolom saldo di tabel kurir, tombol approve deposit
 
-### 3. `src/pages/OrderTrackingPage.tsx` (Halaman Pembeli)
-- Import dan render `<CourierMap>` saat status pesanan `ASSIGNED`, `PICKED_UP`, atau `SENT` dan ada `courier_id`
-- Tampilkan di bawah info kurir dengan judul "Live Tracking Kurir"
-- Tambah juga marker tujuan (alamat pengiriman) jika `delivery_lat`/`delivery_lng` tersedia
-- Height peta: `250px` agar tidak terlalu besar di mobile
+### Routing
+10. **`App.tsx`** -- Tambah route `/courier/deposit` → `CourierDepositPage`
+11. **`CourierSidebar.tsx`** -- Tambah menu "Setor Saldo"
 
-## Detail Teknis
+## Bagian 3: Fix Build Error
+12. **`src/main.tsx`** -- Hapus import `registerSW` dari `virtual:pwa-register` (VitePWA `autoUpdate` sudah handle otomatis)
 
-### Broadcast Flow (CourierLocationUpdater)
-```text
-watchPosition callback:
-  1. setCurrentLocation(lat, lng)        -- update UI lokal
-  2. channelRef.current.send({           -- broadcast via websocket
-       type: 'broadcast',
-       event: 'location-update',
-       payload: { id: courierId, lat, lng, timestamp }
-     })
-  3. TIDAK ada database write
-
-Interval 30 detik (tetap ada):
-  1. updateLocationToServer(lat, lng)    -- UPDATE couriers SET current_lat, current_lng
-  2. Ini trigger postgres_changes        -- fallback untuk penerima yang baru join
-```
-
-### Broadcast Listener (CourierMap)
-```text
-Channel setup:
-  1. supabase.channel(`courier-tracking-${courierId}`)
-  2. .on('broadcast', { event: 'location-update' }, handler)  -- pergerakan instan
-  3. .on('postgres_changes', { ... }, handler)                 -- checkpoint fallback
-  4. .subscribe()
-```
-
-### Tidak Ada Perubahan Database
-- Tidak perlu migrasi SQL
-- Tidak perlu tabel baru
-- Broadcast berjalan murni via websocket, tidak menyentuh database
-- Supabase Realtime Broadcast sudah aktif secara default
-
-## Total: 3 file diubah, 0 migrasi database
+## Total: ~12 file diubah/dibuat, 1 migrasi database
 
