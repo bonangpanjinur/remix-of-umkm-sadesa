@@ -298,6 +298,115 @@ export type Database = {
           },
         ]
       }
+      courier_balance_logs: {
+        Row: {
+          amount: number
+          balance_after: number
+          balance_before: number
+          courier_id: string
+          created_at: string
+          description: string | null
+          id: string
+          order_id: string | null
+          type: string
+        }
+        Insert: {
+          amount?: number
+          balance_after?: number
+          balance_before?: number
+          courier_id: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          order_id?: string | null
+          type: string
+        }
+        Update: {
+          amount?: number
+          balance_after?: number
+          balance_before?: number
+          courier_id?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          order_id?: string | null
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "courier_balance_logs_courier_id_fkey"
+            columns: ["courier_id"]
+            isOneToOne: false
+            referencedRelation: "couriers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "courier_balance_logs_courier_id_fkey"
+            columns: ["courier_id"]
+            isOneToOne: false
+            referencedRelation: "public_couriers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "courier_balance_logs_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      courier_deposits: {
+        Row: {
+          admin_notes: string | null
+          amount: number
+          approved_by: string | null
+          courier_id: string
+          created_at: string
+          id: string
+          processed_at: string | null
+          proof_url: string | null
+          status: string
+        }
+        Insert: {
+          admin_notes?: string | null
+          amount?: number
+          approved_by?: string | null
+          courier_id: string
+          created_at?: string
+          id?: string
+          processed_at?: string | null
+          proof_url?: string | null
+          status?: string
+        }
+        Update: {
+          admin_notes?: string | null
+          amount?: number
+          approved_by?: string | null
+          courier_id?: string
+          created_at?: string
+          id?: string
+          processed_at?: string | null
+          proof_url?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "courier_deposits_courier_id_fkey"
+            columns: ["courier_id"]
+            isOneToOne: false
+            referencedRelation: "couriers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "courier_deposits_courier_id_fkey"
+            columns: ["courier_id"]
+            isOneToOne: false
+            referencedRelation: "public_couriers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       courier_earnings: {
         Row: {
           amount: number

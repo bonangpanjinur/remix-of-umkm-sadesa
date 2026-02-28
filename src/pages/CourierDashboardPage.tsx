@@ -17,7 +17,8 @@ import {
   Camera,
   History,
   Banknote,
-  Volume2
+  Volume2,
+  PiggyBank
 } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
 import { Button } from '@/components/ui/button';
@@ -31,6 +32,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { formatDistance, calculateDistance } from '@/lib/etaCalculation';
+import { formatPrice } from '@/lib/utils';
 
 interface CourierData {
   id: string;
@@ -40,6 +42,7 @@ interface CourierData {
   vehicle_type: string;
   current_lat: number | null;
   current_lng: number | null;
+  available_balance: number | null;
 }
 
 interface AssignedOrder {
@@ -113,7 +116,7 @@ export default function CourierDashboardPage() {
       // Fetch courier profile
       const { data: courierData, error: courierError } = await supabase
         .from('couriers')
-        .select('id, name, phone, is_available, vehicle_type, current_lat, current_lng, registration_status')
+        .select('id, name, phone, is_available, vehicle_type, current_lat, current_lng, registration_status, available_balance')
         .eq('user_id', user.id)
         .maybeSingle();
 
@@ -320,6 +323,21 @@ export default function CourierDashboardPage() {
               onCheckedChange={toggleAvailability}
               disabled={updatingStatus}
             />
+          </div>
+        </motion.div>
+
+        {/* Balance Summary */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.08 }}
+        >
+          <div className="bg-gradient-to-r from-primary to-primary/80 rounded-2xl p-5 text-primary-foreground">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm opacity-80 flex items-center gap-1.5"><Wallet className="h-4 w-4" />Saldo Tersedia</span>
+              <Link to="/courier/deposit" className="text-xs underline opacity-80 hover:opacity-100">Setor Saldo</Link>
+            </div>
+            <p className="text-2xl font-bold">{formatPrice(courier.available_balance || 0)}</p>
           </div>
         </motion.div>
 

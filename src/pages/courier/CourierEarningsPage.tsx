@@ -23,11 +23,13 @@ interface DeliveryHistory {
   id: string;
   status: string;
   total: number;
+  subtotal: number;
   shipping_cost: number;
   delivered_at: string | null;
   created_at: string;
   delivery_name: string | null;
   delivery_address: string | null;
+  payment_method: string | null;
 }
 
 interface EarningsStats {
@@ -91,7 +93,7 @@ export default function CourierEarningsPage() {
       // Fetch all delivered orders
       const { data: orders } = await supabase
         .from('orders')
-        .select('id, status, total, shipping_cost, delivered_at, created_at, delivery_name, delivery_address')
+        .select('id, status, total, subtotal, shipping_cost, delivered_at, created_at, delivery_name, delivery_address, payment_method')
         .eq('courier_id', courier.id)
         .order('created_at', { ascending: false });
 
@@ -281,7 +283,8 @@ export default function CourierEarningsPage() {
 
 function DeliveryCard({ order }: { order: DeliveryHistory }) {
   const isCompleted = order.status === 'DELIVERED' || order.status === 'DONE';
-  const earnings = order.shipping_cost * 0.8; // Will be overridden by actual commission rate in parent
+  const isCOD = order.payment_method === 'COD';
+  const earnings = order.shipping_cost * 0.8;
 
   return (
     <div className="bg-card rounded-xl p-4 border border-border">
@@ -297,19 +300,24 @@ function DeliveryCard({ order }: { order: DeliveryHistory }) {
               minute: '2-digit',
             })}
           </p>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <Badge variant="outline" className={isCOD ? 'border-warning text-warning' : 'border-primary text-primary'}>
+            {isCOD ? 'COD' : 'Transfer'}
+          </Badge>
+          <Badge variant={isCompleted ? 'default' : 'secondary'} className={isCompleted ? 'bg-primary/10 text-primary' : ''}>
+            {isCompleted ? 'Selesai' : order.status}
+          </Badge>
+        </div>
       </div>
-      <Badge variant={isCompleted ? 'default' : 'secondary'} className={isCompleted ? 'bg-primary/10 text-primary' : ''}>
-        {isCompleted ? 'Selesai' : order.status}
-      </Badge>
-    </div>
 
-    <p className="text-sm text-muted-foreground mb-2 line-clamp-1">
-      {order.delivery_name} • {order.delivery_address || 'Alamat tidak tersedia'}
-    </p>
+      <p className="text-sm text-muted-foreground mb-2 line-clamp-1">
+        {order.delivery_name} • {order.delivery_address || 'Alamat tidak tersedia'}
+      </p>
 
       <div className="flex justify-between items-center pt-2 border-t border-border">
         <span className="text-sm text-muted-foreground">Ongkir: {formatPrice(order.shipping_cost)}</span>
-        <span className="font-bold text-primary">+{formatPrice(earnings)}</span>
+        <span className="font-bold text-primary">Komisi: +{formatPrice(earnings)}</span>
       </div>
     </div>
   );
