@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Wallet, Send, Clock, CheckCircle, XCircle, Loader2 } from 'lucide-react';
+import { ArrowLeft, Wallet, Send, Clock, CheckCircle, XCircle, Loader2, AlertCircle } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { formatPrice } from '@/lib/utils';
@@ -47,6 +48,7 @@ export default function CourierWithdrawalPage() {
   const [bankName, setBankName] = useState('');
   const [accountNumber, setAccountNumber] = useState('');
   const [accountHolder, setAccountHolder] = useState('');
+  const [minimumBalance, setMinimumBalance] = useState(50000);
 
   useEffect(() => {
     if (!authLoading && user) fetchData();
@@ -72,13 +74,23 @@ export default function CourierWithdrawalPage() {
       setAccountNumber(courierData.bank_account_number || '');
       setAccountHolder(courierData.bank_account_name || '');
 
-      const { data: wds } = await supabase
-        .from('courier_withdrawal_requests')
-        .select('*')
-        .eq('courier_id', courierData.id)
-        .order('created_at', { ascending: false });
+      const [{ data: wds }, { data: minBalSetting }] = await Promise.all([
+        supabase
+          .from('courier_withdrawal_requests')
+          .select('*')
+          .eq('courier_id', courierData.id)
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('app_settings')
+          .select('value')
+          .eq('key', 'courier_minimum_balance')
+          .maybeSingle(),
+      ]);
 
       setWithdrawals(wds || []);
+      if (minBalSetting?.value) {
+        setMinimumBalance((minBalSetting.value as any).amount || 50000);
+      }
     } catch (error) {
       console.error('Error:', error);
     } finally {
@@ -96,6 +108,11 @@ export default function CourierWithdrawalPage() {
     }
     if (amountNum > (courier.available_balance || 0)) {
       toast.error('Saldo tidak mencukupi');
+      return;
+    }
+    const remainingBalance = (courier.available_balance || 0) - amountNum;
+    if (remainingBalance < minimumBalance) {
+      toast.error(`Saldo setelah penarikan harus minimal ${formatPrice(minimumBalance)}`);
       return;
     }
     if (!bankName || !accountNumber || !accountHolder) {
@@ -171,6 +188,7 @@ export default function CourierWithdrawalPage() {
                 <span>Pending: {formatPrice(courier?.pending_balance || 0)}</span>
                 <span>Ditarik: {formatPrice(courier?.total_withdrawn || 0)}</span>
               </div>
+              <p className="text-xs mt-1 opacity-70">Saldo minimum: {formatPrice(minimumBalance)}</p>
             </CardContent>
           </Card>
         </motion.div>

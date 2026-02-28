@@ -39,6 +39,7 @@ import RegisterCourierPage from "./pages/RegisterCourierPage";
 import NotFound from "./pages/NotFound";
 import CourierDashboardPage from "./pages/CourierDashboardPage";
 import CourierEarningsPage from "./pages/courier/CourierEarningsPage";
+import CourierDepositPage from "./pages/courier/CourierDepositPage";
 import OrderTrackingPage from "./pages/OrderTrackingPage";
 import UnauthorizedPage from "./pages/UnauthorizedPage";
 import VillageDetailPage from "./pages/VillageDetailPage";
@@ -258,6 +259,11 @@ const App = () => (
               <Route path="/courier/withdrawal" element={
                 <ProtectedRoute allowedRoles={['courier', 'admin']}>
                   <CourierWithdrawalPage />
+                </ProtectedRoute>
+              } />
+              <Route path="/courier/deposit" element={
+                <ProtectedRoute allowedRoles={['courier', 'admin']}>
+                  <CourierDepositPage />
                 </ProtectedRoute>
               } />
               <Route path="/courier/chat" element={

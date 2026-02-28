@@ -2,17 +2,6 @@ import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
 import { supabase } from "@/integrations/supabase/client";
-import { registerSW } from 'virtual:pwa-register';
-
-// Register Service Worker
-registerSW({
-  onNeedRefresh() {
-    console.log('New content available, please refresh.');
-  },
-  onOfflineReady() {
-    console.log('App ready to work offline');
-  },
-});
 
 // Function to generate and inject dynamic manifest
 const injectDynamicManifest = async () => {

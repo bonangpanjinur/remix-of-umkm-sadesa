@@ -66,7 +66,7 @@ export function QuickStats({ merchantId }: QuickStatsProps) {
       // Fetch orders
       const { data: orders } = await supabase
         .from('orders')
-        .select('id, status, total, created_at')
+        .select('id, status, total, subtotal, created_at')
         .eq('merchant_id', merchantId);
 
       // Fetch merchant balance
@@ -86,7 +86,7 @@ export function QuickStats({ merchantId }: QuickStatsProps) {
         canceledToday: todayOrders.filter(o => o.status === 'CANCELED').length,
         todayRevenue: todayOrders
           .filter(o => o.status === 'DONE')
-          .reduce((sum, o) => sum + o.total, 0),
+          .reduce((sum, o) => sum + (o.subtotal || o.total), 0),
         pendingBalance: merchant?.pending_balance || 0,
         availableBalance: merchant?.available_balance || 0,
       });

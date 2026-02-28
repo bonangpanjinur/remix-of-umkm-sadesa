@@ -98,6 +98,7 @@ export default function AdminSettingsPage() {
   const adminPaymentInfo = getSetting('admin_payment_info')?.value as unknown as { bank_name: string; bank_account_number: string; bank_account_name: string; qris_image_url: string } | undefined;
   const freeTierQuota = getSetting('free_tier_quota')?.value as unknown as { limit: number } | undefined;
   const courierCommission = getSetting('courier_commission')?.value as unknown as { percent: number } | undefined;
+  const courierMinBalance = getSetting('courier_minimum_balance')?.value as unknown as { amount: number } | undefined;
 
   return (
     <AdminLayout title="Pengaturan" subtitle="Konfigurasi fitur dan kustomisasi aplikasi">
@@ -363,6 +364,36 @@ export default function AdminSettingsPage() {
                         isSaving={saving === 'shipping_zones'}
                       />
                     </div>
+                  </CardContent>
+                </Card>
+
+                {/* Courier Minimum Balance */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Truck className="h-5 w-5" />
+                      Saldo Minimum Kurir
+                    </CardTitle>
+                    <CardDescription>
+                      Saldo minimum yang harus tersisa saat kurir melakukan penarikan
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <CourierMinBalanceForm
+                      initialAmount={courierMinBalance?.amount ?? 50000}
+                      onSave={async (amount) => {
+                        setSaving('courier_minimum_balance');
+                        const success = await updateAppSetting('courier_minimum_balance', { amount });
+                        if (success) {
+                          toast.success('Saldo minimum kurir berhasil disimpan');
+                          loadSettings();
+                        } else {
+                          toast.error('Gagal menyimpan');
+                        }
+                        setSaving(null);
+                      }}
+                      isSaving={saving === 'courier_minimum_balance'}
+                    />
                   </CardContent>
                 </Card>
               </TabsContent>
@@ -687,6 +718,21 @@ function CourierCommissionForm({ initialPercent, onSave, isSaving }: { initialPe
         <Label>Persentase Komisi (%)</Label>
         <Input type="number" step="0.1" value={percent} onChange={(e) => setPercent(e.target.value)} min={0} max={100} />
         <p className="text-xs text-muted-foreground">Kurir akan mendapatkan {percent}% dari biaya ongkir setiap pengiriman</p>
+      </div>
+      <Button type="submit" disabled={isSaving}><Save className="h-4 w-4 mr-2" /> {isSaving ? 'Menyimpan...' : 'Simpan'}</Button>
+    </form>
+  );
+}
+
+function CourierMinBalanceForm({ initialAmount, onSave, isSaving }: { initialAmount: number; onSave: (amount: number) => Promise<void>; isSaving: boolean }) {
+  const [amount, setAmount] = useState(initialAmount.toString());
+  const handleSubmit = (e: React.FormEvent) => { e.preventDefault(); onSave(parseInt(amount) || 50000); };
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="space-y-2">
+        <Label>Saldo Minimum (Rp)</Label>
+        <Input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} min={0} step={1000} />
+        <p className="text-xs text-muted-foreground">Kurir harus menyisakan minimal saldo ini saat melakukan penarikan</p>
       </div>
       <Button type="submit" disabled={isSaving}><Save className="h-4 w-4 mr-2" /> {isSaving ? 'Menyimpan...' : 'Simpan'}</Button>
     </form>

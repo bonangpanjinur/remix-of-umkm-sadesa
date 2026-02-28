@@ -424,7 +424,7 @@ export default function MerchantOrdersPage() {
     processed: orders.filter(o => o.status === 'PROCESSED').length,
     sent: orders.filter(o => ['SENT', 'DELIVERING'].includes(o.status)).length,
     done: orders.filter(o => o.status === 'DONE').length,
-    total_revenue: orders.filter(o => o.status === 'DONE').reduce((acc, curr) => acc + curr.total, 0)
+    total_revenue: orders.filter(o => o.status === 'DONE').reduce((acc, curr) => acc + curr.subtotal, 0)
   };
 
   const handleExport = (data: OrderRow[]) => {

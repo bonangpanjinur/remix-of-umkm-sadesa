@@ -30,12 +30,12 @@ export function DailySummaryCard({ merchantId }: DailySummaryCardProps) {
       // Today's orders
       const { data: todayData } = await supabase
         .from('orders')
-        .select('total, status')
+        .select('total, subtotal, status')
         .eq('merchant_id', merchantId)
         .gte('created_at', todayStart);
 
       const doneToday = todayData?.filter(o => o.status === 'DONE') || [];
-      setTodayRevenue(doneToday.reduce((s, o) => s + o.total, 0));
+      setTodayRevenue(doneToday.reduce((s, o) => s + (o.subtotal || o.total), 0));
       setTodayOrders(todayData?.length || 0);
 
       // Pending orders
@@ -45,13 +45,13 @@ export function DailySummaryCard({ merchantId }: DailySummaryCardProps) {
       // Yesterday's revenue
       const { data: yesterdayData } = await supabase
         .from('orders')
-        .select('total, status')
+        .select('total, subtotal, status')
         .eq('merchant_id', merchantId)
         .gte('created_at', yesterdayStart)
         .lt('created_at', yesterdayEnd)
         .eq('status', 'DONE');
 
-      setYesterdayRevenue(yesterdayData?.reduce((s, o) => s + o.total, 0) || 0);
+      setYesterdayRevenue(yesterdayData?.reduce((s, o) => s + (o.subtotal || o.total), 0) || 0);
     } catch (error) {
       console.error('Error fetching daily summary:', error);
     } finally {

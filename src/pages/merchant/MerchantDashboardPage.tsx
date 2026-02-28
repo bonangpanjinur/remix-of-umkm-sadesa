@@ -41,6 +41,7 @@ interface OrderData {
   id: string;
   status: string;
   total: number;
+  subtotal?: number;
   created_at: string;
 }
 
@@ -98,7 +99,7 @@ export default function MerchantDashboardPage() {
     if (merchant) {
       supabase
         .from('orders')
-        .select('id, status, total, created_at')
+        .select('id, status, total, subtotal, created_at')
         .eq('merchant_id', merchant.id)
         .then(({ data }) => setOrders(data || []));
     }
@@ -119,7 +120,7 @@ export default function MerchantDashboardPage() {
       const date = order.created_at.split('T')[0];
       const existing = dateMap.get(date) || { revenue: 0, orders: 0 };
       dateMap.set(date, {
-        revenue: existing.revenue + (order.status === 'DONE' ? order.total : 0),
+        revenue: existing.revenue + (order.status === 'DONE' ? (order.subtotal || order.total) : 0),
         orders: existing.orders + 1,
       });
     });
