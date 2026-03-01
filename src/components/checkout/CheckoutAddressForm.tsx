@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { MapPin, User, Loader2, BookMarked, ChevronDown, AlertCircle } from 'lucide-react';
+import { MapPin, User, Loader2, BookMarked, ChevronDown, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
@@ -58,13 +58,17 @@ export function CheckoutAddressForm({
   const [showSavedAddresses, setShowSavedAddresses] = useState(false);
   const { addresses: savedAddresses, loading: savedAddressesLoading } = useSavedAddresses();
 
+  // Computed: is address complete?
+  const isAddressComplete = !!(value.address.province && value.address.city && value.address.district && value.address.village);
+  const isContactComplete = !!(value.name && value.phone);
+  const hasDetectedLocation = !!(value.location && detectedAddress);
+
   // Auto-populate from default saved address or profile on mount
   useEffect(() => {
     if (!user || profileLoaded) return;
 
     const autoPopulate = async () => {
       try {
-        // Priority 1: Check for default saved address
         const defaultAddr = savedAddresses.find(a => a.is_default) || (savedAddresses.length > 0 ? savedAddresses[0] : null);
         
         if (defaultAddr) {
@@ -93,7 +97,6 @@ export function CheckoutAddressForm({
 
           if (loc) {
             setMapCenter(loc);
-            // Get detected address from coordinates
             const detected = await reverseGeocode(loc.lat, loc.lng);
             setDetectedAddress(detected);
           } else if (addrData.district && addrData.districtName) {
@@ -105,7 +108,6 @@ export function CheckoutAddressForm({
           return;
         }
 
-        // Priority 2: Load from user profile
         const { data: profile } = await supabase
           .from('profiles')
           .select('*')
@@ -143,7 +145,6 @@ export function CheckoutAddressForm({
               if (coords) setMapCenter({ lat: coords.lat, lng: coords.lng });
             }
           } else {
-            // At minimum, fill name and phone from profile
             onChange({
               ...value,
               name: profile.full_name || '',
@@ -158,13 +159,11 @@ export function CheckoutAddressForm({
       }
     };
 
-    // Wait for saved addresses to finish loading before deciding
     if (!savedAddressesLoading) {
       autoPopulate();
     }
   }, [user, profileLoaded, savedAddressesLoading, savedAddresses.length]);
 
-  // Geocode when address changes (forward geocoding)
   useEffect(() => {
     if (isUpdatingFromMap.current) {
       isUpdatingFromMap.current = false;
@@ -187,10 +186,8 @@ export function CheckoutAddressForm({
     }
   }, [value.address.district, value.address.village]);
 
-  // Save address to profile if profile was empty
   const saveAddressToProfile = useCallback(async (addressData: CheckoutAddressData) => {
     if (!user || !profileWasEmpty) return;
-    
     if (!addressData.address.province || !addressData.address.city) return;
 
     try {
@@ -246,7 +243,6 @@ export function CheckoutAddressForm({
     onChange({ ...value, location });
   };
 
-  // Handle selecting a saved address
   const handleSelectSavedAddress = useCallback(async (address: SavedAddress) => {
     const addressData: AddressData = {
       province: address.province_id || '',
@@ -271,10 +267,8 @@ export function CheckoutAddressForm({
       detailAddress: address.address_detail || '',
     });
 
-    // Update map center if coordinates exist
     if (address.lat && address.lng) {
       setMapCenter({ lat: address.lat, lng: address.lng });
-      // Get detected address from coordinates
       const detected = await reverseGeocode(address.lat, address.lng);
       setDetectedAddress(detected);
     } else if (addressData.district && addressData.districtName) {
@@ -292,7 +286,6 @@ export function CheckoutAddressForm({
     setShowSavedAddresses(false);
   }, [value, onChange, getCoordinatesFromAddress]);
 
-  // Handle when user selects location on map or uses "Lokasi Saya" - reverse geocode
   const handleLocationSelected = useCallback(async (lat: number, lng: number) => {
     isUpdatingFromMap.current = true;
     setReverseGeocodingLoading(true);
@@ -302,8 +295,6 @@ export function CheckoutAddressForm({
       setDetectedAddress(result);
       
       if (result) {
-        // Try to match the reverse geocoded address to our region codes
-        // This is a simplified matching - in production you'd want fuzzy matching
         const provinces = await fetchProvinces();
         const matchedProvince = provinces.find(p => 
           result.province && p.name.toLowerCase().includes(result.province.toLowerCase().replace(/provinsi\s*/i, ''))
@@ -360,7 +351,6 @@ export function CheckoutAddressForm({
           }
         }
         
-        // If we couldn't match all levels, just update the location
         onChange({
           ...value,
           location: { lat, lng },
@@ -368,7 +358,6 @@ export function CheckoutAddressForm({
       }
     } catch (error) {
       console.error('Reverse geocoding error:', error);
-      // Still update the location even if reverse geocoding fails
       onChange({
         ...value,
         location: { lat, lng },
@@ -402,7 +391,7 @@ export function CheckoutAddressForm({
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {/* Saved Address Picker */}
       {savedAddresses.length > 0 && (
         <div className="space-y-3">
@@ -433,11 +422,18 @@ export function CheckoutAddressForm({
         </div>
       )}
 
-      {/* Contact Info */}
+      {/* Contact Info with completion indicator */}
       <div className="space-y-4">
         <div className="flex items-center gap-2">
-          <User className="h-4 w-4 text-primary" />
+          {isContactComplete ? (
+            <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+          ) : (
+            <User className="h-4 w-4 text-primary" />
+          )}
           <h4 className="font-medium text-sm">Info Penerima</h4>
+          {isContactComplete && (
+            <span className="text-[10px] text-emerald-600 font-medium bg-emerald-50 px-1.5 py-0.5 rounded">Lengkap</span>
+          )}
         </div>
 
         <div className="space-y-3">
@@ -478,14 +474,21 @@ export function CheckoutAddressForm({
       {!hideMap && (
         <div className="space-y-4" id="error-location">
           <div className="flex items-center gap-2">
-            <MapPin className="h-4 w-4 text-primary" />
+            {hasDetectedLocation ? (
+              <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+            ) : (
+              <MapPin className="h-4 w-4 text-primary" />
+            )}
             <h4 className="font-medium text-sm">Titik Lokasi Pengiriman</h4>
             {(geocodingLoading || reverseGeocodingLoading) && (
               <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
             )}
+            {hasDetectedLocation && (
+              <span className="text-[10px] text-emerald-600 font-medium bg-emerald-50 px-1.5 py-0.5 rounded">Terdeteksi</span>
+            )}
           </div>
 
-          <div className={errors?.location ? 'rounded-lg border border-destructive p-1' : ''}>
+          <div className={errors?.location ? 'rounded-lg border-2 border-destructive p-1' : ''}>
             <LocationPicker
               value={value.location}
               onChange={handleLocationChange}
@@ -503,16 +506,16 @@ export function CheckoutAddressForm({
 
       {/* Detected Address Summary */}
       {value.location && detectedAddress && (
-        <div className="rounded-lg border border-primary/20 bg-primary/5 p-4">
+        <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4">
           <div className="flex items-start gap-3">
-            <MapPin className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
+            <CheckCircle2 className="h-4 w-4 text-emerald-600 mt-0.5 flex-shrink-0" />
             <div className="flex-1 min-w-0">
-              <p className="text-xs text-muted-foreground mb-1">Alamat Terdeteksi:</p>
-              <p className="text-sm font-medium text-primary break-words">
+              <p className="text-xs text-emerald-700 font-medium mb-1">Alamat Terdeteksi:</p>
+              <p className="text-sm font-medium text-emerald-900 break-words">
                 {formatAddressSummary(detectedAddress)}
               </p>
               {detectedAddress.postcode && (
-                <p className="text-xs text-muted-foreground mt-1">
+                <p className="text-xs text-emerald-600 mt-1">
                   Kode Pos: {detectedAddress.postcode}
                 </p>
               )}
@@ -537,7 +540,7 @@ export function CheckoutAddressForm({
             placeholder="Contoh: Rumah nomor 42, depan toko kelontong, sebelah masjid"
             value={value.detailAddress || ''}
             onChange={(e) => handleDetailAddressChange(e.target.value)}
-            className="min-h-20 resize-none"
+            className={`min-h-20 resize-none ${!value.detailAddress && value.location ? 'border-amber-300 focus:border-amber-400' : ''}`}
           />
           <p className="text-xs text-muted-foreground">
             Informasi ini membantu kurir menemukan lokasi Anda dengan lebih mudah
@@ -545,42 +548,79 @@ export function CheckoutAddressForm({
         </div>
       </div>
 
-      {/* Optional: Show Address Selector for manual editing */}
-      {showAddressSelector && (
-        <div className="space-y-4 p-4 rounded-lg border border-border bg-muted/50">
-          <div className="flex items-center justify-between">
-            <h4 className="font-medium text-sm">Edit Alamat Manual</h4>
+      {/* Address Selector - only show button if address is NOT complete from map detection */}
+      {!isAddressComplete && (
+        <div id="error-address">
+          {!showAddressSelector ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setShowAddressSelector(true)}
+              className={`w-full ${errors?.address ? 'border-destructive text-destructive' : 'border-amber-300 text-amber-700 bg-amber-50 hover:bg-amber-100'}`}
+            >
+              <MapPin className="h-3.5 w-3.5 mr-1.5" />
+              Pilih Kelurahan/Desa Manual
+            </Button>
+          ) : (
+            <div className="space-y-3 p-4 rounded-lg border border-border bg-muted/50">
+              <div className="flex items-center justify-between">
+                <h4 className="font-medium text-sm">Pilih Wilayah</h4>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowAddressSelector(false)}
+                >
+                  Tutup
+                </Button>
+              </div>
+              <AddressSelector
+                value={value.address}
+                onChange={handleAddressChange}
+              />
+            </div>
+          )}
+          {errors?.address && (
+            <p className="text-xs text-destructive mt-1 text-center">{errors.address}</p>
+          )}
+        </div>
+      )}
+
+      {/* If address IS complete, show a compact summary with edit option */}
+      {isAddressComplete && (
+        <div className="rounded-lg border border-emerald-200 bg-emerald-50/50 p-3">
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex items-start gap-2 min-w-0">
+              <CheckCircle2 className="h-4 w-4 text-emerald-500 mt-0.5 flex-shrink-0" />
+              <div className="min-w-0">
+                <p className="text-xs text-emerald-700 font-medium">Wilayah:</p>
+                <p className="text-sm text-foreground truncate">
+                  {value.address.villageName}, {value.address.districtName}, {value.address.cityName}
+                </p>
+              </div>
+            </div>
             <Button
               type="button"
               variant="ghost"
               size="sm"
-              onClick={() => setShowAddressSelector(false)}
+              className="text-xs text-primary h-7 px-2 flex-shrink-0"
+              onClick={() => setShowAddressSelector(!showAddressSelector)}
             >
-              Tutup
+              Ubah
             </Button>
           </div>
-          <AddressSelector
-            value={value.address}
-            onChange={handleAddressChange}
-          />
+          
+          {showAddressSelector && (
+            <div className="mt-3 pt-3 border-t border-emerald-200">
+              <AddressSelector
+                value={value.address}
+                onChange={handleAddressChange}
+              />
+            </div>
+          )}
         </div>
       )}
-
-      {/* Show/Hide Address Selector Button */}
-      <div id="error-address">
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={() => setShowAddressSelector(!showAddressSelector)}
-          className={`w-full ${errors?.address ? 'border-destructive text-destructive' : ''}`}
-        >
-          {showAddressSelector ? 'Sembunyikan' : 'Edit'} Alamat Manual
-        </Button>
-        {errors?.address && (
-          <p className="text-xs text-destructive mt-1 text-center">{errors.address}</p>
-        )}
-      </div>
     </div>
   );
 }

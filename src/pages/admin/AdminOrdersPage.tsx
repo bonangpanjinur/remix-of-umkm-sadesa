@@ -46,13 +46,17 @@ interface OrderRow {
   delivery_name: string | null;
   delivery_phone: string | null;
   delivery_address: string | null;
+  delivery_lat: number | null;
+  delivery_lng: number | null;
   subtotal: number;
   shipping_cost: number;
   total: number;
+  cod_service_fee: number | null;
   notes: string | null;
   created_at: string;
   courier_id: string | null;
-  merchants: { name: string } | null;
+  merchant_id: string | null;
+  merchants: { name: string; location_lat: number | null; location_lng: number | null } | null;
 }
 
 export default function AdminOrdersPage() {
@@ -67,7 +71,7 @@ export default function AdminOrdersPage() {
     try {
       const { data, error } = await supabase
         .from('orders')
-        .select('*, merchants(name)')
+        .select('*, merchants(name, location_lat, location_lng)')
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -230,7 +234,7 @@ export default function AdminOrdersPage() {
   const stats = useMemo(() => {
     const totalRevenue = orders
       .filter(o => o.status === 'DONE' && o.payment_status === 'PAID')
-      .reduce((acc, curr) => acc + curr.total, 0);
+      .reduce((acc, curr) => acc + curr.subtotal, 0);
     
     return {
       total: orders.length,
@@ -432,10 +436,10 @@ export default function AdminOrdersPage() {
             description="Dalam pengiriman/proses"
           />
           <StatsCard
-            title="Total Pendapatan"
+            title="Pendapatan Produk"
             value={formatPrice(stats.revenue)}
             icon={<TrendingUp className="h-5 w-5" />}
-            description="Dari pesanan selesai"
+            description="Subtotal produk (tanpa ongkir)"
           />
         </div>
 
@@ -469,6 +473,10 @@ export default function AdminOrdersPage() {
           open={courierAssignDialogOpen}
           onOpenChange={setCourierAssignDialogOpen}
           orderId={selectedOrder.id}
+          merchantLat={selectedOrder.merchants?.location_lat ? Number(selectedOrder.merchants.location_lat) : undefined}
+          merchantLng={selectedOrder.merchants?.location_lng ? Number(selectedOrder.merchants.location_lng) : undefined}
+          deliveryLat={selectedOrder.delivery_lat ? Number(selectedOrder.delivery_lat) : undefined}
+          deliveryLng={selectedOrder.delivery_lng ? Number(selectedOrder.delivery_lng) : undefined}
           onSuccess={() => {
             fetchOrders();
             setDetailDialogOpen(false);

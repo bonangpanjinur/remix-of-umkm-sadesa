@@ -726,19 +726,27 @@ export default function CheckoutPage() {
         <div className="px-4 pt-3 pb-1 border-b border-border">
           <div className="flex items-center justify-between">
             {[
-              { icon: Package, label: 'Pesanan' },
-              { icon: MapPin, label: 'Alamat' },
-              { icon: Truck, label: 'Pengiriman' },
-              { icon: CreditCard, label: 'Bayar' },
+              { icon: Package, label: 'Pesanan', done: items.length > 0 },
+              { icon: MapPin, label: 'Alamat', done: !!(addressData.address.province && addressData.address.city && addressData.address.district) },
+              { icon: Truck, label: 'Pengiriman', done: true },
+              { icon: CreditCard, label: 'Bayar', done: !!paymentMethod },
             ].map((step, i) => (
               <div key={step.label} className="flex items-center">
                 <div className="flex flex-col items-center gap-0.5">
-                  <div className="w-7 h-7 rounded-full bg-primary/10 text-primary flex items-center justify-center">
-                    <step.icon className="h-3.5 w-3.5" />
+                  <div className={`w-7 h-7 rounded-full flex items-center justify-center transition-colors ${
+                    step.done
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-muted text-muted-foreground'
+                  }`}>
+                    {step.done ? (
+                      <CheckCircle className="h-3.5 w-3.5" />
+                    ) : (
+                      <step.icon className="h-3.5 w-3.5" />
+                    )}
                   </div>
-                  <span className="text-[9px] text-muted-foreground font-medium">{step.label}</span>
+                  <span className={`text-[9px] font-medium ${step.done ? 'text-primary' : 'text-muted-foreground'}`}>{step.label}</span>
                 </div>
-                {i < 3 && <div className="w-6 h-px bg-border mx-1 mb-4" />}
+                {i < 3 && <div className={`w-6 h-px mx-1 mb-4 ${step.done ? 'bg-primary' : 'bg-border'}`} />}
               </div>
             ))}
           </div>
@@ -1088,6 +1096,13 @@ export default function CheckoutPage() {
 
       {/* Checkout Summary */}
       <div className="fixed bottom-0 left-0 right-0 max-w-[480px] mx-auto bg-card border-t border-border p-5 shadow-lg">
+        {/* Free shipping badge */}
+        {shippingSettings && subtotal >= shippingSettings.free_shipping_min_order && deliveryType === 'INTERNAL' && (
+          <div className="flex items-center gap-1.5 mb-2 text-xs text-emerald-600 font-medium">
+            <CheckCircle className="h-3.5 w-3.5" />
+            <span>Gratis ongkir! (min. belanja {formatPrice(shippingSettings.free_shipping_min_order)})</span>
+          </div>
+        )}
         <div className="flex justify-between items-center mb-1 text-sm">
           <span className="text-muted-foreground">Subtotal</span>
           <span className="font-bold">{formatPrice(subtotal)}</span>
@@ -1108,14 +1123,25 @@ export default function CheckoutPage() {
             <span className="font-bold">{formatPrice(codServiceFee)}</span>
           </div>
         )}
-        <div className="flex justify-between items-center mb-4 pt-4 border-t border-border">
+        <div className="flex justify-between items-center mb-3 pt-3 border-t border-border">
           <span className="text-lg font-bold">Total</span>
           <span className="text-xl font-bold text-primary">{formatPrice(total)}</span>
+        </div>
+        {/* Payment method label */}
+        <div className="flex items-center gap-1.5 mb-3 text-xs text-muted-foreground">
+          <CreditCard className="h-3.5 w-3.5" />
+          <span>
+            Bayar via: <span className="font-medium text-foreground">
+              {paymentMethod === 'COD' ? 'COD (Bayar di Tempat)' : paymentMethod === 'TRANSFER' ? 'Transfer Bank' : 'Online Payment'}
+            </span>
+          </span>
         </div>
         <Button
           type="submit"
           onClick={handleSubmit}
-          className="w-full shadow-brand font-bold"
+          className={`w-full shadow-brand font-bold transition-all ${
+            !loading && canProceedCheckout && items.length > 0 && allMerchantsOpen ? 'animate-pulse hover:animate-none' : ''
+          }`}
           size="lg"
           disabled={loading || items.length === 0 || !canProceedCheckout || quotaLoading || operatingHoursLoading || !allMerchantsOpen}
         >

@@ -26,6 +26,7 @@ interface OrderRow {
   id: string;
   status: string;
   payment_status: string | null;
+  payment_method?: string | null;
   delivery_type: string;
   delivery_name: string | null;
   delivery_phone: string | null;
@@ -33,6 +34,7 @@ interface OrderRow {
   subtotal: number;
   shipping_cost: number;
   total: number;
+  cod_service_fee?: number | null;
   notes: string | null;
   created_at: string;
   courier_id: string | null;
@@ -315,19 +317,39 @@ export function OrderDetailsDialog({
             </div>
           )}
 
-          {/* Totals */}
+          {/* Cost Breakdown */}
           <div className="border-t border-border pt-4 space-y-2">
             <div className="flex justify-between text-sm">
-              <span>Subtotal</span>
+              <span className="text-muted-foreground">Subtotal Produk</span>
               <span>{formatPrice(order.subtotal)}</span>
             </div>
             <div className="flex justify-between text-sm">
-              <span>Ongkir</span>
+              <span className="text-muted-foreground">Ongkos Kirim</span>
               <span>{formatPrice(order.shipping_cost)}</span>
             </div>
-            <div className="flex justify-between font-bold text-lg">
+            {(order.cod_service_fee ?? 0) > 0 && (
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Biaya COD</span>
+                <span>{formatPrice(order.cod_service_fee || 0)}</span>
+              </div>
+            )}
+            {/* Platform fee = total - subtotal - shipping - cod_fee */}
+            {(() => {
+              const platformFee = order.total - order.subtotal - order.shipping_cost - (order.cod_service_fee || 0);
+              return platformFee > 0 ? (
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Biaya Platform</span>
+                  <span>{formatPrice(platformFee)}</span>
+                </div>
+              ) : null;
+            })()}
+            <div className="flex justify-between font-bold text-lg pt-1 border-t border-dashed border-border">
               <span>Total</span>
               <span className="text-primary">{formatPrice(order.total)}</span>
+            </div>
+            <div className="flex justify-between text-xs text-muted-foreground">
+              <span>Pendapatan Merchant</span>
+              <span className="font-medium text-foreground">{formatPrice(order.subtotal)}</span>
             </div>
           </div>
 

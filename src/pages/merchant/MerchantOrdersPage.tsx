@@ -496,7 +496,9 @@ export default function MerchantOrdersPage() {
               <TrendingUp className="h-5 w-5" />
             </div>
             <div>
-              <p className="text-xs text-muted-foreground font-medium">Pendapatan</p>
+              <p className="text-xs text-muted-foreground font-medium" title="Hanya produk, tidak termasuk ongkir & biaya lain">
+                Pendapatan Produk
+              </p>
               <p className="text-lg font-bold">{formatPrice(stats.total_revenue)}</p>
             </div>
           </CardContent>
@@ -639,19 +641,29 @@ export default function MerchantOrdersPage() {
                 </div>
               )}
 
-              {/* Totals */}
+              {/* Cost Breakdown */}
               <div className="border-t border-border pt-4 space-y-2">
                 <div className="flex justify-between text-sm">
-                  <span>Subtotal</span>
+                  <span className="text-muted-foreground">Subtotal Produk</span>
                   <span>{formatPrice(selectedOrder.subtotal)}</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span>Ongkir</span>
+                  <span className="text-muted-foreground">Ongkos Kirim</span>
                   <span>{formatPrice(selectedOrder.shipping_cost)}</span>
                 </div>
-                <div className="flex justify-between font-bold text-lg">
-                  <span>Total</span>
+                {(selectedOrder.cod_service_fee ?? 0) > 0 && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Biaya COD</span>
+                    <span>{formatPrice(selectedOrder.cod_service_fee || 0)}</span>
+                  </div>
+                )}
+                <div className="flex justify-between font-bold text-lg pt-1 border-t border-dashed border-border">
+                  <span>Total Pembeli</span>
                   <span className="text-primary">{formatPrice(selectedOrder.total)}</span>
+                </div>
+                <div className="flex justify-between text-xs text-muted-foreground bg-muted/50 p-2 rounded">
+                  <span>Pendapatan Anda (produk saja)</span>
+                  <span className="font-medium text-foreground">{formatPrice(selectedOrder.subtotal)}</span>
                 </div>
               </div>
 

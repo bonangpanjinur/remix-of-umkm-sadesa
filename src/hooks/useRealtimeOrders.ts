@@ -14,6 +14,7 @@ export interface OrderRow {
   subtotal: number;
   shipping_cost: number;
   total: number;
+  cod_service_fee?: number | null;
   notes: string | null;
   created_at: string;
   courier_id: string | null;
