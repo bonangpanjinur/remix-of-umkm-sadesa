@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Truck, MapPin, Package, Loader2, Zap, User } from 'lucide-react';
+import { Truck, MapPin, Package, Loader2, Zap, User, Map, List } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { toast } from 'sonner';
 import { autoAssignCourier, manualAssignCourier, getAvailableCouriers } from '@/lib/courierApi';
+import { CourierMapSelector } from '@/components/merchant/CourierMapSelector';
 
 interface CourierAssignDialogProps {
   open: boolean;
@@ -19,6 +20,8 @@ interface CourierAssignDialogProps {
   orderId: string;
   merchantLat?: number;
   merchantLng?: number;
+  deliveryLat?: number;
+  deliveryLng?: number;
   onSuccess?: () => void;
 }
 
@@ -28,6 +31,8 @@ interface AvailableCourier {
   vehicle_type: string;
   distance_km?: number;
   active_orders: number;
+  current_lat?: number;
+  current_lng?: number;
 }
 
 export function CourierAssignDialog({
@@ -36,12 +41,15 @@ export function CourierAssignDialog({
   orderId,
   merchantLat,
   merchantLng,
+  deliveryLat,
+  deliveryLng,
   onSuccess,
 }: CourierAssignDialogProps) {
   const [couriers, setCouriers] = useState<AvailableCourier[]>([]);
   const [loading, setLoading] = useState(false);
   const [assigning, setAssigning] = useState(false);
   const [autoAssigning, setAutoAssigning] = useState(false);
+  const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
 
   useEffect(() => {
     if (open) {
@@ -99,9 +107,22 @@ export function CourierAssignDialog({
     }
   };
 
+  // Prepare couriers with GPS for map view
+  const couriersWithGps = couriers.filter(c => c.current_lat && c.current_lng).map(c => ({
+    id: c.id,
+    name: c.name,
+    lat: c.current_lat!,
+    lng: c.current_lng!,
+    vehicle_type: c.vehicle_type,
+    active_orders: c.active_orders,
+    distance_km: c.distance_km,
+  }));
+
+  const hasMapData = couriersWithGps.length > 0 || (merchantLat && merchantLng);
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Truck className="h-5 w-5" />
@@ -128,70 +149,113 @@ export function CourierAssignDialog({
             Assign Otomatis (Terdekat)
           </Button>
 
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t" />
+          {/* View toggle */}
+          {hasMapData && (
+            <div className="flex rounded-lg border border-border overflow-hidden">
+              <button
+                type="button"
+                className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-medium transition ${
+                  viewMode === 'list' ? 'bg-primary text-primary-foreground' : 'bg-background text-muted-foreground hover:bg-secondary'
+                }`}
+                onClick={() => setViewMode('list')}
+              >
+                <List className="h-3.5 w-3.5" />
+                Daftar
+              </button>
+              <button
+                type="button"
+                className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-medium transition ${
+                  viewMode === 'map' ? 'bg-primary text-primary-foreground' : 'bg-background text-muted-foreground hover:bg-secondary'
+                }`}
+                onClick={() => setViewMode('map')}
+              >
+                <Map className="h-3.5 w-3.5" />
+                Peta
+              </button>
             </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-background px-2 text-muted-foreground">
-                atau pilih manual
-              </span>
-            </div>
-          </div>
+          )}
 
-          {/* Manual selection list */}
-          {loading ? (
-            <div className="flex items-center justify-center py-8">
-              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-            </div>
-          ) : couriers.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              <Truck className="h-10 w-10 mx-auto mb-2 opacity-50" />
-              <p>Tidak ada kurir yang tersedia</p>
-            </div>
-          ) : (
-            <ScrollArea className="max-h-[300px]">
-              <div className="space-y-2">
-                {couriers.map((courier) => (
-                  <div
-                    key={courier.id}
-                    className="flex items-center gap-3 p-3 rounded-lg border border-border hover:bg-secondary transition cursor-pointer"
-                    onClick={() => handleManualAssign(courier.id)}
-                  >
-                    <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
-                      <User className="h-5 w-5 text-primary" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium truncate">{courier.name}</p>
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <span className="capitalize">{courier.vehicle_type}</span>
-                        {courier.distance_km !== undefined && (
-                          <>
-                            <span>•</span>
-                            <span className="flex items-center gap-1">
-                              <MapPin className="h-3 w-3" />
-                              {courier.distance_km.toFixed(1)} km
-                            </span>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex flex-col items-end gap-1">
-                      <Badge
-                        variant={courier.active_orders === 0 ? 'default' : 'secondary'}
-                        className="text-xs"
-                      >
-                        <Package className="h-3 w-3 mr-1" />
-                        {courier.active_orders} aktif
-                      </Badge>
-                      <Button size="sm" variant="outline" disabled={assigning}>
-                        Pilih
-                      </Button>
-                    </div>
-                  </div>
-                ))}
+          {/* Map View */}
+          {viewMode === 'map' && hasMapData && (
+            <CourierMapSelector
+              merchantLat={merchantLat}
+              merchantLng={merchantLng}
+              deliveryLat={deliveryLat}
+              deliveryLng={deliveryLng}
+              couriers={couriersWithGps}
+              onSelectCourier={handleManualAssign}
+              assigning={assigning}
+            />
+          )}
+
+          {/* List View */}
+          {viewMode === 'list' && (
+            <>
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-background px-2 text-muted-foreground">
+                    atau pilih manual
+                  </span>
+                </div>
               </div>
-            </ScrollArea>
+
+              {loading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                </div>
+              ) : couriers.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Truck className="h-10 w-10 mx-auto mb-2 opacity-50" />
+                  <p>Tidak ada kurir yang tersedia</p>
+                </div>
+              ) : (
+                <ScrollArea className="max-h-[300px]">
+                  <div className="space-y-2">
+                    {couriers.map((courier) => (
+                      <div
+                        key={courier.id}
+                        className="flex items-center gap-3 p-3 rounded-lg border border-border hover:bg-secondary transition cursor-pointer"
+                        onClick={() => handleManualAssign(courier.id)}
+                      >
+                        <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
+                          <User className="h-5 w-5 text-primary" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium truncate">{courier.name}</p>
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <span className="capitalize">{courier.vehicle_type}</span>
+                            {courier.distance_km !== undefined && (
+                              <>
+                                <span>•</span>
+                                <span className="flex items-center gap-1">
+                                  <MapPin className="h-3 w-3" />
+                                  {courier.distance_km.toFixed(1)} km
+                                </span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex flex-col items-end gap-1">
+                          <Badge
+                            variant={courier.active_orders === 0 ? 'default' : 'secondary'}
+                            className="text-xs"
+                          >
+                            <Package className="h-3 w-3 mr-1" />
+                            {courier.active_orders} aktif
+                          </Badge>
+                          <Button size="sm" variant="outline" disabled={assigning}>
+                            Pilih
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </ScrollArea>
+              )}
+            </>
           )}
         </div>
       </DialogContent>
