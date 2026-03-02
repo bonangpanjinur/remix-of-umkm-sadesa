@@ -356,8 +356,8 @@ export default function AdminOrdersPage() {
                 Kirim
               </DropdownMenuItem>
             )}
-            {/* Pesanan hanya bisa diselesaikan oleh pembeli atau sistem otomatis */}
-            {['NEW', 'PROCESSED', 'PENDING_PAYMENT'].includes(item.status) && (
+            {/* Cancel for PROCESSED/PENDING_PAYMENT only (NEW already has "Tolak Pesanan" above) */}
+            {['PROCESSED', 'PENDING_PAYMENT'].includes(item.status) && (
               <DropdownMenuItem 
                 onClick={() => updateOrderStatus(item.id, 'CANCELLED')}
                 className="text-destructive"

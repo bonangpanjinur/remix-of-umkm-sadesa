@@ -143,7 +143,7 @@ export default function CourierDashboardPage() {
         .from('orders')
         .select('*')
         .eq('courier_id', courierData.id)
-        .in('status', ['ASSIGNED', 'PICKED_UP', 'SENT'])
+        .in('status', ['ASSIGNED', 'PICKED_UP', 'SENT', 'DELIVERING'])
         .order('created_at', { ascending: false });
 
       if (ordersError) throw ordersError;
