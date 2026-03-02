@@ -107,6 +107,10 @@ export default function CheckoutPage() {
   const shippingCost = useMemo(() => {
     if (deliveryType === 'PICKUP') return 0;
     
+    // Free shipping threshold check
+    const freeShippingMin = shippingSettings?.free_shipping_min_order ?? Infinity;
+    if (subtotal >= freeShippingMin) return 0;
+    
     const baseFee = shippingSettings?.base_fee ?? 5000;
     const perKmFee = shippingSettings?.per_km_fee ?? 2000;
     const minFee = shippingSettings?.min_fee ?? 5000;
@@ -117,7 +121,7 @@ export default function CheckoutPage() {
     }
     
     return baseFee;
-  }, [deliveryType, distanceKm, shippingSettings]);
+  }, [deliveryType, distanceKm, shippingSettings, subtotal]);
 
   // COD service fee
   const codServiceFee = paymentMethod === 'COD' && codSettings ? codSettings.serviceFee : 0;
@@ -349,9 +353,11 @@ export default function CheckoutPage() {
       newErrors.address = 'Pilih kelurahan/desa';
     }
 
+    // Only require map location for delivery, not pickup
     if (deliveryType === 'INTERNAL' && !addressData.location) {
       newErrors.location = 'Tentukan titik lokasi pengiriman di peta';
     }
+    // Skip location validation entirely for PICKUP
     
     if (Object.keys(newErrors).length > 0) {
       console.warn('Validation failed:', newErrors);

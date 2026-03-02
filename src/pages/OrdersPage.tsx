@@ -44,6 +44,7 @@ interface BuyerOrder {
   order_items?: BuyerOrderItem[];
   is_self_delivery?: boolean;
   has_review?: boolean;
+  payment_method?: string | null;
 }
 
 // Database-aligned status config
@@ -142,7 +143,7 @@ const OrdersPage = () => {
       // Level 1: Full query with all relations including nested products
       const r1 = await supabase
         .from("orders")
-        .select("id, status, total, created_at, merchant_id, is_self_delivery, has_review, merchants(name, phone, user_id), order_items(id, quantity, product_name, product_price, product_id, products(name, image_url))")
+        .select("id, status, total, created_at, merchant_id, is_self_delivery, has_review, payment_method, merchants(name, phone, user_id), order_items(id, quantity, product_name, product_price, product_id, products(name, image_url))")
         .eq("buyer_id", user.id)
         .order("created_at", { ascending: false });
       
@@ -662,7 +663,7 @@ const OrdersPage = () => {
                               >
                                 <X className="w-3 h-3 mr-1" /> Batalkan
                               </Button>
-                              {['NEW', 'PENDING_PAYMENT'].includes(order.status) ? (
+                              {['NEW', 'PENDING_PAYMENT'].includes(order.status) && (order as any).payment_method !== 'COD' ? (
                                 <Button
                                   size="sm"
                                   className="text-xs h-8 rounded-full px-4"

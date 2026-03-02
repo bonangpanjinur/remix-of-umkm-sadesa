@@ -750,22 +750,12 @@ export default function MerchantOrdersPage() {
                     <Button 
                       className="w-full justify-start gap-3 h-auto py-4"
                       variant="outline"
-                      onClick={async () => {
-                        const { error } = await supabase
-                          .from('orders')
-                          .update({ 
-                            status: 'ASSIGNED',
-                            updated_at: new Date().toISOString()
-                          })
-                          .eq('id', selectedOrder.id);
-                        
-                        if (error) {
-                          toast.error('Gagal mengubah status');
-                        } else {
-                          toast.success('Pesanan menunggu penugasan kurir desa');
-                          refetch();
-                        }
+                      onClick={() => {
+                        // Close detail dialog first, then open courier assign dialog
                         setDetailDialogOpen(false);
+                        // TODO: open courier assign dialog - for now trigger status update via proper flow
+                        handleUpdateStatus(selectedOrder.id, 'PROCESSED');
+                        toast.info('Pesanan diproses. Pilih kurir desa dari menu dropdown.');
                       }}
                     >
                       <div className="h-10 w-10 rounded-full bg-info/10 flex items-center justify-center flex-shrink-0">
