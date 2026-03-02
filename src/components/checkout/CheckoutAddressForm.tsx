@@ -548,77 +548,18 @@ export function CheckoutAddressForm({
         </div>
       </div>
 
-      {/* Address Selector - only show button if address is NOT complete from map detection */}
-      {!isAddressComplete && (
-        <div id="error-address">
-          {!showAddressSelector ? (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => setShowAddressSelector(true)}
-              className={`w-full ${errors?.address ? 'border-destructive text-destructive' : 'border-amber-300 text-amber-700 bg-amber-50 hover:bg-amber-100'}`}
-            >
-              <MapPin className="h-3.5 w-3.5 mr-1.5" />
-              Pilih Kelurahan/Desa Manual
-            </Button>
-          ) : (
-            <div className="space-y-3 p-4 rounded-lg border border-border bg-muted/50">
-              <div className="flex items-center justify-between">
-                <h4 className="font-medium text-sm">Pilih Wilayah</h4>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setShowAddressSelector(false)}
-                >
-                  Tutup
-                </Button>
-              </div>
-              <AddressSelector
-                value={value.address}
-                onChange={handleAddressChange}
-              />
-            </div>
-          )}
-          {errors?.address && (
-            <p className="text-xs text-destructive mt-1 text-center">{errors.address}</p>
-          )}
-        </div>
-      )}
-
-      {/* If address IS complete, show a compact summary with edit option */}
+      {/* Wilayah summary - show if address detected from map */}
       {isAddressComplete && (
         <div className="rounded-lg border border-emerald-200 bg-emerald-50/50 p-3">
-          <div className="flex items-start justify-between gap-2">
-            <div className="flex items-start gap-2 min-w-0">
-              <CheckCircle2 className="h-4 w-4 text-emerald-500 mt-0.5 flex-shrink-0" />
-              <div className="min-w-0">
-                <p className="text-xs text-emerald-700 font-medium">Wilayah:</p>
-                <p className="text-sm text-foreground truncate">
-                  {value.address.villageName}, {value.address.districtName}, {value.address.cityName}
-                </p>
-              </div>
+          <div className="flex items-start gap-2 min-w-0">
+            <CheckCircle2 className="h-4 w-4 text-emerald-500 mt-0.5 flex-shrink-0" />
+            <div className="min-w-0">
+              <p className="text-xs text-emerald-700 font-medium">Wilayah Terdeteksi:</p>
+              <p className="text-sm text-foreground truncate">
+                {value.address.villageName}, {value.address.districtName}, {value.address.cityName}, {value.address.provinceName}
+              </p>
             </div>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="text-xs text-primary h-7 px-2 flex-shrink-0"
-              onClick={() => setShowAddressSelector(!showAddressSelector)}
-            >
-              Ubah
-            </Button>
           </div>
-          
-          {showAddressSelector && (
-            <div className="mt-3 pt-3 border-t border-emerald-200">
-              <AddressSelector
-                value={value.address}
-                onChange={handleAddressChange}
-              />
-            </div>
-          )}
         </div>
       )}
     </div>
