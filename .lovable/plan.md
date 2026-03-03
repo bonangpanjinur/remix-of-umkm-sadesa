@@ -1,111 +1,110 @@
 
 
-# Analisis Bug, UX, dan Rencana Perbaikan Komprehensif
+# Analisis Bug & Rencana Perbaikan + Pengembangan Ojek Desa
 
 ## A. Bug yang Ditemukan
 
-### Bug 1: Checkout - `payment_method` tidak disinkronkan saat PICKUP
-- **File**: `CheckoutPage.tsx` baris 352-354
-- **Masalah**: Saat `deliveryType === 'PICKUP'`, validasi masih meminta lokasi peta (`if (!addressData.location)`), padahal seharusnya tidak perlu
-- **Dampak**: User yang pilih "Ambil Sendiri" tetap harus set titik lokasi di peta
+### Bug 1: Rating Toko Tidak Pernah Update (KRITIS)
+- **Masalah**: Tidak ada trigger database yang memperbarui `merchants.rating_avg` dan `merchants.rating_count` saat review baru di-insert. Nilai rating yang tampil di toko adalah nilai statis dari seed data (4.8, 4.9, dst). Review baru dari buyer tidak berpengaruh terhadap angka rating yang ditampilkan.
+- **Akar masalah**: Tabel `reviews` tidak memiliki trigger `AFTER INSERT` untuk recalculate rating di tabel `merchants`.
+- **Fix**: Buat DB migration berisi trigger function `update_merchant_rating()` yang menghitung ulang `AVG(rating)` dan `COUNT(*)` dari `reviews` lalu update `merchants.rating_avg` dan `merchants.rating_count`. Trigger dipasang pada `INSERT`, `UPDATE`, dan `DELETE` di tabel `reviews`.
 
-### Bug 2: Checkout - Shipping cost tetap dihitung saat free shipping threshold tercapai
-- **File**: `CheckoutPage.tsx` baris 107-120
-- **Masalah**: `shippingCost` tidak pernah menjadi 0 saat `subtotal >= free_shipping_min_order`. Free shipping badge ditampilkan (baris 1099) tapi biaya tetap dihitung
-- **Fix**: Tambah kondisi `if (subtotal >= (shippingSettings?.free_shipping_min_order ?? Infinity)) return 0;`
+### Bug 2: Checkout PICKUP Masih Validasi Alamat Lengkap (MEDIUM)
+- **File**: `CheckoutPage.tsx` baris 346-354
+- **Masalah**: Saat user pilih "Ambil Sendiri" (`deliveryType === 'PICKUP'`), validasi masih memaksa `province`, `city`, `district`, `village` terisi. Tapi karena peta disembunyikan (`hideMap=true`) dan manual address selector sudah dihapus, user tidak punya cara untuk mengisi field ini — checkout akan selalu gagal validasi untuk PICKUP jika profil user belum punya alamat.
+- **Fix**: Skip validasi `address.province/city/district/village` saat `deliveryType === 'PICKUP'`. Hanya validasi nama dan telepon.
 
-### Bug 3: OrdersPage - Tombol "Bayar Sekarang" muncul untuk status NEW (COD)
-- **File**: `OrdersPage.tsx` baris 665
-- **Masalah**: `['NEW', 'PENDING_PAYMENT'].includes(order.status)` menampilkan tombol "Bayar Sekarang" untuk semua pesanan NEW, padahal pesanan COD dengan status NEW tidak perlu bayar -- harus cek `payment_method`
-- **Fix**: Cek `payment_method !== 'COD'` sebelum tampilkan tombol bayar
+### Bug 3: Checkout Address Form Masih Import AddressSelector yang Tidak Dipakai
+- **File**: `CheckoutAddressForm.tsx` baris 5
+- **Masalah**: `AddressSelector` masih di-import meskipun sudah tidak dirender setelah penghapusan manual selector. Dead import yang membengkakkan bundle.
+- **Fix**: Hapus import `AddressSelector` dan state `showAddressSelector`.
 
-### Bug 4: Admin - Duplikat tombol "Batalkan" di dropdown
-- **File**: `AdminOrdersPage.tsx` baris 338-368
-- **Masalah**: Ada dua `DropdownMenuItem` yang menampilkan "Tolak Pesanan" dan "Batalkan" untuk status NEW/PROCESSED -- redundan
+### Bug 4: ReviewsPage Tidak Update Rating Merchant
+- **File**: `ReviewsPage.tsx` baris 194-202
+- **Masalah**: Setelah insert review, hanya `orders.has_review` yang di-update. Tidak ada mekanisme untuk recalculate `merchants.rating_avg` — ini terkait Bug 1, tapi fix trigger di DB akan menyelesaikan ini secara otomatis.
 
-### Bug 5: Merchant - Kurir Desa button langsung set status ASSIGNED tanpa assign courier_id
-- **File**: `MerchantOrdersPage.tsx` baris 752-769
-- **Masalah**: Klik "Kurir Desa" langsung update status ke ASSIGNED tapi tidak membuka `CourierAssignDialog` -- pesanan stuck tanpa kurir
-- **Fix**: Buka dialog assign kurir alih-alih langsung update status
+## B. Rencana Perbaikan
 
-### Bug 6: Courier Dashboard - Tidak fetch pesanan DELIVERING
-- **File**: `CourierDashboardPage.tsx` baris 146
-- **Masalah**: `.in('status', ['ASSIGNED', 'PICKED_UP', 'SENT'])` tidak termasuk `DELIVERING`, jadi pesanan self-delivery merchant tidak muncul (ini mungkin intentional, tapi inkonsisten)
+### Fase 1: Fix Rating (1 migrasi DB)
+1. **Migrasi SQL**: Buat function `update_merchant_rating()` + trigger pada tabel `reviews`
+```text
+CREATE FUNCTION update_merchant_rating()
+  → SELECT AVG(rating), COUNT(*) FROM reviews WHERE merchant_id = NEW/OLD.merchant_id
+  → UPDATE merchants SET rating_avg = avg, rating_count = count
+  → TRIGGER on INSERT/UPDATE/DELETE
+```
 
-### Bug 7: Checkout - `free_shipping_min_order` tidak di-apply ke shipping calculation
-- **File**: `CheckoutPage.tsx` baris 107-120
-- **Masalah**: `shippingSettings.free_shipping_min_order` di-load tapi tidak dipakai dalam `shippingCost` calculation
+### Fase 2: Fix Checkout (1 file)
+2. **`CheckoutPage.tsx`**: Skip validasi address fields saat `deliveryType === 'PICKUP'`
+3. **`CheckoutAddressForm.tsx`**: Cleanup dead import `AddressSelector` dan state `showAddressSelector`
 
-## B. Kekurangan UX
+## C. Rencana Pengembangan: Fitur Ojek Desa (Ride-hailing)
 
-### Buyer
-1. **Checkout**: Tidak ada loading state saat reverse geocoding -- user bingung kenapa peta "stuck"
-2. **Checkout**: Bottom summary bar terlalu tinggi (estimasi ~180px), makan ruang scrollable
-3. **Orders**: Tidak ada pull-to-refresh, hanya tombol refresh kecil
-4. **Orders**: Tidak ada indikator pesanan COD vs Transfer di kartu pesanan
-5. **Tracking**: Peta hanya muncul jika kurir ada GPS -- tidak ada fallback info saat kurir belum aktifkan GPS
+Fitur ini memungkinkan penumpang memesan ojek untuk perjalanan antar lokasi (bukan hanya pengiriman makanan/barang).
 
-### Merchant
-1. **Detail Pesanan**: Tidak ada peta mini untuk lihat lokasi pembeli saat PROCESSED
-2. **Kurir Desa**: Tidak ada akses ke `CourierAssignDialog` / `CourierMapSelector` dari detail dialog -- hanya "Kurir Desa" button yang langsung set ASSIGNED
-3. **Stats**: Tidak ada filter periode (hari ini / minggu ini / bulan ini)
-4. **Export CSV**: Tidak include subtotal terpisah dari total
+### Arsitektur
+```text
+┌──────────────┐     ┌─────────────────┐     ┌──────────────────┐
+│  Penumpang    │────▷│  ride_requests   │◁────│  Kurir/Driver    │
+│  (Buyer App)  │     │  (tabel baru)    │     │  (Courier App)   │
+└──────────────┘     └─────────────────┘     └──────────────────┘
+       │                     │                        │
+       │  1. Pilih titik     │  3. Broadcast ke       │  4. Accept
+       │     jemput & antar  │     driver terdekat     │     ride
+       │  2. Lihat estimasi  │                        │  5. Navigate
+       │     harga & jarak   │                        │     ke pickup
+       └─────────────────────┘                        └──────────────
+```
 
-### Kurir
-1. **Dashboard**: Tidak ada info pendapatan hari ini (harus ke halaman terpisah)
-2. **Dashboard**: Tidak ada peta overview semua pesanan aktif
-3. **Order Card**: Tidak ada estimasi jarak & waktu tempuh ke merchant (pickup point)
-4. **Chat**: Kurir tidak bisa chat dengan buyer langsung dari dashboard
+### Database (Migrasi)
+- Tabel baru `ride_requests`:
+  - `id`, `passenger_id` (uuid → auth.users), `driver_id` (uuid → couriers, nullable)
+  - `pickup_lat/lng`, `pickup_address`
+  - `destination_lat/lng`, `destination_address`
+  - `distance_km`, `estimated_fare`, `final_fare`
+  - `status`: `SEARCHING` → `ACCEPTED` → `PICKED_UP` → `IN_TRANSIT` → `COMPLETED` / `CANCELLED`
+  - `accepted_at`, `picked_up_at`, `completed_at`, `cancelled_at`, `cancellation_reason`
+  - `created_at`, `updated_at`
+- RLS policies: passenger bisa buat & lihat miliknya, driver bisa lihat & update yang di-assign, admin full access
+- Realtime publication untuk live tracking
 
-### Admin
-1. **Pesanan**: Tidak ada bulk action (approve multiple, assign multiple)
-2. **Pesanan**: Detail dialog (`OrderDetailsDialog`) tidak punya tombol assign kurir langsung -- harus tutup dialog dulu, lalu klik dropdown
-3. **Pesanan**: Tidak ada filter by merchant
+### Frontend — Penumpang (3 file baru)
+1. **`RideBookingPage.tsx`**: Halaman pesan ojek
+   - Peta fullscreen dengan 2 marker (jemput & antar)
+   - Input alamat jemput (GPS auto / ketik)
+   - Input alamat tujuan
+   - Estimasi jarak + tarif (gunakan `app_settings` key `ride_fare_settings`: base_fare, per_km_fare)
+   - Tombol "Pesan Ojek" → insert `ride_requests` → subscribe realtime untuk cari driver
 
-## C. Rencana Perbaikan (Prioritas Tinggi)
+2. **`RideTrackingPage.tsx`**: Halaman tracking setelah driver accept
+   - Peta realtime posisi driver (subscribe broadcast `courier-tracking-*`)
+   - Status timeline: Mencari → Driver Ditemukan → Dijemput → Dalam Perjalanan → Selesai
+   - Info driver (nama, kendaraan, foto, nomor HP)
+   - Tombol hubungi & batalkan
 
-### Fase 1: Fix Bug Kritis (7 file)
+3. **`RideHistoryPage.tsx`**: Riwayat perjalanan + rating driver
 
-1. **`CheckoutPage.tsx`**
-   - Fix: Skip validasi lokasi saat `deliveryType === 'PICKUP'`
-   - Fix: Implement free shipping logic di `shippingCost` useMemo
-   - Kompakkan bottom summary bar
+### Frontend — Kurir/Driver (2 file diubah)
+4. **`CourierDashboardPage.tsx`**: Tambah tab/section "Ojek" 
+   - Daftar ride_requests terdekat yang status SEARCHING
+   - Tombol "Terima" → update status ACCEPTED + set driver_id
+   - Navigasi ke titik jemput, lalu ke tujuan
 
-2. **`OrdersPage.tsx`**
-   - Fix: Sembunyikan "Bayar Sekarang" untuk pesanan COD
-   - Tambah badge metode pembayaran (COD/Transfer) di kartu pesanan
-   - Fetch `payment_method` di query
+5. **`CourierSidebar.tsx`**: Tambah menu "Ojek Desa"
 
-3. **`AdminOrdersPage.tsx`**
-   - Fix: Hapus duplikat tombol batalkan
-   - Tambah tombol "Assign Kurir" langsung di detail dialog
+### Frontend — Admin (1 file baru)
+6. **`AdminRidesPage.tsx`**: Kelola semua ride requests, lihat statistik, tarif settings
 
-4. **`MerchantOrdersPage.tsx`**
-   - Fix: "Kurir Desa" button → buka `CourierAssignDialog` bukan langsung set ASSIGNED
-   - Tambah state untuk courier assign dialog
-   - Pass `delivery_lat/lng` dan `merchant location` ke dialog
+### Routing
+- `/ride` → RideBookingPage
+- `/ride/:id` → RideTrackingPage  
+- `/ride/history` → RideHistoryPage
+- `/admin/rides` → AdminRidesPage
 
-5. **`CourierDashboardPage.tsx`**
-   - Tambah info pendapatan hari ini (fetch dari `courier_earnings` WHERE `created_at = today`)
-   - Tambah info merchant name & alamat pickup di order card
-
-6. **`OrderDetailsDialog.tsx`**
-   - Tambah tombol "Tugaskan Kurir" di dalam dialog (bukan hanya di dropdown luar)
-
-7. **`CheckoutAddressForm.tsx`**
-   - Minor: Perbaiki border highlight saat detail address kosong tapi location sudah ada
-
-### Fase 2: Fitur UX Enhancement (5 file)
-
-8. **`OrdersPage.tsx`** - Tambah badge payment method di setiap kartu pesanan, fetch `payment_method` dari query
-
-9. **`MerchantOrdersPage.tsx`** - Integrate `CourierAssignDialog` dengan `CourierMapSelector` saat merchant pilih "Kurir Desa"
-
-10. **`CourierDashboardPage.tsx`** - Tambah card "Pendapatan Hari Ini" dan info pickup merchant
-
-11. **`CheckoutPage.tsx`** - Ringkasan pembayaran lebih compact, free shipping badge functional
-
-12. **`AdminOrdersPage.tsx`** - Tambah aksi assign kurir dari dalam detail dialog
-
-## Total: ~7 file diubah, 0 migrasi database, 0 file baru
+### Estimasi Total
+- 1 migrasi DB (rating trigger)
+- 1 migrasi DB (ride_requests table + RLS + realtime)
+- 3 file baru (buyer ride pages)
+- 1 file baru (admin rides)
+- ~4 file diubah (checkout fix, courier dashboard, sidebar, App.tsx routing)
 
