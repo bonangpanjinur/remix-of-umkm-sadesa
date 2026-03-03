@@ -2527,6 +2527,96 @@ export type Database = {
           },
         ]
       }
+      ride_requests: {
+        Row: {
+          accepted_at: string | null
+          cancellation_reason: string | null
+          cancelled_at: string | null
+          completed_at: string | null
+          created_at: string
+          destination_address: string
+          destination_lat: number
+          destination_lng: number
+          distance_km: number
+          driver_id: string | null
+          estimated_fare: number
+          final_fare: number | null
+          id: string
+          passenger_id: string
+          picked_up_at: string | null
+          pickup_address: string
+          pickup_lat: number
+          pickup_lng: number
+          rating: number | null
+          rating_comment: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          cancellation_reason?: string | null
+          cancelled_at?: string | null
+          completed_at?: string | null
+          created_at?: string
+          destination_address?: string
+          destination_lat: number
+          destination_lng: number
+          distance_km?: number
+          driver_id?: string | null
+          estimated_fare?: number
+          final_fare?: number | null
+          id?: string
+          passenger_id: string
+          picked_up_at?: string | null
+          pickup_address?: string
+          pickup_lat: number
+          pickup_lng: number
+          rating?: number | null
+          rating_comment?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          accepted_at?: string | null
+          cancellation_reason?: string | null
+          cancelled_at?: string | null
+          completed_at?: string | null
+          created_at?: string
+          destination_address?: string
+          destination_lat?: number
+          destination_lng?: number
+          distance_km?: number
+          driver_id?: string | null
+          estimated_fare?: number
+          final_fare?: number | null
+          id?: string
+          passenger_id?: string
+          picked_up_at?: string | null
+          pickup_address?: string
+          pickup_lat?: number
+          pickup_lng?: number
+          rating?: number | null
+          rating_comment?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ride_requests_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "couriers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ride_requests_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "public_couriers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       saved_addresses: {
         Row: {
           address_detail: string | null

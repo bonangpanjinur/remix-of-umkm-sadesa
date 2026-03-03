@@ -1,0 +1,284 @@
+import { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
+import { Bike, Phone, X, CheckCircle, MapPin, Clock, Loader2, User, Navigation } from 'lucide-react';
+import { Header } from '@/components/layout/Header';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from '@/hooks/use-toast';
+import { formatPrice } from '@/lib/utils';
+
+interface RideData {
+  id: string;
+  status: string;
+  pickup_address: string;
+  destination_address: string;
+  distance_km: number;
+  estimated_fare: number;
+  final_fare: number | null;
+  driver_id: string | null;
+  created_at: string;
+  accepted_at: string | null;
+  picked_up_at: string | null;
+  completed_at: string | null;
+  cancelled_at: string | null;
+  cancellation_reason: string | null;
+}
+
+interface DriverInfo {
+  name: string;
+  phone: string;
+  vehicle_type: string;
+  vehicle_plate: string | null;
+  photo_url: string;
+}
+
+const STATUS_LABELS: Record<string, { label: string; color: string }> = {
+  SEARCHING: { label: 'Mencari Driver', color: 'bg-amber-500' },
+  ACCEPTED: { label: 'Driver Ditemukan', color: 'bg-blue-500' },
+  PICKED_UP: { label: 'Dalam Perjalanan', color: 'bg-primary' },
+  IN_TRANSIT: { label: 'Menuju Tujuan', color: 'bg-primary' },
+  COMPLETED: { label: 'Selesai', color: 'bg-emerald-500' },
+  CANCELLED: { label: 'Dibatalkan', color: 'bg-destructive' },
+};
+
+export default function RideTrackingPage() {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const [ride, setRide] = useState<RideData | null>(null);
+  const [driver, setDriver] = useState<DriverInfo | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [cancelling, setCancelling] = useState(false);
+
+  useEffect(() => {
+    if (!user || !id) return;
+    fetchRide();
+
+    // Subscribe to realtime changes
+    const channel = supabase
+      .channel(`ride-${id}`)
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'ride_requests',
+        filter: `id=eq.${id}`,
+      }, (payload) => {
+        const updated = payload.new as Record<string, unknown>;
+        setRide(prev => prev ? { ...prev, ...updated } as unknown as RideData : null);
+        if (updated.driver_id && !driver) {
+          fetchDriver(updated.driver_id as string);
+        }
+        if (updated.status === 'ACCEPTED') {
+          toast({ title: '🎉 Driver ditemukan!', description: 'Driver sedang menuju lokasi jemput Anda' });
+        }
+        if (updated.status === 'COMPLETED') {
+          toast({ title: '✅ Perjalanan selesai!', description: 'Terima kasih telah menggunakan Ojek Desa' });
+        }
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [user, id]);
+
+  const fetchRide = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('ride_requests')
+        .select('*')
+        .eq('id', id!)
+        .single();
+      if (error) throw error;
+      setRide(data as unknown as RideData);
+      if (data.driver_id) fetchDriver(data.driver_id);
+    } catch {
+      toast({ title: 'Gagal memuat data perjalanan', variant: 'destructive' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchDriver = async (driverId: string) => {
+    const { data } = await supabase
+      .from('couriers')
+      .select('name, phone, vehicle_type, vehicle_plate, photo_url')
+      .eq('id', driverId)
+      .single();
+    if (data) setDriver(data);
+  };
+
+  const handleCancel = async () => {
+    if (!ride) return;
+    setCancelling(true);
+    try {
+      const { error } = await supabase
+        .from('ride_requests')
+        .update({
+          status: 'CANCELLED',
+          cancelled_at: new Date().toISOString(),
+          cancellation_reason: 'Dibatalkan oleh penumpang',
+        } as Record<string, unknown>)
+        .eq('id', ride.id);
+      if (error) throw error;
+      toast({ title: 'Perjalanan dibatalkan' });
+      navigate('/ride/history');
+    } catch {
+      toast({ title: 'Gagal membatalkan', variant: 'destructive' });
+    } finally {
+      setCancelling(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header />
+        <div className="flex items-center justify-center py-20">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </div>
+    );
+  }
+
+  if (!ride) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header />
+        <div className="text-center py-20">
+          <p className="text-muted-foreground">Perjalanan tidak ditemukan</p>
+          <Button className="mt-4" onClick={() => navigate('/ride')}>Pesan Ojek Baru</Button>
+        </div>
+      </div>
+    );
+  }
+
+  const statusInfo = STATUS_LABELS[ride.status] || STATUS_LABELS.SEARCHING;
+  const canCancel = ['SEARCHING', 'ACCEPTED'].includes(ride.status);
+
+  return (
+    <div className="min-h-screen bg-background">
+      <Header />
+      <div className="max-w-lg mx-auto px-4 py-6 space-y-4">
+        {/* Status Header */}
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
+          <Card className="p-5">
+            <div className="flex items-center gap-3 mb-4">
+              <div className={`w-4 h-4 rounded-full ${statusInfo.color} ${ride.status === 'SEARCHING' ? 'animate-pulse' : ''}`} />
+              <h2 className="text-lg font-bold">{statusInfo.label}</h2>
+            </div>
+
+            {ride.status === 'SEARCHING' && (
+              <div className="flex items-center gap-3 p-3 bg-amber-50 dark:bg-amber-950/20 rounded-lg">
+                <Loader2 className="h-5 w-5 animate-spin text-amber-600" />
+                <p className="text-sm text-amber-700 dark:text-amber-400">Sedang mencari driver terdekat...</p>
+              </div>
+            )}
+          </Card>
+        </motion.div>
+
+        {/* Driver Info */}
+        {driver && (
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+            <Card className="p-4">
+              <h3 className="font-semibold mb-3 text-sm text-muted-foreground">Driver Anda</h3>
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden">
+                  {driver.photo_url ? (
+                    <img src={driver.photo_url} alt={driver.name} className="w-full h-full object-cover" />
+                  ) : (
+                    <User className="h-6 w-6 text-primary" />
+                  )}
+                </div>
+                <div className="flex-1">
+                  <p className="font-bold">{driver.name}</p>
+                  <p className="text-sm text-muted-foreground">{driver.vehicle_type === 'motor' ? 'Motor' : driver.vehicle_type} {driver.vehicle_plate && `• ${driver.vehicle_plate}`}</p>
+                </div>
+                <a href={`tel:${driver.phone}`}>
+                  <Button size="icon" variant="outline">
+                    <Phone className="h-4 w-4" />
+                  </Button>
+                </a>
+              </div>
+            </Card>
+          </motion.div>
+        )}
+
+        {/* Route Info */}
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
+          <Card className="p-4 space-y-3">
+            <div className="flex items-start gap-3">
+              <div className="w-3 h-3 rounded-full bg-primary mt-1.5 flex-shrink-0" />
+              <div>
+                <p className="text-xs text-muted-foreground">Jemput</p>
+                <p className="text-sm font-medium">{ride.pickup_address}</p>
+              </div>
+            </div>
+            <div className="ml-1.5 border-l-2 border-dashed border-border h-4" />
+            <div className="flex items-start gap-3">
+              <div className="w-3 h-3 rounded-full bg-destructive mt-1.5 flex-shrink-0" />
+              <div>
+                <p className="text-xs text-muted-foreground">Tujuan</p>
+                <p className="text-sm font-medium">{ride.destination_address}</p>
+              </div>
+            </div>
+            <div className="flex justify-between text-sm pt-2 border-t border-border">
+              <span className="text-muted-foreground">Jarak: {ride.distance_km} km</span>
+              <span className="font-bold text-primary">{formatPrice(ride.final_fare || ride.estimated_fare)}</span>
+            </div>
+          </Card>
+        </motion.div>
+
+        {/* Status Timeline */}
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+          <Card className="p-4">
+            <h3 className="font-semibold mb-3 text-sm">Status Perjalanan</h3>
+            <div className="space-y-3">
+              {['SEARCHING', 'ACCEPTED', 'PICKED_UP', 'COMPLETED'].map((s, i) => {
+                const steps = ['SEARCHING', 'ACCEPTED', 'PICKED_UP', 'IN_TRANSIT', 'COMPLETED'];
+                const currentIdx = steps.indexOf(ride.status);
+                const stepIdx = steps.indexOf(s);
+                const isActive = stepIdx <= currentIdx;
+                const labels = { SEARCHING: 'Mencari driver', ACCEPTED: 'Driver ditemukan', PICKED_UP: 'Dijemput', COMPLETED: 'Selesai' };
+                return (
+                  <div key={s} className="flex items-center gap-3">
+                    <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs ${isActive ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'}`}>
+                      {isActive ? <CheckCircle className="h-3.5 w-3.5" /> : i + 1}
+                    </div>
+                    <span className={`text-sm ${isActive ? 'font-medium' : 'text-muted-foreground'}`}>
+                      {labels[s as keyof typeof labels]}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </Card>
+        </motion.div>
+
+        {/* Actions */}
+        <div className="flex gap-2">
+          {canCancel && (
+            <Button variant="destructive" className="flex-1" onClick={handleCancel} disabled={cancelling}>
+              {cancelling ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <X className="h-4 w-4 mr-2" />}
+              Batalkan
+            </Button>
+          )}
+          {ride.status === 'COMPLETED' && (
+            <Button className="flex-1" onClick={() => navigate('/ride')}>
+              <Bike className="h-4 w-4 mr-2" />
+              Pesan Lagi
+            </Button>
+          )}
+          {ride.status === 'CANCELLED' && (
+            <Button className="flex-1" onClick={() => navigate('/ride')}>
+              <Bike className="h-4 w-4 mr-2" />
+              Pesan Ojek Baru
+            </Button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
