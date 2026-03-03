@@ -81,6 +81,7 @@ export function AdminSidebar({
     { label: 'Broadcast', href: '/admin/broadcast', icon: <Bell className="h-4 w-4" /> },
     { label: 'Kode Verifikator', href: '/admin/codes', icon: <TicketCheck className="h-4 w-4" /> },
     { label: 'Backup Data', href: '/admin/backup', icon: <Database className="h-4 w-4" /> },
+    { label: 'Ojek Desa', href: '/admin/rides', icon: <Activity className="h-4 w-4" /> },
     { label: 'Kasir POS', href: '/admin/pos', icon: <Receipt className="h-4 w-4" /> },
     { label: 'System Logs', href: '/admin/logs', icon: <ScrollText className="h-4 w-4" /> },
     { label: 'Kesehatan Sistem', href: '/admin/system-health', icon: <Activity className="h-4 w-4" /> },

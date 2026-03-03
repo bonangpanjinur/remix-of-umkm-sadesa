@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { AddressSelector, type AddressData, formatFullAddress, createEmptyAddressData } from '@/components/AddressSelector';
+import { type AddressData, formatFullAddress, createEmptyAddressData } from '@/components/AddressSelector';
 import { LocationPicker } from './LocationPicker';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -52,7 +52,7 @@ export function CheckoutAddressForm({
   const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number } | null>(null);
   const [reverseGeocodingLoading, setReverseGeocodingLoading] = useState(false);
   const [detectedAddress, setDetectedAddress] = useState<ReverseGeocodingResult | null>(null);
-  const [showAddressSelector, setShowAddressSelector] = useState(false);
+  
   const { loading: geocodingLoading, getCoordinatesFromAddress } = useGeocoding();
   const isUpdatingFromMap = useRef(false);
   const [showSavedAddresses, setShowSavedAddresses] = useState(false);

@@ -81,9 +81,16 @@ import AdminBackupPage from "./pages/admin/AdminBackupPage";
 import AdminCategoriesPage from "./pages/admin/AdminCategoriesPage";
 import AdminVerifikatorWithdrawalsPage from "./pages/admin/AdminVerifikatorWithdrawalsPage";
 import AdminPOSPage from "./pages/admin/AdminPOSPage";
+import AdminRidesPage from "./pages/admin/AdminRidesPage";
 import CourierHistoryPage from "./pages/courier/CourierHistoryPage";
 import CourierWithdrawalPage from "./pages/courier/CourierWithdrawalPage";
 import CourierChatPage from "./pages/courier/CourierChatPage";
+import CourierRidesPage from "./pages/courier/CourierRidesPage";
+
+// Ride Pages
+import RideBookingPage from "./pages/ride/RideBookingPage";
+import RideTrackingPage from "./pages/ride/RideTrackingPage";
+import RideHistoryPage from "./pages/ride/RideHistoryPage";
 
 // Verifikator Pages
 import VerifikatorDashboardPage from "./pages/verifikator/VerifikatorDashboardPage";
@@ -271,6 +278,28 @@ const App = () => (
                   <CourierChatPage />
                 </ProtectedRoute>
               } />
+              <Route path="/courier/rides" element={
+                <ProtectedRoute allowedRoles={['courier', 'admin']}>
+                  <CourierRidesPage />
+                </ProtectedRoute>
+              } />
+              
+              {/* Ride routes */}
+              <Route path="/ride" element={
+                <ProtectedRoute>
+                  <RideBookingPage />
+                </ProtectedRoute>
+              } />
+              <Route path="/ride/history" element={
+                <ProtectedRoute>
+                  <RideHistoryPage />
+                </ProtectedRoute>
+              } />
+              <Route path="/ride/:id" element={
+                <ProtectedRoute>
+                  <RideTrackingPage />
+                </ProtectedRoute>
+              } />
               <Route path="/orders/:orderId/review" element={
                 <ProtectedRoute>
                   <ReviewsPage />
@@ -436,6 +465,11 @@ const App = () => (
               <Route path="/admin/pos" element={
                 <ProtectedRoute allowedRoles={['admin']}>
                   <AdminPOSPage />
+                </ProtectedRoute>
+              } />
+              <Route path="/admin/rides" element={
+                <ProtectedRoute allowedRoles={['admin']}>
+                  <AdminRidesPage />
                 </ProtectedRoute>
               } />
               <Route path="/admin/system-health" element={

@@ -343,14 +343,17 @@ export default function CheckoutPage() {
       newErrors.phone = 'Untuk COD, gunakan format WhatsApp (08xxx)';
     }
 
-    if (!addressData.address.province) {
-      newErrors.address = 'Pilih provinsi';
-    } else if (!addressData.address.city) {
-      newErrors.address = 'Pilih kota/kabupaten';
-    } else if (!addressData.address.district) {
-      newErrors.address = 'Pilih kecamatan';
-    } else if (!addressData.address.village) {
-      newErrors.address = 'Pilih kelurahan/desa';
+    // Only validate address fields for delivery, not pickup
+    if (deliveryType !== 'PICKUP') {
+      if (!addressData.address.province) {
+        newErrors.address = 'Pilih provinsi';
+      } else if (!addressData.address.city) {
+        newErrors.address = 'Pilih kota/kabupaten';
+      } else if (!addressData.address.district) {
+        newErrors.address = 'Pilih kecamatan';
+      } else if (!addressData.address.village) {
+        newErrors.address = 'Pilih kelurahan/desa';
+      }
     }
 
     // Only require map location for delivery, not pickup
