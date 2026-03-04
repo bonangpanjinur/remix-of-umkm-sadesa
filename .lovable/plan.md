@@ -1,110 +1,100 @@
 
 
-# Analisis Bug & Rencana Perbaikan + Pengembangan Ojek Desa
+# Analisis Komprehensif: Bug, Fitur Kurang, dan Rencana Perbaikan
 
 ## A. Bug yang Ditemukan
 
-### Bug 1: Rating Toko Tidak Pernah Update (KRITIS)
-- **Masalah**: Tidak ada trigger database yang memperbarui `merchants.rating_avg` dan `merchants.rating_count` saat review baru di-insert. Nilai rating yang tampil di toko adalah nilai statis dari seed data (4.8, 4.9, dst). Review baru dari buyer tidak berpengaruh terhadap angka rating yang ditampilkan.
-- **Akar masalah**: Tabel `reviews` tidak memiliki trigger `AFTER INSERT` untuk recalculate rating di tabel `merchants`.
-- **Fix**: Buat DB migration berisi trigger function `update_merchant_rating()` yang menghitung ulang `AVG(rating)` dan `COUNT(*)` dari `reviews` lalu update `merchants.rating_avg` dan `merchants.rating_count`. Trigger dipasang pada `INSERT`, `UPDATE`, dan `DELETE` di tabel `reviews`.
+### Bug 1: Ojek Desa — Tidak Ada Akses dari BottomNav / Homepage (KRITIS UX)
+- **Masalah**: Fitur Ojek Desa sudah ada (`/ride`, `/ride/:id`, `/ride/history`) tapi **tidak ada akses navigasi** dari BottomNav, Homepage, atau menu buyer. Penumpang harus ketik URL manual.
+- **Fix**: Tambah tombol/menu "Ojek Desa" di Homepage (Quick Access Grid) dan/atau BottomNav atau halaman Explore.
 
-### Bug 2: Checkout PICKUP Masih Validasi Alamat Lengkap (MEDIUM)
-- **File**: `CheckoutPage.tsx` baris 346-354
-- **Masalah**: Saat user pilih "Ambil Sendiri" (`deliveryType === 'PICKUP'`), validasi masih memaksa `province`, `city`, `district`, `village` terisi. Tapi karena peta disembunyikan (`hideMap=true`) dan manual address selector sudah dihapus, user tidak punya cara untuk mengisi field ini — checkout akan selalu gagal validasi untuk PICKUP jika profil user belum punya alamat.
-- **Fix**: Skip validasi `address.province/city/district/village` saat `deliveryType === 'PICKUP'`. Hanya validasi nama dan telepon.
+### Bug 2: Ojek Desa — Tracking Page Tidak Ada Peta Real-time (MEDIUM)
+- **File**: `RideTrackingPage.tsx`
+- **Masalah**: Halaman tracking hanya menampilkan status timeline berbasis teks. Tidak ada komponen `CourierMap` untuk lihat posisi driver secara real-time, padahal infrastruktur broadcast sudah tersedia.
+- **Fix**: Integrasikan `CourierMap` di `RideTrackingPage` dengan `courierId` dari driver yang accept ride.
 
-### Bug 3: Checkout Address Form Masih Import AddressSelector yang Tidak Dipakai
-- **File**: `CheckoutAddressForm.tsx` baris 5
-- **Masalah**: `AddressSelector` masih di-import meskipun sudah tidak dirender setelah penghapusan manual selector. Dead import yang membengkakkan bundle.
-- **Fix**: Hapus import `AddressSelector` dan state `showAddressSelector`.
+### Bug 3: Ojek Desa — Tidak Ada Rating Setelah Perjalanan Selesai (MEDIUM)
+- **Masalah**: Kolom `rating` dan `rating_comment` sudah ada di tabel `ride_requests`, tapi `RideTrackingPage` dan `RideHistoryPage` tidak punya UI untuk submit rating setelah COMPLETED.
+- **Fix**: Tambah dialog/inline rating di `RideTrackingPage` saat status COMPLETED.
 
-### Bug 4: ReviewsPage Tidak Update Rating Merchant
-- **File**: `ReviewsPage.tsx` baris 194-202
-- **Masalah**: Setelah insert review, hanya `orders.has_review` yang di-update. Tidak ada mekanisme untuk recalculate `merchants.rating_avg` — ini terkait Bug 1, tapi fix trigger di DB akan menyelesaikan ini secara otomatis.
+### Bug 4: Ojek Desa — Race Condition saat Accept Ride (MEDIUM)
+- **File**: `CourierRidesPage.tsx` baris 118-126
+- **Masalah**: Dua driver bisa accept ride yang sama secara bersamaan. Query `.eq('status', 'SEARCHING')` tidak atomic. Bisa terjadi 2 driver ter-assign ke 1 penumpang.
+- **Fix**: Buat RPC function `accept_ride` yang melakukan update + check dalam satu transaksi atomik.
 
-## B. Rencana Perbaikan
+### Bug 5: Ojek Desa — Penumpang Bisa Cancel Setelah ACCEPTED (LOW)
+- **File**: `RideTrackingPage.tsx` baris 159
+- **Masalah**: `canCancel = ['SEARCHING', 'ACCEPTED'].includes(ride.status)` — penumpang bisa batalkan setelah driver sudah diterima tanpa notifikasi ke driver.
+- **Fix**: Tambah konfirmasi "Driver sudah ditemukan, yakin batalkan?" dan kirim notifikasi ke driver.
 
-### Fase 1: Fix Rating (1 migrasi DB)
-1. **Migrasi SQL**: Buat function `update_merchant_rating()` + trigger pada tabel `reviews`
-```text
-CREATE FUNCTION update_merchant_rating()
-  → SELECT AVG(rating), COUNT(*) FROM reviews WHERE merchant_id = NEW/OLD.merchant_id
-  → UPDATE merchants SET rating_avg = avg, rating_count = count
-  → TRIGGER on INSERT/UPDATE/DELETE
-```
+### Bug 6: Checkout — `formatFullAddress` Import dari AddressSelector (MINOR)
+- **File**: `CheckoutPage.tsx` baris 19
+- **Masalah**: `import { formatFullAddress } from '@/components/AddressSelector'` — import dari komponen UI yang seharusnya utility. Bukan bug fungsional tapi code smell.
 
-### Fase 2: Fix Checkout (1 file)
-2. **`CheckoutPage.tsx`**: Skip validasi address fields saat `deliveryType === 'PICKUP'`
-3. **`CheckoutAddressForm.tsx`**: Cleanup dead import `AddressSelector` dan state `showAddressSelector`
+### Bug 7: BottomNav — Status Order yang Tidak Valid di Filter (MINOR)
+- **File**: `BottomNav.tsx` baris 44
+- **Masalah**: `.in('status', [..., 'PROCESSING', 'ON_DELIVERY'])` — status `PROCESSING` dan `ON_DELIVERY` tidak ada dalam `STATUS_CONFIG` di `OrdersPage.tsx`. Seharusnya `PROCESSED` dan `DELIVERING`.
 
-## C. Rencana Pengembangan: Fitur Ojek Desa (Ride-hailing)
+### Bug 8: Merchant Orders — Kurir Desa Button Masih Workaround (MEDIUM)
+- **File**: `MerchantOrdersPage.tsx` baris 753-758
+- **Masalah**: Tombol "Kurir Desa" masih workaround (`TODO: open courier assign dialog`) — hanya set status ke PROCESSED tanpa benar-benar membuka dialog assign kurir. Pesanan butuh langkah ekstra dari dropdown.
 
-Fitur ini memungkinkan penumpang memesan ojek untuk perjalanan antar lokasi (bukan hanya pengiriman makanan/barang).
+## B. Fitur yang Kurang
 
-### Arsitektur
-```text
-┌──────────────┐     ┌─────────────────┐     ┌──────────────────┐
-│  Penumpang    │────▷│  ride_requests   │◁────│  Kurir/Driver    │
-│  (Buyer App)  │     │  (tabel baru)    │     │  (Courier App)   │
-└──────────────┘     └─────────────────┘     └──────────────────┘
-       │                     │                        │
-       │  1. Pilih titik     │  3. Broadcast ke       │  4. Accept
-       │     jemput & antar  │     driver terdekat     │     ride
-       │  2. Lihat estimasi  │                        │  5. Navigate
-       │     harga & jarak   │                        │     ke pickup
-       └─────────────────────┘                        └──────────────
-```
+### Buyer
+1. **Tidak ada entrypoint Ojek Desa** — butuh tombol di Homepage atau BottomNav
+2. **Tidak ada rating driver ojek** — tabel sudah support, UI belum
+3. **Tidak ada notifikasi push ke penumpang** saat driver accept ride
+4. **Tidak ada peta di tracking ojek** — hanya teks
 
-### Database (Migrasi)
-- Tabel baru `ride_requests`:
-  - `id`, `passenger_id` (uuid → auth.users), `driver_id` (uuid → couriers, nullable)
-  - `pickup_lat/lng`, `pickup_address`
-  - `destination_lat/lng`, `destination_address`
-  - `distance_km`, `estimated_fare`, `final_fare`
-  - `status`: `SEARCHING` → `ACCEPTED` → `PICKED_UP` → `IN_TRANSIT` → `COMPLETED` / `CANCELLED`
-  - `accepted_at`, `picked_up_at`, `completed_at`, `cancelled_at`, `cancellation_reason`
-  - `created_at`, `updated_at`
-- RLS policies: passenger bisa buat & lihat miliknya, driver bisa lihat & update yang di-assign, admin full access
-- Realtime publication untuk live tracking
+### Merchant
+1. **Kurir Desa button masih workaround** — tidak langsung buka dialog assign
+2. **Tidak ada notifikasi ke merchant** saat pesanan ojek lewat dekat toko mereka (future)
 
-### Frontend — Penumpang (3 file baru)
-1. **`RideBookingPage.tsx`**: Halaman pesan ojek
-   - Peta fullscreen dengan 2 marker (jemput & antar)
-   - Input alamat jemput (GPS auto / ketik)
-   - Input alamat tujuan
-   - Estimasi jarak + tarif (gunakan `app_settings` key `ride_fare_settings`: base_fare, per_km_fare)
-   - Tombol "Pesan Ojek" → insert `ride_requests` → subscribe realtime untuk cari driver
+### Kurir/Driver
+1. **Tidak ada notifikasi push** saat ada ride baru di area mereka
+2. **Tidak ada filter jarak** di daftar ride available — semua ride ditampilkan tanpa filter proximity
+3. **Tidak ada earnings tracking khusus ojek** — pendapatan ride belum terintegrasi ke `courier_earnings`
 
-2. **`RideTrackingPage.tsx`**: Halaman tracking setelah driver accept
-   - Peta realtime posisi driver (subscribe broadcast `courier-tracking-*`)
-   - Status timeline: Mencari → Driver Ditemukan → Dijemput → Dalam Perjalanan → Selesai
-   - Info driver (nama, kendaraan, foto, nomor HP)
-   - Tombol hubungi & batalkan
+### Admin
+1. **Admin Rides Page** tidak ada pengaturan tarif inline — harus ke Settings
+2. **Admin tidak bisa cancel/force-complete** ride dari halaman admin rides
 
-3. **`RideHistoryPage.tsx`**: Riwayat perjalanan + rating driver
+## C. Rencana Perbaikan & Pengembangan
 
-### Frontend — Kurir/Driver (2 file diubah)
-4. **`CourierDashboardPage.tsx`**: Tambah tab/section "Ojek" 
-   - Daftar ride_requests terdekat yang status SEARCHING
-   - Tombol "Terima" → update status ACCEPTED + set driver_id
-   - Navigasi ke titik jemput, lalu ke tujuan
+### Fase 1: Fix Bug Ojek + Integrasi (5 file diubah)
 
-5. **`CourierSidebar.tsx`**: Tambah menu "Ojek Desa"
+1. **`src/pages/Index.tsx`** — Tambah card "Ojek Desa" di Quick Access atau Hero section dengan link ke `/ride`
 
-### Frontend — Admin (1 file baru)
-6. **`AdminRidesPage.tsx`**: Kelola semua ride requests, lihat statistik, tarif settings
+2. **`src/pages/ride/RideTrackingPage.tsx`**:
+   - Integrasikan `CourierMap` dengan `courierId={ride.driver_id}` untuk peta real-time
+   - Tambah dialog rating saat status COMPLETED (update `ride_requests.rating` dan `rating_comment`)
+   - Tambah konfirmasi cancel saat status ACCEPTED
 
-### Routing
-- `/ride` → RideBookingPage
-- `/ride/:id` → RideTrackingPage  
-- `/ride/history` → RideHistoryPage
-- `/admin/rides` → AdminRidesPage
+3. **`src/pages/ride/RideHistoryPage.tsx`** — Tampilkan rating bintang yang sudah diberikan, tombol "Beri Rating" untuk yang belum
 
-### Estimasi Total
-- 1 migrasi DB (rating trigger)
-- 1 migrasi DB (ride_requests table + RLS + realtime)
-- 3 file baru (buyer ride pages)
-- 1 file baru (admin rides)
-- ~4 file diubah (checkout fix, courier dashboard, sidebar, App.tsx routing)
+4. **`src/components/layout/BottomNav.tsx`** — Fix status filter: ganti `PROCESSING` → `PROCESSED`, `ON_DELIVERY` → `DELIVERING`
+
+5. **`src/pages/courier/CourierRidesPage.tsx`** — Tambah info jarak ride dari posisi kurir saat ini
+
+### Fase 2: Atomic Accept + Earnings (1 migrasi DB, 2 file)
+
+6. **Migrasi SQL**: Buat RPC `accept_ride(p_ride_id UUID, p_courier_id UUID)` yang:
+   - Cek status masih SEARCHING
+   - Update status ke ACCEPTED + set driver_id dalam satu transaksi
+   - Return success/fail (mencegah race condition)
+
+7. **`CourierRidesPage.tsx`** — Ganti direct update dengan `supabase.rpc('accept_ride', ...)`
+
+8. **`CourierRidesPage.tsx`** — Saat COMPLETED, insert ke `courier_earnings` dengan type `'RIDE'`
+
+### Fase 3: Fix Merchant Kurir Assignment (1 file)
+
+9. **`MerchantOrdersPage.tsx`** — Import dan gunakan `CourierAssignDialog` langsung dari tombol "Kurir Desa" di detail dialog, bukan workaround PROCESSED
+
+### Total Estimasi:
+- 1 migrasi DB (RPC `accept_ride`)
+- 0 file baru
+- ~7 file diubah
+- Tidak ada tabel baru
 
