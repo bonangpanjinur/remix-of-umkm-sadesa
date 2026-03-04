@@ -750,12 +750,13 @@ export default function MerchantOrdersPage() {
                     <Button 
                       className="w-full justify-start gap-3 h-auto py-4"
                       variant="outline"
-                      onClick={() => {
-                        // Close detail dialog first, then open courier assign dialog
+                      onClick={async () => {
+                        // First set status to PROCESSED, then navigate to courier assign
+                        await handleUpdateStatus(selectedOrder.id, 'PROCESSED');
                         setDetailDialogOpen(false);
-                        // TODO: open courier assign dialog - for now trigger status update via proper flow
-                        handleUpdateStatus(selectedOrder.id, 'PROCESSED');
-                        toast.info('Pesanan diproses. Pilih kurir desa dari menu dropdown.');
+                        // Open courier assign via dropdown action
+                        const order = orders.find(o => o.id === selectedOrder.id);
+                        if (order) viewOrderDetail({ ...order, status: 'PROCESSED' } as OrderRow);
                       }}
                     >
                       <div className="h-10 w-10 rounded-full bg-info/10 flex items-center justify-center flex-shrink-0">

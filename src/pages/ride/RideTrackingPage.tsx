@@ -1,11 +1,30 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Bike, Phone, X, CheckCircle, MapPin, Clock, Loader2, User, Navigation } from 'lucide-react';
+import { Bike, Phone, X, CheckCircle, MapPin, Clock, Loader2, User, Navigation, Star } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Textarea } from '@/components/ui/textarea';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import { CourierMap } from '@/components/CourierMap';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
@@ -16,10 +35,16 @@ interface RideData {
   status: string;
   pickup_address: string;
   destination_address: string;
+  pickup_lat: number;
+  pickup_lng: number;
+  destination_lat: number;
+  destination_lng: number;
   distance_km: number;
   estimated_fare: number;
   final_fare: number | null;
   driver_id: string | null;
+  rating: number | null;
+  rating_comment: string | null;
   created_at: string;
   accepted_at: string | null;
   picked_up_at: string | null;
@@ -53,12 +78,16 @@ export default function RideTrackingPage() {
   const [driver, setDriver] = useState<DriverInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [cancelling, setCancelling] = useState(false);
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const [showRatingDialog, setShowRatingDialog] = useState(false);
+  const [ratingValue, setRatingValue] = useState(5);
+  const [ratingComment, setRatingComment] = useState('');
+  const [submittingRating, setSubmittingRating] = useState(false);
 
   useEffect(() => {
     if (!user || !id) return;
     fetchRide();
 
-    // Subscribe to realtime changes
     const channel = supabase
       .channel(`ride-${id}`)
       .on('postgres_changes', {
@@ -110,7 +139,15 @@ export default function RideTrackingPage() {
     if (data) setDriver(data);
   };
 
-  const handleCancel = async () => {
+  const handleCancelClick = () => {
+    if (ride?.status === 'ACCEPTED') {
+      setShowCancelConfirm(true);
+    } else {
+      doCancel();
+    }
+  };
+
+  const doCancel = async () => {
     if (!ride) return;
     setCancelling(true);
     try {
@@ -123,12 +160,53 @@ export default function RideTrackingPage() {
         } as Record<string, unknown>)
         .eq('id', ride.id);
       if (error) throw error;
+
+      // Notify driver if already accepted
+      if (ride.driver_id) {
+        const { data: courierData } = await supabase
+          .from('couriers')
+          .select('user_id')
+          .eq('id', ride.driver_id)
+          .single();
+        if (courierData?.user_id) {
+          await supabase.from('notifications').insert({
+            user_id: courierData.user_id,
+            title: 'Perjalanan Dibatalkan',
+            message: 'Penumpang membatalkan perjalanan ojek',
+            type: 'ride',
+          });
+        }
+      }
+
       toast({ title: 'Perjalanan dibatalkan' });
       navigate('/ride/history');
     } catch {
       toast({ title: 'Gagal membatalkan', variant: 'destructive' });
     } finally {
       setCancelling(false);
+      setShowCancelConfirm(false);
+    }
+  };
+
+  const submitRating = async () => {
+    if (!ride) return;
+    setSubmittingRating(true);
+    try {
+      const { error } = await supabase
+        .from('ride_requests')
+        .update({
+          rating: ratingValue,
+          rating_comment: ratingComment || null,
+        } as Record<string, unknown>)
+        .eq('id', ride.id);
+      if (error) throw error;
+      setRide(prev => prev ? { ...prev, rating: ratingValue, rating_comment: ratingComment } : null);
+      toast({ title: '⭐ Terima kasih atas penilaian Anda!' });
+      setShowRatingDialog(false);
+    } catch {
+      toast({ title: 'Gagal mengirim rating', variant: 'destructive' });
+    } finally {
+      setSubmittingRating(false);
     }
   };
 
@@ -157,6 +235,8 @@ export default function RideTrackingPage() {
 
   const statusInfo = STATUS_LABELS[ride.status] || STATUS_LABELS.SEARCHING;
   const canCancel = ['SEARCHING', 'ACCEPTED'].includes(ride.status);
+  const showMap = ride.driver_id && !['CANCELLED', 'COMPLETED'].includes(ride.status);
+  const canRate = ride.status === 'COMPLETED' && !ride.rating;
 
   return (
     <div className="min-h-screen bg-background">
@@ -178,6 +258,19 @@ export default function RideTrackingPage() {
             )}
           </Card>
         </motion.div>
+
+        {/* Real-time Map */}
+        {showMap && (
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}>
+            <CourierMap
+              courierId={ride.driver_id!}
+              height="250px"
+              destinationLat={ride.destination_lat}
+              destinationLng={ride.destination_lng}
+              destinationLabel="Tujuan"
+            />
+          </motion.div>
+        )}
 
         {/* Driver Info */}
         {driver && (
@@ -257,12 +350,31 @@ export default function RideTrackingPage() {
           </Card>
         </motion.div>
 
+        {/* Rating display if already rated */}
+        {ride.rating && (
+          <Card className="p-4">
+            <h3 className="font-semibold mb-2 text-sm">Penilaian Anda</h3>
+            <div className="flex items-center gap-1">
+              {[1, 2, 3, 4, 5].map(s => (
+                <Star key={s} className={`h-5 w-5 ${s <= ride.rating! ? 'text-amber-500 fill-amber-500' : 'text-muted-foreground'}`} />
+              ))}
+            </div>
+            {ride.rating_comment && <p className="text-sm text-muted-foreground mt-2">{ride.rating_comment}</p>}
+          </Card>
+        )}
+
         {/* Actions */}
         <div className="flex gap-2">
           {canCancel && (
-            <Button variant="destructive" className="flex-1" onClick={handleCancel} disabled={cancelling}>
+            <Button variant="destructive" className="flex-1" onClick={handleCancelClick} disabled={cancelling}>
               {cancelling ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <X className="h-4 w-4 mr-2" />}
               Batalkan
+            </Button>
+          )}
+          {canRate && (
+            <Button className="flex-1" variant="outline" onClick={() => setShowRatingDialog(true)}>
+              <Star className="h-4 w-4 mr-2" />
+              Beri Rating
             </Button>
           )}
           {ride.status === 'COMPLETED' && (
@@ -279,6 +391,54 @@ export default function RideTrackingPage() {
           )}
         </div>
       </div>
+
+      {/* Cancel Confirmation Dialog */}
+      <AlertDialog open={showCancelConfirm} onOpenChange={setShowCancelConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Batalkan Perjalanan?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Driver sudah ditemukan dan sedang menuju lokasi Anda. Yakin ingin membatalkan?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Tidak</AlertDialogCancel>
+            <AlertDialogAction onClick={doCancel} className="bg-destructive text-destructive-foreground">
+              Ya, Batalkan
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Rating Dialog */}
+      <Dialog open={showRatingDialog} onOpenChange={setShowRatingDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Beri Rating Driver</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="flex justify-center gap-2">
+              {[1, 2, 3, 4, 5].map(s => (
+                <button key={s} onClick={() => setRatingValue(s)} className="p-1">
+                  <Star className={`h-8 w-8 transition ${s <= ratingValue ? 'text-amber-500 fill-amber-500' : 'text-muted-foreground'}`} />
+                </button>
+              ))}
+            </div>
+            <Textarea
+              placeholder="Komentar (opsional)"
+              value={ratingComment}
+              onChange={e => setRatingComment(e.target.value)}
+              rows={3}
+            />
+          </div>
+          <DialogFooter>
+            <Button onClick={submitRating} disabled={submittingRating}>
+              {submittingRating ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+              Kirim Rating
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
