@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ChevronRight, Sparkles, Flame, TrendingUp, MapPin, ShoppingBag, Store, Map } from 'lucide-react';
+import { ChevronRight, Sparkles, Flame, TrendingUp, MapPin, ShoppingBag, Store, Map, Bike } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
 import { BottomNav } from '@/components/layout/BottomNav';
 import { FloatingCartButton } from '@/components/layout/FloatingCartButton';
@@ -103,15 +103,28 @@ const Index = () => {
         return <HeroCarousel slides={bannerSlides} autoPlayInterval={5000} />;
       
       case 'categories':
-        return visibleCategories.length > 0 ? (
+        return (
           <section className="mt-4 px-5">
-            <div className="flex justify-between gap-2 overflow-x-auto hide-scrollbar pb-2">
-              {visibleCategories.map((cat) => (
-                <CategoryIcon key={cat.id} {...cat} />
-              ))}
-            </div>
+            {visibleCategories.length > 0 && (
+              <div className="flex justify-between gap-2 overflow-x-auto hide-scrollbar pb-2">
+                {visibleCategories.map((cat) => (
+                  <CategoryIcon key={cat.id} {...cat} />
+                ))}
+              </div>
+            )}
+            {/* Quick Access: Ojek Desa */}
+            <Link to="/ride" className="mt-3 flex items-center gap-3 p-3 rounded-xl border border-border bg-card hover:bg-secondary/50 transition">
+              <div className="w-10 h-10 bg-gradient-to-br from-primary to-primary/70 rounded-xl flex items-center justify-center shadow-sm">
+                <Bike className="h-5 w-5 text-primary-foreground" />
+              </div>
+              <div className="flex-1">
+                <p className="font-bold text-sm text-foreground">Ojek Desa</p>
+                <p className="text-[10px] text-muted-foreground">Pesan ojek antar lokasi</p>
+              </div>
+              <ChevronRight className="h-4 w-4 text-muted-foreground" />
+            </Link>
           </section>
-        ) : null;
+        );
       
       case 'popular_tourism':
         return popularTourism.length > 0 ? (

@@ -47,7 +47,6 @@ export default function CourierRidesPage() {
 
   useEffect(() => {
     if (!courierId) return;
-    // Subscribe to new ride requests
     const channel = supabase
       .channel('ride-requests-courier')
       .on('postgres_changes', {
@@ -89,7 +88,6 @@ export default function CourierRidesPage() {
   };
 
   const fetchRidesWithCourierId = async (cId: string) => {
-    // Fetch available rides (SEARCHING)
     const { data: available } = await supabase
       .from('ride_requests')
       .select('*')
@@ -99,7 +97,6 @@ export default function CourierRidesPage() {
 
     setAvailableRides((available || []) as unknown as RideRequest[]);
 
-    // Fetch active ride assigned to this courier
     const { data: active } = await supabase
       .from('ride_requests')
       .select('*')
@@ -115,18 +112,17 @@ export default function CourierRidesPage() {
     if (!courierId) return;
     setAccepting(rideId);
     try {
-      const { error } = await supabase
-        .from('ride_requests')
-        .update({
-          driver_id: courierId,
-          status: 'ACCEPTED',
-          accepted_at: new Date().toISOString(),
-        } as Record<string, unknown>)
-        .eq('id', rideId)
-        .eq('status', 'SEARCHING');
+      const { data, error } = await supabase.rpc('accept_ride', {
+        p_ride_id: rideId,
+        p_courier_id: courierId,
+      });
 
       if (error) throw error;
-      toast({ title: '✅ Ride diterima!' });
+      if (data === false) {
+        toast({ title: 'Ride sudah diambil driver lain', variant: 'destructive' });
+      } else {
+        toast({ title: '✅ Ride diterima!' });
+      }
       fetchRides();
     } catch {
       toast({ title: 'Gagal menerima ride', variant: 'destructive' });
@@ -136,7 +132,7 @@ export default function CourierRidesPage() {
   };
 
   const updateRideStatus = async (newStatus: string) => {
-    if (!activeRide) return;
+    if (!activeRide || !courierId) return;
     setUpdatingStatus(true);
     try {
       const updateData: Record<string, unknown> = { status: newStatus };
@@ -152,6 +148,17 @@ export default function CourierRidesPage() {
         .eq('id', activeRide.id);
 
       if (error) throw error;
+
+      // Insert courier earnings on completion
+      if (newStatus === 'COMPLETED') {
+        await supabase.from('courier_earnings').insert({
+          courier_id: courierId,
+          amount: activeRide.estimated_fare,
+          type: 'RIDE',
+          status: 'PENDING',
+        });
+      }
+
       toast({ title: newStatus === 'COMPLETED' ? '✅ Perjalanan selesai!' : 'Status diperbarui' });
       fetchRides();
     } catch {

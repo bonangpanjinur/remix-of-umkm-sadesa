@@ -3493,6 +3493,10 @@ export type Database = {
       }
     }
     Functions: {
+      accept_ride: {
+        Args: { p_courier_id: string; p_ride_id: string }
+        Returns: boolean
+      }
       apply_voucher: {
         Args: {
           p_code: string

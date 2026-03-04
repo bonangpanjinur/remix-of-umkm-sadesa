@@ -41,7 +41,7 @@ export function BottomNav() {
         .from('orders')
         .select('*', { count: 'exact', head: true })
         .eq('buyer_id', user.id)
-        .in('status', ['NEW', 'PENDING_PAYMENT', 'PENDING_CONFIRMATION', 'PROCESSING', 'PROCESSED', 'ASSIGNED', 'PICKED_UP', 'ON_DELIVERY', 'SENT', 'DELIVERED']);
+        .in('status', ['NEW', 'PENDING_PAYMENT', 'PENDING_CONFIRMATION', 'PROCESSED', 'ASSIGNED', 'PICKED_UP', 'DELIVERING', 'SENT', 'DELIVERED']);
       setActiveOrders(ordersCount || 0);
     };
 
