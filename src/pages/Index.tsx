@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ChevronRight, Sparkles, Flame, TrendingUp, MapPin, ShoppingBag, Store, Map, Bike } from 'lucide-react';
+import { ChevronRight, Sparkles, Flame, TrendingUp, MapPin, ShoppingBag, Store, Map, Bike, Navigation } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
 import { BottomNav } from '@/components/layout/BottomNav';
 import { FloatingCartButton } from '@/components/layout/FloatingCartButton';
@@ -11,6 +11,7 @@ import { VillageCard } from '@/components/VillageCard';
 import { ProductCard } from '@/components/ProductCard';
 import { HeroCarousel, type BannerSlide } from '@/components/home/HeroCarousel';
 import { TourismCarousel } from '@/components/home/TourismCarousel';
+import { CourierMap } from '@/components/CourierMap';
 import { 
   fetchProducts, 
   fetchVillages, 
@@ -110,19 +111,29 @@ const Index = () => {
                 {visibleCategories.map((cat) => (
                   <CategoryIcon key={cat.id} {...cat} />
                 ))}
+                {/* Ojek Desa as category icon — same size as others */}
+                <Link
+                  to="/ride"
+                  className="flex flex-col items-center gap-1.5 min-w-[60px] cursor-pointer group"
+                >
+                  <div className="w-12 h-12 rounded-2xl flex items-center justify-center border transition shadow-sm group-hover:scale-105 group-active:scale-95 bg-emerald-100 text-emerald-700 border-emerald-200">
+                    <Bike className="h-5 w-5" />
+                  </div>
+                  <span className="text-[10px] font-medium text-muted-foreground">Ojek</span>
+                </Link>
               </div>
             )}
-            {/* Quick Access: Ojek Desa */}
-            <Link to="/ride" className="mt-3 flex items-center gap-3 p-3 rounded-xl border border-border bg-card hover:bg-secondary/50 transition">
-              <div className="w-10 h-10 bg-gradient-to-br from-primary to-primary/70 rounded-xl flex items-center justify-center shadow-sm">
-                <Bike className="h-5 w-5 text-primary-foreground" />
+
+            {/* Nearby Drivers Mini Map */}
+            <div className="mt-3">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-5 h-5 bg-emerald-500 rounded-full flex items-center justify-center">
+                  <Navigation className="h-3 w-3 text-white" />
+                </div>
+                <span className="text-xs font-semibold text-foreground">Driver Terdekat</span>
               </div>
-              <div className="flex-1">
-                <p className="font-bold text-sm text-foreground">Ojek Desa</p>
-                <p className="text-[10px] text-muted-foreground">Pesan ojek antar lokasi</p>
-              </div>
-              <ChevronRight className="h-4 w-4 text-muted-foreground" />
-            </Link>
+              <CourierMap showAllCouriers={true} height="160px" />
+            </div>
           </section>
         );
       
