@@ -1,24 +1,48 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MapPin, Navigation, Bike, Loader2, ArrowRight } from 'lucide-react';
-import { motion } from 'framer-motion';
-import { Header } from '@/components/layout/Header';
+import { Bike, Loader2, ArrowLeft, LocateFixed, MapPin, Navigation } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card } from '@/components/ui/card';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { formatPrice } from '@/lib/utils';
-import { LocationPicker } from '@/components/checkout/LocationPicker';
+import { MapContainer, TileLayer, Marker, useMapEvents, useMap, Polyline } from 'react-leaflet';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 
-interface FareSettings {
-  base_fare: number;
-  per_km_fare: number;
-  min_fare: number;
-  max_fare: number;
-}
+// Leaflet icon fix
+import markerShadow from 'leaflet/dist/images/marker-shadow.png';
 
+delete (L.Icon.Default.prototype as any)._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconUrl: '/motor-icon.png',
+  iconRetinaUrl: '/motor-icon.png',
+  shadowUrl: markerShadow,
+  iconSize: [40, 40],
+  iconAnchor: [20, 40],
+  popupAnchor: [0, -40],
+});
+
+const pickupIcon = new L.Icon({
+  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',
+  shadowUrl: markerShadow,
+  iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41],
+});
+
+const destIcon = new L.Icon({
+  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
+  shadowUrl: markerShadow,
+  iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41],
+});
+
+const driverIcon = new L.Icon({
+  iconUrl: '/motor-icon.png',
+  iconSize: [36, 36], iconAnchor: [18, 36], popupAnchor: [0, -36],
+});
+
+interface FareSettings { base_fare: number; per_km_fare: number; min_fare: number; max_fare: number; }
 const DEFAULT_FARE: FareSettings = { base_fare: 5000, per_km_fare: 3000, min_fare: 5000, max_fare: 100000 };
 
 function haversineDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
@@ -29,21 +53,42 @@ function haversineDistance(lat1: number, lng1: number, lat2: number, lng2: numbe
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
+interface DriverMarker { id: string; lat: number; lng: number; name: string; }
+
+// Sub-component: handles map click
+function MapClickHandler({ onSelect }: { onSelect: (lat: number, lng: number) => void }) {
+  useMapEvents({ click(e) { onSelect(e.latlng.lat, e.latlng.lng); } });
+  return null;
+}
+
+function FitBoundsHelper({ points }: { points: [number, number][] }) {
+  const map = useMap();
+  useEffect(() => {
+    if (points.length >= 2) {
+      map.fitBounds(L.latLngBounds(points.map(p => L.latLng(p[0], p[1]))), { padding: [50, 50], maxZoom: 16 });
+    } else if (points.length === 1) {
+      map.setView(points[0], 15, { animate: true });
+    }
+  }, [points, map]);
+  return null;
+}
+
 export default function RideBookingPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [step, setStep] = useState<'pickup' | 'destination' | 'confirm'>('pickup');
+  const [mode, setMode] = useState<'pickup' | 'destination'>('pickup');
   const [pickupLocation, setPickupLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [pickupAddress, setPickupAddress] = useState('');
   const [destLocation, setDestLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [destAddress, setDestAddress] = useState('');
   const [fareSettings, setFareSettings] = useState<FareSettings>(DEFAULT_FARE);
   const [submitting, setSubmitting] = useState(false);
-  const [gettingLocation, setGettingLocation] = useState(false);
+  const [gettingGps, setGettingGps] = useState(false);
+  const [drivers, setDrivers] = useState<DriverMarker[]>([]);
+  const [mapCenter] = useState<[number, number]>([-7.3274, 108.2207]);
 
   useEffect(() => {
     if (!user) { navigate('/auth'); return; }
-    // Fetch fare settings
     supabase.from('app_settings').select('value').eq('key', 'ride_fare_settings').maybeSingle()
       .then(({ data }) => {
         if (data?.value) {
@@ -56,32 +101,56 @@ export default function RideBookingPage() {
           });
         }
       });
+    // Fetch nearby drivers
+    supabase.from('couriers').select('id, name, current_lat, current_lng')
+      .eq('is_available', true).eq('status', 'ACTIVE')
+      .not('current_lat', 'is', null).not('current_lng', 'is', null)
+      .then(({ data }) => {
+        if (data) setDrivers(data.map(d => ({ id: d.id, lat: d.current_lat!, lng: d.current_lng!, name: d.name })));
+      });
+    // Auto GPS on load
+    handleGps();
   }, [user, navigate]);
 
-  const useCurrentLocation = useCallback(() => {
-    setGettingLocation(true);
+  const handleGps = useCallback(() => {
+    setGettingGps(true);
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        setPickupLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+        const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        setPickupLocation(loc);
         setPickupAddress('Lokasi saya saat ini');
-        setGettingLocation(false);
+        setGettingGps(false);
+        setMode('destination');
       },
-      () => {
-        toast({ title: 'Gagal mendapatkan lokasi', variant: 'destructive' });
-        setGettingLocation(false);
-      },
-      { enableHighAccuracy: true }
+      () => { setGettingGps(false); },
+      { enableHighAccuracy: true, timeout: 10000 }
     );
   }, []);
 
+  const handleMapClick = useCallback((lat: number, lng: number) => {
+    if (mode === 'pickup') {
+      setPickupLocation({ lat, lng });
+      setPickupAddress('Titik jemput');
+    } else {
+      setDestLocation({ lat, lng });
+      setDestAddress('Titik tujuan');
+    }
+  }, [mode]);
+
   const distanceKm = pickupLocation && destLocation
-    ? haversineDistance(pickupLocation.lat, pickupLocation.lng, destLocation.lat, destLocation.lng)
-    : 0;
+    ? haversineDistance(pickupLocation.lat, pickupLocation.lng, destLocation.lat, destLocation.lng) : 0;
 
   const estimatedFare = Math.min(
     fareSettings.max_fare,
     Math.max(fareSettings.min_fare, Math.round(fareSettings.base_fare + distanceKm * fareSettings.per_km_fare))
   );
+
+  const fitPoints = useMemo(() => {
+    const pts: [number, number][] = [];
+    if (pickupLocation) pts.push([pickupLocation.lat, pickupLocation.lng]);
+    if (destLocation) pts.push([destLocation.lat, destLocation.lng]);
+    return pts;
+  }, [pickupLocation, destLocation]);
 
   const handleSubmit = async () => {
     if (!user || !pickupLocation || !destLocation) return;
@@ -89,161 +158,162 @@ export default function RideBookingPage() {
     try {
       const { data, error } = await supabase.from('ride_requests').insert([{
         passenger_id: user.id,
-        pickup_lat: pickupLocation.lat,
-        pickup_lng: pickupLocation.lng,
+        pickup_lat: pickupLocation.lat, pickup_lng: pickupLocation.lng,
         pickup_address: pickupAddress || 'Titik jemput',
-        destination_lat: destLocation.lat,
-        destination_lng: destLocation.lng,
+        destination_lat: destLocation.lat, destination_lng: destLocation.lng,
         destination_address: destAddress || 'Titik tujuan',
         distance_km: Math.round(distanceKm * 100) / 100,
-        estimated_fare: estimatedFare,
-        status: 'SEARCHING',
+        estimated_fare: estimatedFare, status: 'SEARCHING',
       }]).select('id').single();
-
       if (error) throw error;
       toast({ title: 'Mencari driver...', description: 'Permintaan ojek Anda sedang dicari driver terdekat' });
       navigate(`/ride/${data.id}`);
-    } catch (err: unknown) {
+    } catch (err) {
       console.error(err);
       toast({ title: 'Gagal memesan ojek', variant: 'destructive' });
-    } finally {
-      setSubmitting(false);
-    }
+    } finally { setSubmitting(false); }
   };
 
-  return (
-    <div className="min-h-screen bg-background">
-      <Header />
-      <div className="max-w-lg mx-auto px-4 py-6 space-y-4">
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-          <h1 className="text-2xl font-bold flex items-center gap-2 mb-1">
-            <Bike className="h-6 w-6 text-primary" />
-            Ojek Desa
-          </h1>
-          <p className="text-sm text-muted-foreground">Pesan ojek untuk perjalanan Anda</p>
-        </motion.div>
+  const canOrder = !!pickupLocation && !!destLocation && distanceKm > 0.05;
 
-        {/* Step indicator */}
-        <div className="flex items-center gap-2 text-xs font-medium">
-          <span className={`px-3 py-1.5 rounded-full ${step === 'pickup' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'}`}>1. Jemput</span>
-          <ArrowRight className="h-3 w-3 text-muted-foreground" />
-          <span className={`px-3 py-1.5 rounded-full ${step === 'destination' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'}`}>2. Tujuan</span>
-          <ArrowRight className="h-3 w-3 text-muted-foreground" />
-          <span className={`px-3 py-1.5 rounded-full ${step === 'confirm' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'}`}>3. Pesan</span>
+  return (
+    <div className="fixed inset-0 flex flex-col bg-background">
+      {/* Compact header */}
+      <div className="relative z-20 flex items-center gap-3 px-4 py-3 bg-background/95 backdrop-blur border-b border-border">
+        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => navigate(-1)}>
+          <ArrowLeft className="h-4 w-4" />
+        </Button>
+        <div className="flex items-center gap-2">
+          <Bike className="h-5 w-5 text-primary" />
+          <h1 className="text-base font-bold">Ojek Desa</h1>
+        </div>
+        <Button
+          variant="outline" size="sm"
+          className="ml-auto h-8 text-xs"
+          onClick={handleGps} disabled={gettingGps}
+        >
+          {gettingGps ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <LocateFixed className="h-3.5 w-3.5" />}
+        </Button>
+      </div>
+
+      {/* Fullscreen map */}
+      <div className="flex-1 relative z-0">
+        <MapContainer center={mapCenter} zoom={14} style={{ height: '100%', width: '100%' }} zoomControl={false}>
+          <TileLayer
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          />
+          <MapClickHandler onSelect={handleMapClick} />
+          {fitPoints.length > 0 && <FitBoundsHelper points={fitPoints} />}
+
+          {/* Pickup marker */}
+          {pickupLocation && <Marker position={[pickupLocation.lat, pickupLocation.lng]} icon={pickupIcon} />}
+          {/* Destination marker */}
+          {destLocation && <Marker position={[destLocation.lat, destLocation.lng]} icon={destIcon} />}
+          {/* Route line */}
+          {pickupLocation && destLocation && (
+            <Polyline
+              positions={[[pickupLocation.lat, pickupLocation.lng], [destLocation.lat, destLocation.lng]]}
+              pathOptions={{ color: 'hsl(160,84%,39%)', weight: 3, dashArray: '10, 8', opacity: 0.7 }}
+            />
+          )}
+          {/* Driver markers */}
+          {drivers.map(d => (
+            <Marker key={d.id} position={[d.lat, d.lng]} icon={driverIcon} />
+          ))}
+        </MapContainer>
+
+        {/* Mode indicator floating on map */}
+        <div className="absolute top-3 left-3 z-[1000]">
+          <div className="bg-background/90 backdrop-blur-sm px-3 py-1.5 rounded-full text-xs font-semibold shadow border border-border flex items-center gap-2">
+            <span className={`h-2 w-2 rounded-full ${mode === 'pickup' ? 'bg-emerald-500' : 'bg-red-500'}`} />
+            {mode === 'pickup' ? 'Tap peta: pilih jemput' : 'Tap peta: pilih tujuan'}
+          </div>
         </div>
 
-        {/* Step 1: Pickup */}
-        {step === 'pickup' && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
-            <Card className="p-4 space-y-3">
-              <h3 className="font-semibold flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full bg-primary" />
-                Titik Jemput
-              </h3>
-              <Button variant="outline" className="w-full" onClick={useCurrentLocation} disabled={gettingLocation}>
-                {gettingLocation ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Navigation className="h-4 w-4 mr-2" />}
-                Gunakan Lokasi Saya
-              </Button>
-              <p className="text-xs text-muted-foreground text-center">atau pilih di peta:</p>
-              <div className="h-64 rounded-lg overflow-hidden border border-border">
-                <LocationPicker
-                  value={pickupLocation}
-                  onChange={(loc) => { setPickupLocation(loc); setPickupAddress('Titik jemput dari peta'); }}
-                />
-              </div>
-              <Input
-                placeholder="Nama titik jemput (opsional)"
-                value={pickupAddress}
-                onChange={(e) => setPickupAddress(e.target.value)}
-              />
-              <Button className="w-full" disabled={!pickupLocation} onClick={() => setStep('destination')}>
-                Lanjut Pilih Tujuan
-              </Button>
-            </Card>
-          </motion.div>
-        )}
-
-        {/* Step 2: Destination */}
-        {step === 'destination' && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
-            <Card className="p-4 space-y-3">
-              <h3 className="font-semibold flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full bg-destructive" />
-                Titik Tujuan
-              </h3>
-              <div className="h-64 rounded-lg overflow-hidden border border-border">
-                <LocationPicker
-                  value={destLocation}
-                  onChange={(loc) => { setDestLocation(loc); setDestAddress('Titik tujuan dari peta'); }}
-                />
-              </div>
-              <Input
-                placeholder="Nama titik tujuan (opsional)"
-                value={destAddress}
-                onChange={(e) => setDestAddress(e.target.value)}
-              />
-              <div className="flex gap-2">
-                <Button variant="outline" className="flex-1" onClick={() => setStep('pickup')}>Kembali</Button>
-                <Button className="flex-1" disabled={!destLocation} onClick={() => setStep('confirm')}>Lihat Estimasi</Button>
-              </div>
-            </Card>
-          </motion.div>
-        )}
-
-        {/* Step 3: Confirm */}
-        {step === 'confirm' && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
-            <Card className="p-4 space-y-4">
-              <h3 className="font-semibold">Ringkasan Perjalanan</h3>
-              
-              <div className="space-y-3">
-                <div className="flex items-start gap-3">
-                  <div className="w-3 h-3 rounded-full bg-primary mt-1.5 flex-shrink-0" />
-                  <div>
-                    <p className="text-xs text-muted-foreground">Jemput</p>
-                    <p className="text-sm font-medium">{pickupAddress || 'Titik jemput'}</p>
-                  </div>
-                </div>
-                <div className="ml-1.5 border-l-2 border-dashed border-border h-4" />
-                <div className="flex items-start gap-3">
-                  <div className="w-3 h-3 rounded-full bg-destructive mt-1.5 flex-shrink-0" />
-                  <div>
-                    <p className="text-xs text-muted-foreground">Tujuan</p>
-                    <p className="text-sm font-medium">{destAddress || 'Titik tujuan'}</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-muted rounded-xl p-4 space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Jarak</span>
-                  <span className="font-medium">{distanceKm.toFixed(1)} km</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Tarif dasar</span>
-                  <span>{formatPrice(fareSettings.base_fare)}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Biaya jarak</span>
-                  <span>{formatPrice(Math.round(distanceKm * fareSettings.per_km_fare))}</span>
-                </div>
-                <div className="border-t border-border pt-2 flex justify-between font-bold">
-                  <span>Estimasi Total</span>
-                  <span className="text-primary">{formatPrice(estimatedFare)}</span>
-                </div>
-              </div>
-
-              <div className="flex gap-2">
-                <Button variant="outline" className="flex-1" onClick={() => setStep('destination')}>Ubah</Button>
-                <Button className="flex-1" onClick={handleSubmit} disabled={submitting}>
-                  {submitting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Bike className="h-4 w-4 mr-2" />}
-                  Pesan Ojek
-                </Button>
-              </div>
-            </Card>
-          </motion.div>
+        {/* Driver count */}
+        {drivers.length > 0 && (
+          <div className="absolute top-3 right-3 z-[1000] bg-background/90 backdrop-blur-sm px-3 py-1.5 rounded-full text-xs font-medium shadow border border-border flex items-center gap-1.5">
+            <Navigation className="h-3 w-3 text-primary" />
+            {drivers.length} driver
+          </div>
         )}
       </div>
+
+      {/* Bottom sheet */}
+      <AnimatePresence>
+        <motion.div
+          initial={{ y: 100, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          className="relative z-10 bg-card border-t border-border rounded-t-2xl shadow-lg px-4 pt-4 pb-6 space-y-3"
+        >
+          {/* Input fields */}
+          <div className="space-y-2">
+            {/* Pickup */}
+            <button
+              type="button"
+              onClick={() => setMode('pickup')}
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border text-left text-sm transition ${
+                mode === 'pickup' ? 'border-emerald-500 bg-emerald-50/50 ring-1 ring-emerald-500/30' : 'border-border bg-muted/30'
+              }`}
+            >
+              <div className="w-3 h-3 rounded-full bg-emerald-500 flex-shrink-0" />
+              <Input
+                placeholder="Titik jemput"
+                value={pickupAddress}
+                onChange={(e) => setPickupAddress(e.target.value)}
+                onFocus={() => setMode('pickup')}
+                className="border-0 bg-transparent p-0 h-auto text-sm focus-visible:ring-0 focus-visible:ring-offset-0"
+              />
+            </button>
+            {/* Destination */}
+            <button
+              type="button"
+              onClick={() => setMode('destination')}
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border text-left text-sm transition ${
+                mode === 'destination' ? 'border-red-500 bg-red-50/50 ring-1 ring-red-500/30' : 'border-border bg-muted/30'
+              }`}
+            >
+              <div className="w-3 h-3 rounded-full bg-red-500 flex-shrink-0" />
+              <Input
+                placeholder="Mau ke mana?"
+                value={destAddress}
+                onChange={(e) => setDestAddress(e.target.value)}
+                onFocus={() => setMode('destination')}
+                className="border-0 bg-transparent p-0 h-auto text-sm focus-visible:ring-0 focus-visible:ring-offset-0"
+              />
+            </button>
+          </div>
+
+          {/* Fare estimation + Order */}
+          {canOrder && (
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-3">
+              <div className="flex items-center justify-between text-sm bg-muted/50 rounded-xl px-4 py-3">
+                <div className="space-y-0.5">
+                  <p className="text-muted-foreground text-xs">Jarak</p>
+                  <p className="font-semibold">{distanceKm.toFixed(1)} km</p>
+                </div>
+                <div className="h-8 w-px bg-border" />
+                <div className="space-y-0.5 text-right">
+                  <p className="text-muted-foreground text-xs">Estimasi</p>
+                  <p className="font-bold text-primary text-base">{formatPrice(estimatedFare)}</p>
+                </div>
+              </div>
+              <Button className="w-full h-12 text-sm font-bold rounded-xl" onClick={handleSubmit} disabled={submitting}>
+                {submitting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Bike className="h-4 w-4 mr-2" />}
+                Pesan Ojek
+              </Button>
+            </motion.div>
+          )}
+
+          {!canOrder && (
+            <p className="text-center text-xs text-muted-foreground py-1">
+              {!pickupLocation ? 'Pilih titik jemput di peta atau gunakan GPS' :
+               !destLocation ? 'Tap peta untuk pilih tujuan' : 'Jarak terlalu dekat'}
+            </p>
+          )}
+        </motion.div>
+      </AnimatePresence>
     </div>
   );
 }
