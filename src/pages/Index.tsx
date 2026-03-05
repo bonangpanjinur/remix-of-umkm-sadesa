@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ChevronRight, Sparkles, Flame, TrendingUp, MapPin, ShoppingBag, Store, Map, Bike, Navigation } from 'lucide-react';
+import { ChevronRight, Sparkles, Flame, TrendingUp, MapPin, ShoppingBag, Store, Map, Bike } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
 import { BottomNav } from '@/components/layout/BottomNav';
 import { FloatingCartButton } from '@/components/layout/FloatingCartButton';
@@ -11,7 +11,6 @@ import { VillageCard } from '@/components/VillageCard';
 import { ProductCard } from '@/components/ProductCard';
 import { HeroCarousel, type BannerSlide } from '@/components/home/HeroCarousel';
 import { TourismCarousel } from '@/components/home/TourismCarousel';
-import { CourierMap } from '@/components/CourierMap';
 import { 
   fetchProducts, 
   fetchVillages, 
@@ -111,7 +110,7 @@ const Index = () => {
                 {visibleCategories.map((cat) => (
                   <CategoryIcon key={cat.id} {...cat} />
                 ))}
-                {/* Ojek Desa as category icon — same size as others */}
+                {/* Ojek Desa as category icon */}
                 <Link
                   to="/ride"
                   className="flex flex-col items-center gap-1.5 min-w-[60px] cursor-pointer group"
@@ -123,17 +122,6 @@ const Index = () => {
                 </Link>
               </div>
             )}
-
-            {/* Nearby Drivers Mini Map */}
-            <div className="mt-3">
-              <div className="flex items-center gap-2 mb-2">
-                <div className="w-5 h-5 bg-emerald-500 rounded-full flex items-center justify-center">
-                  <Navigation className="h-3 w-3 text-white" />
-                </div>
-                <span className="text-xs font-semibold text-foreground">Driver Terdekat</span>
-              </div>
-              <CourierMap showAllCouriers={true} height="160px" />
-            </div>
           </section>
         );
       
