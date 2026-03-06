@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Bike, Phone, X, CheckCircle, MapPin, Clock, Loader2, User, Navigation, Star } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
+import { BottomNav } from '@/components/layout/BottomNav';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -239,9 +240,9 @@ export default function RideTrackingPage() {
   const canRate = ride.status === 'COMPLETED' && !ride.rating;
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="mobile-shell bg-background min-h-screen flex flex-col">
       <Header />
-      <div className="max-w-lg mx-auto px-4 py-6 space-y-4">
+      <div className="flex-1 overflow-y-auto max-w-lg mx-auto px-4 py-6 pb-24 space-y-4">
         {/* Status Header */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
           <Card className="p-5">
@@ -439,6 +440,7 @@ export default function RideTrackingPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <BottomNav />
     </div>
   );
 }

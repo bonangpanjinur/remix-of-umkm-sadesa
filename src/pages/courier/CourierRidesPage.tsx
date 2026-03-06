@@ -39,6 +39,8 @@ export default function CourierRidesPage() {
   const [loading, setLoading] = useState(true);
   const [accepting, setAccepting] = useState<string | null>(null);
   const [updatingStatus, setUpdatingStatus] = useState(false);
+  const [courierLat, setCourierLat] = useState<number | null>(null);
+  const [courierLng, setCourierLng] = useState<number | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -61,11 +63,19 @@ export default function CourierRidesPage() {
     return () => { supabase.removeChannel(channel); };
   }, [courierId]);
 
+  const haversine = (lat1: number, lng1: number, lat2: number, lng2: number) => {
+    const R = 6371;
+    const dLat = ((lat2 - lat1) * Math.PI) / 180;
+    const dLng = ((lng2 - lng1) * Math.PI) / 180;
+    const a = Math.sin(dLat / 2) ** 2 + Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLng / 2) ** 2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  };
+
   const fetchCourierAndRides = async () => {
     try {
       const { data: courier } = await supabase
         .from('couriers')
-        .select('id')
+        .select('id, current_lat, current_lng')
         .eq('user_id', user!.id)
         .eq('registration_status', 'APPROVED')
         .maybeSingle();
@@ -75,6 +85,13 @@ export default function CourierRidesPage() {
         return;
       }
       setCourierId(courier.id);
+      if (courier.current_lat) setCourierLat(courier.current_lat);
+      if (courier.current_lng) setCourierLng(courier.current_lng);
+      // Also try browser geolocation for more accurate position
+      navigator.geolocation?.getCurrentPosition(
+        (pos) => { setCourierLat(pos.coords.latitude); setCourierLng(pos.coords.longitude); },
+        () => {}, { enableHighAccuracy: true, timeout: 5000 }
+      );
       await fetchRidesWithCourierId(courier.id);
     } catch {
       console.error('Failed to fetch courier data');
@@ -267,7 +284,15 @@ export default function CourierRidesPage() {
                       <p className="text-xs text-muted-foreground">
                         {new Date(ride.created_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
                       </p>
-                      <Badge variant="secondary">{ride.distance_km} km</Badge>
+                      <div className="flex items-center gap-1.5">
+                        {courierLat && courierLng && (
+                          <Badge variant="outline" className="text-[10px]">
+                            <MapPin className="h-3 w-3 mr-0.5" />
+                            {haversine(courierLat, courierLng, ride.pickup_lat, ride.pickup_lng).toFixed(1)} km
+                          </Badge>
+                        )}
+                        <Badge variant="secondary">{ride.distance_km} km</Badge>
+                      </div>
                     </div>
                     <div className="space-y-1.5 mb-3 text-sm">
                       <div className="flex items-center gap-2">

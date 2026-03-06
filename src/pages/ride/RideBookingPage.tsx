@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Bike, Loader2, ArrowLeft, LocateFixed, MapPin, Navigation } from 'lucide-react';
+import { Bike, Loader2, ArrowLeft, LocateFixed, MapPin, Navigation, Clock } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -86,6 +86,7 @@ export default function RideBookingPage() {
   const [gettingGps, setGettingGps] = useState(false);
   const [drivers, setDrivers] = useState<DriverMarker[]>([]);
   const [mapCenter] = useState<[number, number]>([-7.3274, 108.2207]);
+  const [activeRide, setActiveRide] = useState<{ id: string; status: string } | null>(null);
 
   useEffect(() => {
     if (!user) { navigate('/auth'); return; }
@@ -107,6 +108,14 @@ export default function RideBookingPage() {
       .not('current_lat', 'is', null).not('current_lng', 'is', null)
       .then(({ data }) => {
         if (data) setDrivers(data.map(d => ({ id: d.id, lat: d.current_lat!, lng: d.current_lng!, name: d.name })));
+      });
+    // Check active ride
+    supabase.from('ride_requests').select('id, status')
+      .eq('passenger_id', user.id)
+      .in('status', ['SEARCHING', 'ACCEPTED', 'PICKED_UP', 'IN_TRANSIT'])
+      .order('created_at', { ascending: false }).limit(1)
+      .then(({ data }) => {
+        if (data && data.length > 0) setActiveRide(data[0] as unknown as { id: string; status: string });
       });
     // Auto GPS on load
     handleGps();
@@ -187,14 +196,33 @@ export default function RideBookingPage() {
           <Bike className="h-5 w-5 text-primary" />
           <h1 className="text-base font-bold">Ojek Desa</h1>
         </div>
-        <Button
-          variant="outline" size="sm"
-          className="ml-auto h-8 text-xs"
-          onClick={handleGps} disabled={gettingGps}
-        >
-          {gettingGps ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <LocateFixed className="h-3.5 w-3.5" />}
-        </Button>
+        <div className="ml-auto flex items-center gap-1.5">
+          <Button variant="ghost" size="sm" className="h-8 text-xs" onClick={() => navigate('/ride/history')}>
+            <Clock className="h-3.5 w-3.5 mr-1" /> Riwayat
+          </Button>
+          <Button
+            variant="outline" size="sm"
+            className="h-8 text-xs"
+            onClick={handleGps} disabled={gettingGps}
+          >
+            {gettingGps ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <LocateFixed className="h-3.5 w-3.5" />}
+          </Button>
+        </div>
       </div>
+
+      {/* Active ride banner */}
+      {activeRide && (
+        <div
+          className="relative z-20 flex items-center gap-3 px-4 py-2.5 bg-primary text-primary-foreground cursor-pointer"
+          onClick={() => navigate(`/ride/${activeRide.id}`)}
+        >
+          <Loader2 className="h-4 w-4 animate-spin" />
+          <span className="text-sm font-medium flex-1">
+            Perjalanan sedang berlangsung — tap untuk lihat
+          </span>
+          <Navigation className="h-4 w-4" />
+        </div>
+      )}
 
       {/* Fullscreen map */}
       <div className="flex-1 relative z-0">
