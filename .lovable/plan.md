@@ -1,87 +1,88 @@
 
 
-# Rencana Perbaikan: Ojek Desa UI + Homepage Integration
+# Analisis Bug & Kekurangan UX: Ojek, Kurir, dan Buyer
 
-## Perubahan yang Akan Dilakukan
+## A. Bug yang Ditemukan
 
-### 1. Homepage — Ojek Desa jadi icon kategori (bukan card besar)
-**File**: `src/pages/Index.tsx`
-- Hapus block `<Link to="/ride">` card besar Ojek Desa (baris 116-125)
-- Tambahkan Ojek Desa sebagai item icon kategori di baris yang sama dengan Kuliner, Fashion, dll
-- Ukuran sama: `w-12 h-12` rounded icon + label di bawah, menggunakan `Bike` icon
-- Warna: `bg-emerald-100 text-emerald-700 border-emerald-200`
+### Bug 1: BottomNav masih ada menu "Ojek" (HARUS DIHAPUS)
+**File**: `src/components/layout/BottomNav.tsx` baris 13
+- Menu Ojek (`/ride`) ada di BottomNav — user minta dihapus dari sini
+- BottomNav seharusnya hanya: Beranda, Jelajah, Toko, Pesanan, Akun
 
-### 2. Homepage — Tambah section "Driver Terdekat" dengan peta mini
-**File**: `src/pages/Index.tsx`
-- Tambah section baru setelah categories yang menampilkan peta kecil dengan marker driver/kurir terdekat yang sedang online (data dari tabel `couriers` yang `is_available=true` dan punya `current_lat/lng`)
-- Peta menggunakan `CourierMap` dengan `showAllCouriers={true}` dan height kecil (`180px`)
-- Label: "Driver Terdekat" dengan badge jumlah driver aktif
-- Ini murni GPS-based — tidak simpan lokasi user, hanya query posisi kurir yang sudah di-broadcast/checkpoint oleh `CourierLocationUpdater`
+### Bug 2: Halaman Ojek Booking tidak ada BottomNav / navigasi kembali yang jelas
+**File**: `src/pages/ride/RideBookingPage.tsx`
+- Layout menggunakan `fixed inset-0` tanpa BottomNav — user terjebak di halaman ini
+- Hanya ada tombol back (`ArrowLeft`) yang kecil
+- Tidak ada link ke riwayat perjalanan dari halaman booking
 
-### 3. Ojek Desa — Redesign halaman booking (modern, single-page)
-**File**: `src/pages/ride/RideBookingPage.tsx` — rewrite total
-- Layout baru: **Peta fullscreen** sebagai background utama (seperti Grab/Gojek)
-- Bottom sheet / overlay card untuk input:
-  - Dua input field stacked: "Titik Jemput" (auto-fill GPS) dan "Titik Tujuan" (tap peta)
-  - Mode toggle: sedang pilih jemput atau tujuan
-  - Saat kedua titik terpilih, otomatis tampilkan estimasi jarak + tarif di bottom card
-  - Tombol "Pesan Ojek" di bottom
-- Peta menampilkan:
-  - Marker hijau (jemput) + marker merah (tujuan)
-  - Garis dashed antara keduanya
-  - Marker motor untuk driver terdekat yang online (query `couriers` yang `is_available`)
-- Tidak ada multi-step wizard lagi — semua dalam 1 layar
-- Mobile-first, menggunakan `mobile-shell` wrapper
+### Bug 3: RideTrackingPage & RideHistoryPage tidak ada BottomNav
+**File**: `src/pages/ride/RideTrackingPage.tsx`, `src/pages/ride/RideHistoryPage.tsx`
+- Kedua halaman hanya punya `Header` tapi tidak ada BottomNav — navigasi putus untuk buyer
 
-### 4. Tidak ada penyimpanan lokasi user di database
-- Konfirmasi: Semua lokasi berbasis GPS real-time
-- `CourierLocationUpdater` sudah benar: broadcast via WebSocket, checkpoint ke DB tiap 30 detik (ini lokasi kurir, bukan user)
-- Lokasi penumpang hanya dikirim saat submit `ride_requests` (pickup_lat/lng) — tidak disimpan permanen
+### Bug 4: CourierDashboardPage tidak ada link ke Ojek Desa
+**File**: `src/pages/CourierDashboardPage.tsx`
+- Dashboard kurir hanya menampilkan pesanan pengiriman makanan
+- Tidak ada card/link ke `/courier/rides` untuk menerima ojek dari dashboard utama
+- Kurir harus tahu dari sidebar saja (yang tersembunyi di mobile)
 
-## Detail Teknis
+### Bug 5: CourierRidesPage — tidak ada info jarak ride dari posisi kurir
+**File**: `src/pages/courier/CourierRidesPage.tsx`
+- Daftar ride available tidak menampilkan jarak dari posisi kurir saat ini
+- Kurir tidak bisa prioritaskan ride terdekat
 
-### Index.tsx — Perubahan categories section
-```text
-Sebelum: [Kuliner] [Fashion] [Kriya] [Wisata]
-         ┌─────────────────────────────┐
-         │ 🏍 Ojek Desa                │  ← card besar, dihapus
-         │ Pesan ojek antar lokasi   > │
-         └─────────────────────────────┘
+### Bug 6: RideBookingPage — mode "pickup" tetap bisa di-tap setelah GPS set
+- Setelah GPS auto-set pickup dan mode pindah ke "destination", user bisa tap input pickup dan mode berubah lagi — membingungkan
 
-Sesudah: [Kuliner] [Fashion] [Kriya] [Wisata] [Ojek]  ← icon kecil sejajar
-         
-         ┌─ Driver Terdekat ──────────┐
-         │ [peta mini 180px]          │  ← section baru
-         │ 🟢 3 driver aktif          │
-         └────────────────────────────┘
-```
+## B. Kekurangan UX — Role Buyer
 
-### RideBookingPage.tsx — Layout baru
-```text
-┌──────────────────────────┐
-│  ← Ojek Desa        [GPS]│  ← header compact
-│                           │
-│   ┌─────────────────┐    │
-│   │                 │    │
-│   │   PETA BESAR    │    │
-│   │  🟢jemput       │    │
-│   │       ---- 🔴tujuan  │
-│   │  🏍 🏍 (driver) │    │
-│   │                 │    │
-│   └─────────────────┘    │
-│                           │
-│ ┌───────────────────────┐│
-│ │ 📍 Lokasi saya        ││ ← bottom card
-│ │ 📌 Pilih tujuan...    ││
-│ │                       ││
-│ │ Jarak: 3.2 km         ││
-│ │ Estimasi: Rp 14.600   ││
-│ │ [  🏍 Pesan Ojek    ] ││
-│ └───────────────────────┘│
-└──────────────────────────┘
-```
+1. **Tidak ada BottomNav di halaman ojek** — Buyer kehilangan navigasi utama saat berada di `/ride`, `/ride/:id`, `/ride/history`
+2. **Tidak ada akses ke riwayat ojek dari halaman utama** — Hanya bisa dari `/ride/:id` setelah selesai, tidak ada menu "Riwayat Ojek" di Account page
+3. **Halaman booking fullscreen tanpa escape** — Tidak ada tab "Riwayat" atau navigasi tambahan selain tombol back kecil
+4. **Tidak ada indikator ride aktif** — Jika buyer punya ride yang sedang berlangsung (SEARCHING/ACCEPTED/PICKED_UP), tidak ada banner/alert di homepage atau booking page
 
-### File yang diubah:
-1. `src/pages/Index.tsx` — Ojek jadi icon kategori + section driver terdekat
-2. `src/pages/ride/RideBookingPage.tsx` — Redesign total single-page map-first
+## C. Kekurangan UX — Role Kurir/Driver
+
+1. **Dashboard kurir tidak ada quick access Ojek Desa** — Harus buka sidebar (tersembunyi di mobile) untuk akses `/courier/rides`
+2. **Tidak ada badge/notifikasi ride baru** di sidebar atau dashboard
+3. **Tidak ada info jarak dari kurir** ke titik jemput di daftar ride available
+4. **Tidak ada peta di halaman rides kurir** — Kurir tidak bisa lihat lokasi jemput sebelum accept
+
+## D. Rencana Perbaikan
+
+### 1. Hapus "Ojek" dari BottomNav
+**File**: `src/components/layout/BottomNav.tsx`
+- Hapus item `{ path: '/ride', icon: Bike, label: 'Ojek' }` dari `navItems`
+- BottomNav kembali ke 5 item: Beranda, Jelajah, Toko, Pesanan, Akun
+
+### 2. Tambah BottomNav di halaman ride buyer
+**File**: `src/pages/ride/RideHistoryPage.tsx`
+- Import dan render `<BottomNav />` di bawah halaman
+- Tambah wrapper `mobile-shell` dan `pb-20` untuk spacing
+
+**File**: `src/pages/ride/RideTrackingPage.tsx`
+- Import dan render `<BottomNav />` di bawah halaman
+- Tambah `pb-20` ke content
+
+**File**: `src/pages/ride/RideBookingPage.tsx`
+- Tidak tambah BottomNav (karena fullscreen map), tapi tambahkan:
+  - Link/button ke "Riwayat Perjalanan" di header area
+  - Banner jika ada ride aktif (query `ride_requests` dengan status SEARCHING/ACCEPTED/PICKED_UP)
+
+### 3. Tambah "Riwayat Ojek" di AccountPage
+**File**: `src/pages/AccountPage.tsx`
+- Tambah menu item link ke `/ride/history` di section menu buyer, di bawah "Pesanan Terbaru" atau section yang relevan
+
+### 4. Tambah card "Ojek Desa" di CourierDashboardPage
+**File**: `src/pages/CourierDashboardPage.tsx`
+- Tambah card/link ke `/courier/rides` di area setelah balance card
+- Tampilkan jumlah ride available (query count `ride_requests` status SEARCHING)
+- Style mirip card History/Earnings yang sudah ada
+
+### 5. Tambah info jarak di CourierRidesPage
+**File**: `src/pages/courier/CourierRidesPage.tsx`
+- Query posisi kurir dari state/supabase
+- Hitung jarak haversine dari posisi kurir ke `pickup_lat/lng` setiap ride
+- Tampilkan badge jarak di setiap card ride
+
+### Total: 7 file diubah, 0 file baru, 0 migrasi DB
 
