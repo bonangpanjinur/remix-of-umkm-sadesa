@@ -18,7 +18,8 @@ import {
   History,
   Banknote,
   Volume2,
-  PiggyBank
+  PiggyBank,
+  Bike
 } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
 import { Button } from '@/components/ui/button';
@@ -66,6 +67,7 @@ export default function CourierDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [podOrderId, setPodOrderId] = useState<string | null>(null);
+  const [rideRequestCount, setRideRequestCount] = useState(0);
 
   useEffect(() => {
     if (!authLoading && user) {
@@ -137,6 +139,13 @@ export default function CourierDashboardPage() {
       }
 
       setCourier(courierData);
+
+      // Fetch ride request count
+      const { count: rideCount } = await supabase
+        .from('ride_requests')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'SEARCHING');
+      setRideRequestCount(rideCount || 0);
 
       // Fetch assigned orders
       const { data: ordersData, error: ordersError } = await supabase
@@ -357,11 +366,43 @@ export default function CourierDashboardPage() {
           </motion.div>
         )}
 
-        {/* History Link */}
+        {/* Ojek Desa Card */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.12 }}
+        >
+          <Link
+            to="/courier/rides"
+            className="flex items-center justify-between p-4 bg-card rounded-xl border-2 border-emerald-500/30 hover:bg-emerald-50 dark:hover:bg-emerald-950/20 transition"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-emerald-500/10 rounded-full flex items-center justify-center">
+                <Bike className="h-5 w-5 text-emerald-600" />
+              </div>
+              <div>
+                <p className="font-medium">Ojek Desa</p>
+                <p className="text-sm text-muted-foreground">
+                  {rideRequestCount > 0 ? `${rideRequestCount} permintaan baru` : 'Terima perjalanan ojek'}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              {rideRequestCount > 0 && (
+                <span className="w-5 h-5 bg-emerald-500 rounded-full text-[10px] flex items-center justify-center text-white font-bold">
+                  {rideRequestCount > 9 ? '9+' : rideRequestCount}
+                </span>
+              )}
+              <Navigation className="h-4 w-4 text-muted-foreground" />
+            </div>
+          </Link>
+        </motion.div>
+
+        {/* History Link */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.14 }}
         >
           <Link
             to="/courier/history"

@@ -332,6 +332,17 @@ export default function AccountPage() {
                 </button>
 
                 <button 
+                  onClick={() => navigate('/ride/history')}
+                  className="w-full flex items-center justify-between p-4 bg-card rounded-xl border border-border hover:bg-secondary transition"
+                >
+                  <div className="flex items-center gap-3">
+                    <Bike className="h-5 w-5 text-muted-foreground" />
+                    <span className="font-medium">Riwayat Ojek</span>
+                  </div>
+                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                </button>
+
+                <button 
                   onClick={() => navigate('/recently-viewed')}
                   className="w-full flex items-center justify-between p-4 bg-card rounded-xl border border-border hover:bg-secondary transition"
                 >
