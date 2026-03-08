@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Bike, Phone, X, CheckCircle, MapPin, Clock, Loader2, User, Navigation, Star } from 'lucide-react';
@@ -71,6 +71,8 @@ const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   CANCELLED: { label: 'Dibatalkan', color: 'bg-destructive' },
 };
 
+const SEARCH_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
+
 export default function RideTrackingPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -84,6 +86,7 @@ export default function RideTrackingPage() {
   const [ratingValue, setRatingValue] = useState(5);
   const [ratingComment, setRatingComment] = useState('');
   const [submittingRating, setSubmittingRating] = useState(false);
+  const [searchCountdown, setSearchCountdown] = useState<number | null>(null);
 
   useEffect(() => {
     if (!user || !id) return;
@@ -113,6 +116,50 @@ export default function RideTrackingPage() {
 
     return () => { supabase.removeChannel(channel); };
   }, [user, id]);
+
+  // Search timeout countdown
+  useEffect(() => {
+    if (!ride || ride.status !== 'SEARCHING') {
+      setSearchCountdown(null);
+      return;
+    }
+
+    const createdAt = new Date(ride.created_at).getTime();
+    const deadline = createdAt + SEARCH_TIMEOUT_MS;
+
+    const tick = () => {
+      const remaining = deadline - Date.now();
+      if (remaining <= 0) {
+        setSearchCountdown(0);
+        // Auto-cancel
+        autoCancel();
+      } else {
+        setSearchCountdown(Math.ceil(remaining / 1000));
+      }
+    };
+
+    tick();
+    const interval = setInterval(tick, 1000);
+    return () => clearInterval(interval);
+  }, [ride?.status, ride?.created_at]);
+
+  const autoCancel = useCallback(async () => {
+    if (!ride || ride.status !== 'SEARCHING') return;
+    try {
+      await supabase
+        .from('ride_requests')
+        .update({
+          status: 'CANCELLED',
+          cancelled_at: new Date().toISOString(),
+          cancellation_reason: 'Tidak ada driver tersedia dalam waktu yang ditentukan',
+        } as Record<string, unknown>)
+        .eq('id', ride.id)
+        .eq('status', 'SEARCHING'); // Only cancel if still searching
+      toast({ title: '⏰ Pencarian habis waktu', description: 'Tidak ada driver tersedia. Silakan coba lagi.' });
+    } catch {
+      // Silent fail
+    }
+  }, [ride]);
 
   const fetchRide = async () => {
     try {
@@ -162,7 +209,6 @@ export default function RideTrackingPage() {
         .eq('id', ride.id);
       if (error) throw error;
 
-      // Notify driver if already accepted
       if (ride.driver_id) {
         const { data: courierData } = await supabase
           .from('couriers')
@@ -211,6 +257,12 @@ export default function RideTrackingPage() {
     }
   };
 
+  const formatCountdown = (seconds: number) => {
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return `${m}:${s.toString().padStart(2, '0')}`;
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background">
@@ -252,9 +304,29 @@ export default function RideTrackingPage() {
             </div>
 
             {ride.status === 'SEARCHING' && (
-              <div className="flex items-center gap-3 p-3 bg-amber-50 dark:bg-amber-950/20 rounded-lg">
-                <Loader2 className="h-5 w-5 animate-spin text-amber-600" />
-                <p className="text-sm text-amber-700 dark:text-amber-400">Sedang mencari driver terdekat...</p>
+              <div className="space-y-3">
+                <div className="flex items-center gap-3 p-3 bg-amber-50 dark:bg-amber-950/20 rounded-lg">
+                  <Loader2 className="h-5 w-5 animate-spin text-amber-600" />
+                  <p className="text-sm text-amber-700 dark:text-amber-400">Sedang mencari driver terdekat...</p>
+                </div>
+                {/* Countdown timer */}
+                {searchCountdown !== null && searchCountdown > 0 && (
+                  <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
+                    <div className="flex items-center gap-2">
+                      <Clock className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm text-muted-foreground">Batas waktu pencarian</span>
+                    </div>
+                    <span className="font-mono font-bold text-lg">{formatCountdown(searchCountdown)}</span>
+                  </div>
+                )}
+                {searchCountdown === 0 && (
+                  <div className="p-3 bg-destructive/10 rounded-lg text-center space-y-2">
+                    <p className="text-sm font-medium text-destructive">Waktu pencarian habis</p>
+                    <Button size="sm" variant="outline" onClick={() => navigate('/ride')}>
+                      <Bike className="h-4 w-4 mr-1" /> Coba Lagi
+                    </Button>
+                  </div>
+                )}
               </div>
             )}
           </Card>
