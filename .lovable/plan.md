@@ -1,87 +1,87 @@
 
 
-# Rencana Perbaikan: Ojek Desa UI + Homepage Integration
+# Rencana Perbaikan & Pengembangan Fitur Ojek Desa
 
-## Perubahan yang Akan Dilakukan
+## Analisis Masalah Saat Ini
 
-### 1. Homepage — Ojek Desa jadi icon kategori (bukan card besar)
-**File**: `src/pages/Index.tsx`
-- Hapus block `<Link to="/ride">` card besar Ojek Desa (baris 116-125)
-- Tambahkan Ojek Desa sebagai item icon kategori di baris yang sama dengan Kuliner, Fashion, dll
-- Ukuran sama: `w-12 h-12` rounded icon + label di bawah, menggunakan `Bike` icon
-- Warna: `bg-emerald-100 text-emerald-700 border-emerald-200`
+### Bug & Masalah Fungsional
+1. **Reverse geocoding tidak ada** — Saat user tap peta, address hanya "Titik jemput" / "Titik tujuan", bukan alamat sebenarnya
+2. **Driver list tidak real-time** — Hanya fetch sekali saat load, tidak subscribe perubahan posisi driver
+3. **Tidak ada timeout pencarian** — Status SEARCHING bisa stuck selamanya tanpa auto-cancel
+4. **Kurir tidak dapat notifikasi push** saat ada ride baru — hanya realtime postgres_changes yang refresh list
+5. **Estimasi waktu tidak ditampilkan** — Buyer hanya lihat jarak & tarif, tidak ada ETA
+6. **Input alamat tidak fungsional** — Field address bisa diketik manual tapi tidak melakukan geocoding / search
 
-### 2. Homepage — Tambah section "Driver Terdekat" dengan peta mini
-**File**: `src/pages/Index.tsx`
-- Tambah section baru setelah categories yang menampilkan peta kecil dengan marker driver/kurir terdekat yang sedang online (data dari tabel `couriers` yang `is_available=true` dan punya `current_lat/lng`)
-- Peta menggunakan `CourierMap` dengan `showAllCouriers={true}` dan height kecil (`180px`)
-- Label: "Driver Terdekat" dengan badge jumlah driver aktif
-- Ini murni GPS-based — tidak simpan lokasi user, hanya query posisi kurir yang sudah di-broadcast/checkpoint oleh `CourierLocationUpdater`
+### Kekurangan UX — Sisi Buyer
+1. **Tidak ada konfirmasi sebelum pesan** — Langsung submit tanpa review
+2. **Tidak ada indikator loading peta** — Peta leaflet bisa lambat load
+3. **Tidak ada animasi searching** yang menarik — Hanya banner static
+4. **Tidak bisa batalkan dari halaman booking** jika sudah submit dan kembali
+5. **Tidak ada estimasi waktu kedatangan driver** setelah ACCEPTED
 
-### 3. Ojek Desa — Redesign halaman booking (modern, single-page)
-**File**: `src/pages/ride/RideBookingPage.tsx` — rewrite total
-- Layout baru: **Peta fullscreen** sebagai background utama (seperti Grab/Gojek)
-- Bottom sheet / overlay card untuk input:
-  - Dua input field stacked: "Titik Jemput" (auto-fill GPS) dan "Titik Tujuan" (tap peta)
-  - Mode toggle: sedang pilih jemput atau tujuan
-  - Saat kedua titik terpilih, otomatis tampilkan estimasi jarak + tarif di bottom card
-  - Tombol "Pesan Ojek" di bottom
-- Peta menampilkan:
-  - Marker hijau (jemput) + marker merah (tujuan)
-  - Garis dashed antara keduanya
-  - Marker motor untuk driver terdekat yang online (query `couriers` yang `is_available`)
-- Tidak ada multi-step wizard lagi — semua dalam 1 layar
-- Mobile-first, menggunakan `mobile-shell` wrapper
+### Kekurangan UX — Sisi Kurir
+1. **Tidak ada peta di halaman rides** — Kurir tidak bisa lihat visual posisi jemput
+2. **Tidak ada info penumpang** (nama) sebelum accept
+3. **Tidak ada sound notification** saat ride baru masuk
+4. **Tidak bisa lihat rute sebelum accept** — Hanya text alamat
 
-### 4. Tidak ada penyimpanan lokasi user di database
-- Konfirmasi: Semua lokasi berbasis GPS real-time
-- `CourierLocationUpdater` sudah benar: broadcast via WebSocket, checkpoint ke DB tiap 30 detik (ini lokasi kurir, bukan user)
-- Lokasi penumpang hanya dikirim saat submit `ride_requests` (pickup_lat/lng) — tidak disimpan permanen
+## Rencana Implementasi
 
-## Detail Teknis
+### 1. Reverse Geocoding pada Map Click (Buyer)
+**File**: `src/pages/ride/RideBookingPage.tsx`
+- Import `reverseGeocode` dari `@/hooks/useGeocoding`
+- Saat `handleMapClick`, panggil reverse geocode untuk mendapatkan nama jalan/desa
+- Update `pickupAddress` / `destAddress` dengan hasil geocoding
+- Tambah loading indicator kecil saat geocoding berjalan
 
-### Index.tsx — Perubahan categories section
-```text
-Sebelum: [Kuliner] [Fashion] [Kriya] [Wisata]
-         ┌─────────────────────────────┐
-         │ 🏍 Ojek Desa                │  ← card besar, dihapus
-         │ Pesan ojek antar lokasi   > │
-         └─────────────────────────────┘
+### 2. Real-time Driver Position di Booking Page
+**File**: `src/pages/ride/RideBookingPage.tsx`
+- Subscribe ke Supabase channel untuk `postgres_changes` pada tabel `couriers` (UPDATE)
+- Update posisi marker driver secara live
+- Tambah interval refresh setiap 15 detik sebagai fallback
 
-Sesudah: [Kuliner] [Fashion] [Kriya] [Wisata] [Ojek]  ← icon kecil sejajar
-         
-         ┌─ Driver Terdekat ──────────┐
-         │ [peta mini 180px]          │  ← section baru
-         │ 🟢 3 driver aktif          │
-         └────────────────────────────┘
-```
+### 3. Tambah ETA & Info Waktu
+**File**: `src/pages/ride/RideBookingPage.tsx`
+- Import `calculateETA`, `formatETA` dari `@/lib/etaCalculation`
+- Tampilkan estimasi waktu perjalanan di bottom sheet (di samping jarak & tarif)
+- Format: "~12 menit"
 
-### RideBookingPage.tsx — Layout baru
-```text
-┌──────────────────────────┐
-│  ← Ojek Desa        [GPS]│  ← header compact
-│                           │
-│   ┌─────────────────┐    │
-│   │                 │    │
-│   │   PETA BESAR    │    │
-│   │  🟢jemput       │    │
-│   │       ---- 🔴tujuan  │
-│   │  🏍 🏍 (driver) │    │
-│   │                 │    │
-│   └─────────────────┘    │
-│                           │
-│ ┌───────────────────────┐│
-│ │ 📍 Lokasi saya        ││ ← bottom card
-│ │ 📌 Pilih tujuan...    ││
-│ │                       ││
-│ │ Jarak: 3.2 km         ││
-│ │ Estimasi: Rp 14.600   ││
-│ │ [  🏍 Pesan Ojek    ] ││
-│ └───────────────────────┘│
-└──────────────────────────┘
-```
+### 4. Konfirmasi Sebelum Pesan
+**File**: `src/pages/ride/RideBookingPage.tsx`
+- Tambah `AlertDialog` konfirmasi sebelum submit
+- Tampilkan ringkasan: pickup, tujuan, jarak, tarif, ETA
+- Tombol "Konfirmasi Pesan" dan "Batal"
 
-### File yang diubah:
-1. `src/pages/Index.tsx` — Ojek jadi icon kategori + section driver terdekat
-2. `src/pages/ride/RideBookingPage.tsx` — Redesign total single-page map-first
+### 5. Auto-cancel Timeout untuk SEARCHING
+**File**: `src/pages/ride/RideTrackingPage.tsx`
+- Tampilkan countdown timer (misal 5 menit) saat status SEARCHING
+- Jika timeout, otomatis update status ke CANCELLED dengan reason "Tidak ada driver tersedia"
+- Tampilkan tombol "Coba Lagi" setelah timeout
+
+### 6. Peta Mini di Halaman Rides Kurir
+**File**: `src/pages/courier/CourierRidesPage.tsx`
+- Tambah peta kecil (150px) di setiap card ride yang menampilkan marker pickup & destination
+- Atau tambah 1 peta besar di atas list yang menampilkan semua pickup points
+- Gunakan `MapContainer` ringan tanpa interaksi (read-only)
+
+### 7. Sound Notification untuk Kurir
+**File**: `src/pages/courier/CourierRidesPage.tsx`
+- Tambah audio notification (beep) saat ada ride baru masuk via realtime channel
+- Gunakan pattern yang sama dari `CourierDashboardPage` (AudioContext oscillator)
+
+### 8. Info Penumpang & Rute Preview untuk Kurir
+**File**: `src/pages/courier/CourierRidesPage.tsx`
+- Fetch nama penumpang dari `profiles` table berdasarkan `passenger_id`
+- Tampilkan initial/avatar di card ride
+- Tambah tombol "Lihat Rute" yang expand peta kecil
+
+### 9. Perbaikan Loading State Peta
+**File**: `src/pages/ride/RideBookingPage.tsx`
+- Tambah skeleton/spinner overlay saat peta belum load
+- Gunakan `whenReady` event dari Leaflet MapContainer
+
+### Total file diubah: 3
+1. `src/pages/ride/RideBookingPage.tsx` — Reverse geocoding, realtime drivers, ETA, konfirmasi, loading
+2. `src/pages/ride/RideTrackingPage.tsx` — Auto-cancel timeout, ETA driver
+3. `src/pages/courier/CourierRidesPage.tsx` — Peta, sound, info penumpang
 
