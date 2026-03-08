@@ -1,18 +1,29 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Bike, Loader2, ArrowLeft, LocateFixed, MapPin, Navigation, Clock } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { formatPrice } from '@/lib/utils';
+import { reverseGeocode, formatAddressSummary } from '@/hooks/useGeocoding';
+import { calculateETA, formatETA } from '@/lib/etaCalculation';
 import { MapContainer, TileLayer, Marker, useMapEvents, useMap, Polyline } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
-// Leaflet icon fix
 import markerShadow from 'leaflet/dist/images/marker-shadow.png';
 
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -55,7 +66,6 @@ function haversineDistance(lat1: number, lng1: number, lat2: number, lng2: numbe
 
 interface DriverMarker { id: string; lat: number; lng: number; name: string; }
 
-// Sub-component: handles map click
 function MapClickHandler({ onSelect }: { onSelect: (lat: number, lng: number) => void }) {
   useMapEvents({ click(e) { onSelect(e.latlng.lat, e.latlng.lng); } });
   return null;
@@ -73,6 +83,14 @@ function FitBoundsHelper({ points }: { points: [number, number][] }) {
   return null;
 }
 
+function MapReadyHandler({ onReady }: { onReady: () => void }) {
+  const map = useMap();
+  useEffect(() => {
+    map.whenReady(() => onReady());
+  }, [map, onReady]);
+  return null;
+}
+
 export default function RideBookingPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -87,6 +105,10 @@ export default function RideBookingPage() {
   const [drivers, setDrivers] = useState<DriverMarker[]>([]);
   const [mapCenter] = useState<[number, number]>([-7.3274, 108.2207]);
   const [activeRide, setActiveRide] = useState<{ id: string; status: string } | null>(null);
+  const [geocoding, setGeocoding] = useState(false);
+  const [mapReady, setMapReady] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const geocodeAbort = useRef<AbortController | null>(null);
 
   useEffect(() => {
     if (!user) { navigate('/auth'); return; }
@@ -103,12 +125,7 @@ export default function RideBookingPage() {
         }
       });
     // Fetch nearby drivers
-    supabase.from('couriers').select('id, name, current_lat, current_lng')
-      .eq('is_available', true).eq('status', 'ACTIVE')
-      .not('current_lat', 'is', null).not('current_lng', 'is', null)
-      .then(({ data }) => {
-        if (data) setDrivers(data.map(d => ({ id: d.id, lat: d.current_lat!, lng: d.current_lng!, name: d.name })));
-      });
+    fetchDrivers();
     // Check active ride
     supabase.from('ride_requests').select('id, status')
       .eq('passenger_id', user.id)
@@ -117,32 +134,108 @@ export default function RideBookingPage() {
       .then(({ data }) => {
         if (data && data.length > 0) setActiveRide(data[0] as unknown as { id: string; status: string });
       });
-    // Auto GPS on load
     handleGps();
   }, [user, navigate]);
+
+  // Real-time driver position updates
+  useEffect(() => {
+    const channel = supabase
+      .channel('drivers-realtime')
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'couriers',
+      }, (payload) => {
+        const updated = payload.new as Record<string, unknown>;
+        if (updated.is_available && updated.current_lat && updated.current_lng && updated.status === 'ACTIVE') {
+          setDrivers(prev => {
+            const existing = prev.findIndex(d => d.id === updated.id);
+            const marker: DriverMarker = {
+              id: updated.id as string,
+              lat: Number(updated.current_lat),
+              lng: Number(updated.current_lng),
+              name: (updated.name as string) || 'Driver',
+            };
+            if (existing >= 0) {
+              const newList = [...prev];
+              newList[existing] = marker;
+              return newList;
+            }
+            return [...prev, marker];
+          });
+        }
+      })
+      .subscribe();
+
+    // Fallback refresh every 15s
+    const interval = setInterval(fetchDrivers, 15000);
+
+    return () => {
+      supabase.removeChannel(channel);
+      clearInterval(interval);
+    };
+  }, []);
+
+  const fetchDrivers = async () => {
+    const { data } = await supabase.from('couriers').select('id, name, current_lat, current_lng')
+      .eq('is_available', true).eq('status', 'ACTIVE')
+      .not('current_lat', 'is', null).not('current_lng', 'is', null);
+    if (data) setDrivers(data.map(d => ({ id: d.id, lat: d.current_lat!, lng: d.current_lng!, name: d.name })));
+  };
 
   const handleGps = useCallback(() => {
     setGettingGps(true);
     navigator.geolocation.getCurrentPosition(
-      (pos) => {
+      async (pos) => {
         const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
         setPickupLocation(loc);
-        setPickupAddress('Lokasi saya saat ini');
         setGettingGps(false);
         setMode('destination');
+        // Reverse geocode GPS position
+        setGeocoding(true);
+        try {
+          const result = await reverseGeocode(loc.lat, loc.lng);
+          setPickupAddress(result ? formatAddressSummary(result) : 'Lokasi saya saat ini');
+        } catch {
+          setPickupAddress('Lokasi saya saat ini');
+        } finally {
+          setGeocoding(false);
+        }
       },
       () => { setGettingGps(false); },
       { enableHighAccuracy: true, timeout: 10000 }
     );
   }, []);
 
-  const handleMapClick = useCallback((lat: number, lng: number) => {
+  const handleMapClick = useCallback(async (lat: number, lng: number) => {
+    // Cancel previous geocode request
+    if (geocodeAbort.current) geocodeAbort.current.abort();
+    geocodeAbort.current = new AbortController();
+
     if (mode === 'pickup') {
       setPickupLocation({ lat, lng });
-      setPickupAddress('Titik jemput');
+      setPickupAddress('Memuat alamat...');
     } else {
       setDestLocation({ lat, lng });
-      setDestAddress('Titik tujuan');
+      setDestAddress('Memuat alamat...');
+    }
+
+    // Reverse geocode the clicked point
+    setGeocoding(true);
+    try {
+      const result = await reverseGeocode(lat, lng);
+      const address = result ? formatAddressSummary(result) : `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+      if (mode === 'pickup') {
+        setPickupAddress(address);
+      } else {
+        setDestAddress(address);
+      }
+    } catch {
+      const fallback = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+      if (mode === 'pickup') setPickupAddress(fallback);
+      else setDestAddress(fallback);
+    } finally {
+      setGeocoding(false);
     }
   }, [mode]);
 
@@ -153,6 +246,10 @@ export default function RideBookingPage() {
     fareSettings.max_fare,
     Math.max(fareSettings.min_fare, Math.round(fareSettings.base_fare + distanceKm * fareSettings.per_km_fare))
   );
+
+  const etaMinutes = pickupLocation && destLocation
+    ? calculateETA({ lat: pickupLocation.lat, lng: pickupLocation.lng }, { lat: destLocation.lat, lng: destLocation.lng }, 'motor')
+    : 0;
 
   const fitPoints = useMemo(() => {
     const pts: [number, number][] = [];
@@ -180,7 +277,10 @@ export default function RideBookingPage() {
     } catch (err) {
       console.error(err);
       toast({ title: 'Gagal memesan ojek', variant: 'destructive' });
-    } finally { setSubmitting(false); }
+    } finally {
+      setSubmitting(false);
+      setShowConfirm(false);
+    }
   };
 
   const canOrder = !!pickupLocation && !!destLocation && distanceKm > 0.05;
@@ -224,28 +324,32 @@ export default function RideBookingPage() {
         </div>
       )}
 
-      {/* Fullscreen map */}
+      {/* Fullscreen map with loading overlay */}
       <div className="flex-1 relative z-0">
+        {!mapReady && (
+          <div className="absolute inset-0 z-[1001] bg-muted flex items-center justify-center">
+            <div className="flex flex-col items-center gap-2">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <p className="text-xs text-muted-foreground">Memuat peta...</p>
+            </div>
+          </div>
+        )}
         <MapContainer center={mapCenter} zoom={14} style={{ height: '100%', width: '100%' }} zoomControl={false}>
           <TileLayer
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
           <MapClickHandler onSelect={handleMapClick} />
+          <MapReadyHandler onReady={() => setMapReady(true)} />
           {fitPoints.length > 0 && <FitBoundsHelper points={fitPoints} />}
-
-          {/* Pickup marker */}
           {pickupLocation && <Marker position={[pickupLocation.lat, pickupLocation.lng]} icon={pickupIcon} />}
-          {/* Destination marker */}
           {destLocation && <Marker position={[destLocation.lat, destLocation.lng]} icon={destIcon} />}
-          {/* Route line */}
           {pickupLocation && destLocation && (
             <Polyline
               positions={[[pickupLocation.lat, pickupLocation.lng], [destLocation.lat, destLocation.lng]]}
               pathOptions={{ color: 'hsl(160,84%,39%)', weight: 3, dashArray: '10, 8', opacity: 0.7 }}
             />
           )}
-          {/* Driver markers */}
           {drivers.map(d => (
             <Marker key={d.id} position={[d.lat, d.lng]} icon={driverIcon} />
           ))}
@@ -258,6 +362,14 @@ export default function RideBookingPage() {
             {mode === 'pickup' ? 'Tap peta: pilih jemput' : 'Tap peta: pilih tujuan'}
           </div>
         </div>
+
+        {/* Geocoding indicator */}
+        {geocoding && (
+          <div className="absolute top-12 left-3 z-[1000] bg-background/90 backdrop-blur-sm px-3 py-1.5 rounded-full text-xs shadow border border-border flex items-center gap-1.5">
+            <Loader2 className="h-3 w-3 animate-spin text-primary" />
+            Mengambil alamat...
+          </div>
+        )}
 
         {/* Driver count */}
         {drivers.length > 0 && (
@@ -277,7 +389,6 @@ export default function RideBookingPage() {
         >
           {/* Input fields */}
           <div className="space-y-2">
-            {/* Pickup */}
             <button
               type="button"
               onClick={() => setMode('pickup')}
@@ -292,9 +403,9 @@ export default function RideBookingPage() {
                 onChange={(e) => setPickupAddress(e.target.value)}
                 onFocus={() => setMode('pickup')}
                 className="border-0 bg-transparent p-0 h-auto text-sm focus-visible:ring-0 focus-visible:ring-offset-0"
+                readOnly
               />
             </button>
-            {/* Destination */}
             <button
               type="button"
               onClick={() => setMode('destination')}
@@ -309,6 +420,7 @@ export default function RideBookingPage() {
                 onChange={(e) => setDestAddress(e.target.value)}
                 onFocus={() => setMode('destination')}
                 className="border-0 bg-transparent p-0 h-auto text-sm focus-visible:ring-0 focus-visible:ring-offset-0"
+                readOnly
               />
             </button>
           </div>
@@ -322,13 +434,18 @@ export default function RideBookingPage() {
                   <p className="font-semibold">{distanceKm.toFixed(1)} km</p>
                 </div>
                 <div className="h-8 w-px bg-border" />
+                <div className="space-y-0.5 text-center">
+                  <p className="text-muted-foreground text-xs">Waktu</p>
+                  <p className="font-semibold">~{formatETA(etaMinutes)}</p>
+                </div>
+                <div className="h-8 w-px bg-border" />
                 <div className="space-y-0.5 text-right">
                   <p className="text-muted-foreground text-xs">Estimasi</p>
                   <p className="font-bold text-primary text-base">{formatPrice(estimatedFare)}</p>
                 </div>
               </div>
-              <Button className="w-full h-12 text-sm font-bold rounded-xl" onClick={handleSubmit} disabled={submitting}>
-                {submitting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Bike className="h-4 w-4 mr-2" />}
+              <Button className="w-full h-12 text-sm font-bold rounded-xl" onClick={() => setShowConfirm(true)} disabled={submitting}>
+                <Bike className="h-4 w-4 mr-2" />
                 Pesan Ojek
               </Button>
             </motion.div>
@@ -342,6 +459,50 @@ export default function RideBookingPage() {
           )}
         </motion.div>
       </AnimatePresence>
+
+      {/* Booking Confirmation Dialog */}
+      <AlertDialog open={showConfirm} onOpenChange={setShowConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Konfirmasi Pesanan Ojek</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3 pt-2">
+                <div className="space-y-2 text-sm">
+                  <div className="flex items-start gap-2">
+                    <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 mt-1.5 flex-shrink-0" />
+                    <div>
+                      <p className="text-xs text-muted-foreground">Jemput</p>
+                      <p className="font-medium text-foreground">{pickupAddress}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <div className="w-2.5 h-2.5 rounded-full bg-red-500 mt-1.5 flex-shrink-0" />
+                    <div>
+                      <p className="text-xs text-muted-foreground">Tujuan</p>
+                      <p className="font-medium text-foreground">{destAddress}</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex justify-between text-sm bg-muted rounded-lg px-3 py-2">
+                  <span>Jarak: <strong>{distanceKm.toFixed(1)} km</strong></span>
+                  <span>~<strong>{formatETA(etaMinutes)}</strong></span>
+                </div>
+                <div className="text-center">
+                  <p className="text-xs text-muted-foreground">Estimasi Tarif</p>
+                  <p className="text-xl font-bold text-primary">{formatPrice(estimatedFare)}</p>
+                </div>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Batal</AlertDialogCancel>
+            <AlertDialogAction onClick={handleSubmit} disabled={submitting}>
+              {submitting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Bike className="h-4 w-4 mr-2" />}
+              Konfirmasi Pesan
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

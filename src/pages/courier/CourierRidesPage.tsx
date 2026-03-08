@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Bike, MapPin, Navigation, CheckCircle, Loader2, RefreshCw, Phone, User } from 'lucide-react';
+import { Bike, MapPin, Navigation, CheckCircle, Loader2, RefreshCw, Phone, User, Volume2 } from 'lucide-react';
 import { CourierLayout } from '@/components/courier/CourierLayout';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -10,6 +10,22 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { formatPrice } from '@/lib/utils';
+import { MapContainer, TileLayer, Marker, Polyline } from 'react-leaflet';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
+import markerShadow from 'leaflet/dist/images/marker-shadow.png';
+
+const pickupIcon = new L.Icon({
+  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',
+  shadowUrl: markerShadow,
+  iconSize: [20, 33], iconAnchor: [10, 33], popupAnchor: [1, -28], shadowSize: [33, 33],
+});
+
+const destIcon = new L.Icon({
+  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
+  shadowUrl: markerShadow,
+  iconSize: [20, 33], iconAnchor: [10, 33], popupAnchor: [1, -28], shadowSize: [33, 33],
+});
 
 interface RideRequest {
   id: string;
@@ -30,6 +46,11 @@ interface ActiveRide extends RideRequest {
   driver_id: string | null;
 }
 
+interface PassengerInfo {
+  id: string;
+  full_name: string | null;
+}
+
 export default function CourierRidesPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -41,6 +62,11 @@ export default function CourierRidesPage() {
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [courierLat, setCourierLat] = useState<number | null>(null);
   const [courierLng, setCourierLng] = useState<number | null>(null);
+  const [passengerNames, setPassengerNames] = useState<Record<string, string>>({});
+  const [soundEnabled, setSoundEnabled] = useState(true);
+  const [expandedMap, setExpandedMap] = useState<string | null>(null);
+  const prevRideCount = useRef(0);
+  const audioCtxRef = useRef<AudioContext | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -62,6 +88,36 @@ export default function CourierRidesPage() {
 
     return () => { supabase.removeChannel(channel); };
   }, [courierId]);
+
+  // Play sound when new rides come in
+  useEffect(() => {
+    if (availableRides.length > prevRideCount.current && prevRideCount.current > 0 && soundEnabled) {
+      playNotificationSound();
+    }
+    prevRideCount.current = availableRides.length;
+  }, [availableRides.length, soundEnabled]);
+
+  const playNotificationSound = useCallback(() => {
+    try {
+      if (!audioCtxRef.current) {
+        audioCtxRef.current = new AudioContext();
+      }
+      const ctx = audioCtxRef.current;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.frequency.setValueAtTime(880, ctx.currentTime);
+      osc.frequency.setValueAtTime(1100, ctx.currentTime + 0.1);
+      osc.frequency.setValueAtTime(880, ctx.currentTime + 0.2);
+      gain.gain.setValueAtTime(0.3, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.4);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.4);
+    } catch {
+      // Audio not available
+    }
+  }, []);
 
   const haversine = (lat1: number, lng1: number, lat2: number, lng2: number) => {
     const R = 6371;
@@ -87,7 +143,6 @@ export default function CourierRidesPage() {
       setCourierId(courier.id);
       if (courier.current_lat) setCourierLat(courier.current_lat);
       if (courier.current_lng) setCourierLng(courier.current_lng);
-      // Also try browser geolocation for more accurate position
       navigator.geolocation?.getCurrentPosition(
         (pos) => { setCourierLat(pos.coords.latitude); setCourierLng(pos.coords.longitude); },
         () => {}, { enableHighAccuracy: true, timeout: 5000 }
@@ -112,7 +167,24 @@ export default function CourierRidesPage() {
       .order('created_at', { ascending: false })
       .limit(20);
 
-    setAvailableRides((available || []) as unknown as RideRequest[]);
+    const rides = (available || []) as unknown as RideRequest[];
+    setAvailableRides(rides);
+
+    // Fetch passenger names
+    const passengerIds = [...new Set(rides.map(r => r.passenger_id))];
+    if (passengerIds.length > 0) {
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, full_name')
+        .in('id', passengerIds);
+      if (profiles) {
+        const names: Record<string, string> = {};
+        (profiles as PassengerInfo[]).forEach(p => {
+          if (p.full_name) names[p.id] = p.full_name;
+        });
+        setPassengerNames(names);
+      }
+    }
 
     const { data: active } = await supabase
       .from('ride_requests')
@@ -166,7 +238,6 @@ export default function CourierRidesPage() {
 
       if (error) throw error;
 
-      // Insert courier earnings on completion
       if (newStatus === 'COMPLETED') {
         await supabase.from('courier_earnings').insert({
           courier_id: courierId,
@@ -202,6 +273,19 @@ export default function CourierRidesPage() {
   return (
     <CourierLayout title="Ojek Desa" subtitle="Terima dan kelola perjalanan ojek">
       <div className="space-y-6">
+        {/* Sound toggle */}
+        <div className="flex justify-end">
+          <Button
+            variant={soundEnabled ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setSoundEnabled(!soundEnabled)}
+            className="text-xs"
+          >
+            <Volume2 className="h-3.5 w-3.5 mr-1" />
+            {soundEnabled ? 'Notifikasi On' : 'Notifikasi Off'}
+          </Button>
+        </div>
+
         {/* Active Ride */}
         {activeRide && (
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
@@ -279,38 +363,91 @@ export default function CourierRidesPage() {
             <div className="space-y-3">
               {availableRides.map((ride, idx) => (
                 <motion.div key={ride.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.05 }}>
-                  <Card className="p-4">
-                    <div className="flex items-start justify-between mb-2">
-                      <p className="text-xs text-muted-foreground">
-                        {new Date(ride.created_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
-                      </p>
-                      <div className="flex items-center gap-1.5">
-                        {courierLat && courierLng && (
-                          <Badge variant="outline" className="text-[10px]">
-                            <MapPin className="h-3 w-3 mr-0.5" />
-                            {haversine(courierLat, courierLng, ride.pickup_lat, ride.pickup_lng).toFixed(1)} km
-                          </Badge>
-                        )}
-                        <Badge variant="secondary">{ride.distance_km} km</Badge>
+                  <Card className="overflow-hidden">
+                    <div className="p-4">
+                      <div className="flex items-start justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          {/* Passenger info */}
+                          <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center">
+                            <User className="h-3.5 w-3.5 text-primary" />
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium">
+                              {passengerNames[ride.passenger_id] || 'Penumpang'}
+                            </p>
+                            <p className="text-[10px] text-muted-foreground">
+                              {new Date(ride.created_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          {courierLat && courierLng && (
+                            <Badge variant="outline" className="text-[10px]">
+                              <MapPin className="h-3 w-3 mr-0.5" />
+                              {haversine(courierLat, courierLng, ride.pickup_lat, ride.pickup_lng).toFixed(1)} km
+                            </Badge>
+                          )}
+                          <Badge variant="secondary">{ride.distance_km} km</Badge>
+                        </div>
+                      </div>
+                      <div className="space-y-1.5 mb-3 text-sm">
+                        <div className="flex items-center gap-2">
+                          <div className="w-2 h-2 rounded-full bg-primary flex-shrink-0" />
+                          <span className="truncate">{ride.pickup_address}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <div className="w-2 h-2 rounded-full bg-destructive flex-shrink-0" />
+                          <span className="truncate">{ride.destination_address}</span>
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-primary">{formatPrice(ride.estimated_fare)}</span>
+                        <div className="flex gap-1.5">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setExpandedMap(expandedMap === ride.id ? null : ride.id)}
+                          >
+                            <MapPin className="h-3.5 w-3.5 mr-1" />
+                            {expandedMap === ride.id ? 'Tutup Peta' : 'Lihat Rute'}
+                          </Button>
+                          <Button size="sm" onClick={() => acceptRide(ride.id)} disabled={accepting === ride.id || !!activeRide}>
+                            {accepting === ride.id ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <CheckCircle className="h-4 w-4 mr-1" />}
+                            Terima
+                          </Button>
+                        </div>
                       </div>
                     </div>
-                    <div className="space-y-1.5 mb-3 text-sm">
-                      <div className="flex items-center gap-2">
-                        <div className="w-2 h-2 rounded-full bg-primary flex-shrink-0" />
-                        <span className="truncate">{ride.pickup_address}</span>
+
+                    {/* Expandable mini map */}
+                    {expandedMap === ride.id && (
+                      <div className="h-[150px] border-t border-border">
+                        <MapContainer
+                          center={[
+                            (ride.pickup_lat + ride.destination_lat) / 2,
+                            (ride.pickup_lng + ride.destination_lng) / 2,
+                          ]}
+                          zoom={13}
+                          style={{ height: '100%', width: '100%' }}
+                          zoomControl={false}
+                          dragging={false}
+                          scrollWheelZoom={false}
+                          doubleClickZoom={false}
+                          attributionControl={false}
+                        >
+                          <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                          <Marker position={[ride.pickup_lat, ride.pickup_lng]} icon={pickupIcon} />
+                          <Marker position={[ride.destination_lat, ride.destination_lng]} icon={destIcon} />
+                          <Polyline
+                            positions={[
+                              [ride.pickup_lat, ride.pickup_lng],
+                              [ride.destination_lat, ride.destination_lng],
+                            ]}
+                            pathOptions={{ color: 'hsl(160,84%,39%)', weight: 2, dashArray: '8, 6', opacity: 0.7 }}
+                          />
+                        </MapContainer>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <div className="w-2 h-2 rounded-full bg-destructive flex-shrink-0" />
-                        <span className="truncate">{ride.destination_address}</span>
-                      </div>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="font-bold text-primary">{formatPrice(ride.estimated_fare)}</span>
-                      <Button size="sm" onClick={() => acceptRide(ride.id)} disabled={accepting === ride.id || !!activeRide}>
-                        {accepting === ride.id ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <CheckCircle className="h-4 w-4 mr-1" />}
-                        Terima
-                      </Button>
-                    </div>
+                    )}
                   </Card>
                 </motion.div>
               ))}
