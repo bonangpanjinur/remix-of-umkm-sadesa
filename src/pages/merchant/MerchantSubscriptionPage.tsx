@@ -75,6 +75,7 @@ interface PaymentSettings {
 
 export default function MerchantSubscriptionPage() {
   const { user } = useAuth();
+  const { merchantId: guardMerchantId, loading: guardLoading } = useMerchantGuard();
   const [merchant, setMerchant] = useState<{ id: string } | null>(null);
   const [currentQuotaInfo, setCurrentQuotaInfo] = useState<MerchantQuotaInfo | null>(null);
   const [currentSubscription, setCurrentSubscription] = useState<Subscription | null>(null);

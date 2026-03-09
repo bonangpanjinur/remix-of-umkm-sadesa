@@ -24,6 +24,7 @@ interface TopProduct {
 
 export default function MerchantVisitorStatsPage() {
   const { user } = useAuth();
+  const { merchantId: guardMerchantId, loading: guardLoading } = useMerchantGuard();
   const [merchantId, setMerchantId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState<'7d' | '30d'>('7d');
@@ -34,21 +35,14 @@ export default function MerchantVisitorStatsPage() {
   const [storeViews, setStoreViews] = useState(0);
 
   useEffect(() => {
-    const fetchMerchant = async () => {
-      if (!user) return;
-      try {
-        const { data } = await supabase
-          .from('merchants')
-          .select('id')
-          .eq('user_id', user.id)
-          .single();
-        setMerchantId(data?.id || null);
-      } catch (error) {
-        console.error('Error fetching merchant:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
+    if (guardLoading) return;
+    if (!guardMerchantId) {
+      setLoading(false);
+      return;
+    }
+    setMerchantId(guardMerchantId);
+    setLoading(false);
+  }, [guardLoading, guardMerchantId]);
     fetchMerchant();
   }, [user]);
 

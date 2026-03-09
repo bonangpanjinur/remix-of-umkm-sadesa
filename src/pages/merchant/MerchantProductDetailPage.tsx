@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useMerchantGuard } from '@/hooks/useMerchantGuard';
 import { formatPrice } from '@/lib/utils';
 
 interface ProductData {

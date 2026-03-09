@@ -18,6 +18,7 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useMerchantGuard } from '@/hooks/useMerchantGuard';
 import { toast } from 'sonner';
 import { formatPrice } from '@/lib/utils';
 import { POSInvoice, printPOSInvoice } from '@/components/merchant/POSInvoice';

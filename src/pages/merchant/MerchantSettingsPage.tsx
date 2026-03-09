@@ -94,7 +94,7 @@ export default function MerchantSettingsPage() {
 
   useEffect(() => {
     const fetchMerchant = async () => {
-      if (!user) return;
+      if (guardLoading || !guardMerchantId || !user) return;
 
       try {
         const { data, error } = await supabase
