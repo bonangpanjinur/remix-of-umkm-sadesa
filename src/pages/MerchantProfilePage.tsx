@@ -309,11 +309,26 @@ export default function MerchantProfilePage({ overrideId }: MerchantProfilePageP
             >
               <ArrowLeft className="h-4 w-4" />
             </button>
-            <ShareStoreButton 
-              merchantName={merchant.name} 
-              slug={merchant.slug} 
-              merchantId={merchant.id} 
-            />
+            <div className="flex items-center gap-2">
+              {/* Favorite Button */}
+              <button
+                onClick={toggleFavorite}
+                disabled={favLoading}
+                className={cn(
+                  "w-9 h-9 backdrop-blur rounded-full flex items-center justify-center transition border",
+                  isFavorite
+                    ? "bg-destructive/90 border-destructive/50 text-destructive-foreground"
+                    : "bg-foreground/20 border-primary-foreground/20 text-primary-foreground hover:bg-foreground/40"
+                )}
+              >
+                <Heart className={cn("h-4 w-4", isFavorite && "fill-current")} />
+              </button>
+              <ShareStoreButton 
+                merchantName={merchant.name} 
+                slug={merchant.slug} 
+                merchantId={merchant.id} 
+              />
+            </div>
           </div>
           
           <div className="absolute bottom-0 left-0 w-full h-12 bg-gradient-to-t from-background to-transparent" />
