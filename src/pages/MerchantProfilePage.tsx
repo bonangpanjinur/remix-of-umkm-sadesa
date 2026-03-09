@@ -106,6 +106,7 @@ export default function MerchantProfilePage({ overrideId }: MerchantProfilePageP
   const [showHalalModal, setShowHalalModal] = useState(false);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
+  const { isFavorite, loading: favLoading, toggleFavorite } = useMerchantFavorite(id || '');
 
   useEffect(() => {
     async function loadData() {
