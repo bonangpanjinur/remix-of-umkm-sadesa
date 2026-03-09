@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/alert";
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useMerchantGuard } from '@/hooks/useMerchantGuard';
 import { toast } from 'sonner';
 import { formatPrice } from '@/lib/utils';
 import { fetchMerchantQuotaInfo, fetchQuotaUsageLogs, type MerchantQuotaInfo, type QuotaUsageLog } from '@/lib/quotaHelpers';
