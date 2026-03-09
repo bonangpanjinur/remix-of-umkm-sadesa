@@ -80,6 +80,7 @@ const defaultForm: ProductForm = {
 
 export default function MerchantProductsPage() {
   const navigate = useNavigate();
+  const guardResult = __useMerchantGuardInternal();
   const { user } = useAuth();
   const [merchantId, setMerchantId] = useState<string | null>(null);
   const [products, setProducts] = useState<ProductRow[]>([]);
