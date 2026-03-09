@@ -62,7 +62,7 @@ export default function MerchantDashboardPage() {
       try {
         const { data: merchantData } = await supabase
           .from('merchants')
-          .select('id, name, is_open, status, registration_status, image_url, slug')
+          .select('id, name, is_open, status, registration_status, rejection_reason, image_url, slug')
           .eq('user_id', user.id)
           .maybeSingle();
 
