@@ -6,6 +6,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AlertCircle, Eye, Users, TrendingUp, ShoppingBag } from 'lucide-react';
+import { useMerchantGuard } from '@/hooks/useMerchantGuard';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
 import { format, subDays, startOfDay } from 'date-fns';
 import { id as idLocale } from 'date-fns/locale';
