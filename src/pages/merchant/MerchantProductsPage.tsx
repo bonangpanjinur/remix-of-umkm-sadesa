@@ -80,8 +80,8 @@ const defaultForm: ProductForm = {
 
 export default function MerchantProductsPage() {
   const navigate = useNavigate();
-  const guardResult = __useMerchantGuardInternal();
   const { user } = useAuth();
+  const { merchantId: guardMerchantId, loading: guardLoading } = useMerchantGuard();
   const [merchantId, setMerchantId] = useState<string | null>(null);
   const [products, setProducts] = useState<ProductRow[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -92,23 +92,10 @@ export default function MerchantProductsPage() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
+    if (guardLoading || !guardMerchantId) return;
+    
     const fetchData = async () => {
-      if (!user) return;
-
-      try {
-        // Get merchant
-        const { data: merchant } = await supabase
-          .from('merchants')
-          .select('id')
-          .eq('user_id', user.id)
-          .maybeSingle();
-
-        if (!merchant) {
-          setLoading(false);
-          return;
-        }
-
-        setMerchantId(merchant.id);
+      setMerchantId(guardMerchantId);
 
         // Get products and categories in parallel
         const [productsRes, categoriesRes] = await Promise.all([
