@@ -6,6 +6,7 @@ import { SalesExport } from '@/components/merchant/SalesExport';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/contexts/AuthContext';
+import { useMerchantGuard } from '@/hooks/useMerchantGuard';
 import { supabase } from '@/integrations/supabase/client';
 import { formatPrice } from '@/lib/utils';
 import { AlertCircle, TrendingUp, ShoppingCart, Eye, Package } from 'lucide-react';
