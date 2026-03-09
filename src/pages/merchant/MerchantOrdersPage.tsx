@@ -27,6 +27,7 @@ import { toast } from 'sonner';
 import { formatPrice } from '@/lib/utils';
 import { OrderInvoice, printInvoice } from '@/components/merchant/OrderInvoice';
 import { useRealtimeOrders } from '@/hooks/useRealtimeOrders';
+import { useMerchantGuard } from '@/hooks/useMerchantGuard';
 import { MerchantDeliveryTracker } from '@/components/merchant/MerchantDeliveryTracker';
 
 interface OrderItem {
