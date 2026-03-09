@@ -31,6 +31,7 @@ import { trackPageView } from '../lib/pageViewTracker';
 import { useAuth } from '../contexts/AuthContext';
 import { toast } from '../hooks/use-toast';
 import { ImageLightbox } from '../components/ui/ImageLightbox';
+import { useMerchantFavorite } from '../hooks/useMerchantFavorite';
 import {
   Dialog,
   DialogContent,
@@ -38,6 +39,7 @@ import {
   DialogTitle,
 } from '../components/ui/dialog';
 import type { Product } from '../types';
+import { cn } from '../lib/utils';
 
 interface MerchantData {
   id: string;
