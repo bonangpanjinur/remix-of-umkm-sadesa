@@ -28,22 +28,15 @@ const MONTHS = [
 
 export default function MerchantDuesPage() {
   const { user } = useAuth();
+  const { merchantId: guardMerchantId, loading: guardLoading } = useMerchantGuard();
   const [payments, setPayments] = useState<KasPayment[]>([]);
   const [loading, setLoading] = useState(true);
   const [merchantId, setMerchantId] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
-      if (!user) return;
-
-      const { data: merchant } = await supabase
-        .from('merchants')
-        .select('id')
-        .eq('user_id', user.id)
-        .maybeSingle();
-
-      if (!merchant) { setLoading(false); return; }
-      setMerchantId(merchant.id);
+      if (!guardMerchantId) return;
+      setMerchantId(guardMerchantId);
 
       const { data: kasData } = await supabase
         .from('kas_payments')

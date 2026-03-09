@@ -13,6 +13,7 @@ import { AlertCircle, TrendingUp, ShoppingCart, Eye, Package } from 'lucide-reac
 
 export default function MerchantAnalyticsPage() {
   const { user } = useAuth();
+  const { merchantId: guardMerchantId, merchantName: guardMerchantName, loading: guardLoading } = useMerchantGuard();
   const [merchantId, setMerchantId] = useState<string | null>(null);
   const [merchantName, setMerchantName] = useState<string>('');
   const [loading, setLoading] = useState(true);
@@ -25,30 +26,23 @@ export default function MerchantAnalyticsPage() {
   });
 
   useEffect(() => {
-    const fetchMerchant = async () => {
-      if (!user) return;
+    if (guardLoading) return;
+    if (!guardMerchantId) return;
 
+    setMerchantId(guardMerchantId);
+    setMerchantName(guardMerchantName);
+    
+    const load = async () => {
       try {
-        const { data } = await supabase
-          .from('merchants')
-          .select('id, name')
-          .eq('user_id', user.id)
-          .single();
-
-        if (data?.id) {
-          setMerchantId(data.id);
-          setMerchantName(data.name || '');
-          await fetchStats(data.id);
-        }
+        await fetchStats(guardMerchantId);
       } catch (error) {
-        console.error('Error fetching merchant:', error);
+        console.error('Error fetching stats:', error);
       } finally {
         setLoading(false);
       }
     };
-
-    fetchMerchant();
-  }, [user]);
+    load();
+  }, [guardLoading, guardMerchantId, guardMerchantName]);
 
   const fetchStats = async (id: string) => {
     try {

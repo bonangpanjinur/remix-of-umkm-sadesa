@@ -65,6 +65,7 @@ const PRICE_CLASSIFICATIONS = [
 
 export default function MerchantSettingsPage() {
   const { user } = useAuth();
+  const { merchantId: guardMerchantId, loading: guardLoading } = useMerchantGuard();
   const [merchant, setMerchant] = useState<MerchantData | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);

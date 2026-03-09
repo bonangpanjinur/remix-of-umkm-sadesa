@@ -44,6 +44,7 @@ type OrderRow = HookOrderRow;
 
 export default function MerchantOrdersPage() {
   const { user } = useAuth();
+  const { merchantId: guardMerchantId, merchantName: guardMerchantName, loading: guardLoading } = useMerchantGuard();
   const [merchantId, setMerchantId] = useState<string | null>(null);
   const [merchantName, setMerchantName] = useState<string>('');
   const [soundEnabled, setSoundEnabled] = useState(true);
@@ -57,30 +58,13 @@ export default function MerchantOrdersPage() {
   const invoiceRef = useRef<HTMLDivElement>(null);
   const [searchParams, setSearchParams] = useSearchParams();
 
-  // Fetch merchant info
+  // Set merchant from guard
   useEffect(() => {
-    const fetchMerchant = async () => {
-      if (!user) return;
-
-      try {
-        const { data: merchant } = await supabase
-          .from('merchants')
-          .select('id, name, notification_sound_enabled')
-          .eq('user_id', user.id)
-          .maybeSingle();
-
-        if (merchant) {
-          setMerchantId(merchant.id);
-          setMerchantName(merchant.name);
-          setSoundEnabled(merchant.notification_sound_enabled ?? true);
-        }
-      } catch (error) {
-        console.error('Error:', error);
-      }
-    };
-
-    fetchMerchant();
-  }, [user]);
+    if (guardMerchantId) {
+      setMerchantId(guardMerchantId);
+      setMerchantName(guardMerchantName);
+    }
+  }, [guardMerchantId, guardMerchantName]);
 
   // Real-time orders hook
   const handleNewOrder = useCallback((order: OrderRow) => {

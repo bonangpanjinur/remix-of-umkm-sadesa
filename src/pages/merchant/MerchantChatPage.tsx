@@ -26,6 +26,7 @@ interface ChatThread {
 
 export default function MerchantChatPage() {
   const { user } = useAuth();
+  const { merchantId: guardMerchantId, loading: guardLoading } = useMerchantGuard();
   const [merchantId, setMerchantId] = useState<string | null>(null);
   const [threads, setThreads] = useState<ChatThread[]>([]);
   const [loading, setLoading] = useState(true);
@@ -33,13 +34,10 @@ export default function MerchantChatPage() {
   const [activeTab, setActiveTab] = useState<'all' | 'buyer_merchant' | 'merchant_courier'>('all');
 
   useEffect(() => {
-    const fetchMerchant = async () => {
-      if (!user) return;
-      const { data } = await supabase.from('merchants').select('id').eq('user_id', user.id).single();
-      setMerchantId(data?.id || null);
-    };
-    fetchMerchant();
-  }, [user]);
+    if (guardMerchantId) {
+      setMerchantId(guardMerchantId);
+    }
+  }, [guardMerchantId]);
 
   useEffect(() => {
     if (!merchantId || !user) return;
