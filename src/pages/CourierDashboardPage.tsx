@@ -272,18 +272,77 @@ export default function CourierDashboardPage() {
     );
   }
 
-  if (!courier) {
+  // Not registered at all
+  if (!courierStatus) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <div className="text-center">
           <AlertCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-          <h2 className="font-bold text-lg mb-2">Akses Ditolak</h2>
+          <h2 className="font-bold text-lg mb-2">Belum Terdaftar</h2>
           <p className="text-muted-foreground mb-4">
             Anda belum terdaftar sebagai kurir
           </p>
           <Button onClick={() => navigate('/register/courier')}>
             Daftar Sebagai Kurir
           </Button>
+        </div>
+      </div>
+    );
+  }
+
+  // Pending verification
+  if (courierStatus.registration_status === 'PENDING') {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <div className="text-center max-w-sm">
+          <div className="w-16 h-16 bg-warning/10 rounded-full flex items-center justify-center mx-auto mb-4">
+            <Clock className="h-8 w-8 text-warning animate-pulse" />
+          </div>
+          <h2 className="font-bold text-lg mb-2">Menunggu Verifikasi</h2>
+          <p className="text-muted-foreground mb-4">
+            Pendaftaran kurir Anda sedang dalam proses review oleh admin. Kami akan memberitahu Anda setelah disetujui.
+          </p>
+          <Button variant="outline" onClick={() => navigate('/')}>
+            Kembali ke Beranda
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  // Rejected
+  if (courierStatus.registration_status === 'REJECTED') {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <div className="text-center max-w-sm">
+          <div className="w-16 h-16 bg-destructive/10 rounded-full flex items-center justify-center mx-auto mb-4">
+            <AlertCircle className="h-8 w-8 text-destructive" />
+          </div>
+          <h2 className="font-bold text-lg mb-2">Pendaftaran Ditolak</h2>
+          <p className="text-muted-foreground mb-4">
+            {courierStatus.rejection_reason || 'Maaf, pendaftaran kurir Anda tidak disetujui. Silakan coba mendaftar kembali.'}
+          </p>
+          <div className="flex gap-2 justify-center">
+            <Button variant="outline" onClick={() => navigate('/')}>
+              Beranda
+            </Button>
+            <Button onClick={() => navigate('/register/courier')}>
+              Daftar Ulang
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!courier) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <div className="text-center">
+          <AlertCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+          <h2 className="font-bold text-lg mb-2">Terjadi Kesalahan</h2>
+          <p className="text-muted-foreground mb-4">Gagal memuat data kurir</p>
+          <Button onClick={() => fetchCourierData()}>Coba Lagi</Button>
         </div>
       </div>
     );

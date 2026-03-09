@@ -500,103 +500,103 @@ const App = () => (
                 </ProtectedRoute>
               } />
 
-              {/* Merchant routes */}
+              {/* Merchant routes - no allowedRoles, page handles registration status */}
               <Route path="/merchant" element={
-                <ProtectedRoute allowedRoles={['merchant', 'admin']}>
+                <ProtectedRoute>
                   <MerchantDashboardPage />
                 </ProtectedRoute>
               } />
               <Route path="/merchant/products" element={
-                <ProtectedRoute allowedRoles={['merchant', 'admin']}>
+                <ProtectedRoute>
                   <MerchantProductsPage />
                 </ProtectedRoute>
               } />
               <Route path="/merchant/products/:productId" element={
-                <ProtectedRoute allowedRoles={['merchant', 'admin']}>
+                <ProtectedRoute>
                   <MerchantProductDetailPage />
                 </ProtectedRoute>
               } />
               <Route path="/merchant/orders" element={
-                <ProtectedRoute allowedRoles={['merchant', 'admin']}>
+                <ProtectedRoute>
                   <MerchantOrdersPage />
                 </ProtectedRoute>
               } />
               <Route path="/merchant/settings" element={
-                <ProtectedRoute allowedRoles={['merchant', 'admin']}>
+                <ProtectedRoute>
                   <MerchantSettingsPage />
                 </ProtectedRoute>
               } />
               <Route path="/merchant/analytics" element={
-                <ProtectedRoute allowedRoles={['merchant', 'admin']}>
+                <ProtectedRoute>
                   <MerchantAnalyticsPage />
                 </ProtectedRoute>
               } />
               <Route path="/merchant/reviews" element={
-                <ProtectedRoute allowedRoles={['merchant', 'admin']}>
+                <ProtectedRoute>
                   <MerchantReviewsPage />
                 </ProtectedRoute>
               } />
               <Route path="/merchant/promo" element={
-                <ProtectedRoute allowedRoles={['merchant', 'admin']}>
+                <ProtectedRoute>
                   <MerchantPromoPage />
                 </ProtectedRoute>
               } />              <Route path="/merchant/withdrawal" element={
-                <ProtectedRoute allowedRoles={['merchant', 'admin']}>
+                <ProtectedRoute>
                   <MerchantWithdrawalPage />
                 </ProtectedRoute>
               } />
               <Route path="/merchant/refunds" element={
-                <ProtectedRoute allowedRoles={['merchant', 'admin']}>
+                <ProtectedRoute>
                   <MerchantRefundsPage />
                 </ProtectedRoute>
               } />
               <Route path="/merchant/subscription" element={
-                <ProtectedRoute allowedRoles={['merchant', 'admin']}>
+                <ProtectedRoute>
                   <MerchantSubscriptionPage />
                 </ProtectedRoute>
               } />
               <Route path="/merchant/flash-sale" element={
-                <ProtectedRoute allowedRoles={['merchant', 'admin']}>
+                <ProtectedRoute>
                   <MerchantFlashSalePage />
                 </ProtectedRoute>
               } />
               <Route path="/merchant/vouchers" element={
-                <ProtectedRoute allowedRoles={['merchant', 'admin']}>
+                <ProtectedRoute>
                   <MerchantVouchersPage />
                 </ProtectedRoute>
               } />
               <Route path="/merchant/scheduled-promo" element={
-                <ProtectedRoute allowedRoles={['merchant', 'admin']}>
+                <ProtectedRoute>
                   <MerchantScheduledPromoPage />
                 </ProtectedRoute>
               } />
               <Route path="/merchant/visitor-stats" element={
-                <ProtectedRoute allowedRoles={['merchant', 'admin']}>
+                <ProtectedRoute>
                   <MerchantVisitorStatsPage />
                 </ProtectedRoute>
               } />
               <Route path="/merchant/chat" element={
-                <ProtectedRoute allowedRoles={['merchant', 'admin']}>
+                <ProtectedRoute>
                   <MerchantChatPage />
                 </ProtectedRoute>
               } />
               <Route path="/merchant/pos/subscribe" element={
-                <ProtectedRoute allowedRoles={['merchant', 'admin']}>
+                <ProtectedRoute>
                   <MerchantPOSSubscribePage />
                 </ProtectedRoute>
               } />
               <Route path="/merchant/pos/settings" element={
-                <ProtectedRoute allowedRoles={['merchant', 'admin']}>
+                <ProtectedRoute>
                   <MerchantPOSSettingsPage />
                 </ProtectedRoute>
               } />
               <Route path="/merchant/pos" element={
-                <ProtectedRoute allowedRoles={['merchant', 'admin']}>
+                <ProtectedRoute>
                   <MerchantPOSPage />
                 </ProtectedRoute>
               } />
               <Route path="/merchant/dues" element={
-                <ProtectedRoute allowedRoles={['merchant', 'admin']}>
+                <ProtectedRoute>
                   <MerchantDuesPage />
                 </ProtectedRoute>
               } />

@@ -187,14 +187,41 @@ export default function MerchantDashboardPage() {
     return (
       <MerchantLayout title="Dashboard" subtitle="Ringkasan toko Anda">
         <div className="flex flex-col items-center justify-center py-20 text-center">
-          <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mb-4">
-            <AlertCircle className="h-8 w-8 text-muted-foreground" />
+          <div className="w-16 h-16 bg-warning/10 rounded-full flex items-center justify-center mb-4 animate-pulse">
+            <AlertCircle className="h-8 w-8 text-warning" />
           </div>
           <h2 className="font-bold text-lg mb-2">Menunggu Persetujuan</h2>
-          <p className="text-muted-foreground max-w-md">
+          <p className="text-muted-foreground max-w-md mb-4">
             Pendaftaran toko Anda sedang dalam proses review. 
             Kami akan memberitahu Anda setelah disetujui.
           </p>
+          <Button variant="outline" onClick={() => navigate('/')}>
+            Kembali ke Beranda
+          </Button>
+        </div>
+      </MerchantLayout>
+    );
+  }
+
+  if (merchant.registration_status === 'REJECTED') {
+    return (
+      <MerchantLayout title="Dashboard" subtitle="Ringkasan toko Anda">
+        <div className="flex flex-col items-center justify-center py-20 text-center">
+          <div className="w-16 h-16 bg-destructive/10 rounded-full flex items-center justify-center mb-4">
+            <AlertCircle className="h-8 w-8 text-destructive" />
+          </div>
+          <h2 className="font-bold text-lg mb-2">Pendaftaran Ditolak</h2>
+          <p className="text-muted-foreground max-w-md mb-4">
+            {(merchant as any).rejection_reason || 'Maaf, pendaftaran toko Anda tidak disetujui. Silakan coba mendaftar kembali.'}
+          </p>
+          <div className="flex gap-2 justify-center">
+            <Button variant="outline" onClick={() => navigate('/')}>
+              Beranda
+            </Button>
+            <Button onClick={() => navigate('/register/merchant')}>
+              Daftar Ulang
+            </Button>
+          </div>
         </div>
       </MerchantLayout>
     );
