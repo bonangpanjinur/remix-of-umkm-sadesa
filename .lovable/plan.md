@@ -1,87 +1,81 @@
 
 
-# Rencana Perbaikan: Ojek Desa UI + Homepage Integration
+# Analisis Bug dan Rencana Perbaikan
 
-## Perubahan yang Akan Dilakukan
+## Bug yang Ditemukan
 
-### 1. Homepage — Ojek Desa jadi icon kategori (bukan card besar)
-**File**: `src/pages/Index.tsx`
-- Hapus block `<Link to="/ride">` card besar Ojek Desa (baris 116-125)
-- Tambahkan Ojek Desa sebagai item icon kategori di baris yang sama dengan Kuliner, Fashion, dll
-- Ukuran sama: `w-12 h-12` rounded icon + label di bawah, menggunakan `Bike` icon
-- Warna: `bg-emerald-100 text-emerald-700 border-emerald-200`
+### Bug 1: `forwardRef` Warning pada BottomNav dan ShopFilterSheet
+**Severity: Low (Warning, tidak crash)**
+**File:** `src/components/layout/BottomNav.tsx`
 
-### 2. Homepage — Tambah section "Driver Terdekat" dengan peta mini
-**File**: `src/pages/Index.tsx`
-- Tambah section baru setelah categories yang menampilkan peta kecil dengan marker driver/kurir terdekat yang sedang online (data dari tabel `couriers` yang `is_available=true` dan punya `current_lat/lng`)
-- Peta menggunakan `CourierMap` dengan `showAllCouriers={true}` dan height kecil (`180px`)
-- Label: "Driver Terdekat" dengan badge jumlah driver aktif
-- Ini murni GPS-based — tidak simpan lokasi user, hanya query posisi kurir yang sudah di-broadcast/checkpoint oleh `CourierLocationUpdater`
+Console menunjukkan: *"Function components cannot be given refs"* pada `BottomNav` dan `ShopFilterSheet > DialogContent`. `BottomNav` adalah function component biasa yang dirender langsung oleh parent — kemungkinan ada parent yang mencoba memberikan ref kepadanya. Perlu wrap dengan `React.forwardRef`.
 
-### 3. Ojek Desa — Redesign halaman booking (modern, single-page)
-**File**: `src/pages/ride/RideBookingPage.tsx` — rewrite total
-- Layout baru: **Peta fullscreen** sebagai background utama (seperti Grab/Gojek)
-- Bottom sheet / overlay card untuk input:
-  - Dua input field stacked: "Titik Jemput" (auto-fill GPS) dan "Titik Tujuan" (tap peta)
-  - Mode toggle: sedang pilih jemput atau tujuan
-  - Saat kedua titik terpilih, otomatis tampilkan estimasi jarak + tarif di bottom card
-  - Tombol "Pesan Ojek" di bottom
-- Peta menampilkan:
-  - Marker hijau (jemput) + marker merah (tujuan)
-  - Garis dashed antara keduanya
-  - Marker motor untuk driver terdekat yang online (query `couriers` yang `is_available`)
-- Tidak ada multi-step wizard lagi — semua dalam 1 layar
-- Mobile-first, menggunakan `mobile-shell` wrapper
+### Bug 2: `forwardRef` Warning pada SheetContent di ShopFilterSheet
+**Severity: Low (Warning)**
+**File:** `src/components/ui/sheet.tsx` (line 54)
 
-### 4. Tidak ada penyimpanan lokasi user di database
-- Konfirmasi: Semua lokasi berbasis GPS real-time
-- `CourierLocationUpdater` sudah benar: broadcast via WebSocket, checkpoint ke DB tiap 30 detik (ini lokasi kurir, bukan user)
-- Lokasi penumpang hanya dikirim saat submit `ride_requests` (pickup_lat/lng) — tidak disimpan permanen
+`SheetContent` di dalam `DialogContent` menghasilkan ref warning. Kemungkinan komponen child yang di-pass ke Radix Dialog tidak di-wrap `forwardRef`.
 
-## Detail Teknis
+### Bug 3: MerchantChatPage — Realtime Channel Terlalu Luas
+**Severity: Medium**
+**File:** `src/pages/merchant/MerchantChatPage.tsx` (line 48-51)
 
-### Index.tsx — Perubahan categories section
-```text
-Sebelum: [Kuliner] [Fashion] [Kriya] [Wisata]
-         ┌─────────────────────────────┐
-         │ 🏍 Ojek Desa                │  ← card besar, dihapus
-         │ Pesan ojek antar lokasi   > │
-         └─────────────────────────────┘
+Channel realtime subscribe ke semua `INSERT` pada `chat_messages` tanpa filter `user_id` atau `order_id`. Ini berarti setiap pesan baru dari siapapun memicu `fetchThreads()` — tidak efisien dan bisa menyebabkan excessive API calls.
 
-Sesudah: [Kuliner] [Fashion] [Kriya] [Wisata] [Ojek]  ← icon kecil sejajar
-         
-         ┌─ Driver Terdekat ──────────┐
-         │ [peta mini 180px]          │  ← section baru
-         │ 🟢 3 driver aktif          │
-         └────────────────────────────┘
+### Bug 4: CourierHistoryPage — Filter delivery_type Tidak Efektif
+**Severity: Medium**
+**File:** `src/pages/courier/CourierHistoryPage.tsx`
+
+Query mengambil semua orders tanpa filter `delivery_type`. Tab "Delivery" vs "Ride" hanya memfilter di client-side, tapi kolom `delivery_type` pada orders mungkin berisi value seperti `PICKUP`, `DELIVERY`, `RIDE` — perlu verifikasi bahwa filtering logic cocok dengan actual data values.
+
+### Bug 5: NotificationDropdown — `generateDynamicLink` Duplikasi dengan Versi Sebelumnya
+**Severity: Low**
+**File:** `src/components/notifications/NotificationDropdown.tsx`
+
+Fungsi `generateDynamicLink` sudah ada sebelum fase 3 (terlihat di provided code), namun di fase 3 dikatakan "diperbarui". Perlu pastikan tidak ada duplikasi logic.
+
+---
+
+## Rencana Perbaikan
+
+### Fix 1: Wrap BottomNav dengan forwardRef
+**File:** `src/components/layout/BottomNav.tsx`
+- Wrap export dengan `React.forwardRef` untuk menghilangkan console warning.
+
+### Fix 2: Fix SheetContent ref forwarding
+**File:** `src/components/ui/sheet.tsx`
+- Periksa apakah `SheetContent` sudah menggunakan `forwardRef`. Jika ada child component tanpa `forwardRef`, wrap dengan benar.
+
+### Fix 3: Tambah filter pada MerchantChat realtime channel
+**File:** `src/pages/merchant/MerchantChatPage.tsx`
+- Tambahkan filter `or` pada realtime subscription: `sender_id=eq.${user.id}` atau `receiver_id=eq.${user.id}` agar hanya pesan relevan yang memicu refresh.
+
+### Fix 4: Verifikasi CourierHistoryPage delivery_type values
+**File:** `src/pages/courier/CourierHistoryPage.tsx`
+- Pastikan filter tab menggunakan value yang benar dari database (`DELIVERY`, `RIDE`, `PICKUP` dll).
+- Tambah filter ke query Supabase jika memungkinkan untuk mengurangi data transfer.
+
+### Technical Details
+
+**BottomNav forwardRef pattern:**
+```tsx
+export const BottomNav = React.forwardRef<HTMLElement, {}>(
+  function BottomNav(props, ref) {
+    // existing logic
+    return <nav ref={ref} ...>...</nav>;
+  }
+);
 ```
 
-### RideBookingPage.tsx — Layout baru
-```text
-┌──────────────────────────┐
-│  ← Ojek Desa        [GPS]│  ← header compact
-│                           │
-│   ┌─────────────────┐    │
-│   │                 │    │
-│   │   PETA BESAR    │    │
-│   │  🟢jemput       │    │
-│   │       ---- 🔴tujuan  │
-│   │  🏍 🏍 (driver) │    │
-│   │                 │    │
-│   └─────────────────┘    │
-│                           │
-│ ┌───────────────────────┐│
-│ │ 📍 Lokasi saya        ││ ← bottom card
-│ │ 📌 Pilih tujuan...    ││
-│ │                       ││
-│ │ Jarak: 3.2 km         ││
-│ │ Estimasi: Rp 14.600   ││
-│ │ [  🏍 Pesan Ojek    ] ││
-│ └───────────────────────┘│
-└──────────────────────────┘
+**MerchantChat realtime filter:**
+```tsx
+.on('postgres_changes', {
+  event: 'INSERT',
+  schema: 'public',
+  table: 'chat_messages',
+  filter: `receiver_id=eq.${user.id}`
+}, () => fetchThreads())
 ```
 
-### File yang diubah:
-1. `src/pages/Index.tsx` — Ojek jadi icon kategori + section driver terdekat
-2. `src/pages/ride/RideBookingPage.tsx` — Redesign total single-page map-first
+Total: 4 file perlu diperbaiki.
 
