@@ -33,6 +33,7 @@ interface MerchantData {
   is_open: boolean;
   status: string;
   registration_status: string;
+  rejection_reason: string | null;
   image_url: string | null;
   slug: string | null;
 }
