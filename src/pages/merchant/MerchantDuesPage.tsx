@@ -69,7 +69,7 @@ export default function MerchantDuesPage() {
       setLoading(false);
     };
     fetchData();
-  }, [user]);
+  }, [guardMerchantId]);
 
   const paidPayments = payments.filter(p => p.status === 'PAID');
   const unpaidPayments = payments.filter(p => p.status === 'UNPAID');
