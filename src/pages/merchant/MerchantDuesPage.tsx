@@ -4,6 +4,7 @@ import { MerchantLayout } from '@/components/merchant/MerchantLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
+import { useMerchantGuard } from '@/hooks/useMerchantGuard';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatPrice } from '@/lib/utils';
 
