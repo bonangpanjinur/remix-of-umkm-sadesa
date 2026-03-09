@@ -43,8 +43,6 @@ export default function MerchantVisitorStatsPage() {
     setMerchantId(guardMerchantId);
     setLoading(false);
   }, [guardLoading, guardMerchantId]);
-    fetchMerchant();
-  }, [user]);
 
   useEffect(() => {
     if (!merchantId) return;
