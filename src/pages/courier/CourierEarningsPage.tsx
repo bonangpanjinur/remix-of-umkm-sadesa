@@ -1,15 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { 
-  Wallet, 
-  TrendingUp, 
-  Package, 
-  Calendar,
-  ArrowLeft,
-  Clock,
-  CheckCircle
-} from 'lucide-react';
+import { Wallet, TrendingUp, Package, CheckCircle, ArrowLeft } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -19,17 +11,14 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { formatPrice } from '@/lib/utils';
 
-interface DeliveryHistory {
+interface EarningRecord {
   id: string;
+  amount: number;
+  type: string;
   status: string;
-  total: number;
-  subtotal: number;
-  shipping_cost: number;
-  delivered_at: string | null;
+  order_id: string | null;
   created_at: string;
-  delivery_name: string | null;
-  delivery_address: string | null;
-  payment_method: string | null;
+  paid_at: string | null;
 }
 
 interface EarningsStats {
@@ -38,96 +27,50 @@ interface EarningsStats {
   weekEarnings: number;
   monthEarnings: number;
   totalDeliveries: number;
-  completedDeliveries: number;
+  paidEarnings: number;
 }
 
 export default function CourierEarningsPage() {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
-  const [courierId, setCourierId] = useState<string | null>(null);
-  const [history, setHistory] = useState<DeliveryHistory[]>([]);
-  const [stats, setStats] = useState<EarningsStats>({
-    totalEarnings: 0,
-    todayEarnings: 0,
-    weekEarnings: 0,
-    monthEarnings: 0,
-    totalDeliveries: 0,
-    completedDeliveries: 0,
-  });
+  const [earnings, setEarnings] = useState<EarningRecord[]>([]);
+  const [stats, setStats] = useState<EarningsStats>({ totalEarnings: 0, todayEarnings: 0, weekEarnings: 0, monthEarnings: 0, totalDeliveries: 0, paidEarnings: 0 });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!authLoading && user) {
-      fetchData();
-    } else if (!authLoading && !user) {
-      navigate('/auth');
-    }
+    if (!authLoading && user) fetchData();
+    else if (!authLoading && !user) navigate('/auth');
   }, [user, authLoading]);
 
   const fetchData = async () => {
     if (!user) return;
-
     try {
-      // Get courier ID
-      const { data: courier } = await supabase
-        .from('couriers')
-        .select('id, registration_status')
-        .eq('user_id', user.id)
-        .maybeSingle();
+      const { data: courier } = await supabase.from('couriers').select('id, registration_status').eq('user_id', user.id).maybeSingle();
+      if (!courier || courier.registration_status !== 'APPROVED') { navigate('/courier'); return; }
 
-      if (!courier || courier.registration_status !== 'APPROVED') {
-        navigate('/courier');
-        return;
-      }
-
-      setCourierId(courier.id);
-
-      // Get commission rate from app_settings
-      const { data: commissionSetting } = await supabase
-        .from('app_settings')
-        .select('value')
-        .eq('key', 'courier_commission')
-        .maybeSingle();
-      const commissionRate = ((commissionSetting?.value as { percent?: number })?.percent ?? 80) / 100;
-
-      // Fetch all delivered orders
-      const { data: orders } = await supabase
-        .from('orders')
-        .select('id, status, total, subtotal, shipping_cost, delivered_at, created_at, delivery_name, delivery_address, payment_method')
+      const { data } = await supabase
+        .from('courier_earnings')
+        .select('*')
         .eq('courier_id', courier.id)
         .order('created_at', { ascending: false });
 
-      const allOrders = orders || [];
-      setHistory(allOrders);
+      const all = data || [];
+      setEarnings(all);
 
-      // Calculate stats
       const now = new Date();
       const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
       const weekStart = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
       const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
 
-      const completedOrders = allOrders.filter(o => o.status === 'DELIVERED' || o.status === 'DONE');
-      
-      const calculateEarnings = (orders: DeliveryHistory[]) => 
-        orders.reduce((sum, o) => sum + (o.shipping_cost * commissionRate), 0);
-
-      const todayOrders = completedOrders.filter(o => 
-        o.delivered_at && new Date(o.delivered_at) >= todayStart
-      );
-      const weekOrders = completedOrders.filter(o => 
-        o.delivered_at && new Date(o.delivered_at) >= weekStart
-      );
-      const monthOrders = completedOrders.filter(o => 
-        o.delivered_at && new Date(o.delivered_at) >= monthStart
-      );
+      const sum = (items: EarningRecord[]) => items.reduce((s, e) => s + e.amount, 0);
 
       setStats({
-        totalEarnings: calculateEarnings(completedOrders),
-        todayEarnings: calculateEarnings(todayOrders),
-        weekEarnings: calculateEarnings(weekOrders),
-        monthEarnings: calculateEarnings(monthOrders),
-        totalDeliveries: allOrders.length,
-        completedDeliveries: completedOrders.length,
+        totalEarnings: sum(all),
+        todayEarnings: sum(all.filter(e => new Date(e.created_at) >= todayStart)),
+        weekEarnings: sum(all.filter(e => new Date(e.created_at) >= weekStart)),
+        monthEarnings: sum(all.filter(e => new Date(e.created_at) >= monthStart)),
+        totalDeliveries: all.length,
+        paidEarnings: sum(all.filter(e => e.status === 'PAID')),
       });
     } catch (error) {
       console.error('Error fetching earnings:', error);
@@ -144,82 +87,55 @@ export default function CourierEarningsPage() {
     );
   }
 
+  const pendingEarnings = earnings.filter(e => e.status === 'PENDING');
+  const paidEarnings = earnings.filter(e => e.status === 'PAID');
+
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      
       <div className="max-w-lg mx-auto px-4 py-6 space-y-6">
-        {/* Back Button */}
         <Button variant="ghost" size="sm" onClick={() => navigate('/courier')}>
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Kembali
+          <ArrowLeft className="h-4 w-4 mr-2" /> Kembali
         </Button>
 
-        {/* Stats Cards */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="grid grid-cols-2 gap-3"
-        >
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="grid grid-cols-2 gap-3">
           <Card className="bg-gradient-to-br from-primary to-primary/80 text-primary-foreground">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium flex items-center gap-2">
-                <Wallet className="h-4 w-4" />
-                Pendapatan Bulan Ini
+                <Wallet className="h-4 w-4" /> Bulan Ini
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <p className="text-2xl font-bold">{formatPrice(stats.monthEarnings)}</p>
-            </CardContent>
+            <CardContent><p className="text-2xl font-bold">{formatPrice(stats.monthEarnings)}</p></CardContent>
           </Card>
-
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium flex items-center gap-2">
-                <TrendingUp className="h-4 w-4 text-primary" />
-                Hari Ini
+                <TrendingUp className="h-4 w-4 text-primary" /> Hari Ini
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <p className="text-2xl font-bold text-primary">{formatPrice(stats.todayEarnings)}</p>
-            </CardContent>
+            <CardContent><p className="text-2xl font-bold text-primary">{formatPrice(stats.todayEarnings)}</p></CardContent>
           </Card>
-
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium flex items-center gap-2">
-                <Package className="h-4 w-4 text-muted-foreground" />
-                Total Pengiriman
+                <Package className="h-4 w-4 text-muted-foreground" /> Total Transaksi
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <p className="text-2xl font-bold">{stats.totalDeliveries}</p>
-            </CardContent>
+            <CardContent><p className="text-2xl font-bold">{stats.totalDeliveries}</p></CardContent>
           </Card>
-
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium flex items-center gap-2">
-                <CheckCircle className="h-4 w-4 text-green-500" />
-                Selesai
+                <CheckCircle className="h-4 w-4 text-green-500" /> Sudah Dibayar
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <p className="text-2xl font-bold text-green-500">{stats.completedDeliveries}</p>
-            </CardContent>
+            <CardContent><p className="text-2xl font-bold text-green-500">{formatPrice(stats.paidEarnings)}</p></CardContent>
           </Card>
         </motion.div>
 
-        {/* Summary */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-        >
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
           <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Ringkasan Pendapatan</CardTitle>
-            </CardHeader>
+            <CardHeader><CardTitle className="text-lg">Ringkasan Pendapatan</CardTitle></CardHeader>
             <CardContent className="space-y-3">
               <div className="flex justify-between items-center py-2 border-b border-border">
                 <span className="text-muted-foreground">Minggu Ini</span>
@@ -237,42 +153,27 @@ export default function CourierEarningsPage() {
           </Card>
         </motion.div>
 
-        {/* Delivery History */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-        >
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
           <Tabs defaultValue="all" className="w-full">
             <TabsList className="w-full">
               <TabsTrigger value="all" className="flex-1">Semua</TabsTrigger>
-              <TabsTrigger value="completed" className="flex-1">Selesai</TabsTrigger>
-              <TabsTrigger value="pending" className="flex-1">Proses</TabsTrigger>
+              <TabsTrigger value="pending" className="flex-1">Pending</TabsTrigger>
+              <TabsTrigger value="paid" className="flex-1">Dibayar</TabsTrigger>
             </TabsList>
 
             <TabsContent value="all" className="mt-4 space-y-3">
-              {history.length === 0 ? (
+              {earnings.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
                   <Package className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                  <p>Belum ada riwayat pengiriman</p>
+                  <p>Belum ada riwayat pendapatan</p>
                 </div>
-              ) : (
-                history.map((order) => (
-                  <DeliveryCard key={order.id} order={order} />
-                ))
-              )}
+              ) : earnings.map(e => <EarningCard key={e.id} earning={e} />)}
             </TabsContent>
-
-            <TabsContent value="completed" className="mt-4 space-y-3">
-              {history.filter(o => o.status === 'DELIVERED' || o.status === 'DONE').map((order) => (
-                <DeliveryCard key={order.id} order={order} />
-              ))}
-            </TabsContent>
-
             <TabsContent value="pending" className="mt-4 space-y-3">
-              {history.filter(o => !['DELIVERED', 'DONE', 'CANCELED'].includes(o.status)).map((order) => (
-                <DeliveryCard key={order.id} order={order} />
-              ))}
+              {pendingEarnings.length === 0 ? <p className="text-center py-8 text-muted-foreground">Tidak ada pending</p> : pendingEarnings.map(e => <EarningCard key={e.id} earning={e} />)}
+            </TabsContent>
+            <TabsContent value="paid" className="mt-4 space-y-3">
+              {paidEarnings.length === 0 ? <p className="text-center py-8 text-muted-foreground">Belum ada pembayaran</p> : paidEarnings.map(e => <EarningCard key={e.id} earning={e} />)}
             </TabsContent>
           </Tabs>
         </motion.div>
@@ -281,43 +182,29 @@ export default function CourierEarningsPage() {
   );
 }
 
-function DeliveryCard({ order }: { order: DeliveryHistory }) {
-  const isCompleted = order.status === 'DELIVERED' || order.status === 'DONE';
-  const isCOD = order.payment_method === 'COD';
-  const earnings = order.shipping_cost * 0.8;
+function EarningCard({ earning }: { earning: EarningRecord }) {
+  const isPaid = earning.status === 'PAID';
+  const typeLabel = earning.type === 'DELIVERY' ? 'Pengiriman' : earning.type === 'RIDE' ? 'Ojek' : earning.type;
 
   return (
     <div className="bg-card rounded-xl p-4 border border-border">
       <div className="flex justify-between items-start mb-2">
         <div>
-          <p className="font-mono text-sm font-medium">#{order.id.slice(0, 8).toUpperCase()}</p>
+          <p className="font-mono text-sm font-medium">#{(earning.order_id || earning.id).slice(0, 8).toUpperCase()}</p>
           <p className="text-xs text-muted-foreground">
-            {new Date(order.created_at).toLocaleDateString('id-ID', {
-              day: 'numeric',
-              month: 'short',
-              year: 'numeric',
-              hour: '2-digit',
-              minute: '2-digit',
-            })}
+            {new Date(earning.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
           </p>
         </div>
         <div className="flex items-center gap-1.5">
-          <Badge variant="outline" className={isCOD ? 'border-warning text-warning' : 'border-primary text-primary'}>
-            {isCOD ? 'COD' : 'Transfer'}
-          </Badge>
-          <Badge variant={isCompleted ? 'default' : 'secondary'} className={isCompleted ? 'bg-primary/10 text-primary' : ''}>
-            {isCompleted ? 'Selesai' : order.status}
+          <Badge variant="outline">{typeLabel}</Badge>
+          <Badge variant={isPaid ? 'default' : 'secondary'} className={isPaid ? 'bg-green-500/10 text-green-600' : ''}>
+            {isPaid ? 'Dibayar' : 'Pending'}
           </Badge>
         </div>
       </div>
-
-      <p className="text-sm text-muted-foreground mb-2 line-clamp-1">
-        {order.delivery_name} • {order.delivery_address || 'Alamat tidak tersedia'}
-      </p>
-
       <div className="flex justify-between items-center pt-2 border-t border-border">
-        <span className="text-sm text-muted-foreground">Ongkir: {formatPrice(order.shipping_cost)}</span>
-        <span className="font-bold text-primary">Komisi: +{formatPrice(earnings)}</span>
+        <span className="text-sm text-muted-foreground">Komisi</span>
+        <span className="font-bold text-primary">+{formatPrice(earning.amount)}</span>
       </div>
     </div>
   );

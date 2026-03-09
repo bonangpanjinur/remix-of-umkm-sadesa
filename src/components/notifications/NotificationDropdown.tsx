@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { Bell, Check, CheckCheck, Package, Wallet, ShieldCheck, Info, AlertTriangle, XCircle, CheckCircle } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Bell, CheckCheck, Package, Wallet, ShieldCheck, Info, AlertTriangle, XCircle, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -24,11 +24,11 @@ interface Notification {
   link: string | null;
   is_read: boolean;
   created_at: string;
-  order_id?: string | null;
 }
 
 export function NotificationDropdown() {
   const { user, roles } = useAuth();
+  const navigate = useNavigate();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [open, setOpen] = useState(false);
@@ -36,7 +36,6 @@ export function NotificationDropdown() {
   useEffect(() => {
     if (!user) return;
 
-    // Fetch initial notifications
     const fetchNotifications = async () => {
       const { data } = await supabase
         .from('notifications')
@@ -53,127 +52,84 @@ export function NotificationDropdown() {
 
     fetchNotifications();
 
-    // Subscribe to realtime notifications
     const channel = supabase
       .channel('notifications')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'notifications',
-          filter: `user_id=eq.${user.id}`,
-        },
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${user.id}` },
         (payload) => {
-          const newNotification = payload.new as Notification;
-          setNotifications(prev => [newNotification, ...prev].slice(0, 20));
+          const n = payload.new as Notification;
+          setNotifications(prev => [n, ...prev].slice(0, 20));
           setUnreadCount(prev => prev + 1);
         }
       )
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'notifications',
-          filter: `user_id=eq.${user.id}`,
-        },
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'notifications', filter: `user_id=eq.${user.id}` },
         (payload) => {
           const updated = payload.new as Notification;
-          setNotifications(prev =>
-            prev.map(n => (n.id === updated.id ? updated : n))
-          );
-          // Recalculate unread count
           setNotifications(prev => {
-            setUnreadCount(prev.filter(n => !n.is_read).length);
-            return prev;
+            const next = prev.map(n => (n.id === updated.id ? updated : n));
+            setUnreadCount(next.filter(n => !n.is_read).length);
+            return next;
           });
         }
       )
       .subscribe();
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    return () => { supabase.removeChannel(channel); };
   }, [user]);
 
-  const markAsRead = async (id: string) => {
-    await supabase
-      .from('notifications')
-      .update({ is_read: true, read_at: new Date().toISOString() })
-      .eq('id', id);
-
-    setNotifications(prev =>
-      prev.map(n => (n.id === id ? { ...n, is_read: true } : n))
-    );
+  const markAsRead = async (notifId: string) => {
+    await supabase.from('notifications').update({ is_read: true, read_at: new Date().toISOString() }).eq('id', notifId);
+    setNotifications(prev => prev.map(n => (n.id === notifId ? { ...n, is_read: true } : n)));
     setUnreadCount(prev => Math.max(0, prev - 1));
   };
 
   const markAllAsRead = async () => {
     if (!user) return;
-
-    await supabase
-      .from('notifications')
-      .update({ is_read: true, read_at: new Date().toISOString() })
-      .eq('user_id', user.id)
-      .eq('is_read', false);
-
+    await supabase.from('notifications').update({ is_read: true, read_at: new Date().toISOString() }).eq('user_id', user.id).eq('is_read', false);
     setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
     setUnreadCount(0);
   };
 
   const getIcon = (type: string) => {
     switch (type) {
-      case 'order':
-        return <Package className="h-4 w-4 text-primary" />;
-      case 'withdrawal':
-        return <Wallet className="h-4 w-4 text-amber-500" />;
-      case 'verification':
-        return <ShieldCheck className="h-4 w-4 text-blue-500" />;
-      case 'success':
-        return <CheckCircle className="h-4 w-4 text-green-500" />;
-      case 'warning':
-        return <AlertTriangle className="h-4 w-4 text-amber-500" />;
-      case 'error':
-        return <XCircle className="h-4 w-4 text-destructive" />;
-      default:
-        return <Info className="h-4 w-4 text-muted-foreground" />;
+      case 'order': return <Package className="h-4 w-4 text-primary" />;
+      case 'withdrawal': return <Wallet className="h-4 w-4 text-amber-500" />;
+      case 'verification': return <ShieldCheck className="h-4 w-4 text-blue-500" />;
+      case 'success': return <CheckCircle className="h-4 w-4 text-green-500" />;
+      case 'warning': return <AlertTriangle className="h-4 w-4 text-amber-500" />;
+      case 'error': return <XCircle className="h-4 w-4 text-destructive" />;
+      default: return <Info className="h-4 w-4 text-muted-foreground" />;
     }
   };
 
-  // Generate dynamic link based on user role and notification type
-  const generateDynamicLink = (link: string, type: string, userRoles: string[]): string => {
-    // Extract order ID from the link if it exists
-    const orderIdMatch = link.match(/\/(\w+)$/) || link.match(/orderId[=:]([\w-]+)/);
-    const orderId = orderIdMatch ? (orderIdMatch[1] || '') : '';
+  const generateDynamicLink = (link: string, type: string): string => {
+    const orderIdMatch = link.match(/orderId[=:]([\w-]+)/) || link.match(/\/orders?\/([\w-]+)/);
+    const orderId = orderIdMatch?.[1] || '';
 
-    // Determine user's primary role
-    const isMerchant = userRoles.includes('merchant');
-    const isCourier = userRoles.includes('courier');
-    const isAdmin = userRoles.includes('admin');
-    const isAdminDesa = userRoles.includes('admin_desa');
-    const isVerifikator = userRoles.includes('verifikator');
+    const isMerchant = roles.includes('merchant');
+    const isCourier = roles.includes('courier');
+    const isAdmin = roles.includes('admin');
+    const isAdminDesa = roles.includes('admin_desa');
+    const isVerifikator = roles.includes('verifikator');
 
-    // Route based on notification type and user role
-    if (type === 'order') {
-      if (isMerchant) {
-        return orderId ? `/merchant/orders?orderId=${orderId}` : '/merchant/orders';
-      } else if (isCourier) {
-        return orderId ? `/courier?orderId=${orderId}` : '/courier';
-      } else if (isAdmin) {
-        return orderId ? `/admin/orders?orderId=${orderId}` : '/admin/orders';
-      } else if (isAdminDesa) {
-        return orderId ? `/desa?orderId=${orderId}` : '/desa';
-      } else if (isVerifikator) {
-        return orderId ? `/verifikator?orderId=${orderId}` : '/verifikator';
-      } else {
-        // Default for buyer
-        return orderId ? `/orders?orderId=${orderId}` : '/orders';
-      }
+    if (type === 'order' && orderId) {
+      if (isMerchant) return `/merchant/orders?orderId=${orderId}`;
+      if (isCourier) return `/courier?orderId=${orderId}`;
+      if (isAdmin) return `/admin/orders?orderId=${orderId}`;
+      if (isAdminDesa) return `/desa?orderId=${orderId}`;
+      if (isVerifikator) return `/verifikator?orderId=${orderId}`;
+      return `/orders?orderId=${orderId}`;
     }
 
-    // For other notification types, return the original link or a safe fallback
     return link || '/';
+  };
+
+  const handleNotificationClick = (notification: Notification) => {
+    if (!notification.is_read) markAsRead(notification.id);
+    if (notification.link) {
+      setOpen(false);
+      const dynamicLink = generateDynamicLink(notification.link, notification.type);
+      navigate(dynamicLink);
+    }
   };
 
   if (!user) return null;
@@ -181,10 +137,7 @@ export function NotificationDropdown() {
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>
       <DropdownMenuTrigger asChild>
-        <button
-          className="relative cursor-pointer hover:scale-105 transition"
-          aria-label="Notifications"
-        >
+        <button className="relative cursor-pointer hover:scale-105 transition" aria-label="Notifications">
           <div className="w-8 h-8 bg-secondary rounded-full flex items-center justify-center text-secondary-foreground border border-border">
             <Bell className="h-4 w-4" />
           </div>
@@ -199,14 +152,8 @@ export function NotificationDropdown() {
         <div className="flex items-center justify-between px-3 py-2 border-b border-border">
           <span className="font-semibold text-sm">Notifikasi</span>
           {unreadCount > 0 && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-7 text-xs"
-              onClick={markAllAsRead}
-            >
-              <CheckCheck className="h-3 w-3 mr-1" />
-              Tandai Semua
+            <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={markAllAsRead}>
+              <CheckCheck className="h-3 w-3 mr-1" /> Tandai Semua
             </Button>
           )}
         </div>
@@ -220,43 +167,18 @@ export function NotificationDropdown() {
             notifications.map((notification) => (
               <DropdownMenuItem
                 key={notification.id}
-                className={cn(
-                  'flex items-start gap-3 p-3 cursor-pointer',
-                  !notification.is_read && 'bg-primary/5'
-                )}
-                onClick={() => {
-                  if (!notification.is_read) {
-                    markAsRead(notification.id);
-                  }
-                  if (notification.link) {
-                    setOpen(false);
-                    // Generate dynamic URL based on user role and notification type
-                    const dynamicLink = generateDynamicLink(notification.link, notification.type, roles);
-                    window.location.href = dynamicLink;
-                  }
-                }}
+                className={cn('flex items-start gap-3 p-3 cursor-pointer', !notification.is_read && 'bg-primary/5')}
+                onClick={() => handleNotificationClick(notification)}
               >
                 <div className="mt-0.5">{getIcon(notification.type)}</div>
                 <div className="flex-1 min-w-0">
-                  <p className={cn(
-                    'text-sm truncate',
-                    !notification.is_read && 'font-semibold'
-                  )}>
-                    {notification.title}
-                  </p>
-                  <p className="text-xs text-muted-foreground line-clamp-2">
-                    {notification.message}
-                  </p>
+                  <p className={cn('text-sm truncate', !notification.is_read && 'font-semibold')}>{notification.title}</p>
+                  <p className="text-xs text-muted-foreground line-clamp-2">{notification.message}</p>
                   <p className="text-[10px] text-muted-foreground mt-1">
-                    {formatDistanceToNow(new Date(notification.created_at), {
-                      addSuffix: true,
-                      locale: id,
-                    })}
+                    {formatDistanceToNow(new Date(notification.created_at), { addSuffix: true, locale: id })}
                   </p>
                 </div>
-                {!notification.is_read && (
-                  <div className="w-2 h-2 bg-primary rounded-full mt-1.5" />
-                )}
+                {!notification.is_read && <div className="w-2 h-2 bg-primary rounded-full mt-1.5" />}
               </DropdownMenuItem>
             ))
           )}
@@ -265,11 +187,7 @@ export function NotificationDropdown() {
           <>
             <DropdownMenuSeparator />
             <div className="p-2">
-              <Link
-                to="/notifications"
-                className="block text-center text-xs text-primary hover:underline"
-                onClick={() => setOpen(false)}
-              >
+              <Link to="/notifications" className="block text-center text-xs text-primary hover:underline" onClick={() => setOpen(false)}>
                 Lihat Semua Notifikasi
               </Link>
             </div>
