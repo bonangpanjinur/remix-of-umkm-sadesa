@@ -97,12 +97,12 @@ export default function MerchantProductsPage() {
     const fetchData = async () => {
       setMerchantId(guardMerchantId);
 
-        // Get products and categories in parallel
+      try {
         const [productsRes, categoriesRes] = await Promise.all([
           supabase
             .from('products')
             .select('*')
-            .eq('merchant_id', merchant.id)
+            .eq('merchant_id', guardMerchantId)
             .order('created_at', { ascending: false }),
           supabase
             .from('categories')
@@ -117,7 +117,6 @@ export default function MerchantProductsPage() {
         const cats = (categoriesRes.data || []) as unknown as Category[];
         setCategories(cats);
         
-        // Set default category if not set
         if (cats.length > 0 && !form.category) {
           setForm(prev => ({ ...prev, category: cats[0].slug }));
         }
@@ -130,7 +129,7 @@ export default function MerchantProductsPage() {
     };
 
     fetchData();
-  }, [user]);
+  }, [guardLoading, guardMerchantId]);
 
   const openCreateDialog = () => {
     setEditingProduct(null);
