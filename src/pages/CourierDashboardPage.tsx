@@ -63,6 +63,7 @@ export default function CourierDashboardPage() {
   const navigate = useNavigate();
   const { user, signOut, loading: authLoading } = useAuth();
   const [courier, setCourier] = useState<CourierData | null>(null);
+  const [courierStatus, setCourierStatus] = useState<{ registration_status: string; rejection_reason?: string | null } | null>(null);
   const [orders, setOrders] = useState<AssignedOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [updatingStatus, setUpdatingStatus] = useState(false);
@@ -72,8 +73,6 @@ export default function CourierDashboardPage() {
   useEffect(() => {
     if (!authLoading && user) {
       fetchCourierData();
-    } else if (!authLoading && !user) {
-      navigate('/auth');
     }
   }, [user, authLoading]);
 
@@ -89,7 +88,6 @@ export default function CourierDashboardPage() {
         filter: `courier_id=eq.${courier.id}`,
       }, (payload) => {
         if (payload.new && (payload.new as { status: string }).status === 'ASSIGNED') {
-          // Play notification sound
           try {
             const ctx = new AudioContext();
             const osc = ctx.createOscillator();
@@ -118,45 +116,49 @@ export default function CourierDashboardPage() {
       // Fetch courier profile
       const { data: courierData, error: courierError } = await supabase
         .from('couriers')
-        .select('id, name, phone, is_available, vehicle_type, current_lat, current_lng, registration_status, available_balance')
+        .select('id, name, phone, is_available, vehicle_type, current_lat, current_lng, registration_status, rejection_reason, available_balance')
         .eq('user_id', user.id)
         .maybeSingle();
 
       if (courierError) throw courierError;
 
       if (!courierData) {
+        setCourierStatus(null);
         setLoading(false);
         return;
       }
 
+      // Always store status for UI rendering
+      setCourierStatus({ 
+        registration_status: courierData.registration_status,
+        rejection_reason: (courierData as any).rejection_reason 
+      });
+
       if (courierData.registration_status !== 'APPROVED') {
-        toast({
-          title: 'Akun dalam verifikasi',
-          description: 'Pendaftaran kurir Anda sedang diproses oleh admin',
-        });
         setLoading(false);
         return;
       }
 
       setCourier(courierData);
 
-      // Fetch ride request count
-      const { count: rideCount } = await supabase
-        .from('ride_requests')
-        .select('*', { count: 'exact', head: true })
-        .eq('status', 'SEARCHING');
-      setRideRequestCount(rideCount || 0);
+      // Fetch ride count & orders separately - don't let failures break the dashboard
+      try {
+        const { count: rideCount } = await supabase
+          .from('ride_requests')
+          .select('*', { count: 'exact', head: true })
+          .eq('status', 'SEARCHING');
+        setRideRequestCount(rideCount || 0);
+      } catch { /* ignore ride count errors */ }
 
-      // Fetch assigned orders
-      const { data: ordersData, error: ordersError } = await supabase
-        .from('orders')
-        .select('*')
-        .eq('courier_id', courierData.id)
-        .in('status', ['ASSIGNED', 'PICKED_UP', 'SENT', 'DELIVERING'])
-        .order('created_at', { ascending: false });
-
-      if (ordersError) throw ordersError;
-      setOrders(ordersData || []);
+      try {
+        const { data: ordersData } = await supabase
+          .from('orders')
+          .select('*')
+          .eq('courier_id', courierData.id)
+          .in('status', ['ASSIGNED', 'PICKED_UP', 'SENT', 'DELIVERING'])
+          .order('created_at', { ascending: false });
+        setOrders(ordersData || []);
+      } catch { /* ignore orders fetch errors */ }
     } catch (error) {
       console.error('Error fetching courier data:', error);
       toast({
