@@ -213,7 +213,7 @@ export default function MerchantDashboardPage() {
           </div>
           <h2 className="font-bold text-lg mb-2">Pendaftaran Ditolak</h2>
           <p className="text-muted-foreground max-w-md mb-4">
-            {(merchant as any).rejection_reason || 'Maaf, pendaftaran toko Anda tidak disetujui. Silakan coba mendaftar kembali.'}
+            {merchant.rejection_reason || 'Maaf, pendaftaran toko Anda tidak disetujui. Silakan coba mendaftar kembali.'}
           </p>
           <div className="flex gap-2 justify-center">
             <Button variant="outline" onClick={() => navigate('/')}>
