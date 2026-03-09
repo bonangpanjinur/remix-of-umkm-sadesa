@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { MerchantLayout } from '@/components/merchant/MerchantLayout';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -27,6 +28,7 @@ interface ChatThread {
 export default function MerchantChatPage() {
   const { user } = useAuth();
   const { merchantId: guardMerchantId, loading: guardLoading } = useMerchantGuard();
+  const [searchParams] = useSearchParams();
   const [merchantId, setMerchantId] = useState<string | null>(null);
   const [threads, setThreads] = useState<ChatThread[]>([]);
   const [loading, setLoading] = useState(true);
@@ -50,6 +52,17 @@ export default function MerchantChatPage() {
 
     return () => { supabase.removeChannel(channel); };
   }, [merchantId, user]);
+
+  // Auto-open chat from orderId query param (notification quick action)
+  useEffect(() => {
+    const orderId = searchParams.get('orderId');
+    if (orderId && threads.length > 0 && !selectedThread) {
+      const match = threads.find(t => t.orderId === orderId);
+      if (match) {
+        setSelectedThread(match);
+      }
+    }
+  }, [searchParams, threads, selectedThread]);
 
   const fetchThreads = async () => {
     if (!merchantId || !user) return;
@@ -94,14 +107,10 @@ export default function MerchantChatPage() {
 
       for (const thread of threadMap.values()) {
         const profile = (profiles || []).find(p => p.user_id === thread.otherUserId);
-        const merchant = (merchants || []).find(m => m.user_id === thread.otherUserId);
         const courier = (couriers || []).find(c => c.user_id === thread.otherUserId);
-        
-        // If it's a buyer_merchant chat, the other user is the buyer
         if (thread.chatType === 'buyer_merchant') {
           thread.otherUserName = profile?.full_name || 'Pembeli';
         } else {
-          // If it's merchant_courier, the other user is the courier
           thread.otherUserName = courier?.name || 'Kurir';
         }
       }
