@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { MerchantLayout } from '@/components/merchant/MerchantLayout';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
+import { useMerchantGuard } from '@/hooks/useMerchantGuard';
 import { OrderChat, ChatType } from '@/components/chat/OrderChat';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
