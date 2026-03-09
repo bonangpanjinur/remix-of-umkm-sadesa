@@ -41,7 +41,7 @@ export default function MerchantDuesPage() {
       const { data: kasData } = await supabase
         .from('kas_payments')
         .select('id, amount, payment_month, payment_year, status, payment_date, collected_by, invoice_note, sent_at')
-        .eq('merchant_id', merchant.id)
+        .eq('merchant_id', guardMerchantId)
         .order('payment_year', { ascending: false })
         .order('payment_month', { ascending: false });
 
