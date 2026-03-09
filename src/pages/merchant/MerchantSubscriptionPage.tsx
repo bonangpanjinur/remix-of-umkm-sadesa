@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/alert";
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useMerchantGuard } from '@/hooks/useMerchantGuard';
 import { toast } from 'sonner';
 import { formatPrice } from '@/lib/utils';
 import { fetchMerchantQuotaInfo, fetchQuotaUsageLogs, type MerchantQuotaInfo, type QuotaUsageLog } from '@/lib/quotaHelpers';
@@ -74,6 +75,7 @@ interface PaymentSettings {
 
 export default function MerchantSubscriptionPage() {
   const { user } = useAuth();
+  const { merchantId: guardMerchantId, loading: guardLoading } = useMerchantGuard();
   const [merchant, setMerchant] = useState<{ id: string } | null>(null);
   const [currentQuotaInfo, setCurrentQuotaInfo] = useState<MerchantQuotaInfo | null>(null);
   const [currentSubscription, setCurrentSubscription] = useState<Subscription | null>(null);

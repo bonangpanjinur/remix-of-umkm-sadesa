@@ -52,18 +52,7 @@ export default function DesaDashboardPage() {
           villageData = userVillage.villages as unknown as VillageData;
         }
 
-        // Fallback: check villages.user_id directly
-        if (!villageData) {
-          const { data: directVillage } = await supabase
-            .from('villages')
-            .select('id, name, district, regency, registration_status')
-            .eq('user_id', user.id)
-            .maybeSingle();
-
-          if (directVillage) {
-            villageData = directVillage as VillageData;
-          }
-        }
+        // No fallback to villages.user_id since that column doesn't exist
 
         if (!villageData) {
           setLoading(false);

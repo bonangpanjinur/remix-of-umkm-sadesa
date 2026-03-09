@@ -34,6 +34,7 @@ import { ProductVariantManager } from '@/components/merchant/ProductVariantManag
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
+import { useMerchantGuard } from '@/hooks/useMerchantGuard';
 
 interface ProductRow {
   id: string;
@@ -81,6 +82,7 @@ const defaultForm: ProductForm = {
 export default function MerchantProductsPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { merchantId: guardMerchantId, loading: guardLoading } = useMerchantGuard();
   const [merchantId, setMerchantId] = useState<string | null>(null);
   const [products, setProducts] = useState<ProductRow[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -91,30 +93,17 @@ export default function MerchantProductsPage() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
+    if (guardLoading || !guardMerchantId) return;
+    
     const fetchData = async () => {
-      if (!user) return;
+      setMerchantId(guardMerchantId);
 
       try {
-        // Get merchant
-        const { data: merchant } = await supabase
-          .from('merchants')
-          .select('id')
-          .eq('user_id', user.id)
-          .maybeSingle();
-
-        if (!merchant) {
-          setLoading(false);
-          return;
-        }
-
-        setMerchantId(merchant.id);
-
-        // Get products and categories in parallel
         const [productsRes, categoriesRes] = await Promise.all([
           supabase
             .from('products')
             .select('*')
-            .eq('merchant_id', merchant.id)
+            .eq('merchant_id', guardMerchantId)
             .order('created_at', { ascending: false }),
           supabase
             .from('categories')
@@ -129,7 +118,6 @@ export default function MerchantProductsPage() {
         const cats = (categoriesRes.data || []) as unknown as Category[];
         setCategories(cats);
         
-        // Set default category if not set
         if (cats.length > 0 && !form.category) {
           setForm(prev => ({ ...prev, category: cats[0].slug }));
         }
@@ -142,7 +130,7 @@ export default function MerchantProductsPage() {
     };
 
     fetchData();
-  }, [user]);
+  }, [guardLoading, guardMerchantId]);
 
   const openCreateDialog = () => {
     setEditingProduct(null);

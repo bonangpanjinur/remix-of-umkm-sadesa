@@ -26,6 +26,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
+import { useMerchantGuard } from '@/hooks/useMerchantGuard';
 import { formatPrice } from '@/lib/utils';
 import { toast } from 'sonner';
 import { format } from 'date-fns';

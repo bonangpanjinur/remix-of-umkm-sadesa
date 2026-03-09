@@ -17,6 +17,7 @@ import {
 import { ImageUpload } from '@/components/ui/ImageUpload';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useMerchantGuard } from '@/hooks/useMerchantGuard';
 import { toast } from 'sonner';
 
 interface MerchantData {
@@ -64,6 +65,7 @@ const PRICE_CLASSIFICATIONS = [
 
 export default function MerchantSettingsPage() {
   const { user } = useAuth();
+  const { merchantId: guardMerchantId, loading: guardLoading } = useMerchantGuard();
   const [merchant, setMerchant] = useState<MerchantData | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -92,7 +94,7 @@ export default function MerchantSettingsPage() {
 
   useEffect(() => {
     const fetchMerchant = async () => {
-      if (!user) return;
+      if (guardLoading || !guardMerchantId || !user) return;
 
       try {
         const { data, error } = await supabase

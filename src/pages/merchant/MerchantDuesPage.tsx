@@ -4,6 +4,7 @@ import { MerchantLayout } from '@/components/merchant/MerchantLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
+import { useMerchantGuard } from '@/hooks/useMerchantGuard';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatPrice } from '@/lib/utils';
 
@@ -27,27 +28,20 @@ const MONTHS = [
 
 export default function MerchantDuesPage() {
   const { user } = useAuth();
+  const { merchantId: guardMerchantId, loading: guardLoading } = useMerchantGuard();
   const [payments, setPayments] = useState<KasPayment[]>([]);
   const [loading, setLoading] = useState(true);
   const [merchantId, setMerchantId] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
-      if (!user) return;
-
-      const { data: merchant } = await supabase
-        .from('merchants')
-        .select('id')
-        .eq('user_id', user.id)
-        .maybeSingle();
-
-      if (!merchant) { setLoading(false); return; }
-      setMerchantId(merchant.id);
+      if (!guardMerchantId) return;
+      setMerchantId(guardMerchantId);
 
       const { data: kasData } = await supabase
         .from('kas_payments')
         .select('id, amount, payment_month, payment_year, status, payment_date, collected_by, invoice_note, sent_at')
-        .eq('merchant_id', merchant.id)
+        .eq('merchant_id', guardMerchantId)
         .order('payment_year', { ascending: false })
         .order('payment_month', { ascending: false });
 
@@ -75,7 +69,7 @@ export default function MerchantDuesPage() {
       setLoading(false);
     };
     fetchData();
-  }, [user]);
+  }, [guardMerchantId]);
 
   const paidPayments = payments.filter(p => p.status === 'PAID');
   const unpaidPayments = payments.filter(p => p.status === 'UNPAID');
