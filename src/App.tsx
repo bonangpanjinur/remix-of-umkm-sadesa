@@ -247,39 +247,39 @@ const App = () => (
                 </ProtectedRoute>
               } />
 
-              {/* Courier routes */}
+              {/* Courier routes - no allowedRoles, page handles registration status */}
               <Route path="/courier" element={
-                <ProtectedRoute allowedRoles={['courier', 'admin']}>
+                <ProtectedRoute>
                   <CourierDashboardPage />
                 </ProtectedRoute>
               } />
               <Route path="/courier/earnings" element={
-                <ProtectedRoute allowedRoles={['courier', 'admin']}>
+                <ProtectedRoute>
                   <CourierEarningsPage />
                 </ProtectedRoute>
               } />
               <Route path="/courier/history" element={
-                <ProtectedRoute allowedRoles={['courier', 'admin']}>
+                <ProtectedRoute>
                   <CourierHistoryPage />
                 </ProtectedRoute>
               } />
               <Route path="/courier/withdrawal" element={
-                <ProtectedRoute allowedRoles={['courier', 'admin']}>
+                <ProtectedRoute>
                   <CourierWithdrawalPage />
                 </ProtectedRoute>
               } />
               <Route path="/courier/deposit" element={
-                <ProtectedRoute allowedRoles={['courier', 'admin']}>
+                <ProtectedRoute>
                   <CourierDepositPage />
                 </ProtectedRoute>
               } />
               <Route path="/courier/chat" element={
-                <ProtectedRoute allowedRoles={['courier', 'admin']}>
+                <ProtectedRoute>
                   <CourierChatPage />
                 </ProtectedRoute>
               } />
               <Route path="/courier/rides" element={
-                <ProtectedRoute allowedRoles={['courier', 'admin']}>
+                <ProtectedRoute>
                   <CourierRidesPage />
                 </ProtectedRoute>
               } />
