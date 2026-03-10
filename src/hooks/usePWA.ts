@@ -37,7 +37,8 @@ export function usePWA() {
 
     // Listen for install prompt
     const handleBeforeInstallPrompt = (e: Event) => {
-      e.preventDefault();
+      // Don't call e.preventDefault() — modern browsers require prompt() to be called
+      // Storing the event allows us to call prompt() later via installApp()
       setDeferredPrompt(e as BeforeInstallPromptEvent);
       setStatus(prev => ({ ...prev, isInstallable: true }));
     };

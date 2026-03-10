@@ -66,6 +66,7 @@ export default function CourierDashboardPage() {
   const [courierStatus, setCourierStatus] = useState<{ registration_status: string; rejection_reason?: string | null } | null>(null);
   const [orders, setOrders] = useState<AssignedOrder[]>([]);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState(false);
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [podOrderId, setPodOrderId] = useState<string | null>(null);
   const [rideRequestCount, setRideRequestCount] = useState(0);
@@ -111,6 +112,7 @@ export default function CourierDashboardPage() {
 
   const fetchCourierData = async () => {
     if (!user) return;
+    setFetchError(false);
 
     try {
       // Fetch courier profile
@@ -161,8 +163,10 @@ export default function CourierDashboardPage() {
       } catch { /* ignore orders fetch errors */ }
     } catch (error) {
       console.error('Error fetching courier data:', error);
+      setFetchError(true);
       toast({
         title: 'Gagal memuat data',
+        description: 'Terjadi kesalahan saat mengambil data kurir. Coba lagi.',
         variant: 'destructive',
       });
     } finally {
@@ -268,6 +272,29 @@ export default function CourierDashboardPage() {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+      </div>
+    );
+  }
+
+  // Fetch error - show retry instead of "Belum Terdaftar"
+  if (fetchError) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <div className="text-center">
+          <AlertCircle className="h-12 w-12 text-destructive mx-auto mb-4" />
+          <h2 className="font-bold text-lg mb-2">Gagal Memuat Data</h2>
+          <p className="text-muted-foreground mb-4">
+            Terjadi kesalahan saat mengambil data kurir
+          </p>
+          <div className="flex gap-2 justify-center">
+            <Button variant="outline" onClick={() => navigate('/')}>
+              Beranda
+            </Button>
+            <Button onClick={() => { setLoading(true); fetchCourierData(); }}>
+              <RefreshCw className="h-4 w-4 mr-1" /> Coba Lagi
+            </Button>
+          </div>
+        </div>
       </div>
     );
   }
