@@ -66,6 +66,7 @@ export default function CourierDashboardPage() {
   const [courierStatus, setCourierStatus] = useState<{ registration_status: string; rejection_reason?: string | null } | null>(null);
   const [orders, setOrders] = useState<AssignedOrder[]>([]);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState(false);
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [podOrderId, setPodOrderId] = useState<string | null>(null);
   const [rideRequestCount, setRideRequestCount] = useState(0);
