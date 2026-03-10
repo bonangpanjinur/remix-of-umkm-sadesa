@@ -1,15 +1,15 @@
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version, x-requested-with',
-  'Access-Control-Allow-Methods': 'GET, OPTIONS',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
 };
 
-const BASE_URL = 'https://wilayah.id/api';
 const EMSIFA_URL = 'https://www.emsifa.com/api-wilayah-indonesia/api';
 
 Deno.serve(async (req) => {
+  // Handle CORS preflight
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
+    return new Response(null, { status: 204, headers: corsHeaders });
   }
 
   try {
@@ -24,13 +24,9 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Build URLs for both APIs
-    let wilayahUrl: string;
     let emsifaUrl: string;
-
     switch (type) {
       case 'provinces':
-        wilayahUrl = `${BASE_URL}/provinces.json`;
         emsifaUrl = `${EMSIFA_URL}/provinces.json`;
         break;
       case 'regencies':
@@ -38,7 +34,6 @@ Deno.serve(async (req) => {
           return new Response(JSON.stringify({ error: 'Missing code parameter' }),
             { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
         }
-        wilayahUrl = `${BASE_URL}/regencies/${code}.json`;
         emsifaUrl = `${EMSIFA_URL}/regencies/${code}.json`;
         break;
       case 'districts':
@@ -46,7 +41,6 @@ Deno.serve(async (req) => {
           return new Response(JSON.stringify({ error: 'Missing code parameter' }),
             { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
         }
-        wilayahUrl = `${BASE_URL}/districts/${code}.json`;
         emsifaUrl = `${EMSIFA_URL}/districts/${code}.json`;
         break;
       case 'villages':
@@ -54,7 +48,6 @@ Deno.serve(async (req) => {
           return new Response(JSON.stringify({ error: 'Missing code parameter' }),
             { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
         }
-        wilayahUrl = `${BASE_URL}/villages/${code}.json`;
         emsifaUrl = `${EMSIFA_URL}/villages/${code}.json`;
         break;
       default:
@@ -62,31 +55,23 @@ Deno.serve(async (req) => {
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    // Try emsifa first as it's more reliable for public access, fallback to wilayah.id
-    let data;
-    try {
-      console.log(`Fetching: ${emsifaUrl}`);
-      const response = await fetch(emsifaUrl, {
-        headers: { 'Accept': 'application/json', 'User-Agent': 'DesaApp/1.0' },
-      });
-      if (!response.ok) throw new Error(`emsifa returned ${response.status}`);
-      const json = await response.json();
-      // emsifa uses {id, name} format, normalize to {code, name}
-      data = Array.isArray(json)
-        ? json.map((item: { id: string; name: string }) => ({ code: item.id, name: item.name }))
-        : json;
-    } catch (e) {
-      console.warn('emsifa failed, trying wilayah.id:', e);
-      const response = await fetch(wilayahUrl, {
-        headers: { 'Accept': 'application/json', 'User-Agent': 'DesaApp/1.0' },
-      });
-      if (!response.ok) throw new Error(`wilayah.id returned ${response.status}`);
-      const json = await response.json();
-      data = json.data || json;
+    console.log(`Fetching: ${emsifaUrl}`);
+    const response = await fetch(emsifaUrl, {
+      headers: { 'Accept': 'application/json', 'User-Agent': 'DesaApp/1.0' },
+    });
+
+    if (!response.ok) {
+      throw new Error(`emsifa returned ${response.status}`);
     }
 
+    const json = await response.json();
+    // Normalize emsifa {id, name} to {code, name}
+    const data = Array.isArray(json)
+      ? json.map((item: { id: string; name: string }) => ({ code: item.id, name: item.name }))
+      : json;
+
     return new Response(JSON.stringify(data), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=86400' },
     });
   } catch (error) {
     console.error('Error:', error);
