@@ -59,7 +59,7 @@ export const BottomNav = React.forwardRef<HTMLElement, React.HTMLAttributes<HTML
   };
 
   return (
-    <nav className="glass border-t border-border flex justify-around py-2 pb-3 z-30 fixed bottom-0 left-0 right-0 max-w-[480px] mx-auto">
+    <nav ref={ref} className="glass border-t border-border flex justify-around py-2 pb-3 z-30 fixed bottom-0 left-0 right-0 max-w-[480px] mx-auto">
       {navItems.map(({ path, icon: Icon, label }) => {
         const isActive = location.pathname === path;
         const badgeCount = getBadgeCount(path);
