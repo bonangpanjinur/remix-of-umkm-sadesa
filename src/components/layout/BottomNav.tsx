@@ -94,4 +94,5 @@ export const BottomNav = React.forwardRef<HTMLElement, React.HTMLAttributes<HTML
       })}
     </nav>
   );
-}
+});
+BottomNav.displayName = 'BottomNav';

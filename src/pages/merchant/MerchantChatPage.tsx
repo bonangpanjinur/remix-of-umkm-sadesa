@@ -47,7 +47,7 @@ export default function MerchantChatPage() {
 
     const channel = supabase
       .channel('merchant-chats')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages' }, () => fetchThreads())
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages', filter: `receiver_id=eq.${user.id}` }, () => fetchThreads())
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
