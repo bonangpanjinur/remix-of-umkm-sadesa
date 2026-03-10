@@ -112,6 +112,7 @@ export default function CourierDashboardPage() {
 
   const fetchCourierData = async () => {
     if (!user) return;
+    setFetchError(false);
 
     try {
       // Fetch courier profile
@@ -162,8 +163,10 @@ export default function CourierDashboardPage() {
       } catch { /* ignore orders fetch errors */ }
     } catch (error) {
       console.error('Error fetching courier data:', error);
+      setFetchError(true);
       toast({
         title: 'Gagal memuat data',
+        description: 'Terjadi kesalahan saat mengambil data kurir. Coba lagi.',
         variant: 'destructive',
       });
     } finally {
