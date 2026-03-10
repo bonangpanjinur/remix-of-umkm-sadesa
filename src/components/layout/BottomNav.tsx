@@ -15,7 +15,7 @@ const navItems = [
   { path: '/account', icon: User, label: 'Akun' },
 ];
 
-export function BottomNav() {
+export const BottomNav = React.forwardRef<HTMLElement, React.HTMLAttributes<HTMLElement>>(function BottomNav(_props, ref) {
   const location = useLocation();
   const { getItemCount } = useCart();
   const { user } = useAuth();
