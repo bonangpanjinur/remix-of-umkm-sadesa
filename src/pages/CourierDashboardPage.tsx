@@ -276,6 +276,29 @@ export default function CourierDashboardPage() {
     );
   }
 
+  // Fetch error - show retry instead of "Belum Terdaftar"
+  if (fetchError) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <div className="text-center">
+          <AlertCircle className="h-12 w-12 text-destructive mx-auto mb-4" />
+          <h2 className="font-bold text-lg mb-2">Gagal Memuat Data</h2>
+          <p className="text-muted-foreground mb-4">
+            Terjadi kesalahan saat mengambil data kurir
+          </p>
+          <div className="flex gap-2 justify-center">
+            <Button variant="outline" onClick={() => navigate('/')}>
+              Beranda
+            </Button>
+            <Button onClick={() => { setLoading(true); fetchCourierData(); }}>
+              <RefreshCw className="h-4 w-4 mr-1" /> Coba Lagi
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // Not registered at all
   if (!courierStatus) {
     return (
