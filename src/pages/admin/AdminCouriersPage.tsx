@@ -120,9 +120,25 @@ export default function AdminCouriersPage() {
   const handleDelete = async (id: string) => {
     if (!confirm('Apakah Anda yakin ingin menghapus kurir ini?')) return;
     try {
-      const { error } = await supabase.from('couriers').delete().eq('id', id);
-      if (error) throw error;
-      toast.success('Kurir berhasil dihapus');
+      // Check if courier has orders
+      const { count } = await supabase
+        .from('orders')
+        .select('id', { count: 'exact', head: true })
+        .eq('courier_id', id);
+
+      if (count && count > 0) {
+        // Soft delete: deactivate instead
+        const { error } = await supabase
+          .from('couriers')
+          .update({ status: 'INACTIVE', is_available: false, registration_status: 'REJECTED', rejection_reason: 'Dihapus oleh admin' })
+          .eq('id', id);
+        if (error) throw error;
+        toast.success('Kurir dinonaktifkan (memiliki riwayat order)');
+      } else {
+        const { error } = await supabase.from('couriers').delete().eq('id', id);
+        if (error) throw error;
+        toast.success('Kurir berhasil dihapus');
+      }
       fetchCouriers();
     } catch (error: any) {
       toast.error('Gagal menghapus kurir: ' + (error.message || 'Terjadi kesalahan'));
