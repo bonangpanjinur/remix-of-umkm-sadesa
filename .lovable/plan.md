@@ -1,50 +1,87 @@
 
 
-# Bug Analysis & Fix Plan
+# Rencana Perbaikan: Ojek Desa UI + Homepage Integration
 
-## Bugs Found
+## Perubahan yang Akan Dilakukan
 
-### Bug 1: `getSettingByKey` Logs False Errors (Low)
-**File:** `src/lib/adminApi.ts` (line 388)
-**Issue:** When a setting key doesn't exist in `app_settings`, `data` is `null` but `error` is also `null`. The condition `if (error || !data)` logs `console.error('Error fetching setting:', null)` — producing misleading console errors. The `registration_courier` and `registration_merchant` keys don't exist in the DB, so this fires on every page load.
-**Fix:** Only log when `error` is truthy. Return `null` silently when `!data`.
+### 1. Homepage — Ojek Desa jadi icon kategori (bukan card besar)
+**File**: `src/pages/Index.tsx`
+- Hapus block `<Link to="/ride">` card besar Ojek Desa (baris 116-125)
+- Tambahkan Ojek Desa sebagai item icon kategori di baris yang sama dengan Kuliner, Fashion, dll
+- Ukuran sama: `w-12 h-12` rounded icon + label di bawah, menggunakan `Bike` icon
+- Warna: `bg-emerald-100 text-emerald-700 border-emerald-200`
 
-### Bug 2: `corsproxy.io` Fallback Returns 403 (Medium)
-**File:** `src/lib/addressApi.ts` (line 175-184)
-**Issue:** `fetchViaCorsProxy2` uses `corsproxy.io` which now returns 403 Forbidden. This creates console noise and wasted network requests. The edge function (`wilayah-proxy`) is now working, so this proxy is unnecessary overhead.
-**Fix:** Remove `corsproxy.io` fallback. Keep edge function + direct emsifa + `allorigins` as fallbacks.
+### 2. Homepage — Tambah section "Driver Terdekat" dengan peta mini
+**File**: `src/pages/Index.tsx`
+- Tambah section baru setelah categories yang menampilkan peta kecil dengan marker driver/kurir terdekat yang sedang online (data dari tabel `couriers` yang `is_available=true` dan punya `current_lat/lng`)
+- Peta menggunakan `CourierMap` dengan `showAllCouriers={true}` dan height kecil (`180px`)
+- Label: "Driver Terdekat" dengan badge jumlah driver aktif
+- Ini murni GPS-based — tidak simpan lokasi user, hanya query posisi kurir yang sudah di-broadcast/checkpoint oleh `CourierLocationUpdater`
 
-### Bug 3: Unused `locationService.ts` (Low)
-**File:** `src/services/locationService.ts`
-**Issue:** This file duplicates `addressApi.ts` functionality and is not imported anywhere. Dead code.
-**Fix:** Delete the file.
+### 3. Ojek Desa — Redesign halaman booking (modern, single-page)
+**File**: `src/pages/ride/RideBookingPage.tsx` — rewrite total
+- Layout baru: **Peta fullscreen** sebagai background utama (seperti Grab/Gojek)
+- Bottom sheet / overlay card untuk input:
+  - Dua input field stacked: "Titik Jemput" (auto-fill GPS) dan "Titik Tujuan" (tap peta)
+  - Mode toggle: sedang pilih jemput atau tujuan
+  - Saat kedua titik terpilih, otomatis tampilkan estimasi jarak + tarif di bottom card
+  - Tombol "Pesan Ojek" di bottom
+- Peta menampilkan:
+  - Marker hijau (jemput) + marker merah (tujuan)
+  - Garis dashed antara keduanya
+  - Marker motor untuk driver terdekat yang online (query `couriers` yang `is_available`)
+- Tidak ada multi-step wizard lagi — semua dalam 1 layar
+- Mobile-first, menggunakan `mobile-shell` wrapper
 
-### Bug 4: Courier Dashboard — `ride_requests` Count Query May Fail Silently (Low)
-**File:** `src/pages/CourierDashboardPage.tsx` (line 148-153)
-**Issue:** The query `ride_requests` with `status = 'SEARCHING'` requires the courier to be approved+active+available per RLS. If the courier just logged in and `is_available` is false, the RLS policy blocks the SELECT, silently returning 0 instead of actual count. Not a crash bug but misleading data.
-**Fix:** This is by-design (RLS correctly gates it). No code change needed, just noting it.
+### 4. Tidak ada penyimpanan lokasi user di database
+- Konfirmasi: Semua lokasi berbasis GPS real-time
+- `CourierLocationUpdater` sudah benar: broadcast via WebSocket, checkpoint ke DB tiap 30 detik (ini lokasi kurir, bukan user)
+- Lokasi penumpang hanya dikirim saat submit `ride_requests` (pickup_lat/lng) — tidak disimpan permanen
 
-### Bug 5: `feature_collector.js` Deprecated Parameter Warning (Low)
-**Issue:** This is from a third-party library (likely `lovable-tagger`). Not controllable from app code.
-**Fix:** No action needed.
+## Detail Teknis
 
----
+### Index.tsx — Perubahan categories section
+```text
+Sebelum: [Kuliner] [Fashion] [Kriya] [Wisata]
+         ┌─────────────────────────────┐
+         │ 🏍 Ojek Desa                │  ← card besar, dihapus
+         │ Pesan ojek antar lokasi   > │
+         └─────────────────────────────┘
 
-## Implementation Plan
+Sesudah: [Kuliner] [Fashion] [Kriya] [Wisata] [Ojek]  ← icon kecil sejajar
+         
+         ┌─ Driver Terdekat ──────────┐
+         │ [peta mini 180px]          │  ← section baru
+         │ 🟢 3 driver aktif          │
+         └────────────────────────────┘
+```
 
-### Fix 1: Silent `getSettingByKey` for missing keys
-**File:** `src/lib/adminApi.ts`
-- Change line 388: only `console.error` when `error` is truthy
-- Return `null` without logging when data is simply missing
+### RideBookingPage.tsx — Layout baru
+```text
+┌──────────────────────────┐
+│  ← Ojek Desa        [GPS]│  ← header compact
+│                           │
+│   ┌─────────────────┐    │
+│   │                 │    │
+│   │   PETA BESAR    │    │
+│   │  🟢jemput       │    │
+│   │       ---- 🔴tujuan  │
+│   │  🏍 🏍 (driver) │    │
+│   │                 │    │
+│   └─────────────────┘    │
+│                           │
+│ ┌───────────────────────┐│
+│ │ 📍 Lokasi saya        ││ ← bottom card
+│ │ 📌 Pilih tujuan...    ││
+│ │                       ││
+│ │ Jarak: 3.2 km         ││
+│ │ Estimasi: Rp 14.600   ││
+│ │ [  🏍 Pesan Ojek    ] ││
+│ └───────────────────────┘│
+└──────────────────────────┘
+```
 
-### Fix 2: Remove broken `corsproxy.io` fallback
-**File:** `src/lib/addressApi.ts`
-- Remove `fetchViaCorsProxy2` function
-- Remove its usage from `fetchWithFallbacks`
-
-### Fix 3: Delete unused `locationService.ts`
-**File:** `src/services/locationService.ts`
-- Delete the file (confirmed zero imports)
-
-Total: 3 files modified, 1 file deleted.
+### File yang diubah:
+1. `src/pages/Index.tsx` — Ojek jadi icon kategori + section driver terdekat
+2. `src/pages/ride/RideBookingPage.tsx` — Redesign total single-page map-first
 

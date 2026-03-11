@@ -172,17 +172,6 @@ async function fetchViaCorsProxy(url: string, signal?: AbortSignal): Promise<Res
   return null;
 }
 
-async function fetchViaCorsProxy2(url: string, signal?: AbortSignal): Promise<Response | null> {
-  try {
-    const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(url)}`;
-    const response = await fetch(proxyUrl, { signal });
-    if (response.ok) return response;
-  } catch (error) {
-    if ((error as Error).name === 'AbortError') throw error;
-    console.warn('CORS proxy 2 fetch failed:', error);
-  }
-  return null;
-}
 
 async function fetchViaEmsifa(type: string, code: string | undefined, signal?: AbortSignal): Promise<Region[]> {
   let url: string;
@@ -237,7 +226,6 @@ async function fetchWithFallbacks(type: string, code?: string): Promise<Region[]
       mustSucceed(() => fetchDirect(url, signal)),
       mustSucceed(() => fetchViaEdgeFunction(type, code, signal)),
       mustSucceed(() => fetchViaCorsProxy(url, signal)),
-      mustSucceed(() => fetchViaCorsProxy2(url, signal)),
     ];
 
     // Parse wilayah.id responses into Region[]
