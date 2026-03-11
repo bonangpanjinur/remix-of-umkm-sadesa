@@ -1,65 +1,87 @@
 
 
-# Plan: Consolidated Main SQL Migration File
+# Rencana Perbaikan: Ojek Desa UI + Homepage Integration
 
-## Overview
-Create a single `supabase/main_migration.sql` file that consolidates the entire database schema from `COMPLETE_DATABASE.md` plus 6 missing tables and several missing functions from later migrations. The file will be fully idempotent — safe to run on both fresh and existing databases.
+## Perubahan yang Akan Dilakukan
 
-## What's Being Consolidated
+### 1. Homepage — Ojek Desa jadi icon kategori (bukan card besar)
+**File**: `src/pages/Index.tsx`
+- Hapus block `<Link to="/ride">` card besar Ojek Desa (baris 116-125)
+- Tambahkan Ojek Desa sebagai item icon kategori di baris yang sama dengan Kuliner, Fashion, dll
+- Ukuran sama: `w-12 h-12` rounded icon + label di bawah, menggunakan `Bike` icon
+- Warna: `bg-emerald-100 text-emerald-700 border-emerald-200`
 
-**Base:** `COMPLETE_DATABASE.md` (54 tables, ~60 functions, ~120 RLS policies, triggers, storage, realtime, default data)
+### 2. Homepage — Tambah section "Driver Terdekat" dengan peta mini
+**File**: `src/pages/Index.tsx`
+- Tambah section baru setelah categories yang menampilkan peta kecil dengan marker driver/kurir terdekat yang sedang online (data dari tabel `couriers` yang `is_available=true` dan punya `current_lat/lng`)
+- Peta menggunakan `CourierMap` dengan `showAllCouriers={true}` dan height kecil (`180px`)
+- Label: "Driver Terdekat" dengan badge jumlah driver aktif
+- Ini murni GPS-based — tidak simpan lokasi user, hanya query posisi kurir yang sudah di-broadcast/checkpoint oleh `CourierLocationUpdater`
 
-**Missing from COMPLETE_DATABASE.md (added via later migrations):**
-- Tables: `ride_requests`, `merchant_gallery`, `courier_deposits`, `courier_balance_logs`, `merchant_favorites`
-- Functions: `is_chat_participant()`, `set_chat_auto_delete()`, `cleanup_expired_chats()`, `accept_ride()`, `approve_quota_subscription()`, `reject_quota_subscription()`
-- Additional app_settings: `ride_fare_settings`, `courier_minimum_balance`
-- Additional realtime: `ride_requests`, `courier_deposits`, `courier_balance_logs`, `chat_messages`
+### 3. Ojek Desa — Redesign halaman booking (modern, single-page)
+**File**: `src/pages/ride/RideBookingPage.tsx` — rewrite total
+- Layout baru: **Peta fullscreen** sebagai background utama (seperti Grab/Gojek)
+- Bottom sheet / overlay card untuk input:
+  - Dua input field stacked: "Titik Jemput" (auto-fill GPS) dan "Titik Tujuan" (tap peta)
+  - Mode toggle: sedang pilih jemput atau tujuan
+  - Saat kedua titik terpilih, otomatis tampilkan estimasi jarak + tarif di bottom card
+  - Tombol "Pesan Ojek" di bottom
+- Peta menampilkan:
+  - Marker hijau (jemput) + marker merah (tujuan)
+  - Garis dashed antara keduanya
+  - Marker motor untuk driver terdekat yang online (query `couriers` yang `is_available`)
+- Tidak ada multi-step wizard lagi — semua dalam 1 layar
+- Mobile-first, menggunakan `mobile-shell` wrapper
 
-## Idempotency Strategy
+### 4. Tidak ada penyimpanan lokasi user di database
+- Konfirmasi: Semua lokasi berbasis GPS real-time
+- `CourierLocationUpdater` sudah benar: broadcast via WebSocket, checkpoint ke DB tiap 30 detik (ini lokasi kurir, bukan user)
+- Lokasi penumpang hanya dikirim saat submit `ride_requests` (pickup_lat/lng) — tidak disimpan permanen
 
-Every object uses error-safe patterns:
-- **Enums:** `DO $$ BEGIN CREATE TYPE ... EXCEPTION WHEN duplicate_object THEN NULL; END $$;`
-- **Tables:** `CREATE TABLE IF NOT EXISTS`
-- **Columns:** `ALTER TABLE ADD COLUMN IF NOT EXISTS` (wrapped in DO blocks)
-- **Indexes:** `CREATE INDEX IF NOT EXISTS`
-- **Functions:** `CREATE OR REPLACE FUNCTION`
-- **Policies:** Bulk `DROP POLICY IF EXISTS` loop first, then recreate all
-- **Triggers:** `DROP TRIGGER IF EXISTS` before each `CREATE TRIGGER`
-- **FK Constraints:** `DO $$ BEGIN ALTER TABLE ... EXCEPTION WHEN duplicate_object THEN NULL; END $$;`
-- **Storage Buckets:** `ON CONFLICT (id) DO NOTHING`
-- **Realtime:** `DO $$ BEGIN ALTER PUBLICATION ... EXCEPTION WHEN duplicate_object THEN NULL; END $$;`
-- **Default Data:** `ON CONFLICT DO NOTHING` or `ON CONFLICT DO UPDATE`
+## Detail Teknis
 
-## File Structure
-
+### Index.tsx — Perubahan categories section
 ```text
-supabase/main_migration.sql
-├── BAGIAN 1: Extensions & Enum Types
-├── BAGIAN 2: Utility Functions
-├── BAGIAN 3: Core Tables (59 tables)
-│   ├── 3.1-3.54 (from COMPLETE_DATABASE.md)
-│   ├── 3.55 ride_requests
-│   ├── 3.56 merchant_gallery
-│   ├── 3.57 courier_deposits
-│   ├── 3.58 courier_balance_logs
-│   └── 3.59 merchant_favorites
-├── BAGIAN 4: Indexes
-├── BAGIAN 5: Views
-├── BAGIAN 6: Functions (~30 functions)
-│   ├── Role checking (has_role, is_admin, etc.)
-│   ├── Entity lookup (get_user_merchant_id, etc.)
-│   ├── Business logic (quota, COD, voucher, etc.)
-│   ├── Chat (is_chat_participant, cleanup, auto_delete)
-│   ├── Ride (accept_ride)
-│   └── Admin RPCs (approve/reject_quota_subscription)
-├── BAGIAN 7: Enable RLS (all 59 tables)
-├── BAGIAN 8: RLS Policies (drop all → recreate all)
-├── BAGIAN 9: Triggers
-├── BAGIAN 10: Storage Buckets
-├── BAGIAN 11: Realtime Publications
-└── BAGIAN 12: Default Data (categories, tiers, settings)
+Sebelum: [Kuliner] [Fashion] [Kriya] [Wisata]
+         ┌─────────────────────────────┐
+         │ 🏍 Ojek Desa                │  ← card besar, dihapus
+         │ Pesan ojek antar lokasi   > │
+         └─────────────────────────────┘
+
+Sesudah: [Kuliner] [Fashion] [Kriya] [Wisata] [Ojek]  ← icon kecil sejajar
+         
+         ┌─ Driver Terdekat ──────────┐
+         │ [peta mini 180px]          │  ← section baru
+         │ 🟢 3 driver aktif          │
+         └────────────────────────────┘
 ```
 
-## Implementation
-One new file: `supabase/main_migration.sql` (~2200 lines). This replaces the need to reference `COMPLETE_DATABASE.md`, `complete_migration_v5.sql`, or any individual migration files. The existing files will remain untouched for history.
+### RideBookingPage.tsx — Layout baru
+```text
+┌──────────────────────────┐
+│  ← Ojek Desa        [GPS]│  ← header compact
+│                           │
+│   ┌─────────────────┐    │
+│   │                 │    │
+│   │   PETA BESAR    │    │
+│   │  🟢jemput       │    │
+│   │       ---- 🔴tujuan  │
+│   │  🏍 🏍 (driver) │    │
+│   │                 │    │
+│   └─────────────────┘    │
+│                           │
+│ ┌───────────────────────┐│
+│ │ 📍 Lokasi saya        ││ ← bottom card
+│ │ 📌 Pilih tujuan...    ││
+│ │                       ││
+│ │ Jarak: 3.2 km         ││
+│ │ Estimasi: Rp 14.600   ││
+│ │ [  🏍 Pesan Ojek    ] ││
+│ └───────────────────────┘│
+└──────────────────────────┘
+```
+
+### File yang diubah:
+1. `src/pages/Index.tsx` — Ojek jadi icon kategori + section driver terdekat
+2. `src/pages/ride/RideBookingPage.tsx` — Redesign total single-page map-first
 
