@@ -226,7 +226,6 @@ async function fetchWithFallbacks(type: string, code?: string): Promise<Region[]
       mustSucceed(() => fetchDirect(url, signal)),
       mustSucceed(() => fetchViaEdgeFunction(type, code, signal)),
       mustSucceed(() => fetchViaCorsProxy(url, signal)),
-      mustSucceed(() => fetchViaCorsProxy2(url, signal)),
     ];
 
     // Parse wilayah.id responses into Region[]
