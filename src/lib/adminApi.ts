@@ -385,10 +385,11 @@ export async function getSettingByKey(key: string): Promise<AppSetting | null> {
     .eq('key', key)
     .maybeSingle();
 
-  if (error || !data) {
+  if (error) {
     console.error('Error fetching setting:', error);
     return null;
   }
+  if (!data) return null;
 
   return {
     id: data.id,
