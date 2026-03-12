@@ -36,6 +36,12 @@ export function useRealtimeOrders({
 }: UseRealtimeOrdersOptions) {
   const [orders, setOrders] = useState<OrderRow[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  const onNewOrderRef = useRef(onNewOrder);
+  const onOrderUpdateRef = useRef(onOrderUpdate);
+  
+  useEffect(() => { onNewOrderRef.current = onNewOrder; }, [onNewOrder]);
+  useEffect(() => { onOrderUpdateRef.current = onOrderUpdate; }, [onOrderUpdate]);
 
   const fetchOrders = useCallback(async () => {
     if (!merchantId) {
