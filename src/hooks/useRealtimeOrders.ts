@@ -96,11 +96,11 @@ export function useRealtimeOrders({
             description: `Pesanan dari ${newOrder.delivery_name || 'Pelanggan'}`,
             action: {
               label: 'Lihat',
-              onClick: () => onNewOrder?.(newOrder),
+              onClick: () => onNewOrderRef.current?.(newOrder),
             },
           });
           
-          onNewOrder?.(newOrder);
+          onNewOrderRef.current?.(newOrder);
         }
       )
       .on(
