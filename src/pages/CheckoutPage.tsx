@@ -77,7 +77,7 @@ export default function CheckoutPage() {
     isXenditEnabled().then(setXenditAvailable);
     fetchCODSettings().then(setCodSettings);
     // Load admin shipping settings
-    supabase.from('app_settings').select('value').eq('key', 'shipping_base_fee').single().then(({ data }) => {
+    supabase.from('app_settings').select('value').eq('key', 'shipping_base_fee').maybeSingle().then(({ data }) => {
       if (data?.value) {
         const v = data.value as Record<string, number>;
         setShippingSettings({

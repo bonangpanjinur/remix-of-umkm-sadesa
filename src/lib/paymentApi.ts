@@ -72,7 +72,7 @@ export async function isXenditEnabled(): Promise<boolean> {
     .from('app_settings')
     .select('value')
     .eq('key', 'payment_xendit')
-    .single();
+    .maybeSingle();
 
   if (error || !data) {
     return false;

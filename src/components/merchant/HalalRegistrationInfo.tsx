@@ -24,7 +24,7 @@ export function HalalRegistrationInfo({ onStatusChange }: HalalRegistrationInfoP
         .select('content')
         .order('updated_at', { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
       
       if (data) {
         setRegulation(data.content);

@@ -271,7 +271,7 @@ export default function RegisterMerchantPage() {
         .select('*')
         .eq('code', code.toUpperCase())
         .eq('is_active', true)
-        .single();
+        .maybeSingle();
 
       if (error || !data) {
         setReferralInfo({ isValid: false, tradeGroup: '', description: '', isLoading: false });
