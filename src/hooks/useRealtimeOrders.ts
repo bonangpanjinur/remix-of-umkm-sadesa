@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -36,6 +36,12 @@ export function useRealtimeOrders({
 }: UseRealtimeOrdersOptions) {
   const [orders, setOrders] = useState<OrderRow[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  const onNewOrderRef = useRef(onNewOrder);
+  const onOrderUpdateRef = useRef(onOrderUpdate);
+  
+  useEffect(() => { onNewOrderRef.current = onNewOrder; }, [onNewOrder]);
+  useEffect(() => { onOrderUpdateRef.current = onOrderUpdate; }, [onOrderUpdate]);
 
   const fetchOrders = useCallback(async () => {
     if (!merchantId) {
@@ -90,11 +96,11 @@ export function useRealtimeOrders({
             description: `Pesanan dari ${newOrder.delivery_name || 'Pelanggan'}`,
             action: {
               label: 'Lihat',
-              onClick: () => onNewOrder?.(newOrder),
+              onClick: () => onNewOrderRef.current?.(newOrder),
             },
           });
           
-          onNewOrder?.(newOrder);
+          onNewOrderRef.current?.(newOrder);
         }
       )
       .on(
@@ -113,7 +119,7 @@ export function useRealtimeOrders({
             )
           );
           
-          onOrderUpdate?.(updatedOrder);
+          onOrderUpdateRef.current?.(updatedOrder);
         }
       )
       .subscribe();
@@ -121,7 +127,7 @@ export function useRealtimeOrders({
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [merchantId, onNewOrder, onOrderUpdate]);
+  }, [merchantId]);
 
   const updateOrderStatus = async (orderId: string, newStatus: string, reason?: string) => {
     try {

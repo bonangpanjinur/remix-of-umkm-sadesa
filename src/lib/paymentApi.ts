@@ -46,12 +46,6 @@ export async function createPaymentInvoice(request: CreatePaymentRequest): Promi
  * Check payment status for an invoice
  */
 export async function checkPaymentStatus(invoiceId: string): Promise<PaymentStatus> {
-  const { data, error } = await supabase.functions.invoke('xendit-payment/check-status', {
-    body: {},
-    headers: {},
-  });
-
-  // Use query params for GET-like requests
   const response = await fetch(
     `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/xendit-payment/check-status?invoice_id=${invoiceId}`,
     {
@@ -78,7 +72,7 @@ export async function isXenditEnabled(): Promise<boolean> {
     .from('app_settings')
     .select('value')
     .eq('key', 'payment_xendit')
-    .single();
+    .maybeSingle();
 
   if (error || !data) {
     return false;
