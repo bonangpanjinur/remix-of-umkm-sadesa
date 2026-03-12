@@ -119,7 +119,7 @@ export function useRealtimeOrders({
             )
           );
           
-          onOrderUpdate?.(updatedOrder);
+          onOrderUpdateRef.current?.(updatedOrder);
         }
       )
       .subscribe();
@@ -127,7 +127,7 @@ export function useRealtimeOrders({
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [merchantId, onNewOrder, onOrderUpdate]);
+  }, [merchantId]);
 
   const updateOrderStatus = async (orderId: string, newStatus: string, reason?: string) => {
     try {
