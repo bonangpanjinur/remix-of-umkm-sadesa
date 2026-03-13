@@ -1,87 +1,62 @@
 
 
-# Rencana Perbaikan: Ojek Desa UI + Homepage Integration
+# Analisis Bug & Rencana Perbaikan
 
-## Perubahan yang Akan Dilakukan
+## Bug yang Ditemukan
 
-### 1. Homepage — Ojek Desa jadi icon kategori (bukan card besar)
-**File**: `src/pages/Index.tsx`
-- Hapus block `<Link to="/ride">` card besar Ojek Desa (baris 116-125)
-- Tambahkan Ojek Desa sebagai item icon kategori di baris yang sama dengan Kuliner, Fashion, dll
-- Ukuran sama: `w-12 h-12` rounded icon + label di bawah, menggunakan `Bike` icon
-- Warna: `bg-emerald-100 text-emerald-700 border-emerald-200`
+### BUG 1: `.single()` pada `app_settings` di PaymentConfirmationPage (MEDIUM)
+**File:** `src/pages/PaymentConfirmationPage.tsx` (line 89)
+Menggunakan `.single()` untuk mengambil `admin_payment_info` dari `app_settings`. Jika key ini belum ada, akan throw PGRST116 error dan menghentikan loading informasi pembayaran.
+**Fix:** Ganti `.single()` → `.maybeSingle()`.
 
-### 2. Homepage — Tambah section "Driver Terdekat" dengan peta mini
-**File**: `src/pages/Index.tsx`
-- Tambah section baru setelah categories yang menampilkan peta kecil dengan marker driver/kurir terdekat yang sedang online (data dari tabel `couriers` yang `is_available=true` dan punya `current_lat/lng`)
-- Peta menggunakan `CourierMap` dengan `showAllCouriers={true}` dan height kecil (`180px`)
-- Label: "Driver Terdekat" dengan badge jumlah driver aktif
-- Ini murni GPS-based — tidak simpan lokasi user, hanya query posisi kurir yang sudah di-broadcast/checkpoint oleh `CourierLocationUpdater`
+### BUG 2: `.single()` pada `app_settings` di CheckoutPage (MEDIUM)
+**File:** `src/pages/CheckoutPage.tsx` (line 241)
+Query `admin_payment_info` menggunakan `.single()` — jika belum diisi admin, checkout akan error.
+**Fix:** Ganti `.single()` → `.maybeSingle()`.
 
-### 3. Ojek Desa — Redesign halaman booking (modern, single-page)
-**File**: `src/pages/ride/RideBookingPage.tsx` — rewrite total
-- Layout baru: **Peta fullscreen** sebagai background utama (seperti Grab/Gojek)
-- Bottom sheet / overlay card untuk input:
-  - Dua input field stacked: "Titik Jemput" (auto-fill GPS) dan "Titik Tujuan" (tap peta)
-  - Mode toggle: sedang pilih jemput atau tujuan
-  - Saat kedua titik terpilih, otomatis tampilkan estimasi jarak + tarif di bottom card
-  - Tombol "Pesan Ojek" di bottom
-- Peta menampilkan:
-  - Marker hijau (jemput) + marker merah (tujuan)
-  - Garis dashed antara keduanya
-  - Marker motor untuk driver terdekat yang online (query `couriers` yang `is_available`)
-- Tidak ada multi-step wizard lagi — semua dalam 1 layar
-- Mobile-first, menggunakan `mobile-shell` wrapper
+### BUG 3: `.single()` pada `merchants` di CheckoutPage (LOW)
+**File:** `src/pages/CheckoutPage.tsx` (line 220)
+Query merchant by ID menggunakan `.single()`. Ini aman karena ID pasti unik, tapi jika merchant dihapus sementara ada item di cart, akan crash. Lebih aman pakai `.maybeSingle()` dengan guard.
+**Fix:** Ganti `.single()` → `.maybeSingle()` dan tambah guard.
 
-### 4. Tidak ada penyimpanan lokasi user di database
-- Konfirmasi: Semua lokasi berbasis GPS real-time
-- `CourierLocationUpdater` sudah benar: broadcast via WebSocket, checkpoint ke DB tiap 30 detik (ini lokasi kurir, bukan user)
-- Lokasi penumpang hanya dikirim saat submit `ride_requests` (pickup_lat/lng) — tidak disimpan permanen
+### BUG 4: `.single()` pada `OrdersPage.handleContactSeller` (LOW)
+**File:** `src/pages/OrdersPage.tsx` (line 430)
+Fetch merchant `user_id` pakai `.single()`. Jika merchant dihapus, akan error.
+**Fix:** Ganti `.single()` → `.maybeSingle()`.
 
-## Detail Teknis
+### BUG 5: `WishlistPage.handleAddToCart` — Missing `isAvailable` Property (MEDIUM)
+**File:** `src/pages/buyer/WishlistPage.tsx` (lines 161-172)
+Objek yang dikirim ke `addToCart()` tidak menyertakan `isAvailable: true`. Walau saat ini `isAvailable === false` (bukan `undefined`) yang dicek, ini bisa menyebabkan masalah di masa depan jika guard diperketat.
+**Fix:** Tambahkan `isAvailable: true` dan `isMerchantOpen: true` ke objek product.
 
-### Index.tsx — Perubahan categories section
-```text
-Sebelum: [Kuliner] [Fashion] [Kriya] [Wisata]
-         ┌─────────────────────────────┐
-         │ 🏍 Ojek Desa                │  ← card besar, dihapus
-         │ Pesan ojek antar lokasi   > │
-         └─────────────────────────────┘
+### BUG 6: `MerchantGroupCard` — `.single()` pada merchant lookup (LOW)
+**File:** `src/components/merchant/MerchantGroupCard.tsx` (line 225)
+Lookup merchant by `user_id` pakai `.single()` — aman di kasus normal tapi bisa crash jika merchant belum diregistrasi.
+**Fix:** Ganti `.single()` → `.maybeSingle()`.
 
-Sesudah: [Kuliner] [Fashion] [Kriya] [Wisata] [Ojek]  ← icon kecil sejajar
-         
-         ┌─ Driver Terdekat ──────────┐
-         │ [peta mini 180px]          │  ← section baru
-         │ 🟢 3 driver aktif          │
-         └────────────────────────────┘
-```
+### BUG 7: `codSecurity` — `.single()` pada profiles (MEDIUM)
+**File:** `src/lib/codSecurity.ts` (lines 231, 275)
+Fungsi `recordCODFailure` dan `checkCODEligibility` pakai `.single()` pada profiles. Jika profil belum dibuat (edge case), akan crash.
+**Fix:** Ganti `.single()` → `.maybeSingle()` dan tambah early return.
 
-### RideBookingPage.tsx — Layout baru
-```text
-┌──────────────────────────┐
-│  ← Ojek Desa        [GPS]│  ← header compact
-│                           │
-│   ┌─────────────────┐    │
-│   │                 │    │
-│   │   PETA BESAR    │    │
-│   │  🟢jemput       │    │
-│   │       ---- 🔴tujuan  │
-│   │  🏍 🏍 (driver) │    │
-│   │                 │    │
-│   └─────────────────┘    │
-│                           │
-│ ┌───────────────────────┐│
-│ │ 📍 Lokasi saya        ││ ← bottom card
-│ │ 📌 Pilih tujuan...    ││
-│ │                       ││
-│ │ Jarak: 3.2 km         ││
-│ │ Estimasi: Rp 14.600   ││
-│ │ [  🏍 Pesan Ojek    ] ││
-│ └───────────────────────┘│
-└──────────────────────────┘
-```
+---
 
-### File yang diubah:
-1. `src/pages/Index.tsx` — Ojek jadi icon kategori + section driver terdekat
-2. `src/pages/ride/RideBookingPage.tsx` — Redesign total single-page map-first
+## Rencana Implementasi
+
+### Prioritas 1: Fix `.single()` pada payment flows (Bug 1-2)
+- `src/pages/PaymentConfirmationPage.tsx` line 89: `.single()` → `.maybeSingle()`
+- `src/pages/CheckoutPage.tsx` line 241: `.single()` → `.maybeSingle()`
+
+### Prioritas 2: Fix `.single()` pada checkout & order contact (Bug 3-4)
+- `src/pages/CheckoutPage.tsx` line 220: `.single()` → `.maybeSingle()` + guard
+- `src/pages/OrdersPage.tsx` line 430: `.single()` → `.maybeSingle()`
+
+### Prioritas 3: Fix missing product properties di WishlistPage (Bug 5)
+- `src/pages/buyer/WishlistPage.tsx` lines 161-172: Tambah `isAvailable`, `isMerchantOpen`, `hasQuota`
+
+### Prioritas 4: Fix `.single()` pada merchant & COD (Bug 6-7)
+- `src/components/merchant/MerchantGroupCard.tsx` line 225: `.single()` → `.maybeSingle()`
+- `src/lib/codSecurity.ts` lines 231, 275: `.single()` → `.maybeSingle()` + early return
+
+**Total: 6 file diubah, 0 file dihapus, 0 migrasi database**
 
