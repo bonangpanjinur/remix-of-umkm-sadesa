@@ -370,11 +370,18 @@ export default function RideTrackingPage() {
                   <p className="font-bold">{driver.name}</p>
                   <p className="text-sm text-muted-foreground">{driver.vehicle_type === 'motor' ? 'Motor' : driver.vehicle_type} {driver.vehicle_plate && `• ${driver.vehicle_plate}`}</p>
                 </div>
-                <a href={`tel:${driver.phone}`}>
-                  <Button size="icon" variant="outline">
-                    <Phone className="h-4 w-4" />
-                  </Button>
-                </a>
+                <div className="flex gap-2">
+                  {driverUserId && ['ACCEPTED', 'PICKED_UP', 'IN_TRANSIT'].includes(ride.status) && (
+                    <Button size="icon" variant="outline" onClick={() => setChatOpen(true)}>
+                      <MessageCircle className="h-4 w-4" />
+                    </Button>
+                  )}
+                  <a href={`tel:${driver.phone}`}>
+                    <Button size="icon" variant="outline">
+                      <Phone className="h-4 w-4" />
+                    </Button>
+                  </a>
+                </div>
               </div>
             </Card>
           </motion.div>
