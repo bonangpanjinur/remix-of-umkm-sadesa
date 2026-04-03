@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { TrendingUp, TrendingDown, ShoppingCart, DollarSign, Clock } from 'lucide-react';
+import { TrendingUp, TrendingDown, ShoppingCart, DollarSign, Clock, Download } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { formatPrice } from '@/lib/utils';
 
