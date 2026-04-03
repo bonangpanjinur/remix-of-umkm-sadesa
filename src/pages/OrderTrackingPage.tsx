@@ -234,7 +234,7 @@ export default function OrderTrackingPage() {
         </div>
       </div>
 
-      <div className="max-w-lg mx-auto p-4 space-y-4">
+        <div className="max-w-lg mx-auto p-4 space-y-4">
         {/* Delivery Status Card */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -250,6 +250,32 @@ export default function OrderTrackingPage() {
             }}
           />
         </motion.div>
+
+        {/* ETA Card */}
+        {etaInfo && ['ASSIGNED', 'PICKED_UP', 'SENT', 'DELIVERING'].includes(order.status) && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.05 }}
+            className="bg-card rounded-2xl p-4 border border-border"
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
+                  <Clock className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Estimasi Tiba</p>
+                  <p className="text-lg font-bold text-primary">{etaInfo.etaFormatted}</p>
+                </div>
+              </div>
+              <div className="text-right">
+                <p className="text-xs text-muted-foreground">Jarak</p>
+                <p className="text-sm font-medium">{etaInfo.distanceFormatted}</p>
+              </div>
+            </div>
+          </motion.div>
+        )}
 
         {/* Courier Info */}
         {courier && !order.is_self_delivery && (
