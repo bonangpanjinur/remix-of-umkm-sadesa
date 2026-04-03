@@ -23,6 +23,7 @@ import { toast } from 'sonner';
 import { RefundRequestDialog } from '@/components/order/RefundRequestDialog';
 import { OrderChat, ChatType } from '@/components/chat/OrderChat';
 import { CourierMap } from '@/components/CourierMap';
+import { getDeliveryEstimate, type VehicleType } from '@/lib/etaCalculation';
 
 interface OrderDetails {
   id: string;
