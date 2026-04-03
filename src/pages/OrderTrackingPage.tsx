@@ -13,7 +13,8 @@ import {
   RotateCcw,
   MessageCircle,
   Store,
-  ShoppingBag
+  ShoppingBag,
+  Clock
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { DeliveryStatusCard } from '@/components/courier/DeliveryStatusCard';
