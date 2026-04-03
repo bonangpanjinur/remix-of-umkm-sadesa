@@ -81,7 +81,13 @@ export function DailySummaryCard({ merchantId }: DailySummaryCardProps) {
   return (
     <Card className="bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
       <CardContent className="pt-6">
-        <div className="grid grid-cols-3 gap-4">
+        <div className="flex justify-between items-start mb-3">
+          <h3 className="text-sm font-medium text-muted-foreground">Ringkasan Hari Ini</h3>
+          <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={exportCSV}>
+            <Download className="h-3 w-3 mr-1" />
+            Export
+          </Button>
+        </div>
           <div>
             <div className="flex items-center gap-1 mb-1">
               <DollarSign className="h-4 w-4 text-primary" />
