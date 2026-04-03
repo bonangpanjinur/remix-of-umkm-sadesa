@@ -98,8 +98,25 @@ export default function OrderTrackingPage() {
         )
         .subscribe();
 
+      // Subscribe to courier broadcast for live ETA
+      const etaChannel = supabase.channel(`eta-tracking-${orderId}`);
+      etaChannel
+        .on('broadcast', { event: 'location-update' }, (payload) => {
+          const loc = payload.payload as { lat: number; lng: number };
+          if (loc.lat && loc.lng && order?.delivery_lat && order?.delivery_lng) {
+            const estimate = getDeliveryEstimate(
+              { lat: loc.lat, lng: loc.lng },
+              { lat: order.delivery_lat, lng: order.delivery_lng },
+              (courier?.vehicle_type as VehicleType) || 'motor'
+            );
+            setEtaInfo({ etaFormatted: estimate.etaFormatted, distanceFormatted: estimate.distanceFormatted });
+          }
+        })
+        .subscribe();
+
       return () => {
         supabase.removeChannel(channel);
+        supabase.removeChannel(etaChannel);
       };
     } else if (!authLoading && !user) {
       navigate('/auth');
