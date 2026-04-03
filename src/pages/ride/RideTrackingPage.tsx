@@ -527,6 +527,17 @@ export default function RideTrackingPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {/* Chat with driver */}
+      {chatOpen && driverUserId && ride && id && (
+        <OrderChat
+          orderId={id}
+          otherUserId={driverUserId}
+          otherUserName={driver?.name || 'Driver'}
+          chatType="buyer_courier"
+          isOpen={chatOpen}
+          onClose={() => setChatOpen(false)}
+        />
+      )}
       <BottomNav />
     </div>
   );

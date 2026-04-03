@@ -157,8 +157,9 @@ export default function CourierEarningsPage() {
           <Tabs defaultValue="all" className="w-full">
             <TabsList className="w-full">
               <TabsTrigger value="all" className="flex-1">Semua</TabsTrigger>
+              <TabsTrigger value="delivery" className="flex-1">Delivery</TabsTrigger>
+              <TabsTrigger value="ride" className="flex-1">Ojek</TabsTrigger>
               <TabsTrigger value="pending" className="flex-1">Pending</TabsTrigger>
-              <TabsTrigger value="paid" className="flex-1">Dibayar</TabsTrigger>
             </TabsList>
 
             <TabsContent value="all" className="mt-4 space-y-3">
@@ -169,11 +170,14 @@ export default function CourierEarningsPage() {
                 </div>
               ) : earnings.map(e => <EarningCard key={e.id} earning={e} />)}
             </TabsContent>
+            <TabsContent value="delivery" className="mt-4 space-y-3">
+              {earnings.filter(e => e.type === 'DELIVERY').length === 0 ? <p className="text-center py-8 text-muted-foreground">Tidak ada pendapatan delivery</p> : earnings.filter(e => e.type === 'DELIVERY').map(e => <EarningCard key={e.id} earning={e} />)}
+            </TabsContent>
+            <TabsContent value="ride" className="mt-4 space-y-3">
+              {earnings.filter(e => e.type === 'RIDE').length === 0 ? <p className="text-center py-8 text-muted-foreground">Tidak ada pendapatan ojek</p> : earnings.filter(e => e.type === 'RIDE').map(e => <EarningCard key={e.id} earning={e} />)}
+            </TabsContent>
             <TabsContent value="pending" className="mt-4 space-y-3">
               {pendingEarnings.length === 0 ? <p className="text-center py-8 text-muted-foreground">Tidak ada pending</p> : pendingEarnings.map(e => <EarningCard key={e.id} earning={e} />)}
-            </TabsContent>
-            <TabsContent value="paid" className="mt-4 space-y-3">
-              {paidEarnings.length === 0 ? <p className="text-center py-8 text-muted-foreground">Belum ada pembayaran</p> : paidEarnings.map(e => <EarningCard key={e.id} earning={e} />)}
             </TabsContent>
           </Tabs>
         </motion.div>
