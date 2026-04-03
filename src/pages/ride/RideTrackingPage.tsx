@@ -88,6 +88,8 @@ export default function RideTrackingPage() {
   const [ratingComment, setRatingComment] = useState('');
   const [submittingRating, setSubmittingRating] = useState(false);
   const [searchCountdown, setSearchCountdown] = useState<number | null>(null);
+  const [chatOpen, setChatOpen] = useState(false);
+  const [driverUserId, setDriverUserId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user || !id) return;
