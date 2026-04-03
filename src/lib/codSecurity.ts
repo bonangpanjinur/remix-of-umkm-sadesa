@@ -228,7 +228,7 @@ export async function updateBuyerTrustScore(
       .from('profiles')
       .select('trust_score, cod_fail_count')
       .eq('user_id', buyerId)
-      .single();
+      .maybeSingle();
 
     if (!profile) return;
 
