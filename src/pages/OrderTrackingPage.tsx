@@ -179,12 +179,21 @@ export default function OrderTrackingPage() {
   const fetchCourierInfo = async (courierId: string) => {
     const { data: courierData, error: courierError } = await supabase
       .from('couriers')
-      .select('id, name, phone, vehicle_type')
+      .select('id, name, phone, vehicle_type, current_lat, current_lng')
       .eq('id', courierId)
       .maybeSingle();
 
     if (!courierError && courierData) {
       setCourier(courierData);
+      // Calculate initial ETA if courier has GPS and order has delivery coords
+      if (courierData.current_lat && courierData.current_lng && order?.delivery_lat && order?.delivery_lng) {
+        const estimate = getDeliveryEstimate(
+          { lat: Number(courierData.current_lat), lng: Number(courierData.current_lng) },
+          { lat: Number(order.delivery_lat), lng: Number(order.delivery_lng) },
+          (courierData.vehicle_type as VehicleType) || 'motor'
+        );
+        setEtaInfo({ etaFormatted: estimate.etaFormatted, distanceFormatted: estimate.distanceFormatted });
+      }
     }
   };
 
