@@ -64,6 +64,18 @@ export function DailySummaryCard({ merchantId }: DailySummaryCardProps) {
     ? ((todayRevenue - yesterdayRevenue) / yesterdayRevenue) * 100
     : todayRevenue > 0 ? 100 : 0;
 
+  const exportCSV = () => {
+    const today = new Date().toLocaleDateString('id-ID');
+    const csvContent = `Ringkasan Harian - ${today}\n\nMetrik,Nilai\nPendapatan Hari Ini,${todayRevenue}\nPendapatan Kemarin,${yesterdayRevenue}\nPerubahan (%),${percentChange.toFixed(1)}%\nJumlah Pesanan,${todayOrders}\nPesanan Menunggu,${pendingOrders}`;
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `ringkasan-harian-${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   if (loading) return null;
 
   return (
