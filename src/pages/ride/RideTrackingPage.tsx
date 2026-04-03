@@ -186,10 +186,13 @@ export default function RideTrackingPage() {
   const fetchDriver = async (driverId: string) => {
     const { data } = await supabase
       .from('couriers')
-      .select('name, phone, vehicle_type, vehicle_plate, photo_url')
+      .select('name, phone, vehicle_type, vehicle_plate, photo_url, user_id')
       .eq('id', driverId)
       .single();
-    if (data) setDriver(data);
+    if (data) {
+      setDriver(data);
+      if (data.user_id) setDriverUserId(data.user_id);
+    }
   };
 
   const handleCancelClick = () => {
