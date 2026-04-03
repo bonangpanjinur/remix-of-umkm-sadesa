@@ -111,8 +111,10 @@ export default function RideTrackingPage() {
         if (updated.status === 'ACCEPTED') {
           toast({ title: '🎉 Driver ditemukan!', description: 'Driver sedang menuju lokasi jemput Anda' });
         }
-        if (updated.status === 'COMPLETED') {
+        if (updated.status === 'COMPLETED' && !(updated as any).rating) {
           toast({ title: '✅ Perjalanan selesai!', description: 'Terima kasih telah menggunakan Ojek Desa' });
+          // Auto-show rating dialog after 2 seconds
+          setTimeout(() => setShowRatingDialog(true), 2000);
         }
       })
       .subscribe();
