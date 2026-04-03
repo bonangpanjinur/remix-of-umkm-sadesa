@@ -13,7 +13,8 @@ import {
   RotateCcw,
   MessageCircle,
   Store,
-  ShoppingBag
+  ShoppingBag,
+  Clock
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { DeliveryStatusCard } from '@/components/courier/DeliveryStatusCard';
@@ -23,6 +24,7 @@ import { toast } from 'sonner';
 import { RefundRequestDialog } from '@/components/order/RefundRequestDialog';
 import { OrderChat, ChatType } from '@/components/chat/OrderChat';
 import { CourierMap } from '@/components/CourierMap';
+import { getDeliveryEstimate, type VehicleType } from '@/lib/etaCalculation';
 
 interface OrderDetails {
   id: string;
@@ -67,6 +69,7 @@ export default function OrderTrackingPage() {
   const [merchantInfo, setMerchantInfo] = useState<{ userId: string; name: string } | null>(null);
   const [orderItems, setOrderItems] = useState<Array<{ id: string; product_name: string; quantity: number; product_price: number; subtotal: number; product_id: string | null; products?: { image_url: string | null } | null }>>([]);
   const courierRef = useRef<CourierInfo | null>(null);
+  const [etaInfo, setEtaInfo] = useState<{ etaFormatted: string; distanceFormatted: string } | null>(null);
 
   // Keep ref in sync
   useEffect(() => { courierRef.current = courier; }, [courier]);
@@ -95,8 +98,25 @@ export default function OrderTrackingPage() {
         )
         .subscribe();
 
+      // Subscribe to courier broadcast for live ETA
+      const etaChannel = supabase.channel(`eta-tracking-${orderId}`);
+      etaChannel
+        .on('broadcast', { event: 'location-update' }, (payload) => {
+          const loc = payload.payload as { lat: number; lng: number };
+          if (loc.lat && loc.lng && order?.delivery_lat && order?.delivery_lng) {
+            const estimate = getDeliveryEstimate(
+              { lat: loc.lat, lng: loc.lng },
+              { lat: order.delivery_lat, lng: order.delivery_lng },
+              (courier?.vehicle_type as VehicleType) || 'motor'
+            );
+            setEtaInfo({ etaFormatted: estimate.etaFormatted, distanceFormatted: estimate.distanceFormatted });
+          }
+        })
+        .subscribe();
+
       return () => {
         supabase.removeChannel(channel);
+        supabase.removeChannel(etaChannel);
       };
     } else if (!authLoading && !user) {
       navigate('/auth');
@@ -159,12 +179,21 @@ export default function OrderTrackingPage() {
   const fetchCourierInfo = async (courierId: string) => {
     const { data: courierData, error: courierError } = await supabase
       .from('couriers')
-      .select('id, name, phone, vehicle_type')
+      .select('id, name, phone, vehicle_type, current_lat, current_lng')
       .eq('id', courierId)
       .maybeSingle();
 
     if (!courierError && courierData) {
       setCourier(courierData);
+      // Calculate initial ETA if courier has GPS and order has delivery coords
+      if (courierData.current_lat && courierData.current_lng && order?.delivery_lat && order?.delivery_lng) {
+        const estimate = getDeliveryEstimate(
+          { lat: Number(courierData.current_lat), lng: Number(courierData.current_lng) },
+          { lat: Number(order.delivery_lat), lng: Number(order.delivery_lng) },
+          (courierData.vehicle_type as VehicleType) || 'motor'
+        );
+        setEtaInfo({ etaFormatted: estimate.etaFormatted, distanceFormatted: estimate.distanceFormatted });
+      }
     }
   };
 
@@ -232,7 +261,7 @@ export default function OrderTrackingPage() {
         </div>
       </div>
 
-      <div className="max-w-lg mx-auto p-4 space-y-4">
+        <div className="max-w-lg mx-auto p-4 space-y-4">
         {/* Delivery Status Card */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -248,6 +277,32 @@ export default function OrderTrackingPage() {
             }}
           />
         </motion.div>
+
+        {/* ETA Card */}
+        {etaInfo && ['ASSIGNED', 'PICKED_UP', 'SENT', 'DELIVERING'].includes(order.status) && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.05 }}
+            className="bg-card rounded-2xl p-4 border border-border"
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
+                  <Clock className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Estimasi Tiba</p>
+                  <p className="text-lg font-bold text-primary">{etaInfo.etaFormatted}</p>
+                </div>
+              </div>
+              <div className="text-right">
+                <p className="text-xs text-muted-foreground">Jarak</p>
+                <p className="text-sm font-medium">{etaInfo.distanceFormatted}</p>
+              </div>
+            </div>
+          </motion.div>
+        )}
 
         {/* Courier Info */}
         {courier && !order.is_self_delivery && (

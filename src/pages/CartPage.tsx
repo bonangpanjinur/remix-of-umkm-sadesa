@@ -24,7 +24,7 @@ export default function CartPage() {
   const { items, updateQuantity, removeFromCart, getCartTotal, clearCart } = useCart();
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [merchantStatuses, setMerchantStatuses] = useState<Record<string, boolean>>({});
-  
+  const [stockWarnings, setStockWarnings] = useState<Record<string, string>>({});
   const total = getCartTotal();
 
   // Fetch merchant open/close statuses
@@ -48,6 +48,39 @@ export default function CartPage() {
     };
 
     fetchStatuses();
+  }, [items]);
+
+  // Validate stock in real-time
+  useEffect(() => {
+    const productIds = items.map(i => i.product.id).filter(Boolean);
+    if (productIds.length === 0) return;
+
+    const validateStock = async () => {
+      const { data: products } = await supabase
+        .from('products')
+        .select('id, stock, is_active, price, name')
+        .in('id', productIds);
+
+      if (products) {
+        const warnings: Record<string, string> = {};
+        products.forEach((p: any) => {
+          const cartItem = items.find(i => i.product.id === p.id);
+          if (!cartItem) return;
+          if (!p.is_active) {
+            warnings[p.id] = 'Produk sudah tidak tersedia';
+          } else if (p.stock <= 0) {
+            warnings[p.id] = 'Stok habis';
+          } else if (cartItem.quantity > p.stock) {
+            warnings[p.id] = `Sisa stok hanya ${p.stock}`;
+          } else if (p.price !== cartItem.product.price) {
+            warnings[p.id] = `Harga berubah menjadi Rp ${p.price.toLocaleString('id-ID')}`;
+          }
+        });
+        setStockWarnings(warnings);
+      }
+    };
+
+    validateStock();
   }, [items]);
 
   const handleCheckout = () => {
@@ -171,6 +204,12 @@ export default function CartPage() {
                         {item.product.originalPrice && (
                           <p className="text-xs line-through text-muted-foreground">
                             {formatPrice(item.product.originalPrice)}
+                          </p>
+                        )}
+                        {stockWarnings[item.product.id] && (
+                          <p className="text-xs text-destructive flex items-center gap-1 mt-0.5">
+                            <AlertTriangle className="h-3 w-3" />
+                            {stockWarnings[item.product.id]}
                           </p>
                         )}
                       </div>

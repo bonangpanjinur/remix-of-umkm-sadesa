@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Bike, Phone, X, CheckCircle, MapPin, Clock, Loader2, User, Navigation, Star } from 'lucide-react';
+import { Bike, Phone, X, CheckCircle, MapPin, Clock, Loader2, User, Navigation, Star, MessageCircle } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
 import { BottomNav } from '@/components/layout/BottomNav';
 import { Button } from '@/components/ui/button';
@@ -26,6 +26,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { CourierMap } from '@/components/CourierMap';
+import { OrderChat } from '@/components/chat/OrderChat';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
@@ -87,6 +88,8 @@ export default function RideTrackingPage() {
   const [ratingComment, setRatingComment] = useState('');
   const [submittingRating, setSubmittingRating] = useState(false);
   const [searchCountdown, setSearchCountdown] = useState<number | null>(null);
+  const [chatOpen, setChatOpen] = useState(false);
+  const [driverUserId, setDriverUserId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user || !id) return;
@@ -108,8 +111,10 @@ export default function RideTrackingPage() {
         if (updated.status === 'ACCEPTED') {
           toast({ title: '🎉 Driver ditemukan!', description: 'Driver sedang menuju lokasi jemput Anda' });
         }
-        if (updated.status === 'COMPLETED') {
+        if (updated.status === 'COMPLETED' && !(updated as any).rating) {
           toast({ title: '✅ Perjalanan selesai!', description: 'Terima kasih telah menggunakan Ojek Desa' });
+          // Auto-show rating dialog after 2 seconds
+          setTimeout(() => setShowRatingDialog(true), 2000);
         }
       })
       .subscribe();
@@ -181,10 +186,13 @@ export default function RideTrackingPage() {
   const fetchDriver = async (driverId: string) => {
     const { data } = await supabase
       .from('couriers')
-      .select('name, phone, vehicle_type, vehicle_plate, photo_url')
+      .select('name, phone, vehicle_type, vehicle_plate, photo_url, user_id')
       .eq('id', driverId)
       .single();
-    if (data) setDriver(data);
+    if (data) {
+      setDriver(data);
+      if (data.user_id) setDriverUserId(data.user_id);
+    }
   };
 
   const handleCancelClick = () => {
@@ -362,11 +370,18 @@ export default function RideTrackingPage() {
                   <p className="font-bold">{driver.name}</p>
                   <p className="text-sm text-muted-foreground">{driver.vehicle_type === 'motor' ? 'Motor' : driver.vehicle_type} {driver.vehicle_plate && `• ${driver.vehicle_plate}`}</p>
                 </div>
-                <a href={`tel:${driver.phone}`}>
-                  <Button size="icon" variant="outline">
-                    <Phone className="h-4 w-4" />
-                  </Button>
-                </a>
+                <div className="flex gap-2">
+                  {driverUserId && ['ACCEPTED', 'PICKED_UP', 'IN_TRANSIT'].includes(ride.status) && (
+                    <Button size="icon" variant="outline" onClick={() => setChatOpen(true)}>
+                      <MessageCircle className="h-4 w-4" />
+                    </Button>
+                  )}
+                  <a href={`tel:${driver.phone}`}>
+                    <Button size="icon" variant="outline">
+                      <Phone className="h-4 w-4" />
+                    </Button>
+                  </a>
+                </div>
               </div>
             </Card>
           </motion.div>
@@ -512,6 +527,17 @@ export default function RideTrackingPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {/* Chat with driver */}
+      {chatOpen && driverUserId && ride && id && (
+        <OrderChat
+          orderId={id}
+          otherUserId={driverUserId}
+          otherUserName={driver?.name || 'Driver'}
+          chatType="buyer_courier"
+          isOpen={chatOpen}
+          onClose={() => setChatOpen(false)}
+        />
+      )}
       <BottomNav />
     </div>
   );

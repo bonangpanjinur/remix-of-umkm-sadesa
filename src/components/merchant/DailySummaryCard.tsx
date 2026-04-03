@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { TrendingUp, TrendingDown, ShoppingCart, DollarSign, Clock } from 'lucide-react';
+import { TrendingUp, TrendingDown, ShoppingCart, DollarSign, Clock, Download } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { formatPrice } from '@/lib/utils';
 
@@ -63,11 +64,30 @@ export function DailySummaryCard({ merchantId }: DailySummaryCardProps) {
     ? ((todayRevenue - yesterdayRevenue) / yesterdayRevenue) * 100
     : todayRevenue > 0 ? 100 : 0;
 
+  const exportCSV = () => {
+    const today = new Date().toLocaleDateString('id-ID');
+    const csvContent = `Ringkasan Harian - ${today}\n\nMetrik,Nilai\nPendapatan Hari Ini,${todayRevenue}\nPendapatan Kemarin,${yesterdayRevenue}\nPerubahan (%),${percentChange.toFixed(1)}%\nJumlah Pesanan,${todayOrders}\nPesanan Menunggu,${pendingOrders}`;
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `ringkasan-harian-${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   if (loading) return null;
 
   return (
     <Card className="bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
       <CardContent className="pt-6">
+        <div className="flex justify-between items-start mb-3">
+          <h3 className="text-sm font-medium text-muted-foreground">Ringkasan Hari Ini</h3>
+          <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={exportCSV}>
+            <Download className="h-3 w-3 mr-1" />
+            Export
+          </Button>
+        </div>
         <div className="grid grid-cols-3 gap-4">
           <div>
             <div className="flex items-center gap-1 mb-1">
