@@ -217,7 +217,7 @@ export default function CheckoutPage() {
         .from('merchants')
         .select('location_lat, location_lng, payment_cod_enabled, payment_transfer_enabled, bank_name, bank_account_number, bank_account_name, qris_image_url')
         .eq('id', merchantIds[0])
-        .single();
+        .maybeSingle();
       
       if (data) {
         if (data.location_lat && data.location_lng) {
@@ -238,7 +238,7 @@ export default function CheckoutPage() {
             .from('app_settings')
             .select('value')
             .eq('key', 'admin_payment_info')
-            .single();
+            .maybeSingle();
           if (adminSettings?.value) {
             const ap = adminSettings.value as Record<string, string>;
             if (!bankName) bankName = ap.bank_name || null;

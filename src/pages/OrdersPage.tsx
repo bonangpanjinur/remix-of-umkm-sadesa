@@ -427,7 +427,7 @@ const OrdersPage = () => {
         .from('merchants')
         .select('user_id')
         .eq('id', order.merchant_id)
-        .single();
+        .maybeSingle();
       merchantUserId = merchant?.user_id ?? null;
     }
 

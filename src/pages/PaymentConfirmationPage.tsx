@@ -86,7 +86,7 @@ export default function PaymentConfirmationPage() {
           .from('app_settings')
           .select('value')
           .eq('key', 'admin_payment_info')
-          .single();
+          .maybeSingle();
 
         if (adminSettings?.value) {
           const adminPayment = adminSettings.value as Record<string, string>;

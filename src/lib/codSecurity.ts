@@ -228,7 +228,7 @@ export async function updateBuyerTrustScore(
       .from('profiles')
       .select('trust_score, cod_fail_count')
       .eq('user_id', buyerId)
-      .single();
+      .maybeSingle();
 
     if (!profile) return;
 
@@ -272,7 +272,7 @@ export async function getBuyerCODStatus(buyerId: string): Promise<{
       .from('profiles')
       .select('cod_enabled, trust_score, cod_fail_count, is_verified_buyer')
       .eq('user_id', buyerId)
-      .single();
+      .maybeSingle();
 
     return {
       enabled: profile?.cod_enabled ?? true,
