@@ -24,7 +24,7 @@ export default function CartPage() {
   const { items, updateQuantity, removeFromCart, getCartTotal, clearCart } = useCart();
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [merchantStatuses, setMerchantStatuses] = useState<Record<string, boolean>>({});
-  
+  const [stockWarnings, setStockWarnings] = useState<Record<string, string>>({});
   const total = getCartTotal();
 
   // Fetch merchant open/close statuses
