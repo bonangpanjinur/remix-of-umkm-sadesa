@@ -68,6 +68,7 @@ export default function OrderTrackingPage() {
   const [merchantInfo, setMerchantInfo] = useState<{ userId: string; name: string } | null>(null);
   const [orderItems, setOrderItems] = useState<Array<{ id: string; product_name: string; quantity: number; product_price: number; subtotal: number; product_id: string | null; products?: { image_url: string | null } | null }>>([]);
   const courierRef = useRef<CourierInfo | null>(null);
+  const [etaInfo, setEtaInfo] = useState<{ etaFormatted: string; distanceFormatted: string } | null>(null);
 
   // Keep ref in sync
   useEffect(() => { courierRef.current = courier; }, [courier]);
