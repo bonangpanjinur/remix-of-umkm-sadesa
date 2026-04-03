@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Bike, Phone, X, CheckCircle, MapPin, Clock, Loader2, User, Navigation, Star } from 'lucide-react';
+import { Bike, Phone, X, CheckCircle, MapPin, Clock, Loader2, User, Navigation, Star, MessageCircle } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
 import { BottomNav } from '@/components/layout/BottomNav';
 import { Button } from '@/components/ui/button';
