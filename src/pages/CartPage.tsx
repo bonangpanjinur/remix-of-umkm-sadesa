@@ -58,15 +58,15 @@ export default function CartPage() {
     const validateStock = async () => {
       const { data: products } = await supabase
         .from('products')
-        .select('id, stock, is_available, price, name')
+        .select('id, stock, is_active, price, name')
         .in('id', productIds);
 
       if (products) {
         const warnings: Record<string, string> = {};
-        products.forEach(p => {
+        products.forEach((p: any) => {
           const cartItem = items.find(i => i.product.id === p.id);
           if (!cartItem) return;
-          if (!p.is_available) {
+          if (!p.is_active) {
             warnings[p.id] = 'Produk sudah tidak tersedia';
           } else if (p.stock <= 0) {
             warnings[p.id] = 'Stok habis';
