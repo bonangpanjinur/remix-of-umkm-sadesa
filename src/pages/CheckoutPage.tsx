@@ -238,7 +238,7 @@ export default function CheckoutPage() {
             .from('app_settings')
             .select('value')
             .eq('key', 'admin_payment_info')
-            .single();
+            .maybeSingle();
           if (adminSettings?.value) {
             const ap = adminSettings.value as Record<string, string>;
             if (!bankName) bankName = ap.bank_name || null;

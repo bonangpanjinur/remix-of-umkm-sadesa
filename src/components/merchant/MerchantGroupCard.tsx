@@ -222,7 +222,7 @@ export const MerchantGroupCard = () => {
         .from('merchants')
         .select('id')
         .eq('user_id', user.id)
-        .single();
+        .maybeSingle();
 
       if (!merchantData) throw new Error("Merchant data not found");
 

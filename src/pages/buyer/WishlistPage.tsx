@@ -169,6 +169,9 @@ export default function WishlistPage() {
         image: item.products.image_url || '',
         category: 'kuliner',
         isActive: productData.is_active,
+        isAvailable: true,
+        isMerchantOpen: true,
+        hasQuota: true,
       });
       toast.success('Ditambahkan ke keranjang');
     } catch {
