@@ -89,6 +89,7 @@ export function DailySummaryCard({ merchantId }: DailySummaryCardProps) {
           </Button>
         </div>
         <div className="grid grid-cols-3 gap-4">
+          <div>
             <div className="flex items-center gap-1 mb-1">
               <DollarSign className="h-4 w-4 text-primary" />
               <span className="text-xs text-muted-foreground">Hari Ini</span>
