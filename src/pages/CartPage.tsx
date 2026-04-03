@@ -204,13 +204,13 @@ export default function CartPage() {
                         {item.product.originalPrice && (
                           <p className="text-xs line-through text-muted-foreground">
                             {formatPrice(item.product.originalPrice)}
-                        </p>
+                          </p>
+                        )}
                         {stockWarnings[item.product.id] && (
                           <p className="text-xs text-destructive flex items-center gap-1 mt-0.5">
                             <AlertTriangle className="h-3 w-3" />
                             {stockWarnings[item.product.id]}
                           </p>
-                        )}
                         )}
                       </div>
                     </div>
