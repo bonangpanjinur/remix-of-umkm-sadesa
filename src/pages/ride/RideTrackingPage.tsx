@@ -188,7 +188,7 @@ export default function RideTrackingPage() {
       .from('couriers')
       .select('name, phone, vehicle_type, vehicle_plate, photo_url, user_id')
       .eq('id', driverId)
-      .single();
+      .maybeSingle();
     if (data) {
       setDriver(data);
       if (data.user_id) setDriverUserId(data.user_id);
