@@ -151,7 +151,7 @@ export default function AdminWithdrawalsPage() {
         .from('merchants')
         .select('available_balance')
         .eq('id', selectedWithdrawal.merchant_id)
-        .single();
+        .maybeSingle();
 
       await supabase
         .from('merchants')

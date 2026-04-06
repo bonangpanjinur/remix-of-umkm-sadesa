@@ -305,79 +305,58 @@ export default function AccountPage() {
             </div>
           )}
           
-          {/* Menu Items */}
-          <div className="space-y-2">
-            {user && (
-              <>
-                <button 
-                  onClick={() => navigate('/orders')}
-                  className="w-full flex items-center justify-between p-4 bg-card rounded-xl border border-border hover:bg-secondary transition"
-                >
-                  <div className="flex items-center gap-3">
-                    <Package className="h-5 w-5 text-muted-foreground" />
-                    <span className="font-medium">Pesanan Saya</span>
-                  </div>
-                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                </button>
-
-                <button 
-                  onClick={() => navigate('/reviews/mine')}
-                  className="w-full flex items-center justify-between p-4 bg-card rounded-xl border border-border hover:bg-secondary transition"
-                >
-                  <div className="flex items-center gap-3">
-                    <Star className="h-5 w-5 text-muted-foreground" />
-                    <span className="font-medium">Ulasan Saya</span>
-                  </div>
-                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                </button>
-
-                <button 
-                  onClick={() => navigate('/ride/history')}
-                  className="w-full flex items-center justify-between p-4 bg-card rounded-xl border border-border hover:bg-secondary transition"
-                >
-                  <div className="flex items-center gap-3">
-                    <Bike className="h-5 w-5 text-muted-foreground" />
-                    <span className="font-medium">Riwayat Ojek</span>
-                  </div>
-                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                </button>
-
-                <button 
-                  onClick={() => navigate('/recently-viewed')}
-                  className="w-full flex items-center justify-between p-4 bg-card rounded-xl border border-border hover:bg-secondary transition"
-                >
-                  <div className="flex items-center gap-3">
-                    <Clock className="h-5 w-5 text-muted-foreground" />
-                    <span className="font-medium">Terakhir Dilihat</span>
-                  </div>
-                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                </button>
-
-                <button 
-                  onClick={() => navigate('/notifications')}
-                  className="w-full flex items-center justify-between p-4 bg-card rounded-xl border border-border hover:bg-secondary transition"
-                >
-                  <div className="flex items-center gap-3">
-                    <Bell className="h-5 w-5 text-muted-foreground" />
-                    <span className="font-medium">Notifikasi</span>
-                  </div>
-                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                </button>
-              </>
-            )}
-            
-            <button 
-              onClick={() => navigate('/settings')}
-              className="w-full flex items-center justify-between p-4 bg-card rounded-xl border border-border hover:bg-secondary transition"
-            >
-              <div className="flex items-center gap-3">
-                <Settings className="h-5 w-5 text-muted-foreground" />
-                <span className="font-medium">Pengaturan</span>
+          {/* Menu Items - Grouped */}
+          {user && (
+            <div className="space-y-4">
+              {/* Transaksi Section */}
+              <div>
+                <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 px-1">Transaksi</h3>
+                <div className="space-y-1">
+                  {[
+                    { icon: Package, label: 'Pesanan Saya', path: '/orders' },
+                    { icon: Star, label: 'Ulasan Saya', path: '/reviews/mine' },
+                    { icon: Bike, label: 'Riwayat Ojek', path: '/ride/history' },
+                  ].map((item) => (
+                    <button
+                      key={item.path}
+                      onClick={() => navigate(item.path)}
+                      className="w-full flex items-center justify-between p-4 bg-card rounded-xl border border-border hover:bg-secondary transition"
+                    >
+                      <div className="flex items-center gap-3">
+                        <item.icon className="h-5 w-5 text-muted-foreground" />
+                        <span className="font-medium">{item.label}</span>
+                      </div>
+                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                    </button>
+                  ))}
+                </div>
               </div>
-              <ChevronRight className="h-4 w-4 text-muted-foreground" />
-            </button>
 
-            {user && (
+              {/* Lainnya Section */}
+              <div>
+                <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 px-1">Lainnya</h3>
+                <div className="space-y-1">
+                  {[
+                    { icon: Clock, label: 'Terakhir Dilihat', path: '/recently-viewed' },
+                    { icon: Bell, label: 'Notifikasi', path: '/notifications' },
+                    { icon: Settings, label: 'Pengaturan', path: '/settings' },
+                  ].map((item) => (
+                    <button
+                      key={item.path}
+                      onClick={() => navigate(item.path)}
+                      className="w-full flex items-center justify-between p-4 bg-card rounded-xl border border-border hover:bg-secondary transition"
+                    >
+                      <div className="flex items-center gap-3">
+                        <item.icon className="h-5 w-5 text-muted-foreground" />
+                        <span className="font-medium">{item.label}</span>
+                      </div>
+                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Keluar */}
               <button 
                 onClick={handleSignOut}
                 className="w-full flex items-center justify-between p-4 bg-card rounded-xl border border-destructive/20 hover:bg-destructive/5 transition"
@@ -387,8 +366,23 @@ export default function AccountPage() {
                   <span className="font-medium text-destructive">Keluar</span>
                 </div>
               </button>
-            )}
-          </div>
+            </div>
+          )}
+
+          {!user && (
+            <div className="space-y-2">
+              <button 
+                onClick={() => navigate('/settings')}
+                className="w-full flex items-center justify-between p-4 bg-card rounded-xl border border-border hover:bg-secondary transition"
+              >
+                <div className="flex items-center gap-3">
+                  <Settings className="h-5 w-5 text-muted-foreground" />
+                  <span className="font-medium">Pengaturan</span>
+                </div>
+                <ChevronRight className="h-4 w-4 text-muted-foreground" />
+              </button>
+            </div>
+          )}
           
           <p className="text-center text-xs text-muted-foreground mt-8">
             DesaMart v1.0.0 • Platform UMKM Desa

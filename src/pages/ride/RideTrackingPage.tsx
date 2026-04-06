@@ -172,7 +172,7 @@ export default function RideTrackingPage() {
         .from('ride_requests')
         .select('*')
         .eq('id', id!)
-        .single();
+        .maybeSingle();
       if (error) throw error;
       setRide(data as unknown as RideData);
       if (data.driver_id) fetchDriver(data.driver_id);
@@ -188,7 +188,7 @@ export default function RideTrackingPage() {
       .from('couriers')
       .select('name, phone, vehicle_type, vehicle_plate, photo_url, user_id')
       .eq('id', driverId)
-      .single();
+      .maybeSingle();
     if (data) {
       setDriver(data);
       if (data.user_id) setDriverUserId(data.user_id);
@@ -222,7 +222,7 @@ export default function RideTrackingPage() {
           .from('couriers')
           .select('user_id')
           .eq('id', ride.driver_id)
-          .single();
+          .maybeSingle();
         if (courierData?.user_id) {
           await supabase.from('notifications').insert({
             user_id: courierData.user_id,

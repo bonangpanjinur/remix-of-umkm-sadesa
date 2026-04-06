@@ -12,7 +12,8 @@ export function Header() {
   const navigate = useNavigate();
   const location = useLocation();
   const [searchQuery, setSearchQuery] = useState('');
-  const isHomepage = location.pathname === '/';
+  const mainPages = ['/', '/explore', '/shops', '/products', '/tourism'];
+  const showSearchBar = mainPages.includes(location.pathname);
   const { getItemCount } = useCart();
   const chatUnread = useChatUnread();
   const cartCount = getItemCount();
@@ -80,8 +81,8 @@ export function Header() {
         </div>
       </div>
 
-      {/* Search Bar - Homepage only */}
-      {isHomepage && (
+      {/* Search Bar - Main pages */}
+      {showSearchBar && (
         <form onSubmit={handleSearch} className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
           <input

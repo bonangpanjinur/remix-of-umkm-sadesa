@@ -95,9 +95,10 @@ export default function AdminVillageDetailPage() {
         .from('villages')
         .select('*')
         .eq('id', id)
-        .single();
+        .maybeSingle();
 
       if (villageError) throw villageError;
+      if (!villageData) { navigate('/admin/villages'); return; }
       setVillage(villageData);
 
       // Fetch merchants in this village

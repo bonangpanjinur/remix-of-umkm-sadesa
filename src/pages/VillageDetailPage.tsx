@@ -87,7 +87,7 @@ export default function VillageDetailPage() {
           query = query.ilike('name', nameSearch);
         }
         
-        const { data: villageData, error: villageError } = await query.single();
+        const { data: villageData, error: villageError } = await query.maybeSingle();
 
         if (villageError) throw villageError;
         setVillage(villageData);

@@ -147,7 +147,7 @@ export function WithdrawalManager({ merchantId }: WithdrawalManagerProps) {
         .from('merchants')
         .select('available_balance, pending_balance')
         .eq('id', merchantId)
-        .single();
+        .maybeSingle();
 
       if (balanceError || !freshBalance) throw new Error('Gagal memverifikasi saldo');
 

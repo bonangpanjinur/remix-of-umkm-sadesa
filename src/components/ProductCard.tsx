@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Plus, Star, Clock, CheckCircle2 } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { toast } from 'sonner';
 import type { Product } from '@/types';
 import { useCart } from '@/contexts/CartContext';
 import { formatPrice, cn } from '@/lib/utils';
@@ -40,6 +41,7 @@ export function ProductCard({ product, index = 0, showCategoryBadge = false }: P
     e.stopPropagation();
     if (!isAvailable) return;
     addToCart(product, 1);
+    toast.success(`${product.name} ditambahkan ke keranjang`);
   };
 
   const categoryInfo = categoryLabels[product.category] || { label: product.category, className: 'bg-muted text-muted-foreground' };

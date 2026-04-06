@@ -54,7 +54,7 @@ export default function PaymentConfirmationPage() {
         .select('id, total, payment_method, payment_status, merchant_id, created_at, payment_proof_url, confirmation_deadline')
         .eq('id', orderId!)
         .eq('buyer_id', user!.id)
-        .single();
+        .maybeSingle();
 
       if (orderError || !orderData) {
         toast({ title: 'Pesanan tidak ditemukan', variant: 'destructive' });
@@ -67,7 +67,7 @@ export default function PaymentConfirmationPage() {
         .from('merchants')
         .select('name, bank_name, bank_account_number, bank_account_name, qris_image_url')
         .eq('id', orderData.merchant_id)
-        .single();
+        .maybeSingle();
 
       setOrder({
         ...orderData,

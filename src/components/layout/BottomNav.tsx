@@ -54,7 +54,7 @@ export const BottomNav = React.forwardRef<HTMLElement, React.HTMLAttributes<HTML
 
   const getBadgeCount = (path: string) => {
     if (path === '/orders') return activeOrders;
-    if (path === '/account') return unreadCount;
+    if (path === '/account') return unreadCount + chatUnread;
     return 0;
   };
 

@@ -182,7 +182,8 @@ export async function fetchProducts(): Promise<Product[]> {
           location_lng
         )
       )
-    `);
+    `)
+    .limit(200);
 
   if (error) {
     console.error('Error fetching products:', error);

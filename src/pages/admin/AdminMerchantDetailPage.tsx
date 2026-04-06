@@ -140,9 +140,10 @@ export default function AdminMerchantDetailPage() {
         .from('merchants')
         .select('*, villages(name)')
         .eq('id', id)
-        .single();
+        .maybeSingle();
 
       if (merchantError) throw merchantError;
+      if (!merchantData) { navigate('/admin/merchants'); return; }
       setMerchant(merchantData as MerchantDetail);
 
       // Fetch owner profile if user_id exists
