@@ -157,7 +157,7 @@ export function OrderStatusManager({ merchantId }: OrderStatusManagerProps) {
         .from('merchants')
         .select('village_id')
         .eq('id', merchantId)
-        .single();
+        .maybeSingle();
 
       if (merchantData?.village_id) {
         const { data: couriers } = await supabase

@@ -67,7 +67,7 @@ export default function PaymentConfirmationPage() {
         .from('merchants')
         .select('name, bank_name, bank_account_number, bank_account_name, qris_image_url')
         .eq('id', orderData.merchant_id)
-        .single();
+        .maybeSingle();
 
       setOrder({
         ...orderData,

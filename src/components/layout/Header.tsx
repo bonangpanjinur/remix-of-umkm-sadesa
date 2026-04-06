@@ -81,8 +81,8 @@ export function Header() {
         </div>
       </div>
 
-      {/* Search Bar - Homepage only */}
-      {isHomepage && (
+      {/* Search Bar - Main pages */}
+      {showSearchBar && (
         <form onSubmit={handleSearch} className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
           <input

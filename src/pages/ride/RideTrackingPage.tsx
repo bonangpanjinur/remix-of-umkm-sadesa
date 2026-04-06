@@ -222,7 +222,7 @@ export default function RideTrackingPage() {
           .from('couriers')
           .select('user_id')
           .eq('id', ride.driver_id)
-          .single();
+          .maybeSingle();
         if (courierData?.user_id) {
           await supabase.from('notifications').insert({
             user_id: courierData.user_id,

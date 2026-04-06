@@ -86,7 +86,7 @@ export async function manualAssignCourier(
       .from('couriers')
       .select('user_id')
       .eq('id', courierId)
-      .single();
+      .maybeSingle();
 
     if (courierData?.user_id) {
       await supabase.from('notifications').insert({

@@ -149,8 +149,8 @@ export default function AdminRefundsPage() {
         const { data: merchant } = await supabase
           .from('merchants')
           .select('available_balance')
-          .eq('id', selectedRefund.merchantId)
-          .single();
+        .eq('id', selectedRefund.merchantId)
+        .maybeSingle();
 
         if (merchant) {
           await supabase

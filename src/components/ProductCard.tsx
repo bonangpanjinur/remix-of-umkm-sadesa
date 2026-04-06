@@ -41,6 +41,7 @@ export function ProductCard({ product, index = 0, showCategoryBadge = false }: P
     e.stopPropagation();
     if (!isAvailable) return;
     addToCart(product, 1);
+    toast.success(`${product.name} ditambahkan ke keranjang`);
   };
 
   const categoryInfo = categoryLabels[product.category] || { label: product.category, className: 'bg-muted text-muted-foreground' };

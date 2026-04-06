@@ -119,9 +119,10 @@ export default function MerchantProfilePage({ overrideId }: MerchantProfilePageP
             villages(name)
           `)
           .eq('id', id)
-          .single();
+          .maybeSingle();
 
         if (merchantError) throw merchantError;
+        if (!merchantData) { navigate('/shops'); return; }
         setMerchant(merchantData);
 
         trackPageView({ merchantId: id, pageType: 'store' });

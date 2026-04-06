@@ -52,7 +52,7 @@ export default function ReviewsPage() {
         .select('id, merchant_id, status, merchants(name)')
         .eq('id', orderId)
         .eq('buyer_id', user?.id)
-        .single();
+        .maybeSingle();
 
       if (orderError || !orderData) {
         toast.error('Pesanan tidak ditemukan');

@@ -198,8 +198,8 @@ const Index = () => {
                 <ChevronRight className="h-3 w-3" />
               </Link>
             </div>
-            <div className="grid grid-cols-2 gap-3 pb-4">
-              {sortedProducts.map((product, idx) => (
+            <div className="grid grid-cols-2 gap-3 pb-2">
+              {sortedProducts.slice(0, visibleProductCount).map((product, idx) => (
                 <ProductCard 
                   key={product.id} 
                   product={product} 
@@ -208,6 +208,19 @@ const Index = () => {
                 />
               ))}
             </div>
+            {sortedProducts.length > visibleProductCount && (
+              <div className="flex justify-center pb-4">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setVisibleProductCount(prev => prev + 12)}
+                  className="text-xs"
+                >
+                  <ShoppingBag className="h-3.5 w-3.5 mr-1.5" />
+                  Lihat Lebih Banyak ({sortedProducts.length - visibleProductCount} lagi)
+                </Button>
+              </div>
+            )}
           </section>
         ) : null;
       
