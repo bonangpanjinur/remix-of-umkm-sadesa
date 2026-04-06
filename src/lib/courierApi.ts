@@ -56,7 +56,7 @@ export async function manualAssignCourier(
       .from('couriers')
       .select('id, name, is_available, status')
       .eq('id', courierId)
-      .single();
+      .maybeSingle();
 
     if (courierError || !courier) {
       return { success: false, error: 'Kurir tidak ditemukan' };
