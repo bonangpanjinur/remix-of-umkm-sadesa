@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ChevronRight, Sparkles, Flame, TrendingUp, MapPin, ShoppingBag, Store, Map, Bike } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
