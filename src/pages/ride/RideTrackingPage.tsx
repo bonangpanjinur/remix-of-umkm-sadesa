@@ -172,7 +172,7 @@ export default function RideTrackingPage() {
         .from('ride_requests')
         .select('*')
         .eq('id', id!)
-        .single();
+        .maybeSingle();
       if (error) throw error;
       setRide(data as unknown as RideData);
       if (data.driver_id) fetchDriver(data.driver_id);
