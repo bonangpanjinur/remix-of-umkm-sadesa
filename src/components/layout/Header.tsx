@@ -12,7 +12,8 @@ export function Header() {
   const navigate = useNavigate();
   const location = useLocation();
   const [searchQuery, setSearchQuery] = useState('');
-  const isHomepage = location.pathname === '/';
+  const mainPages = ['/', '/explore', '/shops', '/products', '/tourism'];
+  const showSearchBar = mainPages.includes(location.pathname);
   const { getItemCount } = useCart();
   const chatUnread = useChatUnread();
   const cartCount = getItemCount();
