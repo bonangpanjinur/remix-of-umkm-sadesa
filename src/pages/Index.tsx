@@ -28,6 +28,7 @@ const Index = () => {
   const [tourismSpots, setTourismSpots] = useState<Tourism[]>([]);
   const [bannerSlides, setBannerSlides] = useState<BannerSlide[]>([]);
   const [loading, setLoading] = useState(true);
+  const [visibleProductCount, setVisibleProductCount] = useState(12);
   
   const { 
     isSectionEnabled, 
