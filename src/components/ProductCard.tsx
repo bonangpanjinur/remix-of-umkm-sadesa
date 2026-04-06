@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Plus, Star, Clock, CheckCircle2 } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { toast } from 'sonner';
 import type { Product } from '@/types';
 import { useCart } from '@/contexts/CartContext';
 import { formatPrice, cn } from '@/lib/utils';
