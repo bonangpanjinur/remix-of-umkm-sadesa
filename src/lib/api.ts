@@ -398,6 +398,9 @@ export async function fetchMerchant(id: string): Promise<Merchant | null> {
 
 // Fetch villages
 export async function fetchVillages(): Promise<Village[]> {
+  const cached = getCached<Village[]>('villages');
+  if (cached) return cached;
+
   const { data, error } = await supabase
     .from('villages')
     .select('*');
@@ -418,6 +421,19 @@ export async function fetchVillages(): Promise<Village[]> {
     locationLat: v.location_lat ? Number(v.location_lat) : null,
     locationLng: v.location_lng ? Number(v.location_lng) : null,
   }));
+  const result = (data || []).map(v => ({
+    id: v.id,
+    name: v.name,
+    district: v.district,
+    regency: v.regency,
+    description: v.description || '',
+    image: villageImages[v.id] || v.image_url || villageBojong,
+    isActive: v.is_active,
+    locationLat: v.location_lat ? Number(v.location_lat) : null,
+    locationLng: v.location_lng ? Number(v.location_lng) : null,
+  }));
+  setCache('villages', result);
+  return result;
 }
 
 // Fetch tourism spots
