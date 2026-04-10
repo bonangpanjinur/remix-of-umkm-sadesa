@@ -427,6 +427,9 @@ export async function fetchVillages(): Promise<Village[]> {
 
 // Fetch tourism spots
 export async function fetchTourism(): Promise<Tourism[]> {
+  const cached = getCached<Tourism[]>('tourism');
+  if (cached) return cached;
+
   const { data, error } = await supabase
     .from('tourism')
     .select(`
@@ -441,7 +444,7 @@ export async function fetchTourism(): Promise<Tourism[]> {
     return [];
   }
 
-  return (data || []).map(t => ({
+  const result = (data || []).map(t => ({
     id: t.id,
     villageId: t.village_id,
     villageName: t.villages?.name || '',
@@ -456,6 +459,8 @@ export async function fetchTourism(): Promise<Tourism[]> {
     isActive: t.is_active,
     viewCount: t.view_count,
   }));
+  setCache('tourism', result);
+  return result;
 }
 
 // Fetch single tourism
