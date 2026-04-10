@@ -29,6 +29,20 @@ const villageImages: Record<string, string> = {
 let cachedFreeTierLimit: number | null = null;
 let cacheTs = 0;
 
+// Simple in-memory cache for API calls (TTL 60s)
+const apiCache = new Map<string, { data: unknown; ts: number }>();
+const CACHE_TTL = 60_000;
+
+function getCached<T>(key: string): T | null {
+  const entry = apiCache.get(key);
+  if (entry && Date.now() - entry.ts < CACHE_TTL) return entry.data as T;
+  return null;
+}
+
+function setCache(key: string, data: unknown) {
+  apiCache.set(key, { data, ts: Date.now() });
+}
+
 async function getFreeTierLimit(): Promise<number> {
   if (cachedFreeTierLimit !== null && Date.now() - cacheTs < 300000) return cachedFreeTierLimit;
   const { data } = await supabase.from('app_settings').select('value').eq('key', 'free_tier_quota').maybeSingle();
