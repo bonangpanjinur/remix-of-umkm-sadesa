@@ -29,6 +29,20 @@ const villageImages: Record<string, string> = {
 let cachedFreeTierLimit: number | null = null;
 let cacheTs = 0;
 
+// Simple in-memory cache for API calls (TTL 60s)
+const apiCache = new Map<string, { data: unknown; ts: number }>();
+const CACHE_TTL = 60_000;
+
+function getCached<T>(key: string): T | null {
+  const entry = apiCache.get(key);
+  if (entry && Date.now() - entry.ts < CACHE_TTL) return entry.data as T;
+  return null;
+}
+
+function setCache(key: string, data: unknown) {
+  apiCache.set(key, { data, ts: Date.now() });
+}
+
 async function getFreeTierLimit(): Promise<number> {
   if (cachedFreeTierLimit !== null && Date.now() - cacheTs < 300000) return cachedFreeTierLimit;
   const { data } = await supabase.from('app_settings').select('value').eq('key', 'free_tier_quota').maybeSingle();
@@ -161,6 +175,9 @@ export async function checkMerchantHasActiveQuota(merchantId: string): Promise<b
 
 // Fetch products from database (include all, with availability status and location)
 export async function fetchProducts(): Promise<Product[]> {
+  const cached = getCached<Product[]>('products');
+  if (cached) return cached;
+
   // First get merchants with active quota
   const merchantsWithQuota = await getMerchantsWithActiveQuota();
 
@@ -255,6 +272,7 @@ export async function fetchProducts(): Promise<Product[]> {
     };
   });
 
+  setCache('products', mappedProducts);
   return mappedProducts;
 }
 
@@ -380,6 +398,9 @@ export async function fetchMerchant(id: string): Promise<Merchant | null> {
 
 // Fetch villages
 export async function fetchVillages(): Promise<Village[]> {
+  const cached = getCached<Village[]>('villages');
+  if (cached) return cached;
+
   const { data, error } = await supabase
     .from('villages')
     .select('*');
@@ -389,7 +410,7 @@ export async function fetchVillages(): Promise<Village[]> {
     return [];
   }
 
-  return (data || []).map(v => ({
+  const result = (data || []).map(v => ({
     id: v.id,
     name: v.name,
     district: v.district,
@@ -400,10 +421,15 @@ export async function fetchVillages(): Promise<Village[]> {
     locationLat: v.location_lat ? Number(v.location_lat) : null,
     locationLng: v.location_lng ? Number(v.location_lng) : null,
   }));
+  setCache('villages', result);
+  return result;
 }
 
 // Fetch tourism spots
 export async function fetchTourism(): Promise<Tourism[]> {
+  const cached = getCached<Tourism[]>('tourism');
+  if (cached) return cached;
+
   const { data, error } = await supabase
     .from('tourism')
     .select(`
@@ -418,7 +444,7 @@ export async function fetchTourism(): Promise<Tourism[]> {
     return [];
   }
 
-  return (data || []).map(t => ({
+  const result = (data || []).map(t => ({
     id: t.id,
     villageId: t.village_id,
     villageName: t.villages?.name || '',
@@ -433,6 +459,8 @@ export async function fetchTourism(): Promise<Tourism[]> {
     isActive: t.is_active,
     viewCount: t.view_count,
   }));
+  setCache('tourism', result);
+  return result;
 }
 
 // Fetch single tourism

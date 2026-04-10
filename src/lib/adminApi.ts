@@ -163,7 +163,7 @@ export async function approveMerchant(id: string): Promise<boolean> {
     .from('merchants')
     .select('user_id')
     .eq('id', id)
-    .single();
+    .maybeSingle();
 
   if (fetchError || !merchant) {
     console.error('Error fetching merchant for approval:', fetchError);
@@ -283,7 +283,7 @@ export async function approveCourier(id: string): Promise<boolean> {
     .from('couriers')
     .select('user_id')
     .eq('id', id)
-    .single();
+    .maybeSingle();
 
   if (fetchError || !courier) {
     console.error('Error fetching courier for approval:', fetchError);

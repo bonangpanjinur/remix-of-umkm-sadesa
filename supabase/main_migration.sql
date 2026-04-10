@@ -2145,7 +2145,42 @@ INSERT INTO public.app_settings (key, value, category, description) VALUES
 ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now();
 
 -- ============================================================
+-- BAGIAN 13: RIDE NOTIFICATION TRIGGER (Added April 2026)
+-- ============================================================
+
+CREATE OR REPLACE FUNCTION public.notify_couriers_new_ride()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  INSERT INTO public.notifications (user_id, title, message, type, link)
+  SELECT 
+    c.user_id,
+    '🏍️ Pesanan Ojek Baru!',
+    'Jemput di: ' || COALESCE(NEW.pickup_address, 'Lokasi tidak diketahui') || ' • Estimasi: Rp ' || COALESCE(NEW.estimated_fare::text, '0'),
+    'ride',
+    '/courier/rides'
+  FROM public.couriers c
+  WHERE c.user_id IS NOT NULL
+    AND c.registration_status = 'APPROVED'
+    AND c.status = 'ACTIVE'
+    AND c.is_available = true;
+  
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trigger_notify_couriers_new_ride ON public.ride_requests;
+CREATE TRIGGER trigger_notify_couriers_new_ride
+  AFTER INSERT ON public.ride_requests
+  FOR EACH ROW
+  WHEN (NEW.status = 'SEARCHING')
+  EXECUTE FUNCTION public.notify_couriers_new_ride();
+
+-- ============================================================
 -- SELESAI! 
--- Total: 59 tabel, 2 views, ~35 functions, ~140 RLS policies,
---        ~25 triggers, 13 storage buckets, 7 realtime tables
+-- Total: 59 tabel, 2 views, ~36 functions, ~140 RLS policies,
+--        ~26 triggers, 13 storage buckets, 7 realtime tables
 -- ============================================================

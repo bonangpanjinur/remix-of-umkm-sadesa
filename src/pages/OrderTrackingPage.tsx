@@ -21,6 +21,7 @@ import { DeliveryStatusCard } from '@/components/courier/DeliveryStatusCard';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { safeGoBack } from '@/lib/utils';
 import { RefundRequestDialog } from '@/components/order/RefundRequestDialog';
 import { OrderChat, ChatType } from '@/components/chat/OrderChat';
 import { CourierMap } from '@/components/CourierMap';
@@ -246,7 +247,7 @@ export default function OrderTrackingPage() {
       {/* Header */}
       <div className="sticky top-0 z-50 bg-background border-b border-border px-4 py-3">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
+          <Button variant="ghost" size="icon" onClick={() => safeGoBack(navigate)}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div>

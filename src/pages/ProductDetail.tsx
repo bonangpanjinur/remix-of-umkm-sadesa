@@ -16,7 +16,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { fetchProduct, checkMerchantHasActiveQuota } from '@/lib/api';
 import { useCart } from '@/contexts/CartContext';
-import { formatPrice } from '@/lib/utils';
+import { formatPrice, safeGoBack } from '@/lib/utils';
 import { WishlistButton } from '@/components/WishlistButton';
 import { ShareProduct } from '@/components/product/ShareProduct';
 import { MerchantClosedBanner, MerchantStatusBadge } from '@/components/merchant/MerchantClosedBanner';
@@ -221,7 +221,7 @@ export default function ProductDetail() {
         {/* Top Navigation - now outside gallery */}
         <div className="absolute top-0 left-0 w-full p-4 flex justify-between items-center z-20">
           <button 
-            onClick={() => navigate(-1)}
+            onClick={() => safeGoBack(navigate)}
             className="w-10 h-10 bg-foreground/20 backdrop-blur rounded-full flex items-center justify-center text-primary-foreground hover:bg-foreground/40 transition border border-primary-foreground/20"
           >
             <ArrowLeft className="h-5 w-5" />

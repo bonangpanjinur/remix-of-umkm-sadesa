@@ -81,7 +81,7 @@ export function OrderChat({ orderId, otherUserId, otherUserName, isOpen, onClose
           couriers (user_id)
         `)
         .eq('id', orderId)
-        .single();
+        .maybeSingle();
 
       const { data: items } = await supabase
         .from('order_items')
