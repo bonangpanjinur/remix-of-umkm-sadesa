@@ -272,6 +272,7 @@ export async function fetchProducts(): Promise<Product[]> {
     };
   });
 
+  setCache('products', mappedProducts);
   return mappedProducts;
 }
 
