@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { fetchTourismById } from '@/lib/api';
+import { safeGoBack } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import type { Tourism } from '@/types';
 

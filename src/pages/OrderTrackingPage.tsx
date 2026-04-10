@@ -21,6 +21,7 @@ import { DeliveryStatusCard } from '@/components/courier/DeliveryStatusCard';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { safeGoBack } from '@/lib/utils';
 import { RefundRequestDialog } from '@/components/order/RefundRequestDialog';
 import { OrderChat, ChatType } from '@/components/chat/OrderChat';
 import { CourierMap } from '@/components/CourierMap';
