@@ -16,7 +16,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { fetchProduct, checkMerchantHasActiveQuota } from '@/lib/api';
 import { useCart } from '@/contexts/CartContext';
-import { formatPrice } from '@/lib/utils';
+import { formatPrice, safeGoBack } from '@/lib/utils';
 import { WishlistButton } from '@/components/WishlistButton';
 import { ShareProduct } from '@/components/product/ShareProduct';
 import { MerchantClosedBanner, MerchantStatusBadge } from '@/components/merchant/MerchantClosedBanner';
