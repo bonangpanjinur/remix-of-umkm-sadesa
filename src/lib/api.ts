@@ -175,6 +175,9 @@ export async function checkMerchantHasActiveQuota(merchantId: string): Promise<b
 
 // Fetch products from database (include all, with availability status and location)
 export async function fetchProducts(): Promise<Product[]> {
+  const cached = getCached<Product[]>('products');
+  if (cached) return cached;
+
   // First get merchants with active quota
   const merchantsWithQuota = await getMerchantsWithActiveQuota();
 
