@@ -579,7 +579,7 @@ export default function CheckoutPage() {
             .from('merchants')
             .select('user_id')
             .eq('id', merchantId)
-            .single();
+            .maybeSingle();
 
           if (merchant?.user_id) {
             await supabase.rpc('send_notification', {

@@ -37,7 +37,7 @@ export default function TourismDetail() {
           .from('tourism')
           .select('village_id')
           .eq('id', id)
-          .single();
+          .maybeSingle();
         
         if (tourismData) {
           setVillageId(tourismData.village_id);
