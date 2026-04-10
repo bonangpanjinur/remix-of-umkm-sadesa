@@ -410,17 +410,6 @@ export async function fetchVillages(): Promise<Village[]> {
     return [];
   }
 
-  return (data || []).map(v => ({
-    id: v.id,
-    name: v.name,
-    district: v.district,
-    regency: v.regency,
-    description: v.description || '',
-    image: villageImages[v.id] || v.image_url || villageBojong,
-    isActive: v.is_active,
-    locationLat: v.location_lat ? Number(v.location_lat) : null,
-    locationLng: v.location_lng ? Number(v.location_lng) : null,
-  }));
   const result = (data || []).map(v => ({
     id: v.id,
     name: v.name,
