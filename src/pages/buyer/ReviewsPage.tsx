@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { safeGoBack } from '@/lib/utils';
 import { motion } from 'framer-motion';
 import { Star, Send, ArrowLeft, Image as ImageIcon, X, Loader2 } from 'lucide-react';
 import { Header } from '@/components/layout/Header';

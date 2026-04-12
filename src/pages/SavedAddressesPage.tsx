@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { safeGoBack } from '@/lib/utils';
 import { motion } from 'framer-motion';
 import { ArrowLeft, Plus, MapPin, Loader2 } from 'lucide-react';
 import { Header } from '@/components/layout/Header';

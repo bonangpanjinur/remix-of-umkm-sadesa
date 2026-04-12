@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { safeGoBack } from '@/lib/utils';
 import { ArrowLeft, Bike, Upload, Check, AlertCircle } from 'lucide-react';
 import { z } from 'zod';
 import { Button } from '@/components/ui/button';

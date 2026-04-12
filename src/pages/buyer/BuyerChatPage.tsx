@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { formatDistanceToNow } from 'date-fns';
 import { id as idLocale } from 'date-fns/locale';
 import { useNavigate } from 'react-router-dom';
+import { safeGoBack } from '@/lib/utils';
 
 interface ChatThread {
   orderId: string;
