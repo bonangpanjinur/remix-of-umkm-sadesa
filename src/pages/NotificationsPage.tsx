@@ -138,7 +138,7 @@ export default function NotificationsPage() {
         <div className="px-5 py-3">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
-              <button onClick={() => navigate(-1)} className="p-1">
+              <button onClick={() => safeGoBack(navigate)} className="p-1">
                 <ChevronLeft className="h-5 w-5" />
               </button>
               <div>

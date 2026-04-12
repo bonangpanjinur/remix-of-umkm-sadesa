@@ -65,7 +65,7 @@ export default function SavedAddressesPage() {
         >
           {/* Header */}
           <div className="flex items-center gap-3 mb-6">
-            <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
+            <Button variant="ghost" size="icon" onClick={() => safeGoBack(navigate)}>
               <ArrowLeft className="h-5 w-5" />
             </Button>
             <div className="flex-1">

@@ -63,7 +63,7 @@ export default function InstallPage() {
       <div className="sticky top-0 z-40 bg-card/95 backdrop-blur border-b border-border px-4 py-3">
         <div className="flex items-center gap-3">
           <button 
-            onClick={() => navigate(-1)}
+            onClick={() => safeGoBack(navigate)}
             className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center hover:bg-secondary/80 transition"
           >
             <ArrowLeft className="h-5 w-5" />

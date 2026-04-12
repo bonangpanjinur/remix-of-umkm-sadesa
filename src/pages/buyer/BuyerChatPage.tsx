@@ -137,7 +137,7 @@ export default function BuyerChatPage() {
     <div className="min-h-screen bg-background pb-20">
       <div className="bg-primary px-5 pt-12 pb-6">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" className="text-primary-foreground" onClick={() => navigate(-1)}>
+          <Button variant="ghost" size="icon" className="text-primary-foreground" onClick={() => safeGoBack(navigate)}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <h1 className="text-xl font-bold text-primary-foreground">Chat Saya</h1>

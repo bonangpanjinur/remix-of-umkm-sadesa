@@ -290,7 +290,7 @@ export default function RideBookingPage() {
     <div className="fixed inset-0 flex flex-col bg-background">
       {/* Compact header */}
       <div className="relative z-20 flex items-center gap-3 px-4 py-3 bg-background/95 backdrop-blur border-b border-border">
-        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => navigate(-1)}>
+        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => safeGoBack(navigate)}>
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <div className="flex items-center gap-2">

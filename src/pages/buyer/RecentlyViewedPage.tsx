@@ -58,7 +58,7 @@ export default function RecentlyViewedPage() {
       <div className="flex-1 overflow-y-auto pb-24 px-5 py-4">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
-            <button onClick={() => navigate(-1)} className="w-8 h-8 flex items-center justify-center rounded-full bg-muted">
+            <button onClick={() => safeGoBack(navigate)} className="w-8 h-8 flex items-center justify-center rounded-full bg-muted">
               <ArrowLeft className="h-4 w-4" />
             </button>
             <div>

@@ -306,7 +306,7 @@ export default function MerchantProfilePage({ overrideId }: MerchantProfilePageP
           
           <div className="absolute top-0 left-0 w-full p-3 flex justify-between items-center z-20">
             <button 
-              onClick={() => navigate(-1)}
+              onClick={() => safeGoBack(navigate)}
               className="w-9 h-9 bg-foreground/20 backdrop-blur rounded-full flex items-center justify-center text-primary-foreground hover:bg-foreground/40 transition border border-primary-foreground/20"
             >
               <ArrowLeft className="h-4 w-4" />

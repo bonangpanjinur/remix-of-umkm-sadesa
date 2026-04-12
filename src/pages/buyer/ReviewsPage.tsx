@@ -226,7 +226,7 @@ export default function ReviewsPage() {
       
       <div className="flex-1 overflow-y-auto pb-24">
         <div className="px-5 py-4">
-          <Button variant="ghost" size="sm" className="mb-4" onClick={() => navigate(-1)}>
+          <Button variant="ghost" size="sm" className="mb-4" onClick={() => safeGoBack(navigate)}>
             <ArrowLeft className="h-4 w-4 mr-2" />
             Kembali
           </Button>

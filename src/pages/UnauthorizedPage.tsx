@@ -12,7 +12,7 @@ export default function UnauthorizedPage() {
   const { roles } = useUserRoles();
 
   const handleGoBack = () => {
-    navigate(-1);
+    safeGoBack(navigate);
   };
 
   const handleGoHome = () => {

@@ -98,7 +98,7 @@ export default function CartPage() {
         {/* Header */}
         <div className="p-4 border-b border-border flex items-center gap-3">
           <button 
-            onClick={() => navigate(-1)}
+            onClick={() => safeGoBack(navigate)}
             className="w-8 h-8 rounded-full hover:bg-secondary flex items-center justify-center"
           >
             <ArrowLeft className="h-5 w-5" />
