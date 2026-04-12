@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { safeGoBack } from '@/lib/utils';
 import { motion } from 'framer-motion';
 import { ArrowLeft, Bell, Moon, Sun, Globe, Shield, Lock, Trash2, Loader2 } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
@@ -67,7 +68,7 @@ export default function SettingsPage() {
         >
           {/* Header */}
           <div className="flex items-center gap-3 mb-6">
-            <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
+            <Button variant="ghost" size="icon" onClick={() => safeGoBack(navigate)}>
               <ArrowLeft className="h-5 w-5" />
             </Button>
             <div>

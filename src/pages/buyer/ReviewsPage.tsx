@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { safeGoBack } from '@/lib/utils';
 import { motion } from 'framer-motion';
 import { Star, Send, ArrowLeft, Image as ImageIcon, X, Loader2 } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
@@ -225,7 +226,7 @@ export default function ReviewsPage() {
       
       <div className="flex-1 overflow-y-auto pb-24">
         <div className="px-5 py-4">
-          <Button variant="ghost" size="sm" className="mb-4" onClick={() => navigate(-1)}>
+          <Button variant="ghost" size="sm" className="mb-4" onClick={() => safeGoBack(navigate)}>
             <ArrowLeft className="h-4 w-4 mr-2" />
             Kembali
           </Button>

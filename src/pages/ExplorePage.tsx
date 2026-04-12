@@ -230,8 +230,8 @@ export default function ExplorePage() {
           <EmptyState 
             title={searchQuery ? "Tidak ditemukan" : "Belum ada data"}
             description={searchQuery 
-              ? `Tidak ada hasil untuk "${searchQuery}"`
-              : "Data belum tersedia saat ini"
+              ? `Tidak ada hasil untuk "${searchQuery}". Coba kata kunci lain atau periksa ejaan.`
+              : "Belum ada produk, toko, atau wisata tersedia. Coba lagi nanti atau jelajahi kategori lain."
             }
           />
         ) : (

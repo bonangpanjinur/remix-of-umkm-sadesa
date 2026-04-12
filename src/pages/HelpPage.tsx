@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { safeGoBack } from '@/lib/utils';
 import { ArrowLeft, MessageCircle, Mail } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
 import { BottomNav } from '@/components/layout/BottomNav';
@@ -77,7 +78,7 @@ export default function HelpPage() {
         <div className="px-5 py-4">
           {/* Back button */}
           <button
-            onClick={() => navigate(-1)}
+            onClick={() => safeGoBack(navigate)}
             className="flex items-center gap-2 text-muted-foreground hover:text-foreground mb-4 transition"
           >
             <ArrowLeft className="h-4 w-4" />

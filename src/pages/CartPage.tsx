@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { safeGoBack } from '@/lib/utils';
 import { motion } from 'framer-motion';
 import { ArrowLeft, Minus, Plus, Trash2, ShoppingBag, Store, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -97,7 +98,7 @@ export default function CartPage() {
         {/* Header */}
         <div className="p-4 border-b border-border flex items-center gap-3">
           <button 
-            onClick={() => navigate(-1)}
+            onClick={() => safeGoBack(navigate)}
             className="w-8 h-8 rounded-full hover:bg-secondary flex items-center justify-center"
           >
             <ArrowLeft className="h-5 w-5" />
@@ -134,7 +135,7 @@ export default function CartPage() {
       <div className="p-4 border-b border-border bg-card flex items-center justify-between">
         <div className="flex items-center gap-3">
           <button 
-            onClick={() => navigate(-1)}
+            onClick={() => safeGoBack(navigate)}
             className="w-8 h-8 rounded-full hover:bg-secondary flex items-center justify-center"
           >
             <ArrowLeft className="h-5 w-5" />

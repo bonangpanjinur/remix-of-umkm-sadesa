@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { safeGoBack } from '@/lib/utils';
 import { motion } from 'framer-motion';
 import { Star, MessageCircle, ArrowLeft } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
@@ -92,7 +93,7 @@ export default function MyReviewsPage() {
       <div className="flex-1 overflow-y-auto pb-24">
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="px-5 py-4">
           <div className="flex items-center gap-3 mb-6">
-            <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
+            <Button variant="ghost" size="icon" onClick={() => safeGoBack(navigate)}>
               <ArrowLeft className="h-5 w-5" />
             </Button>
             <div>

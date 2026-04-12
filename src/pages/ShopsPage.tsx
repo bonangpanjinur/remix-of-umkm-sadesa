@@ -266,8 +266,13 @@ export default function ShopsPage() {
             </div>
           ) : sortedAndFilteredShops.length === 0 ? (
             <div className="text-center py-12">
-              <StoreIcon className="h-12 w-12 mx-auto text-muted-foreground/50 mb-3" />
-              <p className="text-muted-foreground">Tidak ada toko ditemukan</p>
+              <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
+                <StoreIcon className="h-8 w-8 text-muted-foreground" />
+              </div>
+              <h3 className="font-medium text-foreground mb-1">Tidak ada toko ditemukan</h3>
+              <p className="text-sm text-muted-foreground max-w-[250px] mx-auto">
+                {activeFilterCount > 0 ? 'Coba ubah filter untuk hasil lebih banyak' : 'Belum ada toko terdaftar di area ini'}
+              </p>
               {activeFilterCount > 0 && (
                 <Button
                   variant="link"

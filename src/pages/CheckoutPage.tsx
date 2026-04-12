@@ -11,7 +11,7 @@ import { VoucherInput } from '@/components/checkout/VoucherInput';
 import { useCart } from '@/contexts/CartContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { formatPrice } from '@/lib/utils';
+import { formatPrice, safeGoBack } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
 import { createPaymentInvoice, isXenditEnabled } from '@/lib/paymentApi';
 import { fetchQuotaTiers, calculateCreditCost } from '@/lib/quotaApi';
@@ -718,7 +718,7 @@ export default function CheckoutPage() {
         {/* Header */}
         <div className="p-4 border-b border-border flex items-center gap-3">
           <button 
-            onClick={() => navigate(-1)}
+            onClick={() => safeGoBack(navigate)}
             className="w-8 h-8 rounded-full hover:bg-secondary flex items-center justify-center"
           >
             <ArrowLeft className="h-5 w-5" />

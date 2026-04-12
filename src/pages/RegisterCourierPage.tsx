@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { safeGoBack } from '@/lib/utils';
 import { ArrowLeft, Bike, Upload, Check, AlertCircle } from 'lucide-react';
 import { z } from 'zod';
 import { Button } from '@/components/ui/button';
@@ -165,7 +166,7 @@ export default function RegisterCourierPage() {
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-40 bg-card border-b border-border px-4 py-3">
         <div className="flex items-center gap-3">
-          <button onClick={() => step > 1 ? setStep(step - 1) : navigate(-1)} className="p-2 -ml-2 hover:bg-secondary rounded-full">
+          <button onClick={() => step > 1 ? setStep(step - 1) : safeGoBack(navigate)} className="p-2 -ml-2 hover:bg-secondary rounded-full">
             <ArrowLeft className="h-5 w-5" />
           </button>
           <div className="flex-1">

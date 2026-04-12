@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { safeGoBack } from '@/lib/utils';
 import { motion } from 'framer-motion';
 import { ArrowLeft, Mail, Loader2, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -89,7 +90,7 @@ export default function ForgotPasswordPage() {
     <div className="mobile-shell bg-background flex flex-col min-h-screen">
       <div className="p-4 flex items-center gap-3">
         <button
-          onClick={() => navigate(-1)}
+          onClick={() => safeGoBack(navigate)}
           className="w-8 h-8 rounded-full hover:bg-secondary flex items-center justify-center"
         >
           <ArrowLeft className="h-5 w-5" />
