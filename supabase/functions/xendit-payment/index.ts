@@ -30,9 +30,13 @@ async function getXenditSettings(supabaseUrl: string, serviceRoleKey: string): P
     .from("app_settings")
     .select("value")
     .eq("key", "payment_xendit")
-    .single();
+    .maybeSingle();
 
-  if (error || !data) {
+  if (error) {
+    throw new Error("Failed to fetch Xendit settings: " + error.message);
+  }
+
+  if (!data) {
     throw new Error("Xendit settings not found");
   }
 

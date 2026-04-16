@@ -48,6 +48,9 @@ import MerchantSlugResolver from "./pages/MerchantSlugResolver";
 import ShopsPage from "./pages/ShopsPage";
 import InstallPage from "./pages/InstallPage";
 import HelpPage from "./pages/HelpPage";
+import PrivacyPolicyPage from "./pages/PrivacyPolicyPage";
+import TermsPage from "./pages/TermsPage";
+import EmailConfirmationPage from "./pages/EmailConfirmationPage";
 import RecentlyViewedPage from "./pages/buyer/RecentlyViewedPage";
 import AdminSystemHealthPage from "./pages/admin/AdminSystemHealthPage";
 
@@ -203,6 +206,9 @@ const App = () => (
               } />
               <Route path="/install" element={<InstallPage />} />
               <Route path="/help" element={<HelpPage />} />
+              <Route path="/privacy" element={<PrivacyPolicyPage />} />
+              <Route path="/terms" element={<TermsPage />} />
+              <Route path="/email-confirmation" element={<EmailConfirmationPage />} />
               <Route path="/unauthorized" element={<UnauthorizedPage />} />
 
               {/* Protected buyer routes */}
