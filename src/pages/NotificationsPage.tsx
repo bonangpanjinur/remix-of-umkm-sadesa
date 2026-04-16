@@ -170,19 +170,37 @@ export default function NotificationsPage() {
             )}
           </div>
 
+          {/* Tabs */}
+          <div className="flex gap-2 mb-4 overflow-x-auto hide-scrollbar">
+            {TABS.map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={cn(
+                  'px-3 py-1.5 rounded-full text-xs font-medium transition whitespace-nowrap',
+                  activeTab === tab.id
+                    ? 'bg-primary text-primary-foreground'
+                    : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
+                )}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
           {loading ? (
             <div className="flex items-center justify-center py-20">
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
             </div>
-          ) : notifications.length === 0 ? (
+          ) : filteredNotifications.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
               <Bell className="h-12 w-12 mb-3 opacity-50" />
               <p className="font-medium">Belum ada notifikasi</p>
               <p className="text-sm">Notifikasi akan muncul di sini</p>
             </div>
           ) : (
-            <div className="space-y-2 mt-4">
-              {notifications.map((notification) => (
+            <div className="space-y-2">
+              {filteredNotifications.map((notification) => (
                 <div
                   key={notification.id}
                   className={cn(
