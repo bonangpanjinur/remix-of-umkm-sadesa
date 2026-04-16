@@ -196,13 +196,11 @@ export default function SettingsPage() {
                   </>
                 )}
 
-                <Button variant="outline" className="w-full justify-start text-muted-foreground" disabled>
+                <Button variant="outline" className="w-full justify-start" onClick={() => navigate('/privacy')}>
                   Kebijakan Privasi
-                  <Badge variant="secondary" className="ml-auto text-[10px]">Segera hadir</Badge>
                 </Button>
-                <Button variant="outline" className="w-full justify-start text-muted-foreground" disabled>
+                <Button variant="outline" className="w-full justify-start" onClick={() => navigate('/terms')}>
                   Syarat & Ketentuan
-                  <Badge variant="secondary" className="ml-auto text-[10px]">Segera hadir</Badge>
                 </Button>
               </CardContent>
             </Card>
