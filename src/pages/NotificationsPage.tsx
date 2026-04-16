@@ -1,10 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { safeGoBack } from '@/lib/utils';
 import { Header } from '@/components/layout/Header';
 import { BottomNav } from '@/components/layout/BottomNav';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatDistanceToNow } from 'date-fns';
@@ -35,11 +34,20 @@ interface Notification {
   created_at: string;
 }
 
+type NotifTab = 'all' | 'order' | 'system';
+
+const TABS: { id: NotifTab; label: string }[] = [
+  { id: 'all', label: 'Semua' },
+  { id: 'order', label: 'Pesanan' },
+  { id: 'system', label: 'Lainnya' },
+];
+
 export default function NotificationsPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<NotifTab>('all');
 
   useEffect(() => {
     if (!user) return;
@@ -128,6 +136,12 @@ export default function NotificationsPage() {
         return <Info className="h-5 w-5 text-muted-foreground" />;
     }
   };
+
+  const filteredNotifications = useMemo(() => {
+    if (activeTab === 'all') return notifications;
+    if (activeTab === 'order') return notifications.filter(n => n.type === 'order' || n.type === 'ride');
+    return notifications.filter(n => n.type !== 'order' && n.type !== 'ride');
+  }, [notifications, activeTab]);
 
   const unreadCount = notifications.filter(n => !n.is_read).length;
 
