@@ -4,6 +4,7 @@ import { MapPin, Search, SlidersHorizontal, ArrowUpDown, X } from 'lucide-react'
 import { Header } from '@/components/layout/Header';
 import { BottomNav } from '@/components/layout/BottomNav';
 import { TourismCard } from '@/components/TourismCard';
+import { Skeleton } from '@/components/ui/skeleton';
 import { fetchTourism, fetchVillages } from '@/lib/api';
 import { useUserLocation, sortByDistance } from '@/hooks/useUserLocation';
 import { Badge } from '@/components/ui/badge';
@@ -202,8 +203,17 @@ export default function TourismPage() {
           )}
           
           {loading ? (
-            <div className="flex justify-center py-12">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+            <div className="space-y-4">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="bg-card rounded-xl border border-border overflow-hidden">
+                  <Skeleton className="w-full h-40" />
+                  <div className="p-3 space-y-2">
+                    <Skeleton className="h-4 w-3/4" />
+                    <Skeleton className="h-3 w-1/2" />
+                    <Skeleton className="h-3 w-full" />
+                  </div>
+                </div>
+              ))}
             </div>
           ) : filteredTourism.length === 0 ? (
             <div className="text-center py-12">
