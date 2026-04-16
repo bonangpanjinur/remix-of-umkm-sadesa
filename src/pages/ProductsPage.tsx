@@ -1,15 +1,38 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { MapPin } from 'lucide-react';
+import { MapPin, ArrowUpDown } from 'lucide-react';
 import { Header } from '../components/layout/Header';
 import { BottomNav } from '../components/layout/BottomNav';
 import { SearchBar } from '../components/ui/SearchBar';
 import { ProductCard } from '../components/ProductCard';
+import { Skeleton } from '../components/ui/skeleton';
 import { fetchProducts, categories } from '../lib/api';
 import { useUserLocation, sortByDistance } from '../hooks/useUserLocation';
 import { cn } from '../lib/utils';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../components/ui/select';
 import type { Product } from '../types';
+
+type SortMode = 'nearest' | 'cheapest' | 'expensive' | 'newest';
+
+function ProductSkeleton() {
+  return (
+    <div className="bg-card rounded-xl border border-border overflow-hidden">
+      <Skeleton className="w-full aspect-square" />
+      <div className="p-3 space-y-2">
+        <Skeleton className="h-3 w-3/4" />
+        <Skeleton className="h-4 w-1/2" />
+        <Skeleton className="h-3 w-2/3" />
+      </div>
+    </div>
+  );
+}
 
 export default function ProductsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -18,6 +41,7 @@ export default function ProductsPage() {
   const [selectedCategory, setSelectedCategory] = useState(categoryParam);
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  const [sortMode, setSortMode] = useState<SortMode>('nearest');
   const { location: userLocation } = useUserLocation();
 
   useEffect(() => {
@@ -34,18 +58,33 @@ export default function ProductsPage() {
     loadData();
   }, []);
 
-  // Sort by proximity first
-  const sortedProducts = useMemo(() => {
-    if (!userLocation) return products;
-    return sortByDistance(products, userLocation.lat, userLocation.lng);
-  }, [products, userLocation]);
+  const filteredAndSortedProducts = useMemo(() => {
+    let result = products.filter(product => {
+      const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                           product.merchantName.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesCategory = selectedCategory === 'all' || product.category === selectedCategory;
+      return matchesSearch && matchesCategory;
+    });
 
-  const filteredProducts = sortedProducts.filter(product => {
-    const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         product.merchantName.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory = selectedCategory === 'all' || product.category === selectedCategory;
-    return matchesSearch && matchesCategory;
-  });
+    switch (sortMode) {
+      case 'nearest':
+        if (userLocation) {
+          result = sortByDistance(result, userLocation.lat, userLocation.lng);
+        }
+        break;
+      case 'cheapest':
+        result = [...result].sort((a, b) => a.price - b.price);
+        break;
+      case 'expensive':
+        result = [...result].sort((a, b) => b.price - a.price);
+        break;
+      case 'newest':
+        // Keep default order (newest first from API)
+        break;
+    }
+
+    return result;
+  }, [products, searchQuery, selectedCategory, sortMode, userLocation]);
 
   const handleCategoryChange = (catId: string) => {
     setSelectedCategory(catId);
@@ -97,10 +136,26 @@ export default function ProductsPage() {
             </button>
           ))}
         </div>
+
+        {/* Sort Dropdown */}
+        <div className="flex items-center gap-2">
+          <Select value={sortMode} onValueChange={(v) => setSortMode(v as SortMode)}>
+            <SelectTrigger className="h-8 text-xs w-full">
+              <ArrowUpDown className="h-3.5 w-3.5 mr-1.5" />
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {userLocation && <SelectItem value="nearest">Terdekat</SelectItem>}
+              <SelectItem value="cheapest">Termurah</SelectItem>
+              <SelectItem value="expensive">Termahal</SelectItem>
+              <SelectItem value="newest">Terbaru</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       {/* Location indicator */}
-      {userLocation && !loading && (
+      {userLocation && sortMode === 'nearest' && !loading && (
         <div className="px-5 py-2">
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground bg-muted/50 px-3 py-2 rounded-lg">
             <MapPin className="h-3.5 w-3.5 text-primary" />
@@ -118,10 +173,12 @@ export default function ProductsPage() {
           className="px-5 py-4"
         >
           {loading ? (
-            <div className="flex justify-center py-12">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+            <div className="grid grid-cols-2 gap-3">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <ProductSkeleton key={i} />
+              ))}
             </div>
-          ) : filteredProducts.length === 0 ? (
+          ) : filteredAndSortedProducts.length === 0 ? (
             <div className="text-center py-12">
               <p className="text-muted-foreground">
                 Tidak ada produk ditemukan
@@ -129,7 +186,7 @@ export default function ProductsPage() {
             </div>
           ) : (
             <div className="grid grid-cols-2 gap-3">
-              {filteredProducts.map((product, idx) => (
+              {filteredAndSortedProducts.map((product, idx) => (
                 <ProductCard key={product.id} product={product} index={idx} />
               ))}
             </div>

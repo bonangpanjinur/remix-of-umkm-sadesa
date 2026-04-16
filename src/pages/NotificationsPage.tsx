@@ -1,10 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { safeGoBack } from '@/lib/utils';
 import { Header } from '@/components/layout/Header';
 import { BottomNav } from '@/components/layout/BottomNav';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatDistanceToNow } from 'date-fns';
@@ -35,11 +34,20 @@ interface Notification {
   created_at: string;
 }
 
+type NotifTab = 'all' | 'order' | 'system';
+
+const TABS: { id: NotifTab; label: string }[] = [
+  { id: 'all', label: 'Semua' },
+  { id: 'order', label: 'Pesanan' },
+  { id: 'system', label: 'Lainnya' },
+];
+
 export default function NotificationsPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<NotifTab>('all');
 
   useEffect(() => {
     if (!user) return;
@@ -129,6 +137,12 @@ export default function NotificationsPage() {
     }
   };
 
+  const filteredNotifications = useMemo(() => {
+    if (activeTab === 'all') return notifications;
+    if (activeTab === 'order') return notifications.filter(n => n.type === 'order' || n.type === 'ride');
+    return notifications.filter(n => n.type !== 'order' && n.type !== 'ride');
+  }, [notifications, activeTab]);
+
   const unreadCount = notifications.filter(n => !n.is_read).length;
 
   return (
@@ -156,19 +170,37 @@ export default function NotificationsPage() {
             )}
           </div>
 
+          {/* Tabs */}
+          <div className="flex gap-2 mb-4 overflow-x-auto hide-scrollbar">
+            {TABS.map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={cn(
+                  'px-3 py-1.5 rounded-full text-xs font-medium transition whitespace-nowrap',
+                  activeTab === tab.id
+                    ? 'bg-primary text-primary-foreground'
+                    : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
+                )}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
           {loading ? (
             <div className="flex items-center justify-center py-20">
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
             </div>
-          ) : notifications.length === 0 ? (
+          ) : filteredNotifications.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
               <Bell className="h-12 w-12 mb-3 opacity-50" />
               <p className="font-medium">Belum ada notifikasi</p>
               <p className="text-sm">Notifikasi akan muncul di sini</p>
             </div>
           ) : (
-            <div className="space-y-2 mt-4">
-              {notifications.map((notification) => (
+            <div className="space-y-2">
+              {filteredNotifications.map((notification) => (
                 <div
                   key={notification.id}
                   className={cn(

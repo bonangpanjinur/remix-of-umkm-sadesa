@@ -6,6 +6,7 @@ import { Header } from '../components/layout/Header';
 import { BottomNav } from '../components/layout/BottomNav';
 import { Input } from '../components/ui/input';
 import { Badge } from '../components/ui/badge';
+import { Skeleton } from '../components/ui/skeleton';
 import { Button } from '../components/ui/button';
 import { ShopFilterSheet, type ShopFilters } from '../components/shop/ShopFilterSheet';
 import { supabase } from '../integrations/supabase/client';
@@ -261,8 +262,19 @@ export default function ShopsPage() {
           className="px-4 space-y-3"
         >
           {loading ? (
-            <div className="flex justify-center py-12">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+            <div className="space-y-3">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="bg-card rounded-xl border border-border p-4">
+                  <div className="flex gap-3">
+                    <Skeleton className="w-16 h-16 rounded-lg flex-shrink-0" />
+                    <div className="flex-1 space-y-2">
+                      <Skeleton className="h-4 w-3/4" />
+                      <Skeleton className="h-3 w-1/2" />
+                      <Skeleton className="h-3 w-2/3" />
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           ) : sortedAndFilteredShops.length === 0 ? (
             <div className="text-center py-12">
