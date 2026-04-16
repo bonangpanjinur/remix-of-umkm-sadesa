@@ -19,7 +19,7 @@ import {
 } from '../components/ui/select';
 import type { Product } from '../types';
 
-type SortMode = 'nearest' | 'cheapest' | 'expensive' | 'newest' | 'rating';
+type SortMode = 'nearest' | 'cheapest' | 'expensive' | 'newest';
 
 function ProductSkeleton() {
   return (
@@ -80,9 +80,6 @@ export default function ProductsPage() {
         break;
       case 'newest':
         // Keep default order (newest first from API)
-        break;
-      case 'rating':
-        result = [...result].sort((a, b) => (b.rating || 0) - (a.rating || 0));
         break;
     }
 
@@ -152,7 +149,6 @@ export default function ProductsPage() {
               <SelectItem value="cheapest">Termurah</SelectItem>
               <SelectItem value="expensive">Termahal</SelectItem>
               <SelectItem value="newest">Terbaru</SelectItem>
-              <SelectItem value="rating">Rating Tertinggi</SelectItem>
             </SelectContent>
           </Select>
         </div>
