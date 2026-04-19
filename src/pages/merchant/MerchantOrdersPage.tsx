@@ -29,6 +29,7 @@ import { OrderInvoice, printInvoice } from '@/components/merchant/OrderInvoice';
 import { useRealtimeOrders } from '@/hooks/useRealtimeOrders';
 import { useMerchantGuard } from '@/hooks/useMerchantGuard';
 import { MerchantDeliveryTracker } from '@/components/merchant/MerchantDeliveryTracker';
+import { getPaymentProofSignedUrl } from '@/lib/paymentProof';
 
 interface OrderItem {
   id: string;
@@ -51,6 +52,7 @@ export default function MerchantOrdersPage() {
   const [selectedOrder, setSelectedOrder] = useState<OrderRow | null>(null);
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
+  const [proofDisplayUrl, setProofDisplayUrl] = useState<string | null>(null);
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
   const [printDialogOpen, setPrintDialogOpen] = useState(false);
@@ -106,6 +108,7 @@ export default function MerchantOrdersPage() {
 
   const viewOrderDetail = useCallback(async (order: OrderRow) => {
     setSelectedOrder(order);
+    setProofDisplayUrl(null);
     
     const { data: items } = await supabase
       .from('order_items')
@@ -114,6 +117,11 @@ export default function MerchantOrdersPage() {
 
     setOrderItems(items || []);
     setDetailDialogOpen(true);
+
+    if (order.payment_proof_url) {
+      const signed = await getPaymentProofSignedUrl(order.payment_proof_url);
+      setProofDisplayUrl(signed);
+    }
   }, []);
 
   const openPrintDialog = useCallback(async (order: OrderRow) => {
@@ -616,10 +624,10 @@ export default function MerchantOrdersPage() {
                   </div>
                   <div className="relative rounded-lg overflow-hidden border border-border">
                     <img
-                      src={selectedOrder.payment_proof_url}
+                      src={proofDisplayUrl || ''}
                       alt="Bukti pembayaran"
                       className="w-full max-h-64 object-contain bg-secondary/30 cursor-pointer"
-                      onClick={() => window.open(selectedOrder.payment_proof_url!, '_blank')}
+                      onClick={() => proofDisplayUrl && window.open(proofDisplayUrl, '_blank')}
                     />
                   </div>
                   <p className="text-xs text-muted-foreground text-center">Klik gambar untuk memperbesar</p>

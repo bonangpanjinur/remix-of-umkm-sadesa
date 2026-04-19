@@ -1,8 +1,9 @@
-import { useState, useRef } from 'react';
-import { Upload, X, Loader2, ImageIcon, CheckCircle } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
+import { Upload, Loader2, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { uploadFile, validateFile, compressImage } from '@/lib/storage';
+import { getPaymentProofSignedUrl } from '@/lib/paymentProof';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -16,7 +17,20 @@ interface PaymentProofUploadProps {
 export function PaymentProofUpload({ orderId, currentProofUrl, onUploaded, disabled = false }: PaymentProofUploadProps) {
   const [isUploading, setIsUploading] = useState(false);
   const [proofUrl, setProofUrl] = useState<string | null>(currentProofUrl || null);
+  const [displayUrl, setDisplayUrl] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    let active = true;
+    if (proofUrl) {
+      getPaymentProofSignedUrl(proofUrl).then((u) => {
+        if (active) setDisplayUrl(u);
+      });
+    } else {
+      setDisplayUrl(null);
+    }
+    return () => { active = false; };
+  }, [proofUrl]);
 
   const handleFile = async (file: File) => {
     const error = validateFile(file, 5);
@@ -86,7 +100,7 @@ export function PaymentProofUpload({ orderId, currentProofUrl, onUploaded, disab
         <div className="space-y-3">
           <div className="relative rounded-lg overflow-hidden border border-border">
             <img
-              src={proofUrl}
+              src={displayUrl || proofUrl}
               alt="Bukti pembayaran"
               className="w-full h-48 object-cover"
             />
