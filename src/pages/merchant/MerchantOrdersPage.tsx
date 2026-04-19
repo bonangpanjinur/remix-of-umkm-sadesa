@@ -29,6 +29,7 @@ import { OrderInvoice, printInvoice } from '@/components/merchant/OrderInvoice';
 import { useRealtimeOrders } from '@/hooks/useRealtimeOrders';
 import { useMerchantGuard } from '@/hooks/useMerchantGuard';
 import { MerchantDeliveryTracker } from '@/components/merchant/MerchantDeliveryTracker';
+import { getPaymentProofSignedUrl } from '@/lib/paymentProof';
 
 interface OrderItem {
   id: string;
