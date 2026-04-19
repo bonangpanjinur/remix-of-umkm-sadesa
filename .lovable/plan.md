@@ -1,102 +1,65 @@
 
 
-# Audit Pre-Launch Komprehensif — Customer-Facing Focus
+# Rencana Perbaikan Bug
+
+## Bug yang Ditemukan
+
+### Bug #1: React forwardRef Warning di RideBookingPage (HIGH — Console Error)
+**Lokasi:** `src/components/ui/alert-dialog.tsx` baris 51 (`AlertDialogFooter`) dan baris 46 (`AlertDialogHeader`)
+
+**Masalah:** Komponen `AlertDialogFooter` dan `AlertDialogHeader` adalah function components biasa (bukan `forwardRef`), tapi Radix UI's `Slot` (lewat `Slottable`) berusaha mem-passing ref ke dalamnya. Ini muncul sebagai warning di console:
+```
+Warning: Function components cannot be given refs.
+Check the render method of `RideBookingPage`.
+```
+Warning muncul setiap kali AlertDialog dirender (di RideBookingPage dan halaman lain yang pakai komponen ini).
+
+**Fix:** Bungkus `AlertDialogFooter` dan `AlertDialogHeader` dengan `React.forwardRef`.
 
 ---
 
-## STATUS: Apa yang Sudah Baik
+### Bug #2: Storage Bucket `payment-proofs` Bersifat Publik (MEDIUM — Security)
+**Lokasi:** Database — bucket `storage.buckets`
 
-| Area | Status |
-|------|--------|
-| Auth (Login/Register/Reset Password) | OK — Zod validation, email verification |
-| Homepage (Produk, Wisata, Desa, Kategori, Banner) | OK — Cache, sort by proximity, "Lihat Lebih Banyak" |
-| Cart + Checkout (COD/Transfer/Online, stok validasi, ongkir) | OK |
-| Order Tracking (Realtime, ETA, Peta, Chat) | OK |
-| Pesanan Saya (Realtime status update, Reorder, Cancel) | OK |
-| Wishlist + Terakhir Dilihat + Review | OK |
-| Search + Filter + Kategori | OK |
-| Bottom Nav + Badge (orders, chat, notif) | OK |
-| Empty States (ShopsPage, ExplorePage) | OK |
-| Safe Navigation (safeGoBack di semua halaman) | OK |
-| API Cache (60s TTL) | OK |
-| ErrorBoundary global | OK |
-| SEO dinamis per halaman | OK |
-| PWA (manifest, offline indicator, install prompt) | OK |
-| 404 Page | OK — desain kustom |
+**Masalah:** Bucket `payment-proofs` saat ini `public = true`, artinya bukti pembayaran (yang bisa berisi info bank/rekening pembeli) dapat diakses dan **di-listing** oleh siapa saja. Linter Supabase juga mengeluhkan ini lewat warning "Public Bucket Allows Listing".
+
+**Fix:** 
+- Set `payment-proofs.public = false`
+- Tambahkan RLS policy `storage.objects` agar hanya buyer pemilik order, merchant terkait, dan admin yang bisa SELECT file payment-proof
+- Update kode upload/baca payment proof untuk pakai signed URL
 
 ---
 
-## YANG PERLU DIPERBAIKI SEBELUM LAUNCH
+### Bug #3: 9 File Masih Pakai `.single()` Tanpa Guard (LOW-MEDIUM — Stability)
+**Lokasi:** 9 file (CheckoutPage, RideBookingPage, RegisterVillagePage, MerchantPOSPage, AssignPackageDialog, VillageAddDialog, useSavedAddresses, AdminBackupPage, AdminBroadcastPage, VerifikatorDashboardPage)
 
-### A. BUG / STABILITY (4 item)
+**Masalah:** `.single()` melempar error jika row count ≠ 1. Untuk INSERT umumnya aman, tapi jika ada constraint violation atau RLS reject, error mentah ditampilkan ke user.
 
-**A1. `.single()` Masih Ada di INSERT Queries (LOW-MEDIUM)**
-Ada ~12 lokasi `.single()` pada INSERT `.select().single()`. Ini AMAN untuk insert (selalu 1 row), tapi berisiko jika insert gagal karena constraint. File: `CheckoutPage`, `RideBookingPage`, `RegisterVillagePage`, `MerchantPOSPage`, `AssignPackageDialog`, `VillageAddDialog`, `useSavedAddresses`. **Tidak blocking**, tapi best practice ganti `.maybeSingle()`.
-
-**A2. Edge Functions `.single()` Tanpa Guard (MEDIUM)**
-`xendit-payment/index.ts` dan `xendit-webhook/index.ts` pakai `.single()` saat fetch `payment_xendit` settings. Jika setting belum dikonfigurasi, function crash 500. Perlu `.maybeSingle()` + error response.
-
-**A3. RLS "Always True" Masih Ada 1 (MEDIUM)**
-Linter masih menemukan 1 policy permisif. Perlu identifikasi tabel mana dan perketat.
-
-**A4. 12 Public Bucket Allows Listing (LOW)**
-Semua bucket publik bisa di-list file-nya. Ini by-design untuk marketplace, tapi bucket `payment-proofs` dan `courier-documents` seharusnya TIDAK bisa di-list publik.
-
-### B. FITUR CUSTOMER YANG KURANG (6 item)
-
-**B1. Tidak Ada Google Sign-In (HIGH)**
-AuthPage hanya punya email/password. Tidak ada tombol "Login dengan Google". Untuk marketplace consumer, ini sangat penting untuk mengurangi friction signup.
-
-**B2. Tidak Ada Halaman Kebijakan Privasi & Syarat Ketentuan (MEDIUM)**
-SettingsPage menampilkan "Kebijakan Privasi" dan "Syarat & Ketentuan" tapi disabled dengan label "Segera hadir". Sebelum launch, ini WAJIB ada — terutama jika ada pembayaran dan data pribadi.
-
-**B3. Tidak Ada Loading Skeleton di ProductsPage, TourismPage, ShopsPage (LOW-MEDIUM)**
-Saat data loading, halaman-halaman ini hanya blank/kosong. Homepage (`Index.tsx`) sudah punya skeleton yang bagus, tapi halaman lain belum.
-
-**B4. HelpPage Menggunakan Nomor WA Default Hardcoded (MEDIUM)**
-`const DEFAULT_WA = '6281234567890'` dan `DEFAULT_EMAIL = 'support@desamart.id'` — ini placeholder yang harus diganti dengan kontak real atau diambil dari `app_settings`.
-
-**B5. Tidak Ada Konfirmasi Email Setelah Daftar yang User-Friendly (LOW)**
-Setelah signup, hanya muncul toast singkat. Tidak ada halaman khusus "Cek email Anda" dengan instruksi lengkap dan tombol resend.
-
-**B6. ProductsPage Tidak Ada Fitur Sort (LOW-MEDIUM)**
-Tidak ada opsi sort (termurah, terbaru, rating tertinggi). Hanya filter kategori dan search. Untuk marketplace, sorting sangat penting.
-
-### C. UX POLISH (4 item)
-
-**C1. Checkout Tidak Ada Indikator "Toko Tutup" yang Jelas Sebelum Submit**
-Meskipun ada validasi saat submit, pembeli bisa mengisi form panjang dulu baru ditolak. Perlu banner warning di awal jika ada merchant yang tutup.
-
-**C2. Tidak Ada Konfirmasi Dialog Sebelum Keluar Checkout**
-Jika user sudah isi data alamat lalu klik back, semua data hilang tanpa konfirmasi.
-
-**C3. Cart Badge di Header Tidak Animasi Saat Berubah**
-Saat add to cart, badge angka berubah tapi tidak ada visual feedback (bounce, pulse).
-
-**C4. Notifications Page Tidak Ada Filter/Tabs**
-Semua notifikasi ditampilkan dalam satu list tanpa pemisahan (Pesanan, Promo, System).
+**Fix:** Audit setiap penggunaan; ganti ke `.maybeSingle()` untuk read queries dan tambah error handling proper untuk insert queries yang sensitif.
 
 ---
 
-## RENCANA IMPLEMENTASI
+### Bug #4: `safeGoBack` Sendiri Pakai `navigate(-1)` Internal (LOW — Verifikasi)
+**Lokasi:** `src/lib/utils.ts` baris 10
 
-### Fase 1 — Critical Pre-Launch (5 item, HIGH priority)
-1. **Tambah Google Sign-In** di AuthPage — tombol "Masuk dengan Google" + konfigurasi OAuth
-2. **Buat halaman Kebijakan Privasi & Syarat Ketentuan** — 2 halaman statis sederhana + link dari SettingsPage dan footer AuthPage
-3. **Fix HelpPage kontak** — ambil WA/email dari `app_settings` bukan hardcoded
-4. **Fix edge function `.single()`** — `xendit-payment` dan `xendit-webhook`
-5. **Fix RLS policy always true** yang tersisa — identifikasi dan perketat
+**Masalah:** Ini sebenarnya **bukan bug** — `navigate(-1)` di dalam `safeGoBack()` adalah implementasi internal yang fallback ke `/` jika history kosong. Hanya perlu diverifikasi logikanya benar.
 
-### Fase 2 — Customer UX (4 item, MEDIUM priority)
-6. **Tambah loading skeleton** di ProductsPage, TourismPage, ShopsPage
-7. **Tambah fitur Sort** di ProductsPage (Termurah, Termahal, Terbaru, Rating)
-8. **Banner merchant tutup di checkout** — tampilkan warning di awal, bukan hanya saat submit
-9. **Halaman "Cek Email"** setelah signup — dengan instruksi dan tombol resend
+**Fix:** Verifikasi `safeGoBack` punya guard `window.history.length > 1` sebelum panggil `navigate(-1)`. Jika tidak, perbaiki.
 
-### Fase 3 — Polish (3 item, LOW priority)
-10. **Animasi cart badge** — pulse/bounce saat item ditambah
-11. **Tabs di NotificationsPage** — Semua / Pesanan / Promo
-12. **Konfirmasi keluar checkout** — dialog "Yakin ingin kembali?"
+---
 
-**Total: ~14 file diubah/ditambah, 1 migrasi SQL (RLS fix), 1 konfigurasi auth (Google OAuth)**
+## Rencana Implementasi
+
+### Fase 1 — Console Error & Security (Critical)
+1. **Fix AlertDialogFooter & AlertDialogHeader** — bungkus dengan `React.forwardRef` di `src/components/ui/alert-dialog.tsx`
+2. **Privatisasi bucket `payment-proofs`** via SQL migration:
+   - `UPDATE storage.buckets SET public = false WHERE id = 'payment-proofs'`
+   - Tambah RLS policy: hanya owner order + merchant + admin bisa SELECT
+3. **Update kode payment proof** untuk pakai `createSignedUrl()` saat menampilkan bukti
+
+### Fase 2 — Stability
+4. **Verifikasi & perbaiki `safeGoBack`** di `src/lib/utils.ts` — pastikan ada guard history length
+5. **Audit & ganti `.single()` → `.maybeSingle()`** pada read queries di 9 file (skip yang murni INSERT-with-select)
+
+**Total: ~12 file diubah, 1 migrasi SQL**
 
