@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Package, Calendar, MapPin, CheckCircle, XCircle, Image as ImageIcon, Bike } from 'lucide-react';
 import { CourierLayout } from '@/components/courier/CourierLayout';
+import { PodImage } from '@/components/courier/PodImage';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
