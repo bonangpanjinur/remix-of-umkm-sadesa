@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { DeliveryStatusCard } from '@/components/courier/DeliveryStatusCard';
+import { PodImage } from '@/components/courier/PodImage';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -544,8 +545,8 @@ export default function OrderTrackingPage() {
             {order.pod_image_url && (
               <div className="bg-card rounded-2xl p-4 border border-border">
                 <h3 className="font-medium text-sm text-muted-foreground mb-3">Bukti Pengiriman</h3>
-                <img 
-                  src={order.pod_image_url} 
+                <PodImage 
+                  storedUrl={order.pod_image_url} 
                   alt="Bukti pengiriman" 
                   className="w-full h-48 object-cover rounded-xl border border-border"
                 />

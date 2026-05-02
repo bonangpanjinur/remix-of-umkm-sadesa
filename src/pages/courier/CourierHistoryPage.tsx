@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Package, Calendar, MapPin, CheckCircle, XCircle, Image as ImageIcon, Bike } from 'lucide-react';
 import { CourierLayout } from '@/components/courier/CourierLayout';
+import { PodImage } from '@/components/courier/PodImage';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
@@ -210,7 +211,7 @@ export default function CourierHistoryPage() {
           <DialogHeader><DialogTitle>Bukti Pengiriman (POD)</DialogTitle></DialogHeader>
           {selectedPOD && (
             <div className="space-y-4">
-              <img src={selectedPOD.pod_image_url!} alt="Bukti Pengiriman" className="w-full rounded-lg" />
+              <PodImage storedUrl={selectedPOD.pod_image_url} alt="Bukti Pengiriman" className="w-full rounded-lg" />
               {selectedPOD.pod_notes && (
                 <div className="bg-secondary p-3 rounded-lg">
                   <p className="text-xs text-muted-foreground mb-1">Catatan:</p>
