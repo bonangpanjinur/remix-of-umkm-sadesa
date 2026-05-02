@@ -210,7 +210,7 @@ export default function CourierHistoryPage() {
           <DialogHeader><DialogTitle>Bukti Pengiriman (POD)</DialogTitle></DialogHeader>
           {selectedPOD && (
             <div className="space-y-4">
-              <img src={selectedPOD.pod_image_url!} alt="Bukti Pengiriman" className="w-full rounded-lg" />
+              <PodImage storedUrl={selectedPOD.pod_image_url} alt="Bukti Pengiriman" className="w-full rounded-lg" />
               {selectedPOD.pod_notes && (
                 <div className="bg-secondary p-3 rounded-lg">
                   <p className="text-xs text-muted-foreground mb-1">Catatan:</p>
