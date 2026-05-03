@@ -27,9 +27,7 @@ export function PodImage({ storedUrl, alt, className }: PodImageProps) {
   const [status, setStatus] = useState<Status>('loading');
   const [attempt, setAttempt] = useState(0);
 
-  const resolvedAlt = alt ?? t('pod.alt' as never) ?? 'Bukti Pengiriman';
-  // 'pod.alt' is optional; fall back gracefully.
-  const safeAlt = typeof resolvedAlt === 'string' && resolvedAlt !== 'pod.alt' ? resolvedAlt : alt ?? 'Bukti Pengiriman';
+  const safeAlt = alt ?? 'Bukti Pengiriman';
 
   const retry = useCallback(() => setAttempt((n) => n + 1), []);
 
