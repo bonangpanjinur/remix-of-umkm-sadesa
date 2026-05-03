@@ -30,7 +30,7 @@ export async function getPodImageSignedUrl(
     .createSignedUrl(path, expiresInSeconds);
   if (error || !data?.signedUrl) {
     console.warn('Failed to sign POD image URL:', error?.message);
-    return storedUrl;
+    return null;
   }
   return data.signedUrl;
 }
