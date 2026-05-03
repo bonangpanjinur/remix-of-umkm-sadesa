@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { ImageOff } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
+import { ImageOff, RefreshCw } from 'lucide-react';
 import { getPodImageSignedUrl } from '@/lib/podImage';
 import { cn } from '@/lib/utils';
 
@@ -9,18 +9,27 @@ interface PodImageProps {
   className?: string;
 }
 
+type Status = 'loading' | 'ready' | 'missing' | 'error';
+
 /**
  * Image component that resolves a stored POD URL into a fresh signed URL.
- * Shows a skeleton while loading and a fallback icon if it fails.
+ * - loading  → skeleton
+ * - missing  → "Gambar tidak tersedia" (storedUrl null/empty)
+ * - error    → "Gagal memuat, coba lagi" with retry button (signing failed)
+ * - ready    → <img>
  */
 export function PodImage({ storedUrl, alt = 'Bukti Pengiriman', className }: PodImageProps) {
   const [src, setSrc] = useState<string | null>(null);
-  const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
+  const [status, setStatus] = useState<Status>('loading');
+  const [attempt, setAttempt] = useState(0);
+
+  const retry = useCallback(() => setAttempt((n) => n + 1), []);
 
   useEffect(() => {
     let cancelled = false;
     if (!storedUrl) {
-      setStatus('error');
+      setStatus('missing');
+      setSrc(null);
       return;
     }
     setStatus('loading');
@@ -40,13 +49,19 @@ export function PodImage({ storedUrl, alt = 'Bukti Pengiriman', className }: Pod
     return () => {
       cancelled = true;
     };
-  }, [storedUrl]);
+  }, [storedUrl, attempt]);
 
   if (status === 'loading') {
-    return <div className={cn('bg-muted animate-pulse rounded-md', className)} aria-label="Memuat gambar" />;
+    return (
+      <div
+        className={cn('bg-muted animate-pulse rounded-md', className)}
+        aria-label="Memuat gambar"
+        role="status"
+      />
+    );
   }
 
-  if (status === 'error' || !src) {
+  if (status === 'missing') {
     return (
       <div
         className={cn(
@@ -62,5 +77,27 @@ export function PodImage({ storedUrl, alt = 'Bukti Pengiriman', className }: Pod
     );
   }
 
-  return <img src={src} alt={alt} className={className} loading="lazy" />;
+  if (status === 'error') {
+    return (
+      <div
+        className={cn(
+          'bg-muted rounded-md flex flex-col items-center justify-center text-muted-foreground gap-2 p-2',
+          className,
+        )}
+        role="alert"
+      >
+        <RefreshCw className="h-5 w-5" />
+        <span className="text-xs text-center">Gagal memuat, coba lagi</span>
+        <button
+          type="button"
+          onClick={retry}
+          className="text-xs font-medium text-primary hover:underline focus:outline-none focus:underline"
+        >
+          Muat ulang
+        </button>
+      </div>
+    );
+  }
+
+  return <img src={src!} alt={alt} className={className} loading="lazy" />;
 }

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { PodImage } from './PodImage';
 
 vi.mock('@/lib/podImage', () => ({
@@ -15,33 +15,45 @@ describe('PodImage', () => {
     mocked.mockReset();
   });
 
-  it('shows fallback immediately when storedUrl is null', async () => {
+  it('shows "tidak tersedia" immediately when storedUrl is null', async () => {
     render(<PodImage storedUrl={null} className="w-10 h-10" />);
-    expect(await screen.findByLabelText(/tidak tersedia/i)).toBeInTheDocument();
-    expect(screen.getByText(/Gambar tidak tersedia/i)).toBeInTheDocument();
+    expect(await screen.findByText(/Gambar tidak tersedia/i)).toBeInTheDocument();
   });
 
-  it('shows skeleton while loading then fallback when signing fails', async () => {
+  it('shows skeleton while loading then "Gagal memuat" when signing returns null', async () => {
     let resolveFn: (v: string | null) => void = () => {};
     mocked.mockReturnValue(new Promise<string | null>((r) => { resolveFn = r; }));
 
     render(<PodImage storedUrl="https://x/pod-images/foo.jpg" className="w-10 h-10" />);
-
     expect(screen.getByLabelText(/Memuat gambar/i)).toBeInTheDocument();
 
     resolveFn(null);
 
     await waitFor(() => {
-      expect(screen.getByText(/Gambar tidak tersedia/i)).toBeInTheDocument();
+      expect(screen.getByText(/Gagal memuat, coba lagi/i)).toBeInTheDocument();
     });
+    expect(screen.queryByText(/Gambar tidak tersedia/i)).not.toBeInTheDocument();
   });
 
-  it('shows fallback when getPodImageSignedUrl rejects', async () => {
-    mocked.mockRejectedValue(new Error('network'));
+  it('shows "Gagal memuat" when getPodImageSignedUrl rejects, and retry re-invokes loader', async () => {
+    mocked.mockRejectedValueOnce(new Error('network'));
     render(<PodImage storedUrl="https://x/pod-images/bar.jpg" className="w-10 h-10" />);
+
     await waitFor(() => {
-      expect(screen.getByText(/Gambar tidak tersedia/i)).toBeInTheDocument();
+      expect(screen.getByText(/Gagal memuat, coba lagi/i)).toBeInTheDocument();
     });
+    expect(mocked).toHaveBeenCalledTimes(1);
+
+    mocked.mockResolvedValueOnce('https://signed.example/bar.jpg');
+    fireEvent.click(screen.getByRole('button', { name: /Muat ulang/i }));
+
+    await waitFor(() => {
+      expect(mocked).toHaveBeenCalledTimes(2);
+    });
+    expect(await screen.findByAltText(/Bukti Pengiriman/i)).toHaveAttribute(
+      'src',
+      'https://signed.example/bar.jpg',
+    );
   });
 
   it('renders the img when a signed URL is returned', async () => {
