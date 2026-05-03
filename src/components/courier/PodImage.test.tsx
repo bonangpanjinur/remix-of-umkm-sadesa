@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent, act } from '@testing-library/react';
 import { PodImage } from './PodImage';
+import { setLocale } from '@/lib/i18n';
 
 vi.mock('@/lib/podImage', () => ({
   getPodImageSignedUrl: vi.fn(),
@@ -13,6 +14,7 @@ const mocked = vi.mocked(getPodImageSignedUrl);
 describe('PodImage', () => {
   beforeEach(() => {
     mocked.mockReset();
+    setLocale('id');
   });
 
   it('shows "tidak tersedia" immediately when storedUrl is null', async () => {
@@ -61,5 +63,18 @@ describe('PodImage', () => {
     render(<PodImage storedUrl="https://x/pod-images/foo.jpg" alt="Bukti" />);
     const img = await screen.findByAltText('Bukti');
     expect(img).toHaveAttribute('src', 'https://signed.example/foo.jpg');
+  });
+
+  it('renders English copy when locale is "en"', async () => {
+    act(() => setLocale('en'));
+    render(<PodImage storedUrl={null} className="w-10 h-10" />);
+    expect(await screen.findByText(/Image not available/i)).toBeInTheDocument();
+
+    mocked.mockRejectedValueOnce(new Error('x'));
+    render(<PodImage storedUrl="https://x/pod-images/y.jpg" />);
+    await waitFor(() => {
+      expect(screen.getByText(/Failed to load, please try again/i)).toBeInTheDocument();
+    });
+    expect(screen.getByRole('button', { name: /Reload/i })).toBeInTheDocument();
   });
 });
