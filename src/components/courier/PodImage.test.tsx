@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent, act } from '@testing-library/react';
 import { PodImage } from './PodImage';
+import { setLocale } from '@/lib/i18n';
 
 vi.mock('@/lib/podImage', () => ({
   getPodImageSignedUrl: vi.fn(),
@@ -13,6 +14,7 @@ const mocked = vi.mocked(getPodImageSignedUrl);
 describe('PodImage', () => {
   beforeEach(() => {
     mocked.mockReset();
+    setLocale('id');
   });
 
   it('shows "tidak tersedia" immediately when storedUrl is null', async () => {
