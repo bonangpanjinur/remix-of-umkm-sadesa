@@ -64,4 +64,17 @@ describe('PodImage', () => {
     const img = await screen.findByAltText('Bukti');
     expect(img).toHaveAttribute('src', 'https://signed.example/foo.jpg');
   });
+
+  it('renders English copy when locale is "en"', async () => {
+    act(() => setLocale('en'));
+    render(<PodImage storedUrl={null} className="w-10 h-10" />);
+    expect(await screen.findByText(/Image not available/i)).toBeInTheDocument();
+
+    mocked.mockRejectedValueOnce(new Error('x'));
+    render(<PodImage storedUrl="https://x/pod-images/y.jpg" />);
+    await waitFor(() => {
+      expect(screen.getByText(/Failed to load, please try again/i)).toBeInTheDocument();
+    });
+    expect(screen.getByRole('button', { name: /Reload/i })).toBeInTheDocument();
+  });
 });
