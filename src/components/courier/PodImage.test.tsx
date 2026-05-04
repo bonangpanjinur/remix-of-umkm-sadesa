@@ -77,4 +77,14 @@ describe('PodImage', () => {
     });
     expect(screen.getByRole('button', { name: /Reload/i })).toBeInTheDocument();
   });
+
+  it('re-renders live when setLocale toggles while mounted', async () => {
+    render(<PodImage storedUrl={null} className="w-10 h-10" />);
+    expect(await screen.findByText(/Gambar tidak tersedia/i)).toBeInTheDocument();
+
+    act(() => setLocale('en'));
+
+    expect(screen.getByText(/Image not available/i)).toBeInTheDocument();
+    expect(screen.queryByText(/Gambar tidak tersedia/i)).not.toBeInTheDocument();
+  });
 });
