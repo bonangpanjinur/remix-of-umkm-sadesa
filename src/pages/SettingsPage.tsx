@@ -10,9 +10,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Switch } from '@/components/ui/switch';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
+
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { PushNotificationSettings } from '@/components/settings/PushNotificationSettings';
+import { LanguageSwitcher } from '@/components/common/LanguageSwitcher';
+import { useTranslation } from '@/lib/i18n';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from 'next-themes';
 import { supabase } from '@/integrations/supabase/client';
@@ -22,6 +24,7 @@ export default function SettingsPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { theme, setTheme } = useTheme();
+  const { t } = useTranslation();
 
   // Change password state
   const [showPasswordForm, setShowPasswordForm] = useState(false);
@@ -123,20 +126,15 @@ export default function SettingsPage() {
               <CardHeader className="pb-3">
                 <div className="flex items-center gap-2">
                   <Globe className="h-5 w-5 text-primary" />
-                  <CardTitle className="text-base">Bahasa</CardTitle>
+                  <CardTitle className="text-base">{t('settings.language.title')}</CardTitle>
                 </div>
                 <CardDescription>
-                  Pilih bahasa tampilan aplikasi
+                  {t('settings.language.description')}
                 </CardDescription>
               </CardHeader>
-              <CardContent>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm">Bahasa Aktif</span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-muted-foreground">Bahasa Indonesia</span>
-                    <Badge variant="secondary" className="text-[10px]">Segera hadir</Badge>
-                  </div>
-                </div>
+              <CardContent className="space-y-2">
+                <p className="text-xs text-muted-foreground">{t('settings.language.active')}</p>
+                <LanguageSwitcher variant="inline" />
               </CardContent>
             </Card>
 
