@@ -6,6 +6,7 @@ import { InstallButton } from '@/components/pwa/InstallButton';
 import { useWhitelabel } from '@/hooks/useWhitelabel';
 import { useCart } from '@/contexts/CartContext';
 import { useChatUnread } from '@/hooks/useChatUnread';
+import { LanguageSwitcher } from '@/components/common/LanguageSwitcher';
 
 export function Header() {
   const { settings } = useWhitelabel();
@@ -77,6 +78,7 @@ export function Header() {
               </span>
             )}
           </button>
+          <LanguageSwitcher />
           <NotificationDropdown />
         </div>
       </div>
