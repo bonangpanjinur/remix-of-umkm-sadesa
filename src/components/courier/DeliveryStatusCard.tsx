@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion';
-import { CheckCircle, Package, Truck, MapPin, Clock, Loader2 } from 'lucide-react';
+import { CheckCircle, Package, Truck, MapPin, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useTranslation, useFormatters, type TranslationKey } from '@/lib/i18n';
 
 interface DeliveryStatus {
   status: 'NEW' | 'PROCESSING' | 'ASSIGNED' | 'PICKED_UP' | 'SENT' | 'ON_DELIVERY' | 'DELIVERING' | 'DELIVERED' | 'DONE';
@@ -16,17 +17,19 @@ interface DeliveryStatusCardProps {
   showEstimate?: boolean;
 }
 
-const statusSteps = [
-  { key: 'NEW', label: 'Pesanan Dibuat', icon: Package },
-  { key: 'PROCESSED', label: 'Sedang Diproses', icon: Clock },
-  { key: 'ASSIGNED', label: 'Kurir Ditugaskan', icon: Truck },
-  { key: 'PICKED_UP', label: 'Pesanan Diambil', icon: MapPin },
-  { key: 'DELIVERED', label: 'Sampai Tujuan', icon: CheckCircle },
+const statusSteps: Array<{ key: string; labelKey: TranslationKey; icon: typeof Package }> = [
+  { key: 'NEW', labelKey: 'order.step.created', icon: Package },
+  { key: 'PROCESSED', labelKey: 'order.step.processed', icon: Clock },
+  { key: 'ASSIGNED', labelKey: 'order.step.assigned', icon: Truck },
+  { key: 'PICKED_UP', labelKey: 'order.step.picked_up', icon: MapPin },
+  { key: 'DELIVERED', labelKey: 'order.step.delivered', icon: CheckCircle },
 ];
 
 const statusOrder = ['NEW', 'PROCESSING', 'PROCESSED', 'READY', 'ASSIGNED', 'PICKED_UP', 'SENT', 'ON_DELIVERY', 'DELIVERING', 'DELIVERED', 'DONE'];
 
 export function DeliveryStatusCard({ order, showEstimate = true }: DeliveryStatusCardProps) {
+  const { t, tStatus } = useTranslation();
+  const { formatTime } = useFormatters();
   const currentIndex = statusOrder.indexOf(order.status);
 
   const getStepTime = (stepKey: string): string | null => {
@@ -34,7 +37,7 @@ export function DeliveryStatusCard({ order, showEstimate = true }: DeliveryStatu
       case 'NEW':
         return order.created_at;
       case 'PROCESSED':
-        return null; // no specific timestamp for this
+        return null;
       case 'ASSIGNED':
         return order.assigned_at || null;
       case 'PICKED_UP':
@@ -52,50 +55,18 @@ export function DeliveryStatusCard({ order, showEstimate = true }: DeliveryStatu
   };
 
   const isStepActive = (stepKey: string): boolean => {
-    // For SENT/ON_DELIVERY/DELIVERING, highlight DELIVERED as active
     if ((order.status === 'ON_DELIVERY' || order.status === 'SENT' || order.status === 'DELIVERING') && stepKey === 'DELIVERED') {
       return true;
     }
     return order.status === stepKey;
   };
 
-  const formatTime = (dateStr: string | null) => {
-    if (!dateStr) return null;
-    return new Date(dateStr).toLocaleTimeString('id-ID', {
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
-
   const getEstimatedTime = () => {
     if (!order.picked_up_at) return null;
-    // Estimate 20-30 minutes after pickup
     const pickupTime = new Date(order.picked_up_at);
     const etaMin = new Date(pickupTime.getTime() + 20 * 60 * 1000);
     const etaMax = new Date(pickupTime.getTime() + 30 * 60 * 1000);
-    return `${etaMin.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} - ${etaMax.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}`;
-  };
-
-  const getStatusLabel = () => {
-    switch (order.status) {
-      case 'NEW':
-      case 'PROCESSING':
-        return 'Menunggu Kurir';
-      case 'ASSIGNED':
-        return 'Kurir Dalam Perjalanan ke Toko';
-      case 'PICKED_UP':
-        return 'Kurir Mengambil Pesanan';
-      case 'SENT':
-      case 'ON_DELIVERY':
-        return 'Kurir Sedang Mengantar';
-      case 'DELIVERING':
-        return 'Penjual Sedang Mengantar';
-      case 'DELIVERED':
-      case 'DONE':
-        return 'Pesanan Terkirim';
-      default:
-        return order.status;
-    }
+    return `${formatTime(etaMin)} - ${formatTime(etaMax)}`;
   };
 
   return (
@@ -104,8 +75,8 @@ export function DeliveryStatusCard({ order, showEstimate = true }: DeliveryStatu
       <div className="flex items-center gap-3 mb-6">
         <div className={cn(
           "w-12 h-12 rounded-full flex items-center justify-center",
-          order.status === 'DELIVERED' || order.status === 'DONE' 
-            ? 'bg-green-500' 
+          order.status === 'DELIVERED' || order.status === 'DONE'
+            ? 'bg-green-500'
             : 'bg-primary'
         )}>
           {order.status === 'DELIVERED' || order.status === 'DONE' ? (
@@ -117,11 +88,11 @@ export function DeliveryStatusCard({ order, showEstimate = true }: DeliveryStatu
           )}
         </div>
         <div className="flex-1">
-          <p className="font-bold text-lg">{getStatusLabel()}</p>
+          <p className="font-bold text-lg">{tStatus(order.status)}</p>
           {showEstimate && (order.status === 'ON_DELIVERY' || order.status === 'SENT' || order.status === 'DELIVERING') && getEstimatedTime() && (
             <p className="text-sm text-muted-foreground flex items-center gap-1">
               <Clock className="h-3.5 w-3.5" />
-              Estimasi tiba: {getEstimatedTime()}
+              {t('order.eta.label')}: {getEstimatedTime()}
             </p>
           )}
         </div>
@@ -143,7 +114,6 @@ export function DeliveryStatusCard({ order, showEstimate = true }: DeliveryStatu
               transition={{ delay: index * 0.1 }}
               className="flex items-start gap-3"
             >
-              {/* Icon and Line */}
               <div className="flex flex-col items-center">
                 <div
                   className={cn(
@@ -169,7 +139,6 @@ export function DeliveryStatusCard({ order, showEstimate = true }: DeliveryStatu
                 )}
               </div>
 
-              {/* Content */}
               <div className="flex-1 pb-4">
                 <p
                   className={cn(
@@ -177,7 +146,7 @@ export function DeliveryStatusCard({ order, showEstimate = true }: DeliveryStatu
                     isCompleted ? 'text-foreground' : 'text-muted-foreground'
                   )}
                 >
-                  {step.label}
+                  {t(step.labelKey)}
                 </p>
                 {stepTime && (
                   <p className="text-sm text-muted-foreground">
@@ -187,7 +156,7 @@ export function DeliveryStatusCard({ order, showEstimate = true }: DeliveryStatu
                 {isActive && !isCompleted && (
                   <span className="inline-flex items-center gap-1 text-xs text-primary mt-1">
                     <span className="w-1.5 h-1.5 bg-primary rounded-full animate-pulse" />
-                    Sedang berlangsung
+                    {t('order.step.inProgress')}
                   </span>
                 )}
               </div>
