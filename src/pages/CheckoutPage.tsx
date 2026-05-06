@@ -12,6 +12,7 @@ import { useCart } from '@/contexts/CartContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { formatPrice, safeGoBack } from '@/lib/utils';
+import { useTranslation, useFormatters } from '@/lib/i18n';
 import { toast } from '@/hooks/use-toast';
 import { createPaymentInvoice, isXenditEnabled } from '@/lib/paymentApi';
 import { fetchQuotaTiers, calculateCreditCost } from '@/lib/quotaApi';
@@ -45,6 +46,8 @@ export default function CheckoutPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { items, getCartTotal, clearCart, removeFromCart } = useCart();
+  const { t } = useTranslation();
+  const { formatCurrency } = useFormatters();
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [orderId, setOrderId] = useState<string | null>(null);
@@ -1109,38 +1112,38 @@ export default function CheckoutPage() {
         {shippingSettings && subtotal >= shippingSettings.free_shipping_min_order && deliveryType === 'INTERNAL' && (
           <div className="flex items-center gap-1.5 mb-2 text-xs text-emerald-600 font-medium">
             <CheckCircle className="h-3.5 w-3.5" />
-            <span>Gratis ongkir! (min. belanja {formatPrice(shippingSettings.free_shipping_min_order)})</span>
+            <span>{t('shipping.freeMinOrder', { min: formatCurrency(shippingSettings.free_shipping_min_order) })}</span>
           </div>
         )}
         <div className="flex justify-between items-center mb-1 text-sm">
-          <span className="text-muted-foreground">Subtotal</span>
-          <span className="font-bold">{formatPrice(subtotal)}</span>
+          <span className="text-muted-foreground">{t('shipping.subtotal')}</span>
+          <span className="font-bold">{formatCurrency(subtotal)}</span>
         </div>
         <div className="flex justify-between items-center mb-1 text-sm">
-          <span className="text-muted-foreground">Ongkir</span>
-          <span className="font-bold">{formatPrice(shippingCost)}</span>
+          <span className="text-muted-foreground">{t('shipping.fee')}</span>
+          <span className="font-bold">{formatCurrency(shippingCost)}</span>
         </div>
         {voucherDiscount > 0 && (
           <div className="flex justify-between items-center mb-1 text-sm">
-            <span className="text-primary">Diskon Voucher</span>
-            <span className="font-bold text-primary">-{formatPrice(voucherDiscount)}</span>
+            <span className="text-primary">{t('shipping.voucherDiscount')}</span>
+            <span className="font-bold text-primary">-{formatCurrency(voucherDiscount)}</span>
           </div>
         )}
         {codServiceFee > 0 && (
           <div className="flex justify-between items-center mb-1 text-sm">
-            <span className="text-muted-foreground">Biaya Layanan COD</span>
-            <span className="font-bold">{formatPrice(codServiceFee)}</span>
+            <span className="text-muted-foreground">{t('shipping.codServiceFee')}</span>
+            <span className="font-bold">{formatCurrency(codServiceFee)}</span>
           </div>
         )}
         <div className="flex justify-between items-center mb-3 pt-3 border-t border-border">
-          <span className="text-lg font-bold">Total</span>
-          <span className="text-xl font-bold text-primary">{formatPrice(total)}</span>
+          <span className="text-lg font-bold">{t('shipping.total')}</span>
+          <span className="text-xl font-bold text-primary">{formatCurrency(total)}</span>
         </div>
         {/* Payment method label */}
         <div className="flex items-center gap-1.5 mb-3 text-xs text-muted-foreground">
           <CreditCard className="h-3.5 w-3.5" />
           <span>
-            Bayar via: <span className="font-medium text-foreground">
+            {t('shipping.payVia')}: <span className="font-medium text-foreground">
               {paymentMethod === 'COD' ? 'COD (Bayar di Tempat)' : paymentMethod === 'TRANSFER' ? 'Transfer Bank' : 'Online Payment'}
             </span>
           </span>

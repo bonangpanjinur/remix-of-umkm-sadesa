@@ -17,12 +17,15 @@ import {
 import { useCart } from '@/contexts/CartContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatPrice } from '@/lib/utils';
+import { useTranslation, useFormatters } from '@/lib/i18n';
 import { supabase } from '@/integrations/supabase/client';
 
 export default function CartPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { items, updateQuantity, removeFromCart, getCartTotal, clearCart } = useCart();
+  const { t } = useTranslation();
+  const { formatCurrency } = useFormatters();
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [merchantStatuses, setMerchantStatuses] = useState<Record<string, boolean>>({});
   const [stockWarnings, setStockWarnings] = useState<Record<string, string>>({});
@@ -254,12 +257,12 @@ export default function CartPage() {
       {/* Checkout Summary */}
       <div className="fixed bottom-0 left-0 right-0 max-w-[480px] mx-auto bg-card border-t border-border p-5 shadow-lg">
         <div className="flex justify-between items-center mb-1 text-sm">
-          <span className="text-muted-foreground">Ongkos kirim</span>
-          <span className="text-xs text-muted-foreground italic">Dihitung saat checkout</span>
+          <span className="text-muted-foreground">{t('shipping.feeLong')}</span>
+          <span className="text-xs text-muted-foreground italic">{t('shipping.calculatedAtCheckout')}</span>
         </div>
         <div className="flex justify-between items-center mb-4 pt-3 border-t border-border">
-          <span className="text-lg font-bold">Total</span>
-          <span className="text-xl font-bold text-primary">{formatPrice(total)}</span>
+          <span className="text-lg font-bold">{t('shipping.total')}</span>
+          <span className="text-xl font-bold text-primary">{formatCurrency(total)}</span>
         </div>
         <Button
           onClick={handleCheckout}

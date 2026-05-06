@@ -79,6 +79,22 @@ const dictionaries = {
     // order.eta.*
     'order.eta.label': 'Estimasi tiba',
 
+    // shipping.* (ongkir & ringkasan biaya)
+    'shipping.subtotal': 'Subtotal',
+    'shipping.fee': 'Ongkir',
+    'shipping.feeLong': 'Ongkos kirim',
+    'shipping.calculatedAtCheckout': 'Dihitung saat checkout',
+    'shipping.free': 'Gratis ongkir!',
+    'shipping.freeMinOrder': 'Gratis ongkir! (min. belanja {min})',
+    'shipping.voucherDiscount': 'Diskon Voucher',
+    'shipping.codServiceFee': 'Biaya Layanan COD',
+    'shipping.total': 'Total',
+    'shipping.payVia': 'Bayar via',
+    'shipping.distanceLabel': 'Jarak',
+    'shipping.estimatedFee': 'Estimasi ongkir',
+    'shipping.pickup': 'Ambil sendiri',
+    'shipping.delivery': 'Diantar',
+
     // settings.language.*
     'settings.language.title': 'Bahasa',
     'settings.language.description': 'Pilih bahasa tampilan aplikasi',
@@ -120,6 +136,21 @@ const dictionaries = {
     'order.step.inProgress': 'In progress',
 
     'order.eta.label': 'ETA',
+
+    'shipping.subtotal': 'Subtotal',
+    'shipping.fee': 'Shipping',
+    'shipping.feeLong': 'Shipping fee',
+    'shipping.calculatedAtCheckout': 'Calculated at checkout',
+    'shipping.free': 'Free shipping!',
+    'shipping.freeMinOrder': 'Free shipping! (min. order {min})',
+    'shipping.voucherDiscount': 'Voucher discount',
+    'shipping.codServiceFee': 'COD service fee',
+    'shipping.total': 'Total',
+    'shipping.payVia': 'Pay via',
+    'shipping.distanceLabel': 'Distance',
+    'shipping.estimatedFee': 'Estimated shipping',
+    'shipping.pickup': 'Self pickup',
+    'shipping.delivery': 'Delivered',
 
     'settings.language.title': 'Language',
     'settings.language.description': 'Choose the app display language',
@@ -165,8 +196,14 @@ function subscribe(listener: () => void): () => void {
   return () => listeners.delete(listener);
 }
 
-export function translate(key: TranslationKey, locale: Locale = currentLocale): string {
-  return dictionaries[locale]?.[key] ?? dictionaries.id[key] ?? key;
+export function translate(
+  key: TranslationKey,
+  locale: Locale = currentLocale,
+  vars?: Record<string, string | number>,
+): string {
+  const raw = dictionaries[locale]?.[key] ?? dictionaries.id[key] ?? key;
+  if (!vars) return raw;
+  return raw.replace(/\{(\w+)\}/g, (_, k) => (vars[k] !== undefined ? String(vars[k]) : `{${k}}`));
 }
 
 /**
@@ -183,7 +220,8 @@ export function useTranslation() {
   const locale = useSyncExternalStore(subscribe, getLocale, () => 'id' as Locale);
   return {
     locale,
-    t: (key: TranslationKey) => translate(key, locale),
+    t: (key: TranslationKey, vars?: Record<string, string | number>) =>
+      translate(key, locale, vars),
     tStatus: (status: string) => translateOrderStatus(status, locale),
     setLocale,
   };
