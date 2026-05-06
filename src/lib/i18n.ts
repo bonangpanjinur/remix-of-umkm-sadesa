@@ -196,8 +196,14 @@ function subscribe(listener: () => void): () => void {
   return () => listeners.delete(listener);
 }
 
-export function translate(key: TranslationKey, locale: Locale = currentLocale): string {
-  return dictionaries[locale]?.[key] ?? dictionaries.id[key] ?? key;
+export function translate(
+  key: TranslationKey,
+  locale: Locale = currentLocale,
+  vars?: Record<string, string | number>,
+): string {
+  const raw = dictionaries[locale]?.[key] ?? dictionaries.id[key] ?? key;
+  if (!vars) return raw;
+  return raw.replace(/\{(\w+)\}/g, (_, k) => (vars[k] !== undefined ? String(vars[k]) : `{${k}}`));
 }
 
 /**
@@ -214,7 +220,8 @@ export function useTranslation() {
   const locale = useSyncExternalStore(subscribe, getLocale, () => 'id' as Locale);
   return {
     locale,
-    t: (key: TranslationKey) => translate(key, locale),
+    t: (key: TranslationKey, vars?: Record<string, string | number>) =>
+      translate(key, locale, vars),
     tStatus: (status: string) => translateOrderStatus(status, locale),
     setLocale,
   };
