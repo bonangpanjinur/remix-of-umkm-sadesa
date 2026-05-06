@@ -886,19 +886,21 @@ export default function CheckoutPage() {
             <div className="flex items-center gap-2">
               <MapPin className="h-4 w-4 text-muted-foreground" />
               <span className="text-sm text-muted-foreground">
-                Jarak pengiriman: <span className="font-medium text-foreground">{distanceKm.toFixed(1)} KM</span>
+                {t('shipping.distanceLabel')}: <span className="font-medium text-foreground">{distanceKm.toFixed(1)} KM</span>
               </span>
             </div>
             <div className="flex items-center gap-2">
               <Clock className="h-4 w-4 text-muted-foreground" />
               <span className="text-sm text-muted-foreground">
-                Estimasi tiba: <span className="font-medium text-foreground">
+                {t('shipping.etaLabel')}: <span className="font-medium text-foreground">
                   {(() => {
                     const etaMin = Math.ceil((distanceKm / 25) * 60 * 1.2);
                     const variance = Math.max(5, Math.ceil(etaMin * 0.2));
                     const min = Math.max(1, etaMin - variance);
                     const max = etaMin + variance;
-                    return max < 60 ? `${min}-${max} menit` : `${Math.floor(min/60)}-${Math.ceil(max/60)} jam`;
+                    return max < 60
+                      ? t('shipping.etaMinutes', { min, max })
+                      : t('shipping.etaHours', { min: Math.floor(min / 60), max: Math.ceil(max / 60) });
                   })()}
                 </span>
               </span>
@@ -915,7 +917,7 @@ export default function CheckoutPage() {
         >
           <div className="flex items-center gap-2 mb-4">
             <Truck className="h-5 w-5 text-primary" />
-            <h3 className="font-bold text-foreground">Metode Pengiriman</h3>
+            <h3 className="font-bold text-foreground">{t('shipping.method')}</h3>
           </div>
           
           <RadioGroup 
@@ -928,10 +930,10 @@ export default function CheckoutPage() {
             }`}>
               <RadioGroupItem value="INTERNAL" id="internal" />
               <div className="flex-1">
-                <p className="font-bold text-sm">Kurir Desa</p>
-                <p className="text-xs text-muted-foreground">Dikirim ke alamat Anda</p>
+                <p className="font-bold text-sm">{t('shipping.delivery')}</p>
+                <p className="text-xs text-muted-foreground">{t('shipping.deliveryDesc')}</p>
               </div>
-              <span className="text-sm font-bold text-primary">{formatPrice(shippingCost)}</span>
+              <span className="text-sm font-bold text-primary">{formatCurrency(shippingCost)}</span>
             </label>
             
             <label className={`flex items-center gap-3 p-3 border rounded-lg cursor-pointer transition ${
@@ -939,10 +941,10 @@ export default function CheckoutPage() {
             }`}>
               <RadioGroupItem value="PICKUP" id="pickup" />
               <div className="flex-1">
-                <p className="font-bold text-sm">Ambil Sendiri</p>
-                <p className="text-xs text-muted-foreground">Ambil langsung di toko</p>
+                <p className="font-bold text-sm">{t('shipping.pickup')}</p>
+                <p className="text-xs text-muted-foreground">{t('shipping.pickupDesc')}</p>
               </div>
-              <span className="text-sm font-bold text-primary">Gratis</span>
+              <span className="text-sm font-bold text-primary">{t('shipping.freeLabel')}</span>
             </label>
           </RadioGroup>
         </motion.div>
