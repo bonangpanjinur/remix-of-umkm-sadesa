@@ -24,6 +24,8 @@ export default function CartPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { items, updateQuantity, removeFromCart, getCartTotal, clearCart } = useCart();
+  const { t } = useTranslation();
+  const { formatCurrency } = useFormatters();
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [merchantStatuses, setMerchantStatuses] = useState<Record<string, boolean>>({});
   const [stockWarnings, setStockWarnings] = useState<Record<string, string>>({});
