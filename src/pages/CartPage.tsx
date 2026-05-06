@@ -257,7 +257,6 @@ export default function CartPage() {
       {/* Checkout Summary */}
       <div className="fixed bottom-0 left-0 right-0 max-w-[480px] mx-auto bg-card border-t border-border p-5 shadow-lg">
         <div className="flex justify-between items-center mb-1 text-sm">
-        <div className="flex justify-between items-center mb-1 text-sm">
           <span className="text-muted-foreground">{t('shipping.feeLong')}</span>
           <span className="text-xs text-muted-foreground italic">{t('shipping.calculatedAtCheckout')}</span>
         </div>
