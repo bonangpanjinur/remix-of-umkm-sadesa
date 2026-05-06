@@ -17,6 +17,7 @@ import {
 import { useCart } from '@/contexts/CartContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatPrice } from '@/lib/utils';
+import { useTranslation, useFormatters } from '@/lib/i18n';
 import { supabase } from '@/integrations/supabase/client';
 
 export default function CartPage() {
