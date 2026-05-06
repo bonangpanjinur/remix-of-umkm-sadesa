@@ -886,19 +886,21 @@ export default function CheckoutPage() {
             <div className="flex items-center gap-2">
               <MapPin className="h-4 w-4 text-muted-foreground" />
               <span className="text-sm text-muted-foreground">
-                Jarak pengiriman: <span className="font-medium text-foreground">{distanceKm.toFixed(1)} KM</span>
+                {t('shipping.distanceLabel')}: <span className="font-medium text-foreground">{distanceKm.toFixed(1)} KM</span>
               </span>
             </div>
             <div className="flex items-center gap-2">
               <Clock className="h-4 w-4 text-muted-foreground" />
               <span className="text-sm text-muted-foreground">
-                Estimasi tiba: <span className="font-medium text-foreground">
+                {t('shipping.etaLabel')}: <span className="font-medium text-foreground">
                   {(() => {
                     const etaMin = Math.ceil((distanceKm / 25) * 60 * 1.2);
                     const variance = Math.max(5, Math.ceil(etaMin * 0.2));
                     const min = Math.max(1, etaMin - variance);
                     const max = etaMin + variance;
-                    return max < 60 ? `${min}-${max} menit` : `${Math.floor(min/60)}-${Math.ceil(max/60)} jam`;
+                    return max < 60
+                      ? t('shipping.etaMinutes', { min, max })
+                      : t('shipping.etaHours', { min: Math.floor(min / 60), max: Math.ceil(max / 60) });
                   })()}
                 </span>
               </span>
