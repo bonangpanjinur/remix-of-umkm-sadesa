@@ -46,6 +46,8 @@ export default function CheckoutPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { items, getCartTotal, clearCart, removeFromCart } = useCart();
+  const { t } = useTranslation();
+  const { formatCurrency } = useFormatters();
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [orderId, setOrderId] = useState<string | null>(null);
