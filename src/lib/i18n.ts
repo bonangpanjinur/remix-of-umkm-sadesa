@@ -79,6 +79,22 @@ const dictionaries = {
     // order.eta.*
     'order.eta.label': 'Estimasi tiba',
 
+    // shipping.* (ongkir & ringkasan biaya)
+    'shipping.subtotal': 'Subtotal',
+    'shipping.fee': 'Ongkir',
+    'shipping.feeLong': 'Ongkos kirim',
+    'shipping.calculatedAtCheckout': 'Dihitung saat checkout',
+    'shipping.free': 'Gratis ongkir!',
+    'shipping.freeMinOrder': 'Gratis ongkir! (min. belanja {min})',
+    'shipping.voucherDiscount': 'Diskon Voucher',
+    'shipping.codServiceFee': 'Biaya Layanan COD',
+    'shipping.total': 'Total',
+    'shipping.payVia': 'Bayar via',
+    'shipping.distanceLabel': 'Jarak',
+    'shipping.estimatedFee': 'Estimasi ongkir',
+    'shipping.pickup': 'Ambil sendiri',
+    'shipping.delivery': 'Diantar',
+
     // settings.language.*
     'settings.language.title': 'Bahasa',
     'settings.language.description': 'Pilih bahasa tampilan aplikasi',
