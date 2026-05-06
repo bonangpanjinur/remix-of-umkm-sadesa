@@ -12,6 +12,7 @@ import { useCart } from '@/contexts/CartContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { formatPrice, safeGoBack } from '@/lib/utils';
+import { useTranslation, useFormatters } from '@/lib/i18n';
 import { toast } from '@/hooks/use-toast';
 import { createPaymentInvoice, isXenditEnabled } from '@/lib/paymentApi';
 import { fetchQuotaTiers, calculateCreditCost } from '@/lib/quotaApi';
