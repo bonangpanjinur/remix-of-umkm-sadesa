@@ -137,6 +137,21 @@ const dictionaries = {
 
     'order.eta.label': 'ETA',
 
+    'shipping.subtotal': 'Subtotal',
+    'shipping.fee': 'Shipping',
+    'shipping.feeLong': 'Shipping fee',
+    'shipping.calculatedAtCheckout': 'Calculated at checkout',
+    'shipping.free': 'Free shipping!',
+    'shipping.freeMinOrder': 'Free shipping! (min. order {min})',
+    'shipping.voucherDiscount': 'Voucher discount',
+    'shipping.codServiceFee': 'COD service fee',
+    'shipping.total': 'Total',
+    'shipping.payVia': 'Pay via',
+    'shipping.distanceLabel': 'Distance',
+    'shipping.estimatedFee': 'Estimated shipping',
+    'shipping.pickup': 'Self pickup',
+    'shipping.delivery': 'Delivered',
+
     'settings.language.title': 'Language',
     'settings.language.description': 'Choose the app display language',
     'settings.language.active': 'Active language',
