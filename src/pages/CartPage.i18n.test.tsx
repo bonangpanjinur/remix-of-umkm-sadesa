@@ -67,7 +67,7 @@ describe('CartPage shipping i18n (regression guard)', () => {
     expect(screen.getByText('Dihitung saat checkout')).toBeInTheDocument();
     expect(screen.getByText('Total')).toBeInTheDocument();
     // Currency uses id-ID locale → "Rp"
-    expect(screen.getByText(/Rp/)).toBeInTheDocument();
+    expect(screen.getAllByText(/Rp/).length).toBeGreaterThan(0);
   });
 
   it('switches to English copy when setLocale("en") is called', () => {
