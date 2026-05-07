@@ -589,6 +589,18 @@ export default function OrderTrackingPage() {
           </motion.div>
         )}
 
+        {/* Reorder CTA for finished/cancelled orders */}
+        {(order.status === 'DONE' || order.status === 'CANCELLED' || order.status === 'CANCELED') && orderItems.length > 0 && (
+          <Button
+            variant="outline"
+            className="w-full"
+            onClick={() => reorder(orderItems.map((i) => ({ product_id: i.product_id, quantity: i.quantity })))}
+          >
+            <RotateCcw className="h-4 w-4 mr-2" />
+            Pesan Lagi
+          </Button>
+        )}
+
         {/* Refund Dialog */}
         {order.status === 'DELIVERED' && (
           <RefundRequestDialog
