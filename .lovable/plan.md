@@ -1,65 +1,152 @@
+# Fitur yang Belum Ada & Layak Diimplementasikan
 
-# Hasil Audit: Kekurangan, Bug & Rencana Perbaikan
-
-## Ringkasan Kondisi
-
-| Aspek | Status |
-|------|--------|
-| Console browser | Bersih (tidak ada error/warning runtime) |
-| Network requests | Bersih |
-| Linter Supabase | 99 warning, **semua by-design** (lihat di bawah) |
-| Security scan | 107 finding, semuanya level `warn`, tidak ada `error` |
-| Data dummy | 6 merchant aktif, 12 produk, 3 courier aktif — siap test |
-| Storage privat | `payment-proofs`, `pod-images`, `chat-images`, `courier-documents` sudah private |
-
-**Kesimpulan: tidak ada bug runtime maupun celah keamanan kritis baru.** Semua perbaikan besar (RLS, signed URL, fungsi duplikat, dummy data) sudah selesai di iterasi sebelumnya.
+Berdasarkan eksplorasi codebase DesaMart, berikut daftar fitur yang **belum tersedia** namun memberi dampak besar pada pengalaman, retensi, dan pendapatan platform. Dikelompokkan per area, diurutkan berdasarkan dampak vs effort.
 
 ---
 
-## Analisis Warning yang Tersisa (semua by-design)
+## A. Buyer Experience (impact tinggi, effort sedang)
 
-### Group 1 — 9× "Public Bucket Allows Listing"
-Bucket `product-images`, `tourism-images`, `village-images`, `merchant-images`, `merchant-gallery`, `profile-images`, `promotions`, `review-images`, `admin-assets` sengaja public — ini marketplace, gambar produk/wisata/desa harus bisa dilihat semua orang tanpa login. **Tidak perlu diubah.**
+1. **Loyalty / Poin & Cashback**
+   Poin per transaksi, redeem jadi diskon. Memicu repeat order — fitur klasik marketplace yang belum ada di project.
 
-### Group 2 — 90× "SECURITY DEFINER Function Executable"
-Helper RLS seperti `has_role`, `is_admin`, `is_merchant`, `get_user_merchant_id`, `is_chat_participant`, `apply_voucher`, dll. wajib `SECURITY DEFINER` agar policy bisa cek role tanpa rekursi. Memang harus callable dari client (digunakan di RLS yang dievaluasi sebagai `auth.uid()`). **Tidak perlu diubah** — mengubah jadi INVOKER akan mematikan seluruh RLS.
+2. **Referral Program ("Ajak Teman")**
+   Kode referral unik per user, reward untuk pengundang & yang diundang. Cocok untuk pertumbuhan organik di komunitas desa.
 
-### Catatan
-Bisa di-suppress di security memory supaya scanner berikutnya tidak melaporkan ulang.
+3. **Live Order Tracking di Buyer Side dengan Map**
+   Sudah ada `CourierMap` & realtime tracking untuk kurir. Belum ada halaman buyer yang menampilkan posisi kurir di peta secara live (saat ini hanya status text).
 
----
+4. **Repeat Order / "Pesan Lagi"** dari halaman Orders
+   1-click reorder dari riwayat — sederhana, sangat berguna untuk produk konsumsi harian.
 
-## Kekurangan Minor (2 item, opsional)
+5. **Subscribe & Save (Langganan Mingguan/Bulanan)**
+   Untuk produk rutin (sayur, sembako). Auto-create order pada interval tertentu.
 
-### Item #1 — Leaked Password Protection (HIBP) masih OFF (LOW)
-Auth setting belum aktif. Cegah user pakai password yang sudah bocor di HaveIBeenPwned.
+6. **Group Buy / Patungan Tetangga**
+   Kumpulan order dari tetangga sekompleks → 1 pengiriman → ongkir lebih murah. Sangat relevan dengan tema desa.
 
-**Fix:** Aktifkan via `cloud--configure_auth` dengan `password_hibp_enabled: true`.
-
-### Item #2 — `useEffect` di `PodImage.tsx` tidak handle error gracefully (LOW)
-File `src/components/courier/PodImage.tsx` me-return `null` saat URL belum loaded → bisa terlihat seperti gambar hilang. Tambah skeleton placeholder + fallback alt text supaya UX lebih jelas saat loading/gagal.
-
-**Fix:** Tampilkan `<div className="bg-muted animate-pulse" />` saat loading, dan icon broken-image saat gagal.
+7. **Wishlist Price Drop & Stock Alert**
+   Notifikasi push saat item wishlist turun harga atau restock.
 
 ---
 
-## Rencana Perbaikan
+## B. Merchant Tools (impact tinggi, effort sedang)
 
-### Fase 1 — Auth Hardening (1 langkah)
-1. **Enable HIBP** via `cloud--configure_auth({ password_hibp_enabled: true })`
+8. **Inventory Bulk Import/Export (CSV/Excel)**
+   Saat ini produk diinput satu-satu. Bulk import mempercepat onboarding merchant baru.
 
-### Fase 2 — UX Polish (1 file)
-2. **Update `PodImage.tsx`** — tambah loading skeleton + error fallback
+9. **Stock Auto-Restock Alert + Threshold**
+   Notifikasi merchant saat stok di bawah batas minimum.
 
-### Fase 3 — Security Memory (1 langkah)
-3. **Update security memory** — dokumentasikan bahwa 9 public bucket + 90 SECURITY DEFINER warning adalah by-design, sehingga scanner berikutnya tidak melaporkan sebagai issue baru.
+10. **Product Variants (ukuran, warna, rasa)**
+    Saat ini 1 produk = 1 SKU. Tambah varian dengan stok & harga berbeda.
 
-**Total perubahan: 1 file kode, 1 konfigurasi auth, 1 update memory. Tidak ada migrasi DB.**
+11. **Discount Bundling ("Beli 2 Hemat")**
+    Promo bundle multi-produk, beda dari flash sale yang sudah ada.
+
+12. **Auto-Reply Chat / FAQ Templates**
+    Merchant set template balasan cepat ("Stok ready", "Dikirim besok").
+
+13. **Merchant Mobile Notification Sound Per Event**
+    Sudah ada beep untuk order baru. Tambah konfigurasi suara berbeda untuk chat, refund request, dsb.
 
 ---
 
-## Yang TIDAK Diubah
-- 9 bucket public marketplace (by design)
-- ~90 SECURITY DEFINER helper (wajib untuk RLS)
-- Skema database (sudah bersih, tidak ada duplikat fungsi tersisa)
-- Dummy data (sudah lengkap untuk testing end-to-end)
+## C. Courier / Ojek Desa (impact menengah)
+
+14. **Courier Performance Score & Rating dari Buyer**
+    Rating per pengiriman → leaderboard kurir → bonus dari admin.
+
+15. **Multi-Stop Delivery (Batching)**
+    1 kurir ambil beberapa order dari 1 toko sekaligus. Penghematan besar untuk pasar desa.
+
+16. **Heatmap Permintaan untuk Kurir**
+    Peta area dengan banyak request agar kurir tahu posisi optimal.
+
+---
+
+## D. Tourism Module (saat ini cukup pasif)
+
+17. **Booking & Tiket Wisata Online**
+    Saat ini Tourism hanya direktori. Tambah pembelian tiket + QR code masuk.
+
+18. **Review & Foto Pengunjung Wisata**
+    User-generated content untuk meningkatkan trust.
+
+19. **Paket Wisata + Homestay + Kuliner UMKM**
+    Cross-sell antar modul (wisata ↔ merchant lokal).
+
+---
+
+## E. Admin / Operasional (impact tinggi untuk skalabilitas)
+
+20. **Dashboard Anomaly Detection**
+    Alert otomatis saat lonjakan refund, order cancel, atau churn merchant.
+
+21. **A/B Testing Banner & Promo**
+    Test 2 varian banner di homepage, ukur CTR.
+
+22. **Audit Log Searchable Timeline**
+    `auditLog.ts` sudah ada — tambah UI filter/search yang user-friendly per entitas.
+
+23. **Email Marketing Broadcast (selain push notification)**
+    Sudah ada `AdminBroadcastPage`. Tambah jalur email + template builder sederhana.
+
+---
+
+## F. Trust & Safety (impact tinggi, sering terabaikan)
+
+24. **Buyer Verification (KTP optional untuk COD besar)**
+    Cegah fake order COD. Threshold transaksi tertentu wajib upload KTP.
+
+25. **Dispute Center (selain Refund)**
+    Mediasi 3-pihak (buyer-merchant-admin) dengan timeline & evidence upload.
+
+26. **2FA untuk Merchant & Admin**
+    OTP via email/SMS saat login dari device baru.
+
+---
+
+## G. PWA & Performance (quick wins)
+
+27. **Offline Mode untuk Browse Produk**
+    Cache produk terakhir dilihat di service worker — buyer di area sinyal lemah tetap bisa lihat.
+
+28. **App Shortcuts (Android Long-Press Icon)**
+    Quick action: "Pesan Lagi", "Cari Produk", "Top-up". Edit `manifest.webmanifest`.
+
+29. **Skeleton Loading Konsisten Semua Halaman**
+    Beberapa halaman masih flash-blank. Standardize skeleton component.
+
+---
+
+## H. AI Features (pakai Lovable AI Gateway, tanpa API key tambahan)
+
+30. **AI Product Description Generator untuk Merchant**
+    Input nama + foto produk → AI generate deskripsi menarik (Gemini Flash).
+
+31. **AI Customer Service Bot (Layer Pertama)**
+    Bot jawab pertanyaan umum sebelum eskalasi ke merchant. Hemat waktu UMKM.
+
+32. **AI Smart Search (Semantic)**
+    "Sambal pedas yang halal & murah" → pencarian semantik, bukan cuma keyword match.
+
+33. **AI Image Auto-Tagging Produk**
+    Upload foto → AI saran kategori + tag otomatis.
+
+---
+
+## Rekomendasi Prioritas (Top 5)
+
+| # | Fitur | Alasan |
+|---|---|---|
+| 1 | **Repeat Order** | Effort kecil, retention tinggi |
+| 2 | **Live Map Tracking di Buyer** | Infrastruktur sudah ada, tinggal UI |
+| 3 | **AI Product Description Generator** | Lovable AI free, langsung bantu merchant |
+| 4 | **Loyalty Points** | Memicu repeat purchase signifikan |
+| 5 | **Product Variants** | Blocker bagi banyak kategori produk |
+
+---
+
+## Langkah Selanjutnya
+
+Pilih 1–3 fitur dari daftar di atas (atau kombinasi), lalu saya akan buat plan teknis detail (skema DB, komponen, edge function, RLS) untuk masing-masing.
