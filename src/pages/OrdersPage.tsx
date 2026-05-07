@@ -17,7 +17,7 @@ import { Header } from "@/components/layout/Header";
 
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { useCart } from "@/contexts/CartContext";
+import { useReorder } from "@/hooks/useReorder";
 import type { Product } from "@/types";
 import { formatDistanceToNow } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
