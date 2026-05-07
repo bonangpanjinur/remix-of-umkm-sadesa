@@ -62,6 +62,7 @@ interface CourierInfo {
 export default function OrderTrackingPage() {
   const { orderId } = useParams<{ orderId: string }>();
   const navigate = useNavigate();
+  const reorder = useReorder();
   const { user, loading: authLoading } = useAuth();
   const [order, setOrder] = useState<OrderDetails | null>(null);
   const [courier, setCourier] = useState<CourierInfo | null>(null);
