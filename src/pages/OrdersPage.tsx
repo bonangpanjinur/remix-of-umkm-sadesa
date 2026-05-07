@@ -17,7 +17,7 @@ import { Header } from "@/components/layout/Header";
 
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { useCart } from "@/contexts/CartContext";
+import { useReorder } from "@/hooks/useReorder";
 import type { Product } from "@/types";
 import { formatDistanceToNow } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
@@ -113,7 +113,7 @@ const OrdersPage = () => {
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [isDetailSheetOpen, setIsDetailSheetOpen] = useState(false);
   const navigate = useNavigate();
-  const { addToCart } = useCart();
+  const reorder = useReorder();
   const [searchParams, setSearchParams] = useSearchParams();
 
   useEffect(() => {
@@ -302,108 +302,11 @@ const OrdersPage = () => {
     return () => { supabase.removeChannel(channel); };
   }, [user]);
 
-  // Reorder handler - fetch actual stock from DB
-  const handleReorder = useCallback(async (order: BuyerOrder) => {
-    let addedCount = 0;
-    let skippedCount = 0;
-    const productIds = (order.order_items || [])
-      .map((i: any) => i.product_id)
-      .filter(Boolean) as string[];
-
-    if (productIds.length === 0) {
-      toast({ title: 'Tidak ada produk dalam pesanan ini', variant: 'destructive' });
-      return;
-    }
-
-    // Fetch complete product data including all metadata
-    const { data: productsData } = await supabase
-      .from('products')
-      .select(`
-        id, 
-        name, 
-        description, 
-        price, 
-        stock, 
-        is_active, 
-        image_url,
-        category,
-        merchant_id,
-        merchants(id, name, is_open, status, registration_status)
-      `)
-      .in('id', productIds);
-
-    if (!productsData || productsData.length === 0) {
-      toast({ title: 'Tidak dapat memuat data produk', variant: 'destructive' });
-      return;
-    }
-
-    // Build product map for quick lookup
-    const productMap = new Map(productsData.map((p: any) => [p.id, p]));
-
-    for (const item of order.order_items) {
-      const productId = (item as any).product_id;
-      if (!productId) {
-        skippedCount++;
-        continue;
-      }
-
-      const product = productMap.get(productId);
-      if (!product) {
-        skippedCount++;
-        continue;
-      }
-
-      // Check if product is available
-      if (!product.is_active) {
-        skippedCount++;
-        continue;
-      }
-
-      // Check if merchant is active
-      const merchant = product.merchants;
-      if (!merchant || merchant.status !== 'ACTIVE' || merchant.registration_status !== 'APPROVED') {
-        skippedCount++;
-        continue;
-      }
-
-      // Check stock
-      const actualStock = product.stock || 0;
-      if (actualStock <= 0) {
-        skippedCount++;
-        continue;
-      }
-
-      // Construct complete Product object with all required fields
-      const productToAdd = {
-        id: product.id,
-        name: product.name,
-        description: product.description || '',
-        price: product.price,
-        stock: actualStock,
-        image: product.image_url || '/placeholder.svg',
-        category: product.category || '',
-        merchantId: product.merchant_id,
-        merchantName: merchant?.name || '',
-        isActive: product.is_active,
-        isAvailable: true,
-        isMerchantOpen: merchant?.is_open ?? true,
-        hasQuota: true,
-      };
-
-      addToCart(productToAdd, Math.min(item.quantity, actualStock));
-      addedCount++;
-    }
-
-    if (skippedCount > 0) {
-      toast({ title: `${skippedCount} produk tidak tersedia lagi dan dilewati`, variant: 'destructive' });
-    }
-    if (addedCount > 0) {
-      toast({ title: `${addedCount} produk ditambahkan ke keranjang` });
-      navigate('/cart');
-    } else if (skippedCount > 0) {
-      toast({ title: 'Semua produk dalam pesanan ini sudah tidak tersedia', variant: 'destructive' });
-    }
-  }, [navigate, addToCart]);
+  // Reorder handler - delegated to shared hook (validates stock, merchant status, etc.)
+  const handleReorder = useCallback(
+    (order: BuyerOrder) => reorder(order.order_items || []),
+    [reorder],
+  );
 
   const filteredOrders = orders.filter((order) => {
     if (activeTab === "all") return true;
@@ -713,11 +616,11 @@ const OrdersPage = () => {
                           {CANCELLED_STATUSES.includes(order.status) && (
                             <Button
                               size="sm"
-                              variant="ghost"
+                              variant="outline"
                               className="text-xs h-8 rounded-full px-4"
-                              onClick={(e) => { e.stopPropagation(); navigate("/explore"); }}
+                              onClick={(e) => { e.stopPropagation(); handleReorder(order); }}
                             >
-                              <RefreshCw className="w-3 h-3 mr-1" /> Belanja Lagi
+                              <RotateCcw className="w-3 h-3 mr-1" /> Pesan Lagi
                             </Button>
                           )}
                         </div>

@@ -27,6 +27,7 @@ import { RefundRequestDialog } from '@/components/order/RefundRequestDialog';
 import { OrderChat, ChatType } from '@/components/chat/OrderChat';
 import { CourierMap } from '@/components/CourierMap';
 import { getDeliveryEstimate, type VehicleType } from '@/lib/etaCalculation';
+import { useReorder } from '@/hooks/useReorder';
 
 interface OrderDetails {
   id: string;
@@ -61,6 +62,7 @@ interface CourierInfo {
 export default function OrderTrackingPage() {
   const { orderId } = useParams<{ orderId: string }>();
   const navigate = useNavigate();
+  const reorder = useReorder();
   const { user, loading: authLoading } = useAuth();
   const [order, setOrder] = useState<OrderDetails | null>(null);
   const [courier, setCourier] = useState<CourierInfo | null>(null);
@@ -585,6 +587,18 @@ export default function OrderTrackingPage() {
               </Button>
             </div>
           </motion.div>
+        )}
+
+        {/* Reorder CTA for finished/cancelled orders */}
+        {(order.status === 'DONE' || order.status === 'CANCELLED' || order.status === 'CANCELED') && orderItems.length > 0 && (
+          <Button
+            variant="outline"
+            className="w-full"
+            onClick={() => reorder(orderItems.map((i) => ({ product_id: i.product_id, quantity: i.quantity })))}
+          >
+            <RotateCcw className="h-4 w-4 mr-2" />
+            Pesan Lagi
+          </Button>
         )}
 
         {/* Refund Dialog */}
