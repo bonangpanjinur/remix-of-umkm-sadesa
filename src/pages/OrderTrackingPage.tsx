@@ -27,6 +27,7 @@ import { RefundRequestDialog } from '@/components/order/RefundRequestDialog';
 import { OrderChat, ChatType } from '@/components/chat/OrderChat';
 import { CourierMap } from '@/components/CourierMap';
 import { getDeliveryEstimate, type VehicleType } from '@/lib/etaCalculation';
+import { useReorder } from '@/hooks/useReorder';
 
 interface OrderDetails {
   id: string;
