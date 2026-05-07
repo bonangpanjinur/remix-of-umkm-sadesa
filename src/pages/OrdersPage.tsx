@@ -616,11 +616,11 @@ const OrdersPage = () => {
                           {CANCELLED_STATUSES.includes(order.status) && (
                             <Button
                               size="sm"
-                              variant="ghost"
+                              variant="outline"
                               className="text-xs h-8 rounded-full px-4"
-                              onClick={(e) => { e.stopPropagation(); navigate("/explore"); }}
+                              onClick={(e) => { e.stopPropagation(); handleReorder(order); }}
                             >
-                              <RefreshCw className="w-3 h-3 mr-1" /> Belanja Lagi
+                              <RotateCcw className="w-3 h-3 mr-1" /> Pesan Lagi
                             </Button>
                           )}
                         </div>
