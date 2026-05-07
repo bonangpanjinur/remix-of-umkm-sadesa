@@ -3,28 +3,21 @@ import { renderHook, act } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import type { ReactNode } from 'react';
 
-// --- Mocks ---
-const navigateMock = vi.fn();
+const { navigateMock, addToCartMock, toastMock, inMock } = vi.hoisted(() => ({
+  navigateMock: vi.fn(),
+  addToCartMock: vi.fn(),
+  toastMock: vi.fn(),
+  inMock: vi.fn(),
+}));
+
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual<any>('react-router-dom');
   return { ...actual, useNavigate: () => navigateMock };
 });
-
-const addToCartMock = vi.fn();
-vi.mock('@/contexts/CartContext', () => ({
-  useCart: () => ({ addToCart: addToCartMock }),
-}));
-
-const toastMock = vi.fn();
+vi.mock('@/contexts/CartContext', () => ({ useCart: () => ({ addToCart: addToCartMock }) }));
 vi.mock('@/hooks/use-toast', () => ({ toast: toastMock }));
-
-const inMock = vi.fn();
 vi.mock('@/integrations/supabase/client', () => ({
-  supabase: {
-    from: () => ({
-      select: () => ({ in: inMock }),
-    }),
-  },
+  supabase: { from: () => ({ select: () => ({ in: inMock }) }) },
 }));
 
 import { useReorder } from './useReorder';
