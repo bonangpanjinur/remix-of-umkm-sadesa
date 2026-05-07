@@ -113,7 +113,7 @@ const OrdersPage = () => {
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [isDetailSheetOpen, setIsDetailSheetOpen] = useState(false);
   const navigate = useNavigate();
-  const { addToCart } = useCart();
+  const reorder = useReorder();
   const [searchParams, setSearchParams] = useSearchParams();
 
   useEffect(() => {
