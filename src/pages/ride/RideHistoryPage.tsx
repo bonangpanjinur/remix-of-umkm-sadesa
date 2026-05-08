@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Bike, Clock, MapPin, Star, ChevronRight } from 'lucide-react';
+import { Bike, Clock, Star, ChevronRight } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
 import { BottomNav } from '@/components/layout/BottomNav';
 import { Card } from '@/components/ui/card';
@@ -11,6 +11,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { formatPrice } from '@/lib/utils';
+import { useQuery } from '@tanstack/react-query';
 
 interface RideHistory {
   id: string;
@@ -37,16 +38,14 @@ const STATUS_MAP: Record<string, { label: string; variant: 'default' | 'secondar
 export default function RideHistoryPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [rides, setRides] = useState<RideHistory[]>([]);
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!user) { navigate('/auth'); return; }
-    fetchHistory();
-  }, [user]);
+    if (!user) navigate('/auth');
+  }, [user, navigate]);
 
-  const fetchHistory = async () => {
-    try {
+  const { data: rides = [], isLoading: loading } = useQuery<RideHistory[]>({
+    queryKey: ['ride-history', user?.id],
+    queryFn: async () => {
       const { data, error } = await supabase
         .from('ride_requests')
         .select('id, status, pickup_address, destination_address, distance_km, estimated_fare, final_fare, rating, created_at, completed_at')
@@ -54,13 +53,11 @@ export default function RideHistoryPage() {
         .order('created_at', { ascending: false })
         .limit(50);
       if (error) throw error;
-      setRides((data || []) as unknown as RideHistory[]);
-    } catch {
-      console.error('Failed to fetch ride history');
-    } finally {
-      setLoading(false);
-    }
-  };
+      return (data || []) as unknown as RideHistory[];
+    },
+    enabled: !!user,
+    staleTime: 60_000,
+  });
 
   return (
     <div className="mobile-shell bg-background min-h-screen flex flex-col">

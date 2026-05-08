@@ -1,21 +1,18 @@
-import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Header } from '@/components/layout/Header';
 import { BottomNav } from '@/components/layout/BottomNav';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatPrice } from '@/lib/utils';
-import {
-  ArrowLeft, RefreshCw, Package, Calendar, Pause, Play, Trash2,
-  ShoppingBag, ChevronRight, Info
-} from 'lucide-react';
+import { ArrowLeft, RefreshCw, Package, Calendar, Pause, Play, Trash2, ShoppingBag, Info } from 'lucide-react';
 import { toast } from 'sonner';
 import { format, addDays } from 'date-fns';
 import { id as idLocale } from 'date-fns/locale';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 interface Subscription {
   id: string;
@@ -33,64 +30,49 @@ interface Subscription {
   merchant?: { name: string };
 }
 
-const INTERVALS: Record<number, string> = {
-  7: 'Mingguan',
-  14: 'Dua Minggu',
-  30: 'Bulanan',
-};
+const INTERVALS: Record<number, string> = { 7: 'Mingguan', 14: 'Dua Minggu', 30: 'Bulanan' };
 
 export default function SubscriptionPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [subs, setSubs] = useState<Subscription[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [toggling, setToggling] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
-  useEffect(() => {
-    if (user) fetchSubs();
-  }, [user]);
-
-  const fetchSubs = async () => {
-    try {
+  const { data: subs = [], isLoading: loading } = useQuery<Subscription[]>({
+    queryKey: ['subscriptions', user?.id],
+    queryFn: async () => {
       const { data } = await (supabase as any)
         .from('product_subscriptions')
         .select('*, products(name, price, image_url, unit), merchants(name)')
         .eq('user_id', user!.id)
         .order('created_at', { ascending: false });
+      return (data || []) as Subscription[];
+    },
+    enabled: !!user,
+    staleTime: 60_000,
+  });
 
-      setSubs((data || []) as Subscription[]);
-    } catch (err) {
-      console.error('Error fetching subscriptions:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const toggleMutation = useMutation({
+    mutationFn: async ({ id, isActive }: { id: string; isActive: boolean }) => {
+      await (supabase as any).from('product_subscriptions').update({ is_active: !isActive }).eq('id', id);
+      return !isActive;
+    },
+    onSuccess: (newActive, { id }) => {
+      toast.success(newActive ? 'Langganan diaktifkan' : 'Langganan dijeda');
+      queryClient.invalidateQueries({ queryKey: ['subscriptions', user?.id] });
+    },
+    onError: () => toast.error('Gagal mengubah status langganan'),
+  });
 
-  const toggleActive = async (sub: Subscription) => {
-    setToggling(sub.id);
-    try {
-      await (supabase as any)
-        .from('product_subscriptions')
-        .update({ is_active: !sub.is_active })
-        .eq('id', sub.id);
-      setSubs(prev => prev.map(s => s.id === sub.id ? { ...s, is_active: !s.is_active } : s));
-      toast.success(sub.is_active ? 'Langganan dijeda' : 'Langganan diaktifkan');
-    } catch {
-      toast.error('Gagal mengubah status langganan');
-    } finally {
-      setToggling(null);
-    }
-  };
-
-  const deleteSub = async (id: string) => {
-    try {
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
       await (supabase as any).from('product_subscriptions').delete().eq('id', id);
-      setSubs(prev => prev.filter(s => s.id !== id));
+    },
+    onSuccess: () => {
       toast.success('Langganan dihapus');
-    } catch {
-      toast.error('Gagal menghapus langganan');
-    }
-  };
+      queryClient.invalidateQueries({ queryKey: ['subscriptions', user?.id] });
+    },
+    onError: () => toast.error('Gagal menghapus langganan'),
+  });
 
   const activeSubs = subs.filter(s => s.is_active);
   const pausedSubs = subs.filter(s => !s.is_active);
@@ -117,9 +99,7 @@ export default function SubscriptionPage() {
               {!sub.is_active && <Badge variant="outline" className="text-xs shrink-0">Dijeda</Badge>}
             </div>
             <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
-              <span className="flex items-center gap-1">
-                <RefreshCw className="h-3 w-3" /> {INTERVALS[sub.interval_days]}
-              </span>
+              <span className="flex items-center gap-1"><RefreshCw className="h-3 w-3" />{INTERVALS[sub.interval_days]}</span>
               <span>×{sub.quantity} {sub.product?.unit || 'pcs'}</span>
               <span className="font-medium text-gray-700">{formatPrice((sub.product?.price || 0) * sub.quantity)}</span>
             </div>
@@ -134,19 +114,10 @@ export default function SubscriptionPage() {
         </div>
         <div className="flex items-center justify-between mt-3 pt-3 border-t">
           <div className="flex items-center gap-2">
-            <Switch
-              checked={sub.is_active}
-              onCheckedChange={() => toggleActive(sub)}
-              disabled={toggling === sub.id}
-            />
+            <Switch checked={sub.is_active} onCheckedChange={() => toggleMutation.mutate({ id: sub.id, isActive: sub.is_active })} disabled={toggleMutation.isPending} />
             <span className="text-xs text-muted-foreground">{sub.is_active ? 'Aktif' : 'Dijeda'}</span>
           </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => deleteSub(sub.id)}
-            className="text-red-500 hover:text-red-700 hover:bg-red-50 h-8 px-2"
-          >
+          <Button variant="ghost" size="sm" onClick={() => deleteMutation.mutate(sub.id)} className="text-red-500 hover:text-red-700 hover:bg-red-50 h-8 px-2">
             <Trash2 className="h-3.5 w-3.5 mr-1" /> Hapus
           </Button>
         </div>
@@ -175,12 +146,8 @@ export default function SubscriptionPage() {
             <CardContent className="py-12 text-center">
               <RefreshCw className="h-12 w-12 text-muted-foreground mx-auto mb-3 opacity-40" />
               <p className="font-medium text-gray-700 mb-1">Belum ada langganan</p>
-              <p className="text-sm text-muted-foreground mb-4">
-                Langganan produk rutin untuk pesan otomatis setiap minggu atau bulan tanpa repot.
-              </p>
-              <Button onClick={() => navigate('/')} className="gap-2">
-                <ShoppingBag className="h-4 w-4" /> Mulai Belanja
-              </Button>
+              <p className="text-sm text-muted-foreground mb-4">Langganan produk rutin untuk pesan otomatis setiap minggu atau bulan tanpa repot.</p>
+              <Button onClick={() => navigate('/')} className="gap-2"><ShoppingBag className="h-4 w-4" /> Mulai Belanja</Button>
             </CardContent>
           </Card>
         ) : (
@@ -189,21 +156,15 @@ export default function SubscriptionPage() {
               <Info className="h-3.5 w-3.5 mt-0.5 shrink-0" />
               <span>Pesanan langganan dibuat otomatis sesuai jadwal. Pastikan saldo mencukupi sebelum tanggal pesanan.</span>
             </div>
-
             {activeSubs.length > 0 && (
               <div className="space-y-3">
-                <h2 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                  <Play className="h-4 w-4 text-emerald-600" /> Aktif ({activeSubs.length})
-                </h2>
+                <h2 className="text-sm font-semibold text-gray-700 flex items-center gap-2"><Play className="h-4 w-4 text-emerald-600" /> Aktif ({activeSubs.length})</h2>
                 {activeSubs.map(s => <SubCard key={s.id} sub={s} />)}
               </div>
             )}
-
             {pausedSubs.length > 0 && (
               <div className="space-y-3">
-                <h2 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                  <Pause className="h-4 w-4 text-gray-500" /> Dijeda ({pausedSubs.length})
-                </h2>
+                <h2 className="text-sm font-semibold text-gray-700 flex items-center gap-2"><Pause className="h-4 w-4 text-gray-500" /> Dijeda ({pausedSubs.length})</h2>
                 {pausedSubs.map(s => <SubCard key={s.id} sub={s} />)}
               </div>
             )}

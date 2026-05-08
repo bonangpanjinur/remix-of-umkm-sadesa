@@ -1,4 +1,3 @@
-import { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Heart, ShoppingCart, Trash2, Loader2, Store } from 'lucide-react';
@@ -11,6 +10,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { formatPrice } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 interface WishlistItemData {
   id: string;
@@ -20,9 +20,7 @@ interface WishlistItemData {
     name: string;
     price: number;
     image_url: string | null;
-    merchants: {
-      name: string;
-    } | null;
+    merchants: { name: string } | null;
   } | null;
 }
 
@@ -43,107 +41,61 @@ export default function WishlistPage() {
   const { addToCart } = useCart();
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
-  const [wishlist, setWishlist] = useState<WishlistItemData[]>([]);
-  const [favorites, setFavorites] = useState<FavoriteMerchant[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [favLoading, setFavLoading] = useState(true);
+  const queryClient = useQueryClient();
 
-  const fetchWishlist = useCallback(async () => {
-    if (!user) return;
-    try {
+  const { data: wishlist = [], isLoading: loading } = useQuery<WishlistItemData[]>({
+    queryKey: ['wishlist', user?.id],
+    queryFn: async () => {
       const { data, error } = await (supabase
         .from('wishlists' as any)
-        .select(`
-          id,
-          product_id,
-          products (
-            id,
-            name,
-            price,
-            image_url,
-            merchants (
-              name
-            )
-          )
-        `)
-        .eq('user_id', user.id)
+        .select(`id, product_id, products(id, name, price, image_url, merchants(name))`)
+        .eq('user_id', user!.id)
         .order('created_at', { ascending: false }));
-
       if (error) throw error;
-      setWishlist((data || []) as unknown as WishlistItemData[]);
-    } catch (error) {
-      console.error('Error fetching wishlist:', error);
-    } finally {
-      setLoading(false);
-    }
-  }, [user]);
+      return (data || []) as unknown as WishlistItemData[];
+    },
+    enabled: !!user,
+    staleTime: 60_000,
+  });
 
-  const fetchFavorites = useCallback(async () => {
-    if (!user) return;
-    try {
+  const { data: favorites = [], isLoading: favLoading } = useQuery<FavoriteMerchant[]>({
+    queryKey: ['merchant-favorites', user?.id],
+    queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from('merchant_favorites')
-        .select(`
-          id,
-          merchant_id,
-          merchants (
-            id,
-            name,
-            image_url,
-            rating_avg,
-            rating_count,
-            is_open
-          )
-        `)
-        .eq('user_id', user.id)
+        .select(`id, merchant_id, merchants(id, name, image_url, rating_avg, rating_count, is_open)`)
+        .eq('user_id', user!.id)
         .order('created_at', { ascending: false });
-
       if (error) throw error;
-      setFavorites((data || []) as FavoriteMerchant[]);
-    } catch (error) {
-      console.error('Error fetching favorites:', error);
-    } finally {
-      setFavLoading(false);
-    }
-  }, [user]);
+      return (data || []) as FavoriteMerchant[];
+    },
+    enabled: !!user,
+    staleTime: 60_000,
+  });
 
-  useEffect(() => {
-    if (user) {
-      fetchWishlist();
-      fetchFavorites();
-    } else if (!authLoading) {
-      setLoading(false);
-      setFavLoading(false);
-    }
-  }, [user, authLoading, fetchWishlist, fetchFavorites]);
-
-  const removeFromWishlist = async (wishlistId: string) => {
-    try {
-      const { error } = await supabase
-        .from('wishlists' as any)
-        .delete()
-        .eq('id', wishlistId);
+  const removeWishlistMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('wishlists' as any).delete().eq('id', id);
       if (error) throw error;
-      setWishlist(wishlist.filter(item => item.id !== wishlistId));
+    },
+    onSuccess: () => {
       toast.success('Dihapus dari wishlist');
-    } catch {
-      toast.error('Gagal menghapus dari wishlist');
-    }
-  };
+      queryClient.invalidateQueries({ queryKey: ['wishlist', user?.id] });
+    },
+    onError: () => toast.error('Gagal menghapus dari wishlist'),
+  });
 
-  const removeFromFavorites = async (favoriteId: string) => {
-    try {
-      const { error } = await (supabase as any)
-        .from('merchant_favorites')
-        .delete()
-        .eq('id', favoriteId);
+  const removeFavoriteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await (supabase as any).from('merchant_favorites').delete().eq('id', id);
       if (error) throw error;
-      setFavorites(favorites.filter(f => f.id !== favoriteId));
+    },
+    onSuccess: () => {
       toast.success('Dihapus dari favorit');
-    } catch {
-      toast.error('Gagal menghapus dari favorit');
-    }
-  };
+      queryClient.invalidateQueries({ queryKey: ['merchant-favorites', user?.id] });
+    },
+    onError: () => toast.error('Gagal menghapus dari favorit'),
+  });
 
   const handleAddToCart = async (item: WishlistItemData) => {
     if (!item.products) return;
@@ -198,9 +150,7 @@ export default function WishlistPage() {
         <div className="flex-1 flex flex-col items-center justify-center p-8">
           <Heart className="h-16 w-16 text-muted-foreground mb-4" />
           <h2 className="font-bold text-lg mb-2">Belum Login</h2>
-          <p className="text-sm text-muted-foreground mb-4 text-center">
-            Masuk untuk melihat wishlist Anda
-          </p>
+          <p className="text-sm text-muted-foreground mb-4 text-center">Masuk untuk melihat wishlist Anda</p>
           <Link to="/auth"><Button>Masuk</Button></Link>
         </div>
         <BottomNav />
@@ -222,23 +172,18 @@ export default function WishlistPage() {
                 <Heart className="h-3.5 w-3.5" />
                 Produk
                 {wishlist.length > 0 && (
-                  <span className="ml-1 bg-primary/10 text-primary text-xs rounded-full px-1.5">
-                    {wishlist.length}
-                  </span>
+                  <span className="ml-1 bg-primary/10 text-primary text-xs rounded-full px-1.5">{wishlist.length}</span>
                 )}
               </TabsTrigger>
               <TabsTrigger value="merchants" className="gap-1.5">
                 <Store className="h-3.5 w-3.5" />
                 Toko Favorit
                 {favorites.length > 0 && (
-                  <span className="ml-1 bg-primary/10 text-primary text-xs rounded-full px-1.5">
-                    {favorites.length}
-                  </span>
+                  <span className="ml-1 bg-primary/10 text-primary text-xs rounded-full px-1.5">{favorites.length}</span>
                 )}
               </TabsTrigger>
             </TabsList>
 
-            {/* Product Wishlist */}
             <TabsContent value="products">
               {loading ? (
                 <div className="flex justify-center py-12">
@@ -250,9 +195,7 @@ export default function WishlistPage() {
                     <Heart className="h-10 w-10 text-muted-foreground" />
                   </div>
                   <h2 className="font-bold text-lg mb-1">Wishlist Kosong</h2>
-                  <p className="text-sm text-muted-foreground mb-4">
-                    Simpan produk favorit Anda di sini
-                  </p>
+                  <p className="text-sm text-muted-foreground mb-4">Simpan produk favorit Anda di sini</p>
                   <Link to="/"><Button>Mulai Belanja</Button></Link>
                 </div>
               ) : (
@@ -280,12 +223,8 @@ export default function WishlistPage() {
                               {item.products.name}
                             </h3>
                           </Link>
-                          <p className="text-xs text-muted-foreground">
-                            {item.products.merchants?.name || 'Toko'}
-                          </p>
-                          <p className="font-bold text-primary mt-1">
-                            {formatPrice(item.products.price)}
-                          </p>
+                          <p className="text-xs text-muted-foreground">{item.products.merchants?.name || 'Toko'}</p>
+                          <p className="font-bold text-primary mt-1">{formatPrice(item.products.price)}</p>
                           <div className="flex gap-2 mt-2">
                             <Button size="sm" onClick={() => handleAddToCart(item)}>
                               <ShoppingCart className="h-3 w-3 mr-1" />
@@ -294,7 +233,8 @@ export default function WishlistPage() {
                             <Button
                               size="sm"
                               variant="outline"
-                              onClick={() => removeFromWishlist(item.id)}
+                              onClick={() => removeWishlistMutation.mutate(item.id)}
+                              disabled={removeWishlistMutation.isPending}
                             >
                               <Trash2 className="h-3 w-3" />
                             </Button>
@@ -307,7 +247,6 @@ export default function WishlistPage() {
               )}
             </TabsContent>
 
-            {/* Merchant Favorites */}
             <TabsContent value="merchants">
               {favLoading ? (
                 <div className="flex justify-center py-12">
@@ -319,9 +258,7 @@ export default function WishlistPage() {
                     <Store className="h-10 w-10 text-muted-foreground" />
                   </div>
                   <h2 className="font-bold text-lg mb-1">Belum Ada Toko Favorit</h2>
-                  <p className="text-sm text-muted-foreground mb-4">
-                    Tap ikon ❤️ di halaman toko untuk menyimpannya
-                  </p>
+                  <p className="text-sm text-muted-foreground mb-4">Tap ikon ❤️ di halaman toko untuk menyimpannya</p>
                   <Button onClick={() => navigate('/shops')}>Jelajahi Toko</Button>
                 </div>
               ) : (
@@ -350,13 +287,8 @@ export default function WishlistPage() {
                           )}
                         </button>
                         <div className="flex-1 min-w-0">
-                          <button
-                            onClick={() => navigate(`/merchant/${m.id}`)}
-                            className="text-left"
-                          >
-                            <h3 className="font-semibold text-sm truncate hover:text-primary transition">
-                              {m.name}
-                            </h3>
+                          <button onClick={() => navigate(`/merchant/${m.id}`)} className="text-left">
+                            <h3 className="font-semibold text-sm truncate hover:text-primary transition">{m.name}</h3>
                           </button>
                           <div className="flex items-center gap-1.5 mt-0.5">
                             <span className={`text-xs font-medium ${m.is_open ? 'text-green-600' : 'text-red-500'}`}>
@@ -373,18 +305,15 @@ export default function WishlistPage() {
                           </div>
                         </div>
                         <div className="flex flex-col gap-2 flex-shrink-0">
-                          <Button
-                            size="sm"
-                            className="text-xs h-8 rounded-full px-3"
-                            onClick={() => navigate(`/merchant/${m.id}`)}
-                          >
+                          <Button size="sm" className="text-xs h-8 rounded-full px-3" onClick={() => navigate(`/merchant/${m.id}`)}>
                             Kunjungi
                           </Button>
                           <Button
                             size="sm"
                             variant="ghost"
                             className="text-xs h-8 rounded-full px-3 text-destructive hover:text-destructive"
-                            onClick={() => removeFromFavorites(fav.id)}
+                            onClick={() => removeFavoriteMutation.mutate(fav.id)}
+                            disabled={removeFavoriteMutation.isPending}
                           >
                             <Trash2 className="h-3 w-3" />
                           </Button>

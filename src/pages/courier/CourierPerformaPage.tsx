@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Header } from '@/components/layout/Header';
 import { Button } from '@/components/ui/button';
@@ -6,13 +6,13 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, LineChart, Line } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { formatPrice } from '@/lib/utils';
-import { ArrowLeft, Star, Clock, TrendingUp, Package, CheckCircle, AlertCircle, Award } from 'lucide-react';
-import { subDays, format, startOfDay, endOfDay } from 'date-fns';
-import { id as idLocale } from 'date-fns/locale';
+import { ArrowLeft, TrendingUp, Package, CheckCircle, Clock, Award } from 'lucide-react';
+import { subDays, format } from 'date-fns';
+import { useQuery } from '@tanstack/react-query';
 
 interface DailyStat {
   date: string;
@@ -21,47 +21,39 @@ interface DailyStat {
   onTime: number;
 }
 
+interface PerformaData {
+  stats: {
+    totalDeliveries: number;
+    completedDeliveries: number;
+    onTimeDeliveries: number;
+    totalEarnings: number;
+    completionRate: number;
+    onTimeRate: number;
+    bestDay: string;
+  };
+  dailyStats: DailyStat[];
+}
+
 export default function CourierPerformaPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [period, setPeriod] = useState('30');
-  const [loading, setLoading] = useState(true);
-  const [courierId, setCourierId] = useState<string | null>(null);
-  const [stats, setStats] = useState({
-    totalDeliveries: 0,
-    completedDeliveries: 0,
-    onTimeDeliveries: 0,
-    totalEarnings: 0,
-    avgRating: 0,
-    ratingCount: 0,
-    completionRate: 0,
-    onTimeRate: 0,
-    bestDay: '',
-  });
-  const [dailyStats, setDailyStats] = useState<DailyStat[]>([]);
 
-  useEffect(() => {
-    if (user) fetchData();
-  }, [user, period]);
-
-  const fetchData = async () => {
-    if (!user) return;
-    setLoading(true);
-    try {
+  const { data, isLoading: loading } = useQuery<PerformaData>({
+    queryKey: ['courier-performa', user?.id, period],
+    queryFn: async () => {
       const { data: courier } = await supabase
         .from('couriers')
         .select('id, registration_status')
-        .eq('user_id', user.id)
+        .eq('user_id', user!.id)
         .maybeSingle();
 
       if (!courier || courier.registration_status !== 'APPROVED') {
         navigate('/courier');
-        return;
+        return { stats: { totalDeliveries: 0, completedDeliveries: 0, onTimeDeliveries: 0, totalEarnings: 0, completionRate: 0, onTimeRate: 0, bestDay: '-' }, dailyStats: [] };
       }
-      setCourierId(courier.id);
 
       const startDate = subDays(new Date(), Number(period));
-
       const [ordersRes, earningsRes] = await Promise.all([
         supabase.from('orders')
           .select('id, status, created_at, assigned_at, delivered_at, total')
@@ -75,60 +67,52 @@ export default function CourierPerformaPage() {
 
       const orders = (ordersRes.data || []) as any[];
       const earnings = (earningsRes.data || []) as any[];
-
       const completed = orders.filter(o => o.status === 'DELIVERED' || o.status === 'COMPLETED');
-      const totalEarnings = earnings.reduce((s, e) => s + e.amount, 0);
+      const totalEarnings = earnings.reduce((s: number, e: any) => s + e.amount, 0);
 
-      // On-time: delivered within 2 hours of assignment
       const onTime = completed.filter(o => {
         if (!o.assigned_at || !o.delivered_at) return false;
         const diff = new Date(o.delivered_at).getTime() - new Date(o.assigned_at).getTime();
         return diff <= 2 * 3600 * 1000;
       }).length;
 
-      // Daily stats
       const dailyMap: Record<string, DailyStat> = {};
       for (let i = Math.min(Number(period), 30) - 1; i >= 0; i--) {
         const d = subDays(new Date(), i);
         const key = format(d, 'dd/MM');
         dailyMap[key] = { date: key, deliveries: 0, earnings: 0, onTime: 0 };
       }
-
-      completed.forEach(o => {
+      completed.forEach((o: any) => {
         const key = format(new Date(o.created_at), 'dd/MM');
-        if (dailyMap[key]) {
-          dailyMap[key].deliveries += 1;
-        }
+        if (dailyMap[key]) dailyMap[key].deliveries += 1;
       });
-
-      earnings.forEach(e => {
+      earnings.forEach((e: any) => {
         const key = format(new Date(e.created_at), 'dd/MM');
-        if (dailyMap[key]) {
-          dailyMap[key].earnings += e.amount;
-        }
+        if (dailyMap[key]) dailyMap[key].earnings += e.amount;
       });
 
       const daily = Object.values(dailyMap);
       const bestDay = daily.reduce((best, d) => d.deliveries > best.deliveries ? d : best, daily[0] || { date: '-', deliveries: 0, earnings: 0, onTime: 0 });
 
-      setDailyStats(daily);
-      setStats({
-        totalDeliveries: orders.length,
-        completedDeliveries: completed.length,
-        onTimeDeliveries: onTime,
-        totalEarnings,
-        avgRating: 0,
-        ratingCount: 0,
-        completionRate: orders.length > 0 ? Math.round((completed.length / orders.length) * 100) : 0,
-        onTimeRate: completed.length > 0 ? Math.round((onTime / completed.length) * 100) : 0,
-        bestDay: bestDay?.date || '-',
-      });
-    } catch (err) {
-      console.error('Error fetching performa:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
+      return {
+        stats: {
+          totalDeliveries: orders.length,
+          completedDeliveries: completed.length,
+          onTimeDeliveries: onTime,
+          totalEarnings,
+          completionRate: orders.length > 0 ? Math.round((completed.length / orders.length) * 100) : 0,
+          onTimeRate: completed.length > 0 ? Math.round((onTime / completed.length) * 100) : 0,
+          bestDay: bestDay?.date || '-',
+        },
+        dailyStats: daily,
+      };
+    },
+    enabled: !!user,
+    staleTime: 60_000,
+  });
+
+  const stats = data?.stats ?? { totalDeliveries: 0, completedDeliveries: 0, onTimeDeliveries: 0, totalEarnings: 0, completionRate: 0, onTimeRate: 0, bestDay: '-' };
+  const dailyStats = data?.dailyStats ?? [];
 
   const getPerformaBadge = (rate: number) => {
     if (rate >= 90) return { label: 'Excellent', color: 'bg-emerald-100 text-emerald-800' };
@@ -149,9 +133,7 @@ export default function CourierPerformaPage() {
             <ArrowLeft className="h-4 w-4 mr-2" />Kembali
           </Button>
           <Select value={period} onValueChange={setPeriod}>
-            <SelectTrigger className="w-32 h-8">
-              <SelectValue />
-            </SelectTrigger>
+            <SelectTrigger className="w-32 h-8"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="7">7 Hari</SelectItem>
               <SelectItem value="14">14 Hari</SelectItem>
@@ -171,7 +153,6 @@ export default function CourierPerformaPage() {
           </div>
         ) : (
           <>
-            {/* Performance Badge */}
             <Card className="bg-gradient-to-br from-emerald-50 to-white border-emerald-200">
               <CardContent className="p-5">
                 <div className="flex items-center gap-4">
@@ -189,7 +170,6 @@ export default function CourierPerformaPage() {
               </CardContent>
             </Card>
 
-            {/* Stats Grid */}
             <div className="grid grid-cols-2 gap-3">
               {[
                 { label: 'Total Pengiriman', value: stats.totalDeliveries, icon: Package, sub: `${stats.completedDeliveries} selesai` },
@@ -210,11 +190,8 @@ export default function CourierPerformaPage() {
               ))}
             </div>
 
-            {/* Progress Bars */}
             <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm">Detail Performa</CardTitle>
-              </CardHeader>
+              <CardHeader className="pb-2"><CardTitle className="text-sm">Detail Performa</CardTitle></CardHeader>
               <CardContent className="space-y-4">
                 <div>
                   <div className="flex justify-between text-sm mb-1.5">
@@ -233,12 +210,9 @@ export default function CourierPerformaPage() {
               </CardContent>
             </Card>
 
-            {/* Daily Chart */}
             {dailyStats.length > 0 && (
               <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm">Pengiriman Harian</CardTitle>
-                </CardHeader>
+                <CardHeader className="pb-2"><CardTitle className="text-sm">Pengiriman Harian</CardTitle></CardHeader>
                 <CardContent>
                   <ResponsiveContainer width="100%" height={160}>
                     <BarChart data={dailyStats.slice(-14)}>

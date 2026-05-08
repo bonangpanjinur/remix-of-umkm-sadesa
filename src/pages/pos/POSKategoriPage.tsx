@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { POSLayout } from '@/components/pos/POSLayout';
 import { usePOS } from '@/contexts/POSContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { toast } from 'sonner';
 import { Plus, Pencil, Trash2, Tag } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 interface Category {
   id: string;
@@ -23,21 +24,57 @@ interface Category {
 
 export default function POSKategoriPage() {
   const { tenant } = usePOS();
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [editing, setEditing] = useState<Category | null>(null);
   const [form, setForm] = useState({ name: '', parent_id: '', sort_order: 0 });
 
-  useEffect(() => { if (tenant) fetchCategories(); }, [tenant]);
+  const { data: categories = [], isLoading: loading } = useQuery<Category[]>({
+    queryKey: ['pos-categories', tenant?.id],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('pos_categories' as any)
+        .select('*')
+        .eq('tenant_id', tenant!.id)
+        .order('sort_order')
+        .order('name');
+      return (data || []) as unknown as Category[];
+    },
+    enabled: !!tenant,
+    staleTime: 60_000,
+  });
 
-  const fetchCategories = async () => {
-    if (!tenant) return;
-    const { data } = await supabase.from('pos_categories' as any).select('*').eq('tenant_id', tenant.id).order('sort_order').order('name');
-    setCategories((data || []) as unknown as Category[]);
-    setLoading(false);
-  };
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      if (!tenant) return;
+      if (!form.name.trim()) throw new Error('Nama kategori wajib diisi');
+      const payload = { name: form.name.trim(), parent_id: form.parent_id || null, sort_order: form.sort_order, tenant_id: tenant.id };
+      if (editing) {
+        await supabase.from('pos_categories' as any).update(payload).eq('id', editing.id);
+      } else {
+        await supabase.from('pos_categories' as any).insert(payload);
+      }
+    },
+    onSuccess: () => {
+      toast.success(editing ? 'Kategori diperbarui' : 'Kategori ditambahkan');
+      setDialogOpen(false);
+      queryClient.invalidateQueries({ queryKey: ['pos-categories', tenant?.id] });
+    },
+    onError: (err: any) => toast.error(err.message),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await supabase.from('pos_categories' as any).delete().eq('id', id);
+    },
+    onSuccess: () => {
+      toast.success('Kategori dihapus');
+      setDeleteId(null);
+      queryClient.invalidateQueries({ queryKey: ['pos-categories', tenant?.id] });
+    },
+    onError: () => toast.error('Gagal menghapus kategori'),
+  });
 
   const openAdd = () => {
     setEditing(null);
@@ -51,31 +88,9 @@ export default function POSKategoriPage() {
     setDialogOpen(true);
   };
 
-  const handleSave = async () => {
-    if (!tenant) return;
+  const handleSave = () => {
     if (!form.name.trim()) { toast.error('Nama kategori wajib diisi'); return; }
-    const payload = { name: form.name.trim(), parent_id: form.parent_id || null, sort_order: form.sort_order, tenant_id: tenant.id };
-    try {
-      if (editing) {
-        await supabase.from('pos_categories' as any).update(payload).eq('id', editing.id);
-        toast.success('Kategori diperbarui');
-      } else {
-        await supabase.from('pos_categories' as any).insert(payload);
-        toast.success('Kategori ditambahkan');
-      }
-      setDialogOpen(false);
-      fetchCategories();
-    } catch (err: any) {
-      toast.error(err.message);
-    }
-  };
-
-  const handleDelete = async () => {
-    if (!deleteId) return;
-    await supabase.from('pos_categories' as any).delete().eq('id', deleteId);
-    toast.success('Kategori dihapus');
-    setDeleteId(null);
-    fetchCategories();
+    saveMutation.mutate();
   };
 
   const parents = categories.filter(c => !c.parent_id);
@@ -84,7 +99,7 @@ export default function POSKategoriPage() {
   return (
     <POSLayout title="Kategori Produk" subtitle="Kelola kategori dan sub-kategori produk"
       actions={<Button size="sm" className="bg-emerald-600 hover:bg-emerald-700" onClick={openAdd}><Plus className="h-4 w-4 mr-1" />Tambah Kategori</Button>}>
-      
+
       {loading ? (
         <div className="space-y-2">{[...Array(4)].map((_, i) => <div key={i} className="h-16 bg-muted animate-pulse rounded-lg" />)}</div>
       ) : categories.length === 0 ? (
@@ -172,7 +187,9 @@ export default function POSKategoriPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)}>Batal</Button>
-            <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={handleSave}>Simpan</Button>
+            <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={handleSave} disabled={saveMutation.isPending}>
+              {saveMutation.isPending ? 'Menyimpan...' : 'Simpan'}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -185,7 +202,7 @@ export default function POSKategoriPage() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Batal</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">Hapus</AlertDialogAction>
+            <AlertDialogAction onClick={() => deleteId && deleteMutation.mutate(deleteId)} className="bg-destructive hover:bg-destructive/90">Hapus</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

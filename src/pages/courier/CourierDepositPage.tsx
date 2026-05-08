@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ArrowLeft, PiggyBank, Upload, Clock, CheckCircle, XCircle, Loader2, Info } from 'lucide-react';
@@ -13,6 +13,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { formatPrice } from '@/lib/utils';
 import { toast } from 'sonner';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 interface DepositRecord {
   id: string;
@@ -24,97 +25,76 @@ interface DepositRecord {
   processed_at: string | null;
 }
 
+interface DepositData {
+  courierId: string;
+  availableBalance: number;
+  deposits: DepositRecord[];
+  adminBankInfo: { bank_name: string; bank_account_number: string; bank_account_name: string; qris_image_url?: string } | null;
+}
+
 export default function CourierDepositPage() {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
-  const [courierId, setCourierId] = useState<string | null>(null);
-  const [availableBalance, setAvailableBalance] = useState(0);
-  const [deposits, setDeposits] = useState<DepositRecord[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
+  const queryClient = useQueryClient();
   const [amount, setAmount] = useState('');
   const [proofUrl, setProofUrl] = useState('');
-  const [adminBankInfo, setAdminBankInfo] = useState<{ bank_name: string; bank_account_number: string; bank_account_name: string; qris_image_url?: string } | null>(null);
 
   useEffect(() => {
-    if (!authLoading && user) fetchData();
-    else if (!authLoading && !user) navigate('/auth');
-  }, [user, authLoading]);
+    if (!authLoading && !user) navigate('/auth');
+  }, [user, authLoading, navigate]);
 
-  const fetchData = async () => {
-    if (!user) return;
-    try {
+  const { data, isLoading: loading } = useQuery<DepositData>({
+    queryKey: ['courier-deposit', user?.id],
+    queryFn: async () => {
       const { data: courier } = await supabase
         .from('couriers')
         .select('id, available_balance, registration_status')
-        .eq('user_id', user.id)
+        .eq('user_id', user!.id)
         .maybeSingle();
 
       if (!courier || courier.registration_status !== 'APPROVED') {
         navigate('/courier');
-        return;
+        return null as any;
       }
-
-      setCourierId(courier.id);
-      setAvailableBalance(courier.available_balance || 0);
 
       const [{ data: deps }, { data: bankSetting }] = await Promise.all([
-        supabase
-          .from('courier_deposits')
-          .select('*')
-          .eq('courier_id', courier.id)
-          .order('created_at', { ascending: false }),
-        supabase
-          .from('app_settings')
-          .select('value')
-          .eq('key', 'admin_payment_info')
-          .maybeSingle(),
+        supabase.from('courier_deposits').select('*').eq('courier_id', courier.id).order('created_at', { ascending: false }),
+        supabase.from('app_settings').select('value').eq('key', 'admin_payment_info').maybeSingle(),
       ]);
 
-      setDeposits(deps || []);
-      if (bankSetting?.value) {
-        setAdminBankInfo(bankSetting.value as any);
-      }
-    } catch (error) {
-      console.error('Error:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+      return {
+        courierId: courier.id,
+        availableBalance: courier.available_balance || 0,
+        deposits: deps || [],
+        adminBankInfo: bankSetting?.value ? (bankSetting.value as any) : null,
+      };
+    },
+    enabled: !!user && !authLoading,
+    staleTime: 60_000,
+  });
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!courierId) return;
-    const amountNum = parseInt(amount);
-    if (!amountNum || amountNum < 10000) {
-      toast.error('Minimal setoran Rp 10.000');
-      return;
-    }
-    if (!proofUrl) {
-      toast.error('Upload bukti transfer terlebih dahulu');
-      return;
-    }
+  const submitMutation = useMutation({
+    mutationFn: async () => {
+      if (!data?.courierId) return;
+      const amountNum = parseInt(amount);
+      if (!amountNum || amountNum < 10000) throw new Error('Minimal setoran Rp 10.000');
+      if (!proofUrl) throw new Error('Upload bukti transfer terlebih dahulu');
 
-    setSubmitting(true);
-    try {
       const { error } = await supabase.from('courier_deposits').insert({
-        courier_id: courierId,
+        courier_id: data.courierId,
         amount: amountNum,
         proof_url: proofUrl,
       });
-
       if (error) throw error;
+    },
+    onSuccess: () => {
       toast.success('Setoran berhasil diajukan, menunggu persetujuan admin');
       setAmount('');
       setProofUrl('');
-      fetchData();
-    } catch (error) {
-      console.error('Error:', error);
-      toast.error('Gagal mengajukan setoran');
-    } finally {
-      setSubmitting(false);
-    }
-  };
+      queryClient.invalidateQueries({ queryKey: ['courier-deposit', user?.id] });
+    },
+    onError: (err: any) => toast.error(err.message || 'Gagal mengajukan setoran'),
+  });
 
   if (authLoading || loading) {
     return (
@@ -123,6 +103,9 @@ export default function CourierDepositPage() {
       </div>
     );
   }
+
+  const deposits = data?.deposits ?? [];
+  const adminBankInfo = data?.adminBankInfo ?? null;
 
   const statusBadge = (status: string) => {
     switch (status) {
@@ -141,19 +124,17 @@ export default function CourierDepositPage() {
           <ArrowLeft className="h-4 w-4 mr-2" /> Kembali
         </Button>
 
-        {/* Balance Card */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
           <Card className="bg-gradient-to-br from-primary to-primary/80 text-primary-foreground">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm flex items-center gap-2"><PiggyBank className="h-4 w-4" />Saldo Saat Ini</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-3xl font-bold">{formatPrice(availableBalance)}</p>
+              <p className="text-3xl font-bold">{formatPrice(data?.availableBalance || 0)}</p>
             </CardContent>
           </Card>
         </motion.div>
 
-        {/* Admin Bank Info */}
         {adminBankInfo && (
           <Alert>
             <Info className="h-4 w-4" />
@@ -165,28 +146,23 @@ export default function CourierDepositPage() {
           </Alert>
         )}
 
-        {/* Deposit Form */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
           <Card>
             <CardHeader>
               <CardTitle className="text-lg flex items-center gap-2"><Upload className="h-5 w-5" />Setor Saldo</CardTitle>
             </CardHeader>
             <CardContent>
-              <form onSubmit={handleSubmit} className="space-y-4">
+              <form onSubmit={e => { e.preventDefault(); submitMutation.mutate(); }} className="space-y-4">
                 <div className="space-y-2">
                   <Label>Jumlah Setoran (Rp)</Label>
                   <Input type="number" value={amount} onChange={e => setAmount(e.target.value)} placeholder="Minimal Rp 10.000" min={10000} />
                 </div>
                 <div className="space-y-2">
                   <Label>Bukti Transfer (URL gambar)</Label>
-                  <Input 
-                    value={proofUrl} 
-                    onChange={e => setProofUrl(e.target.value)} 
-                    placeholder="Paste URL bukti transfer" 
-                  />
+                  <Input value={proofUrl} onChange={e => setProofUrl(e.target.value)} placeholder="Paste URL bukti transfer" />
                 </div>
-                <Button type="submit" className="w-full" disabled={submitting}>
-                  {submitting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Upload className="h-4 w-4 mr-2" />}
+                <Button type="submit" className="w-full" disabled={submitMutation.isPending}>
+                  {submitMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Upload className="h-4 w-4 mr-2" />}
                   Ajukan Setoran
                 </Button>
               </form>
@@ -194,7 +170,6 @@ export default function CourierDepositPage() {
           </Card>
         </motion.div>
 
-        {/* Deposit History */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
           <h3 className="font-bold text-lg mb-3">Riwayat Setoran</h3>
           {deposits.length === 0 ? (

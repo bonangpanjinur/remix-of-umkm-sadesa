@@ -1,22 +1,14 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Store, Check, X, MoreHorizontal, Eye } from 'lucide-react';
 import { VerifikatorLayout } from '@/components/verifikator/VerifikatorLayout';
 import { DataTable } from '@/components/admin/DataTable';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
@@ -25,6 +17,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import { approveMerchant, rejectMerchant } from '@/lib/adminApi';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 interface MerchantRow {
   id: string;
@@ -41,29 +34,22 @@ interface MerchantRow {
 
 export default function VerifikatorMerchantsPage() {
   const { user } = useAuth();
-  const [merchants, setMerchants] = useState<MerchantRow[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [detailMerchantId, setDetailMerchantId] = useState<string | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [rejectMerchantId, setRejectMerchantId] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState('');
-  const [rejecting, setRejecting] = useState(false);
 
-  const fetchMerchants = async () => {
-    if (!user) return;
-
-    try {
+  const { data: merchants = [], isLoading: loading } = useQuery<MerchantRow[]>({
+    queryKey: ['verifikator-merchants', user?.id],
+    queryFn: async () => {
       const { data: codes } = await supabase
         .from('verifikator_codes')
         .select('code, trade_group')
-        .eq('verifikator_id', user.id);
+        .eq('verifikator_id', user!.id);
 
-      if (!codes || codes.length === 0) {
-        setMerchants([]);
-        setLoading(false);
-        return;
-      }
+      if (!codes || codes.length === 0) return [];
 
       const codeValues = codes.map(c => c.code);
       const codeToGroup = Object.fromEntries(codes.map(c => [c.code, c.trade_group]));
@@ -75,34 +61,41 @@ export default function VerifikatorMerchantsPage() {
         .order('registered_at', { ascending: false });
 
       if (error) throw error;
-
-      const merchantsWithGroup = (data || []).map(m => ({
+      return (data || []).map(m => ({
         ...m,
         trade_group: m.verifikator_code ? codeToGroup[m.verifikator_code] : null,
       }));
+    },
+    enabled: !!user,
+    staleTime: 60_000,
+  });
 
-      setMerchants(merchantsWithGroup);
-    } catch (error) {
-      console.error('Error fetching merchants:', error);
-      toast.error('Gagal memuat data merchant');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const approveMutation = useMutation({
+    mutationFn: (id: string) => approveMerchant(id),
+    onSuccess: (success) => {
+      if (success) {
+        toast.success('Merchant berhasil disetujui');
+        queryClient.invalidateQueries({ queryKey: ['verifikator-merchants', user?.id] });
+      } else {
+        toast.error('Gagal menyetujui merchant');
+      }
+    },
+    onError: () => toast.error('Gagal menyetujui merchant'),
+  });
 
-  useEffect(() => {
-    fetchMerchants();
-  }, [user]);
-
-  const handleApprove = async (id: string) => {
-    const success = await approveMerchant(id);
-    if (success) {
-      toast.success('Merchant berhasil disetujui');
-      fetchMerchants();
-    } else {
-      toast.error('Gagal menyetujui merchant');
-    }
-  };
+  const rejectMutation = useMutation({
+    mutationFn: ({ id, reason }: { id: string; reason: string }) => rejectMerchant(id, reason),
+    onSuccess: (success) => {
+      if (success) {
+        toast.success('Merchant ditolak');
+        queryClient.invalidateQueries({ queryKey: ['verifikator-merchants', user?.id] });
+        setRejectDialogOpen(false);
+      } else {
+        toast.error('Gagal menolak merchant');
+      }
+    },
+    onError: () => toast.error('Gagal menolak merchant'),
+  });
 
   const openRejectDialog = (id: string) => {
     setRejectMerchantId(id);
@@ -110,34 +103,20 @@ export default function VerifikatorMerchantsPage() {
     setRejectDialogOpen(true);
   };
 
-  const handleRejectConfirm = async () => {
+  const handleRejectConfirm = () => {
     if (!rejectMerchantId || !rejectReason.trim()) {
       toast.error('Berikan alasan penolakan');
       return;
     }
-
-    setRejecting(true);
-    const success = await rejectMerchant(rejectMerchantId, rejectReason.trim());
-    if (success) {
-      toast.success('Merchant ditolak');
-      fetchMerchants();
-      setRejectDialogOpen(false);
-    } else {
-      toast.error('Gagal menolak merchant');
-    }
-    setRejecting(false);
+    rejectMutation.mutate({ id: rejectMerchantId, reason: rejectReason.trim() });
   };
 
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case 'PENDING':
-        return <Badge variant="warning">Menunggu</Badge>;
-      case 'APPROVED':
-        return <Badge variant="success">Disetujui</Badge>;
-      case 'REJECTED':
-        return <Badge variant="destructive">Ditolak</Badge>;
-      default:
-        return <Badge variant="outline">{status}</Badge>;
+      case 'PENDING': return <Badge variant="warning">Menunggu</Badge>;
+      case 'APPROVED': return <Badge variant="success">Disetujui</Badge>;
+      case 'REJECTED': return <Badge variant="destructive">Ditolak</Badge>;
+      default: return <Badge variant="outline">{status}</Badge>;
     }
   };
 
@@ -175,10 +154,8 @@ export default function VerifikatorMerchantsPage() {
     {
       key: 'registered_at',
       header: 'Terdaftar',
-      render: (item: MerchantRow) => 
-        item.registered_at 
-          ? new Date(item.registered_at).toLocaleDateString('id-ID') 
-          : '-',
+      render: (item: MerchantRow) =>
+        item.registered_at ? new Date(item.registered_at).toLocaleDateString('id-ID') : '-',
     },
     {
       key: 'actions',
@@ -186,24 +163,19 @@ export default function VerifikatorMerchantsPage() {
       render: (item: MerchantRow) => (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon">
-              <MoreHorizontal className="h-4 w-4" />
-            </Button>
+            <Button variant="ghost" size="icon"><MoreHorizontal className="h-4 w-4" /></Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={() => { setDetailMerchantId(item.id); setDetailOpen(true); }}>
-              <Eye className="h-4 w-4 mr-2" />
-              Lihat Detail
+              <Eye className="h-4 w-4 mr-2" /> Lihat Detail
             </DropdownMenuItem>
             {item.registration_status === 'PENDING' && (
               <>
-                <DropdownMenuItem onClick={() => handleApprove(item.id)}>
-                  <Check className="h-4 w-4 mr-2" />
-                  Setujui
+                <DropdownMenuItem onClick={() => approveMutation.mutate(item.id)}>
+                  <Check className="h-4 w-4 mr-2" /> Setujui
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => openRejectDialog(item.id)} className="text-destructive">
-                  <X className="h-4 w-4 mr-2" />
-                  Tolak
+                  <X className="h-4 w-4 mr-2" /> Tolak
                 </DropdownMenuItem>
               </>
             )}
@@ -250,7 +222,6 @@ export default function VerifikatorMerchantsPage() {
         onOpenChange={setDetailOpen}
       />
 
-      {/* Reject Dialog - replaces browser prompt() */}
       <Dialog open={rejectDialogOpen} onOpenChange={setRejectDialogOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
@@ -264,22 +235,20 @@ export default function VerifikatorMerchantsPage() {
             <Textarea
               id="reject-reason"
               value={rejectReason}
-              onChange={(e) => setRejectReason(e.target.value)}
+              onChange={e => setRejectReason(e.target.value)}
               placeholder="Contoh: Dokumen KTP tidak jelas, silakan upload ulang..."
               rows={3}
               className="mt-2"
             />
           </div>
           <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => setRejectDialogOpen(false)}>
-              Batal
-            </Button>
+            <Button variant="outline" onClick={() => setRejectDialogOpen(false)}>Batal</Button>
             <Button
               variant="destructive"
               onClick={handleRejectConfirm}
-              disabled={rejecting || !rejectReason.trim()}
+              disabled={rejectMutation.isPending || !rejectReason.trim()}
             >
-              {rejecting ? 'Menolak...' : 'Tolak Merchant'}
+              {rejectMutation.isPending ? 'Menolak...' : 'Tolak Merchant'}
             </Button>
           </DialogFooter>
         </DialogContent>

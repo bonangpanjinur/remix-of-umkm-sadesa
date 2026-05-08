@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { POSLayout } from '@/components/pos/POSLayout';
 import { usePOS } from '@/contexts/POSContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { toast } from 'sonner';
 import { Plus, Search, Pencil, Truck, Phone, Mail, MapPin } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 interface Supplier {
   id: string;
@@ -25,22 +26,61 @@ interface Supplier {
 
 export default function POSSupplierPage() {
   const { tenant } = usePOS();
-  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [editing, setEditing] = useState<Supplier | null>(null);
   const [form, setForm] = useState({ name: '', phone: '', email: '', address: '', contact_person: '', notes: '' });
 
-  useEffect(() => { if (tenant) fetchSuppliers(); }, [tenant]);
+  const { data: suppliers = [], isLoading: loading } = useQuery<Supplier[]>({
+    queryKey: ['pos-suppliers', tenant?.id],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('pos_suppliers' as any)
+        .select('*')
+        .eq('tenant_id', tenant!.id)
+        .order('name');
+      return (data || []) as unknown as Supplier[];
+    },
+    enabled: !!tenant,
+    staleTime: 60_000,
+  });
 
-  const fetchSuppliers = async () => {
-    if (!tenant) return;
-    const { data } = await supabase.from('pos_suppliers' as any).select('*').eq('tenant_id', tenant.id).order('name');
-    setSuppliers((data || []) as unknown as Supplier[]);
-    setLoading(false);
-  };
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      if (!tenant) return;
+      if (!form.name.trim()) throw new Error('Nama supplier wajib diisi');
+      const payload = {
+        name: form.name.trim(), phone: form.phone || null, email: form.email || null,
+        address: form.address || null, contact_person: form.contact_person || null,
+        notes: form.notes || null, tenant_id: tenant.id,
+      };
+      if (editing) {
+        await supabase.from('pos_suppliers' as any).update(payload).eq('id', editing.id);
+      } else {
+        await supabase.from('pos_suppliers' as any).insert(payload);
+      }
+    },
+    onSuccess: () => {
+      toast.success(editing ? 'Data supplier diperbarui' : 'Supplier berhasil ditambahkan');
+      setDialogOpen(false);
+      queryClient.invalidateQueries({ queryKey: ['pos-suppliers', tenant?.id] });
+    },
+    onError: (err: any) => toast.error(err.message),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await supabase.from('pos_suppliers' as any).update({ is_active: false }).eq('id', id);
+    },
+    onSuccess: () => {
+      toast.success('Supplier dinonaktifkan');
+      setDeleteId(null);
+      queryClient.invalidateQueries({ queryKey: ['pos-suppliers', tenant?.id] });
+    },
+    onError: () => toast.error('Gagal menonaktifkan supplier'),
+  });
 
   const filtered = suppliers.filter(s =>
     s.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -59,37 +99,15 @@ export default function POSSupplierPage() {
     setDialogOpen(true);
   };
 
-  const handleSave = async () => {
-    if (!tenant) return;
+  const handleSave = () => {
     if (!form.name.trim()) { toast.error('Nama supplier wajib diisi'); return; }
-    const payload = { name: form.name.trim(), phone: form.phone || null, email: form.email || null, address: form.address || null, contact_person: form.contact_person || null, notes: form.notes || null, tenant_id: tenant.id };
-    try {
-      if (editing) {
-        await supabase.from('pos_suppliers' as any).update(payload).eq('id', editing.id);
-        toast.success('Data supplier diperbarui');
-      } else {
-        await supabase.from('pos_suppliers' as any).insert(payload);
-        toast.success('Supplier berhasil ditambahkan');
-      }
-      setDialogOpen(false);
-      fetchSuppliers();
-    } catch (err: any) {
-      toast.error(err.message);
-    }
-  };
-
-  const handleDelete = async () => {
-    if (!deleteId) return;
-    await supabase.from('pos_suppliers' as any).update({ is_active: false }).eq('id', deleteId);
-    toast.success('Supplier dinonaktifkan');
-    setDeleteId(null);
-    fetchSuppliers();
+    saveMutation.mutate();
   };
 
   return (
     <POSLayout title="Manajemen Supplier" subtitle={`${suppliers.length} supplier terdaftar`}
       actions={<Button size="sm" className="bg-emerald-600 hover:bg-emerald-700" onClick={openAdd}><Plus className="h-4 w-4 mr-1" />Tambah Supplier</Button>}>
-      
+
       <div className="space-y-4">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -174,7 +192,9 @@ export default function POSSupplierPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)}>Batal</Button>
-            <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={handleSave}>Simpan</Button>
+            <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={handleSave} disabled={saveMutation.isPending}>
+              {saveMutation.isPending ? 'Menyimpan...' : 'Simpan'}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -187,7 +207,7 @@ export default function POSSupplierPage() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Batal</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete}>Nonaktifkan</AlertDialogAction>
+            <AlertDialogAction onClick={() => deleteId && deleteMutation.mutate(deleteId)}>Nonaktifkan</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

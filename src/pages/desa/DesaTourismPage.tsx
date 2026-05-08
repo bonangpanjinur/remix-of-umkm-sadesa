@@ -1,20 +1,14 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { Mountain, Plus, Edit, MoreHorizontal, ImageIcon, Eye } from 'lucide-react';
 import { DesaLayout } from '@/components/desa/DesaLayout';
 import { DataTable } from '@/components/admin/DataTable';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
+  Dialog, DialogContent, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -25,6 +19,7 @@ import { TourismFilters, TourismFilterOptions } from '@/components/desa/TourismF
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 interface TourismRow {
   id: string;
@@ -51,101 +46,111 @@ interface TourismForm {
 }
 
 const defaultForm: TourismForm = {
-  name: '',
-  description: '',
-  image_url: null,
-  wa_link: '',
-  sosmed_link: '',
-  facilities: '',
-  is_active: true,
+  name: '', description: '', image_url: null, wa_link: '', sosmed_link: '', facilities: '', is_active: true,
 };
 
-const defaultFilters: TourismFilterOptions = {
-  status: 'all',
-  facility: null,
-};
+const defaultFilters: TourismFilterOptions = { status: 'all', facility: null };
 
 export default function DesaTourismPage() {
   const { user } = useAuth();
-  const [villageId, setVillageId] = useState<string | null>(null);
-  const [tourism, setTourism] = useState<TourismRow[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingTourism, setEditingTourism] = useState<TourismRow | null>(null);
   const [form, setForm] = useState<TourismForm>(defaultForm);
-  const [saving, setSaving] = useState(false);
   const [filters, setFilters] = useState<TourismFilterOptions>(defaultFilters);
 
-  // Extract unique facilities from all tourism data
+  // Fetch village id
+  const { data: villageId } = useQuery<string | null>({
+    queryKey: ['desa-village-id', user?.id],
+    queryFn: async () => {
+      const { data: userVillage } = await supabase
+        .from('user_villages')
+        .select('village_id')
+        .eq('user_id', user!.id)
+        .maybeSingle();
+      if (userVillage?.village_id) return userVillage.village_id;
+
+      const { data: directVillage } = await supabase
+        .from('villages')
+        .select('id')
+        .eq('user_id', user!.id)
+        .maybeSingle();
+      return directVillage?.id ?? null;
+    },
+    enabled: !!user,
+    staleTime: 300_000,
+  });
+
+  const { data: tourism = [], isLoading: loading } = useQuery<TourismRow[]>({
+    queryKey: ['desa-tourism', villageId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('tourism')
+        .select('*')
+        .eq('village_id', villageId!)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!villageId,
+    staleTime: 60_000,
+  });
+
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      if (!villageId || !form.name) throw new Error('Nama wisata wajib diisi');
+      const tourismData = {
+        name: form.name,
+        description: form.description || null,
+        image_url: form.image_url,
+        wa_link: form.wa_link || null,
+        sosmed_link: form.sosmed_link || null,
+        facilities: form.facilities ? form.facilities.split(',').map(f => f.trim()) : [],
+        is_active: form.is_active,
+        village_id: villageId,
+      };
+
+      if (editingTourism) {
+        const { error } = await supabase.from('tourism').update(tourismData).eq('id', editingTourism.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from('tourism').insert(tourismData);
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      toast.success(editingTourism ? 'Wisata berhasil diperbarui' : 'Wisata berhasil ditambahkan');
+      setDialogOpen(false);
+      queryClient.invalidateQueries({ queryKey: ['desa-tourism', villageId] });
+    },
+    onError: () => toast.error('Gagal menyimpan wisata'),
+  });
+
+  const toggleActiveMutation = useMutation({
+    mutationFn: async ({ id, currentActive }: { id: string; currentActive: boolean }) => {
+      const { error } = await supabase.from('tourism').update({ is_active: !currentActive }).eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: (_, { currentActive }) => {
+      toast.success(currentActive ? 'Wisata dinonaktifkan' : 'Wisata diaktifkan');
+      queryClient.invalidateQueries({ queryKey: ['desa-tourism', villageId] });
+    },
+    onError: () => toast.error('Gagal mengubah status'),
+  });
+
   const availableFacilities = useMemo(() => {
     const allFacilities = tourism.flatMap(t => t.facilities || []);
     return [...new Set(allFacilities)].sort();
   }, [tourism]);
 
-  // Apply filters to tourism data
   const filteredTourism = useMemo(() => {
     return tourism.filter(item => {
-      // Status filter
       if (filters.status === 'active' && !item.is_active) return false;
       if (filters.status === 'inactive' && item.is_active) return false;
-
-      // Facility filter
-      if (filters.facility && !(item.facilities || []).includes(filters.facility)) {
-        return false;
-      }
-
+      if (filters.facility && !(item.facilities || []).includes(filters.facility)) return false;
       return true;
     });
   }, [tourism, filters]);
-
-  useEffect(() => {
-    const fetchData = async () => {
-      if (!user) return;
-
-      try {
-        // Check user's village assignment via user_villages table
-        const { data: userVillage } = await supabase
-          .from('user_villages')
-          .select('village_id')
-          .eq('user_id', user.id)
-          .maybeSingle();
-
-        let currentVillageId = userVillage?.village_id;
-
-        // Fallback: check villages.user_id directly
-        if (!currentVillageId) {
-          const { data: directVillage } = await supabase
-            .from('villages')
-            .select('id')
-            .eq('user_id', user.id)
-            .maybeSingle();
-          currentVillageId = directVillage?.id;
-        }
-
-        if (!currentVillageId) {
-          setLoading(false);
-          return;
-        }
-        setVillageId(currentVillageId);
-
-        const { data, error } = await supabase
-          .from('tourism')
-          .select('*')
-          .eq('village_id', currentVillageId)
-          .order('created_at', { ascending: false });
-
-        if (error) throw error;
-        setTourism(data || []);
-      } catch (error) {
-        console.error('Error:', error);
-        toast.error('Gagal memuat data wisata');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchData();
-  }, [user]);
 
   const openCreateDialog = () => {
     setEditingTourism(null);
@@ -167,75 +172,6 @@ export default function DesaTourismPage() {
     setDialogOpen(true);
   };
 
-  const handleSave = async () => {
-    if (!villageId || !form.name) {
-      toast.error('Nama wisata wajib diisi');
-      return;
-    }
-
-    setSaving(true);
-
-    try {
-      const tourismData = {
-        name: form.name,
-        description: form.description || null,
-        image_url: form.image_url,
-        wa_link: form.wa_link || null,
-        sosmed_link: form.sosmed_link || null,
-        facilities: form.facilities ? form.facilities.split(',').map(f => f.trim()) : [],
-        is_active: form.is_active,
-        village_id: villageId,
-      };
-
-      if (editingTourism) {
-        const { error } = await supabase
-          .from('tourism')
-          .update(tourismData)
-          .eq('id', editingTourism.id);
-
-        if (error) throw error;
-        toast.success('Wisata berhasil diperbarui');
-      } else {
-        const { error } = await supabase
-          .from('tourism')
-          .insert(tourismData);
-
-        if (error) throw error;
-        toast.success('Wisata berhasil ditambahkan');
-      }
-
-      setDialogOpen(false);
-      // Refresh
-      const { data } = await supabase
-        .from('tourism')
-        .select('*')
-        .eq('village_id', villageId)
-        .order('created_at', { ascending: false });
-      setTourism(data || []);
-    } catch (error) {
-      toast.error('Gagal menyimpan wisata');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const toggleActive = async (id: string, currentActive: boolean) => {
-    try {
-      const { error } = await supabase
-        .from('tourism')
-        .update({ is_active: !currentActive })
-        .eq('id', id);
-
-      if (error) throw error;
-      setTourism(tourism.map(t => 
-        t.id === id ? { ...t, is_active: !currentActive } : t
-      ));
-      toast.success(currentActive ? 'Wisata dinonaktifkan' : 'Wisata diaktifkan');
-    } catch (error) {
-      toast.error('Gagal mengubah status');
-    }
-  };
-
   const columns = [
     {
       key: 'tourism',
@@ -251,9 +187,7 @@ export default function DesaTourismPage() {
           )}
           <div>
             <p className="font-medium">{item.name}</p>
-            <p className="text-xs text-muted-foreground line-clamp-1">
-              {item.description || '-'}
-            </p>
+            <p className="text-xs text-muted-foreground line-clamp-1">{item.description || '-'}</p>
           </div>
         </div>
       ),
@@ -277,8 +211,7 @@ export default function DesaTourismPage() {
       header: 'Views',
       render: (item: TourismRow) => (
         <div className="flex items-center gap-1 text-muted-foreground">
-          <Eye className="h-4 w-4" />
-          <span>{item.view_count}</span>
+          <Eye className="h-4 w-4" /><span>{item.view_count}</span>
         </div>
       ),
     },
@@ -286,7 +219,7 @@ export default function DesaTourismPage() {
       key: 'status',
       header: 'Status',
       render: (item: TourismRow) => (
-        item.is_active 
+        item.is_active
           ? <Badge className="bg-primary/10 text-primary">Aktif</Badge>
           : <Badge variant="outline">Nonaktif</Badge>
       ),
@@ -297,16 +230,13 @@ export default function DesaTourismPage() {
       render: (item: TourismRow) => (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon">
-              <MoreHorizontal className="h-4 w-4" />
-            </Button>
+            <Button variant="ghost" size="icon"><MoreHorizontal className="h-4 w-4" /></Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={() => openEditDialog(item)}>
-              <Edit className="h-4 w-4 mr-2" />
-              Edit
+              <Edit className="h-4 w-4 mr-2" /> Edit
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => toggleActive(item.id, item.is_active)}>
+            <DropdownMenuItem onClick={() => toggleActiveMutation.mutate({ id: item.id, currentActive: item.is_active })}>
               {item.is_active ? 'Nonaktifkan' : 'Aktifkan'}
             </DropdownMenuItem>
           </DropdownMenuContent>
@@ -325,18 +255,12 @@ export default function DesaTourismPage() {
           </span>
         </div>
         <Button onClick={openCreateDialog}>
-          <Plus className="h-4 w-4 mr-2" />
-          Tambah Wisata
+          <Plus className="h-4 w-4 mr-2" /> Tambah Wisata
         </Button>
       </div>
 
-      {/* Filters */}
       <div className="mb-4">
-        <TourismFilters
-          filters={filters}
-          onFiltersChange={setFilters}
-          availableFacilities={availableFacilities}
-        />
+        <TourismFilters filters={filters} onFiltersChange={setFilters} availableFacilities={availableFacilities} />
       </div>
 
       <DataTable
@@ -348,13 +272,10 @@ export default function DesaTourismPage() {
         emptyMessage={filters.status !== 'all' || filters.facility ? "Tidak ada wisata sesuai filter" : "Belum ada wisata terdaftar"}
       />
 
-      {/* Tourism Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>
-              {editingTourism ? 'Edit Wisata' : 'Tambah Wisata Baru'}
-            </DialogTitle>
+            <DialogTitle>{editingTourism ? 'Edit Wisata' : 'Tambah Wisata Baru'}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4 max-h-[70vh] overflow-y-auto">
             <div className="space-y-2">
@@ -363,7 +284,7 @@ export default function DesaTourismPage() {
                 bucket="tourism-images"
                 path={villageId || 'temp'}
                 value={form.image_url}
-                onChange={(url) => setForm(prev => ({ ...prev, image_url: url }))}
+                onChange={url => setForm(prev => ({ ...prev, image_url: url }))}
                 aspectRatio="video"
                 maxSizeMB={10}
                 placeholder="Upload gambar wisata"
@@ -371,55 +292,30 @@ export default function DesaTourismPage() {
             </div>
             <div className="space-y-2">
               <Label>Nama Wisata *</Label>
-              <Input
-                value={form.name}
-                onChange={(e) => setForm(prev => ({ ...prev, name: e.target.value }))}
-                placeholder="Nama destinasi wisata"
-              />
+              <Input value={form.name} onChange={e => setForm(prev => ({ ...prev, name: e.target.value }))} placeholder="Nama destinasi wisata" />
             </div>
             <div className="space-y-2">
               <Label>Deskripsi</Label>
-              <Textarea
-                value={form.description}
-                onChange={(e) => setForm(prev => ({ ...prev, description: e.target.value }))}
-                placeholder="Deskripsi wisata"
-                rows={3}
-              />
+              <Textarea value={form.description} onChange={e => setForm(prev => ({ ...prev, description: e.target.value }))} placeholder="Deskripsi wisata" rows={3} />
             </div>
             <div className="space-y-2">
               <Label>Link WhatsApp</Label>
-              <Input
-                value={form.wa_link}
-                onChange={(e) => setForm(prev => ({ ...prev, wa_link: e.target.value }))}
-                placeholder="https://wa.me/628xxx"
-              />
+              <Input value={form.wa_link} onChange={e => setForm(prev => ({ ...prev, wa_link: e.target.value }))} placeholder="https://wa.me/628xxx" />
             </div>
             <div className="space-y-2">
               <Label>Link Social Media</Label>
-              <Input
-                value={form.sosmed_link}
-                onChange={(e) => setForm(prev => ({ ...prev, sosmed_link: e.target.value }))}
-                placeholder="https://instagram.com/xxx"
-              />
+              <Input value={form.sosmed_link} onChange={e => setForm(prev => ({ ...prev, sosmed_link: e.target.value }))} placeholder="https://instagram.com/xxx" />
             </div>
             <div className="space-y-2">
               <Label>Fasilitas (pisahkan dengan koma)</Label>
-              <Input
-                value={form.facilities}
-                onChange={(e) => setForm(prev => ({ ...prev, facilities: e.target.value }))}
-                placeholder="Parkir, Toilet, Musholla"
-              />
+              <Input value={form.facilities} onChange={e => setForm(prev => ({ ...prev, facilities: e.target.value }))} placeholder="Parkir, Toilet, Musholla" />
             </div>
             <div className="flex items-center gap-2">
-              <Switch
-                id="is_active"
-                checked={form.is_active}
-                onCheckedChange={(c) => setForm(prev => ({ ...prev, is_active: c }))}
-              />
+              <Switch id="is_active" checked={form.is_active} onCheckedChange={c => setForm(prev => ({ ...prev, is_active: c }))} />
               <Label htmlFor="is_active">Aktif</Label>
             </div>
-            <Button className="w-full" onClick={handleSave} disabled={saving}>
-              {saving ? 'Menyimpan...' : 'Simpan'}
+            <Button className="w-full" onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
+              {saveMutation.isPending ? 'Menyimpan...' : 'Simpan'}
             </Button>
           </div>
         </DialogContent>

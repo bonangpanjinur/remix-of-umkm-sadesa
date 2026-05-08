@@ -7,9 +7,8 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';
 import { formatPrice } from '@/lib/utils';
-import { Zap, ArrowLeft, Clock, ShoppingCart } from 'lucide-react';
-import { useCart } from '@/contexts/CartContext';
-import { toast } from 'sonner';
+import { Zap, ArrowLeft, Clock } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
 
 interface FlashSaleItem {
   id: string;
@@ -27,7 +26,6 @@ interface FlashSaleItem {
 
 function CountdownTimer({ endTime }: { endTime: string }) {
   const [timeLeft, setTimeLeft] = useState('');
-
   useEffect(() => {
     const calc = () => {
       const diff = new Date(endTime).getTime() - Date.now();
@@ -41,68 +39,45 @@ function CountdownTimer({ endTime }: { endTime: string }) {
     const id = setInterval(calc, 1000);
     return () => clearInterval(id);
   }, [endTime]);
-
   const isUrgent = new Date(endTime).getTime() - Date.now() < 3600000;
-
-  return (
-    <span className={`font-mono font-bold text-sm ${isUrgent ? 'text-red-600 animate-pulse' : 'text-orange-600'}`}>
-      {timeLeft}
-    </span>
-  );
+  return <span className={`font-mono font-bold text-sm ${isUrgent ? 'text-red-600 animate-pulse' : 'text-orange-600'}`}>{timeLeft}</span>;
 }
 
 export default function FlashSalePage() {
   const navigate = useNavigate();
-  const { addToCart: addItem } = useCart();
-  const [items, setItems] = useState<FlashSaleItem[]>([]);
-  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchFlashSales();
-  }, []);
-
-  const fetchFlashSales = async () => {
-    try {
+  const { data: items = [], isLoading: loading } = useQuery<FlashSaleItem[]>({
+    queryKey: ['flash-sales'],
+    queryFn: async () => {
       const now = new Date().toISOString();
       const { data, error } = await supabase
         .from('flash_sales' as any)
-        .select(`
-          id, product_id, original_price, flash_price, stock_available, stock_sold,
-          start_time, end_time, status,
-          products(name, image_url, merchants(name))
-        `)
+        .select('id, product_id, original_price, flash_price, stock_available, stock_sold, start_time, end_time, status, products(name, image_url, merchants(name))')
         .eq('status', 'active')
         .lte('start_time', now)
         .gte('end_time', now)
         .order('end_time', { ascending: true });
-
-      if (!error && data) {
-        const mapped: FlashSaleItem[] = (data as any[]).map(fs => ({
-          id: fs.id,
-          product_id: fs.product_id,
-          product_name: fs.products?.name || 'Produk',
-          product_image: fs.products?.image_url || null,
-          merchant_name: fs.products?.merchants?.name || '',
-          original_price: fs.original_price,
-          flash_price: fs.flash_price,
-          stock_available: fs.stock_available,
-          stock_sold: fs.stock_sold || 0,
-          end_time: fs.end_time,
-          discount_pct: Math.round(((fs.original_price - fs.flash_price) / fs.original_price) * 100),
-        }));
-        setItems(mapped);
-      }
-    } catch (err) {
-      console.error('Error fetching flash sales:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
+      if (error) throw error;
+      return ((data || []) as any[]).map(fs => ({
+        id: fs.id,
+        product_id: fs.product_id,
+        product_name: fs.products?.name || 'Produk',
+        product_image: fs.products?.image_url || null,
+        merchant_name: fs.products?.merchants?.name || '',
+        original_price: fs.original_price,
+        flash_price: fs.flash_price,
+        stock_available: fs.stock_available,
+        stock_sold: fs.stock_sold || 0,
+        end_time: fs.end_time,
+        discount_pct: Math.round(((fs.original_price - fs.flash_price) / fs.original_price) * 100),
+      }));
+    },
+    staleTime: 60_000,
+  });
 
   const stockPct = (item: FlashSaleItem) => {
     const total = item.stock_available + item.stock_sold;
-    if (total === 0) return 0;
-    return Math.round((item.stock_sold / total) * 100);
+    return total === 0 ? 0 : Math.round((item.stock_sold / total) * 100);
   };
 
   return (
@@ -112,8 +87,6 @@ export default function FlashSalePage() {
         <Button variant="ghost" size="sm" onClick={() => navigate(-1)} className="mb-3">
           <ArrowLeft className="h-4 w-4 mr-2" />Kembali
         </Button>
-
-        {/* Header Banner */}
         <div className="bg-gradient-to-r from-orange-500 to-red-500 rounded-2xl p-5 mb-5 text-white">
           <div className="flex items-center gap-2 mb-1">
             <Zap className="h-6 w-6 fill-white" />
@@ -124,9 +97,7 @@ export default function FlashSalePage() {
 
         {loading ? (
           <div className="grid grid-cols-2 gap-3">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="h-52 bg-muted rounded-xl animate-pulse" />
-            ))}
+            {Array.from({ length: 6 }).map((_, i) => <div key={i} className="h-52 bg-muted rounded-xl animate-pulse" />)}
           </div>
         ) : items.length === 0 ? (
           <div className="text-center py-20 text-muted-foreground">
@@ -144,14 +115,8 @@ export default function FlashSalePage() {
                 <Card key={item.id} className="overflow-hidden cursor-pointer hover:shadow-md transition-shadow"
                   onClick={() => navigate(`/product/${item.product_id}`)}>
                   <div className="relative">
-                    <img
-                      src={item.product_image || '/placeholder.jpg'}
-                      alt={item.product_name}
-                      className="w-full h-36 object-cover"
-                    />
-                    <Badge className="absolute top-2 left-2 bg-red-500 text-white text-xs font-bold px-2">
-                      -{item.discount_pct}%
-                    </Badge>
+                    <img src={item.product_image || '/placeholder.jpg'} alt={item.product_name} className="w-full h-36 object-cover" />
+                    <Badge className="absolute top-2 left-2 bg-red-500 text-white text-xs font-bold px-2">-{item.discount_pct}%</Badge>
                   </div>
                   <CardContent className="p-3">
                     <p className="font-medium text-sm line-clamp-2 leading-tight">{item.product_name}</p>
@@ -160,7 +125,6 @@ export default function FlashSalePage() {
                       <p className="text-emerald-600 font-bold">{formatPrice(item.flash_price)}</p>
                       <p className="text-xs text-muted-foreground line-through">{formatPrice(item.original_price)}</p>
                     </div>
-                    {/* Stock bar */}
                     <div className="mt-2">
                       <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
                         <div className="h-full bg-orange-500 rounded-full transition-all" style={{ width: `${sold}%` }} />
@@ -169,7 +133,6 @@ export default function FlashSalePage() {
                         {remaining <= 0 ? 'Habis' : remaining <= 5 ? `Sisa ${remaining}!` : `Sisa ${remaining}`}
                       </p>
                     </div>
-                    {/* Countdown */}
                     <div className="flex items-center gap-1 mt-1.5">
                       <Clock className="h-3 w-3 text-muted-foreground" />
                       <CountdownTimer endTime={item.end_time} />

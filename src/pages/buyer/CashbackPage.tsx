@@ -1,17 +1,16 @@
-import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Header } from '@/components/layout/Header';
 import { BottomNav } from '@/components/layout/BottomNav';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatPrice } from '@/lib/utils';
 import { ArrowLeft, Wallet, TrendingUp, Clock, Gift, Zap, Info } from 'lucide-react';
 import { format } from 'date-fns';
 import { id as idLocale } from 'date-fns/locale';
+import { useQuery } from '@tanstack/react-query';
 
 interface CashbackTx {
   id: string;
@@ -33,47 +32,48 @@ interface CashbackRule {
   valid_until: string | null;
 }
 
+interface CashbackData {
+  balance: number;
+  transactions: CashbackTx[];
+  rules: CashbackRule[];
+}
+
 export default function CashbackPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [balance, setBalance] = useState(0);
-  const [transactions, setTransactions] = useState<CashbackTx[]>([]);
-  const [rules, setRules] = useState<CashbackRule[]>([]);
-  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    if (user) fetchData();
-  }, [user]);
-
-  const fetchData = async () => {
-    try {
+  const { data, isLoading: loading } = useQuery<CashbackData>({
+    queryKey: ['cashback', user?.id],
+    queryFn: async () => {
       const [profileRes, txRes, rulesRes] = await Promise.all([
         supabase.from('profiles').select('cashback_balance').eq('id', user!.id).maybeSingle(),
         (supabase as any).from('cashback_transactions').select('*').eq('user_id', user!.id).order('created_at', { ascending: false }).limit(30),
         (supabase as any).from('cashback_rules').select('*').eq('is_active', true).order('cashback_percent', { ascending: false }),
       ]);
-      setBalance((profileRes.data as any)?.cashback_balance ?? 0);
-      setTransactions((txRes.data as CashbackTx[]) || []);
-      setRules((rulesRes.data as CashbackRule[]) || []);
-    } catch (err) {
-      console.error('Error fetching cashback:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
+      return {
+        balance: (profileRes.data as any)?.cashback_balance ?? 0,
+        transactions: (txRes.data as CashbackTx[]) || [],
+        rules: (rulesRes.data as CashbackRule[]) || [],
+      };
+    },
+    enabled: !!user,
+    staleTime: 60_000,
+  });
+
+  const balance = data?.balance ?? 0;
+  const transactions = data?.transactions ?? [];
+  const rules = data?.rules ?? [];
 
   const txIcon = (type: string) => {
     if (type === 'earn') return <TrendingUp className="h-4 w-4 text-emerald-600" />;
     if (type === 'redeem') return <Wallet className="h-4 w-4 text-blue-600" />;
     return <Clock className="h-4 w-4 text-gray-400" />;
   };
-
   const txLabel = (type: string) => {
     if (type === 'earn') return 'Cashback diterima';
     if (type === 'redeem') return 'Cashback digunakan';
     return 'Cashback kedaluwarsa';
   };
-
   const statusColor = (status: string) => {
     if (status === 'confirmed') return 'bg-emerald-100 text-emerald-700';
     if (status === 'pending') return 'bg-yellow-100 text-yellow-700';
@@ -81,7 +81,6 @@ export default function CashbackPage() {
     if (status === 'redeemed') return 'bg-blue-100 text-blue-700';
     return 'bg-gray-100 text-gray-500';
   };
-
   const statusLabel = (status: string) => {
     if (status === 'confirmed') return 'Dikonfirmasi';
     if (status === 'pending') return 'Menunggu';
@@ -107,7 +106,6 @@ export default function CashbackPage() {
           </div>
         ) : (
           <div className="space-y-4">
-            {/* Balance Card */}
             <Card className="bg-gradient-to-br from-emerald-500 to-teal-600 text-white border-0 shadow-lg">
               <CardContent className="p-5">
                 <div className="flex items-center gap-2 mb-1">
@@ -124,7 +122,6 @@ export default function CashbackPage() {
               </CardContent>
             </Card>
 
-            {/* How to earn */}
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-semibold flex items-center gap-2">
@@ -149,9 +146,7 @@ export default function CashbackPage() {
                         </p>
                       )}
                     </div>
-                    <Badge className="bg-amber-500 text-white text-sm font-bold px-2">
-                      {r.cashback_percent}%
-                    </Badge>
+                    <Badge className="bg-amber-500 text-white text-sm font-bold px-2">{r.cashback_percent}%</Badge>
                   </div>
                 ))}
                 <div className="flex items-start gap-2 p-3 bg-blue-50 rounded-lg text-xs text-blue-700">
@@ -161,7 +156,6 @@ export default function CashbackPage() {
               </CardContent>
             </Card>
 
-            {/* Transaction History */}
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-semibold flex items-center gap-2">
@@ -174,27 +168,19 @@ export default function CashbackPage() {
                     <Wallet className="h-10 w-10 text-muted-foreground mx-auto mb-2 opacity-40" />
                     <p className="text-sm text-muted-foreground">Belum ada riwayat cashback</p>
                     <p className="text-xs text-muted-foreground mt-1">Belanja sekarang untuk dapatkan cashback!</p>
-                    <Button size="sm" className="mt-3" onClick={() => navigate('/')}>
-                      Belanja Sekarang
-                    </Button>
+                    <Button size="sm" className="mt-3" onClick={() => navigate('/')}>Belanja Sekarang</Button>
                   </div>
                 ) : (
                   <div className="space-y-2">
                     {transactions.map(tx => (
                       <div key={tx.id} className="flex items-center justify-between py-2 border-b last:border-b-0">
                         <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center">
-                            {txIcon(tx.type)}
-                          </div>
+                          <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center">{txIcon(tx.type)}</div>
                           <div>
                             <p className="text-sm font-medium">{txLabel(tx.type)}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {format(new Date(tx.created_at), 'd MMM yyyy, HH:mm', { locale: idLocale })}
-                            </p>
+                            <p className="text-xs text-muted-foreground">{format(new Date(tx.created_at), 'd MMM yyyy, HH:mm', { locale: idLocale })}</p>
                             {tx.expires_at && tx.status === 'confirmed' && (
-                              <p className="text-xs text-orange-500">
-                                Exp: {format(new Date(tx.expires_at), 'd MMM yyyy', { locale: idLocale })}
-                              </p>
+                              <p className="text-xs text-orange-500">Exp: {format(new Date(tx.expires_at), 'd MMM yyyy', { locale: idLocale })}</p>
                             )}
                           </div>
                         </div>
@@ -202,9 +188,7 @@ export default function CashbackPage() {
                           <p className={`text-sm font-bold ${tx.type === 'earn' ? 'text-emerald-600' : tx.type === 'redeem' ? 'text-blue-600' : 'text-gray-400'}`}>
                             {tx.type === 'earn' ? '+' : '-'}{formatPrice(tx.amount)}
                           </p>
-                          <span className={`text-xs px-1.5 py-0.5 rounded-full ${statusColor(tx.status)}`}>
-                            {statusLabel(tx.status)}
-                          </span>
+                          <span className={`text-xs px-1.5 py-0.5 rounded-full ${statusColor(tx.status)}`}>{statusLabel(tx.status)}</span>
                         </div>
                       </div>
                     ))}

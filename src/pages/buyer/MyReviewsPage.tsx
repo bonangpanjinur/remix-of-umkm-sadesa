@@ -1,4 +1,3 @@
-import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { safeGoBack } from '@/lib/utils';
 import { motion } from 'framer-motion';
@@ -8,6 +7,7 @@ import { BottomNav } from '@/components/layout/BottomNav';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
+import { useQuery } from '@tanstack/react-query';
 
 interface ReviewItem {
   id: string;
@@ -15,74 +15,51 @@ interface ReviewItem {
   comment: string | null;
   created_at: string;
   merchant_reply: string | null;
-  product: {
-    name: string;
-    image_url: string | null;
-  } | null;
-  merchant: {
-    name: string;
-  } | null;
+  product: { name: string; image_url: string | null } | null;
+  merchant: { name: string } | null;
 }
 
 export default function MyReviewsPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [reviews, setReviews] = useState<ReviewItem[]>([]);
-  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    if (user) fetchReviews();
-  }, [user]);
-
-  const fetchReviews = async () => {
-    if (!user) return;
-    try {
+  const { data: reviews = [], isLoading: loading } = useQuery<ReviewItem[]>({
+    queryKey: ['my-reviews', user?.id],
+    queryFn: async () => {
       const result: any = await supabase
         .from('reviews' as any)
         .select('id, rating, comment, created_at, merchant_reply, product_id, merchant_id')
-        .eq('buyer_id', user.id)
+        .eq('buyer_id', user!.id)
         .order('created_at', { ascending: false });
+
       const data = result.data as any[];
-      const error = result.error;
+      if (result.error) throw result.error;
 
-      if (error) throw error;
-
-      // Batch fetch product and merchant details
       const productIds = [...new Set((data || []).map((r: any) => r.product_id).filter(Boolean))];
       const merchantIds = [...new Set((data || []).map((r: any) => r.merchant_id).filter(Boolean))];
 
       const [productsResult, merchantsResult] = await Promise.all([
-        productIds.length > 0
-          ? supabase.from('products').select('id, name, image_url').in('id', productIds)
-          : Promise.resolve({ data: [] }),
-        merchantIds.length > 0
-          ? supabase.from('merchants').select('id, name').in('id', merchantIds)
-          : Promise.resolve({ data: [] }),
+        productIds.length > 0 ? supabase.from('products').select('id, name, image_url').in('id', productIds) : Promise.resolve({ data: [] }),
+        merchantIds.length > 0 ? supabase.from('merchants').select('id, name').in('id', merchantIds) : Promise.resolve({ data: [] }),
       ]);
 
       const productsMap = new Map((productsResult.data || []).map((p: any) => [p.id, { name: p.name, image_url: p.image_url }]));
       const merchantsMap = new Map((merchantsResult.data || []).map((m: any) => [m.id, { name: m.name }]));
 
-      const reviewItems: ReviewItem[] = (data || []).map((r: any) => ({
+      return (data || []).map((r: any) => ({
         ...r,
         product: r.product_id ? productsMap.get(r.product_id) || null : null,
         merchant: r.merchant_id ? merchantsMap.get(r.merchant_id) || null : null,
       }));
-      setReviews(reviewItems);
-    } catch (error) {
-      console.error('Error fetching reviews:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+    },
+    enabled: !!user,
+    staleTime: 60_000,
+  });
 
   const renderStars = (rating: number) => (
     <div className="flex gap-0.5">
       {[1, 2, 3, 4, 5].map(i => (
-        <Star
-          key={i}
-          className={`h-4 w-4 ${i <= rating ? 'fill-warning text-warning' : 'text-muted-foreground/30'}`}
-        />
+        <Star key={i} className={`h-4 w-4 ${i <= rating ? 'fill-warning text-warning' : 'text-muted-foreground/30'}`} />
       ))}
     </div>
   );
@@ -115,13 +92,8 @@ export default function MyReviewsPage() {
           ) : (
             <div className="space-y-4">
               {reviews.map((review, index) => (
-                <motion.div
-                  key={review.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.05 }}
-                  className="bg-card rounded-xl p-4 border border-border"
-                >
+                <motion.div key={review.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.05 }}
+                  className="bg-card rounded-xl p-4 border border-border">
                   <div className="flex gap-3 mb-3">
                     {review.product?.image_url ? (
                       <img src={review.product.image_url} alt="" className="w-14 h-14 rounded-lg object-cover border border-border" />
@@ -135,17 +107,11 @@ export default function MyReviewsPage() {
                       <p className="text-xs text-muted-foreground">{review.merchant?.name || 'Toko'}</p>
                       <div className="flex items-center gap-2 mt-1">
                         {renderStars(review.rating)}
-                        <span className="text-xs text-muted-foreground">
-                          {new Date(review.created_at).toLocaleDateString('id-ID')}
-                        </span>
+                        <span className="text-xs text-muted-foreground">{new Date(review.created_at).toLocaleDateString('id-ID')}</span>
                       </div>
                     </div>
                   </div>
-
-                  {review.comment && (
-                    <p className="text-sm text-foreground mb-3">{review.comment}</p>
-                  )}
-
+                  {review.comment && <p className="text-sm text-foreground mb-3">{review.comment}</p>}
                   {review.merchant_reply && (
                     <div className="bg-secondary/50 rounded-lg p-3 border-l-2 border-primary">
                       <div className="flex items-center gap-1 mb-1">

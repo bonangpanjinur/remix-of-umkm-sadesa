@@ -1,4 +1,3 @@
-import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Header } from '@/components/layout/Header';
 import { BottomNav } from '@/components/layout/BottomNav';
@@ -10,9 +9,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatPrice } from '@/lib/utils';
-import { ArrowLeft, Star, Gift, Crown, Award, TrendingUp, Clock } from 'lucide-react';
+import { ArrowLeft, Star, Gift, Crown, Award } from 'lucide-react';
 import { format } from 'date-fns';
 import { id as idLocale } from 'date-fns/locale';
+import { useQuery } from '@tanstack/react-query';
 
 interface LoyaltyData {
   points: number;
@@ -46,75 +46,56 @@ const POINT_RULES = [
   { action: 'Ulang tahun', points: 500 },
 ];
 
+function getCurrentTier(points: number): string {
+  return [...TIERS].reverse().find(t => points >= t.min)?.name || 'Bronze';
+}
+
 export default function LoyaltyPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [loyaltyData, setLoyaltyData] = useState<LoyaltyData>({
-    points: 0, tier: 'Bronze', totalEarned: 0, totalSpent: 0, nextTierPoints: 1000, nextTierName: 'Silver',
-  });
-  const [history, setHistory] = useState<PointHistory[]>([]);
-  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    if (user) fetchData();
-  }, [user]);
-
-  const fetchData = async () => {
-    if (!user) return;
-    try {
-      // Get orders to calculate points
-      const { data: orders } = await (supabase as any)
-        .from('orders')
-        .select('total, created_at, id')
-        .eq('buyer_id', user.id)
-        .eq('status', 'COMPLETED')
-        .order('created_at', { ascending: false });
+  const { data, isLoading: loading } = useQuery<{ loyaltyData: LoyaltyData; history: PointHistory[] }>({
+    queryKey: ['loyalty', user?.id],
+    queryFn: async () => {
+      const [{ data: orders }, { data: profile }] = await Promise.all([
+        (supabase as any).from('orders').select('total, created_at, id').eq('buyer_id', user!.id).eq('status', 'COMPLETED').order('created_at', { ascending: false }),
+        supabase.from('profiles').select('loyalty_points, loyalty_tier').eq('id', user!.id).maybeSingle(),
+      ]);
 
       const allOrders = (orders || []) as any[];
       const totalSpent = allOrders.reduce((s: number, o: any) => s + (o.total || 0), 0);
       const earnedFromOrders = Math.floor(totalSpent / 10000) * 10;
-
-      // Get profile for bonus points
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('loyalty_points, loyalty_tier')
-        .eq('id', user.id)
-        .maybeSingle();
-
       const points = (profile as any)?.loyalty_points ?? earnedFromOrders;
-      const tier = (profile as any)?.loyalty_tier ?? getCurrentTier(points);
-
       const nextTier = TIERS.find(t => t.min > points);
-      setLoyaltyData({
+
+      const loyaltyData: LoyaltyData = {
         points,
         tier: getCurrentTier(points),
         totalEarned: points,
         totalSpent,
         nextTierPoints: nextTier?.min || points,
         nextTierName: nextTier?.name || 'Platinum',
-      });
+      };
 
-      // Build history from orders
-      const hist: PointHistory[] = allOrders.slice(0, 20).map((o: any) => ({
-        id: o.id,
-        type: 'earn',
-        points: Math.floor((o.total || 0) / 10000) * 10,
-        description: `Belanja #${o.id.substring(0, 8).toUpperCase()}`,
-        created_at: o.created_at,
-        expires_at: null,
-      })).filter((h: PointHistory) => h.points > 0);
+      const history: PointHistory[] = allOrders.slice(0, 20)
+        .map((o: any) => ({
+          id: o.id,
+          type: 'earn',
+          points: Math.floor((o.total || 0) / 10000) * 10,
+          description: `Belanja #${o.id.substring(0, 8).toUpperCase()}`,
+          created_at: o.created_at,
+          expires_at: null,
+        }))
+        .filter((h: PointHistory) => h.points > 0);
 
-      setHistory(hist);
-    } catch (err) {
-      console.error('Error fetching loyalty:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
+      return { loyaltyData, history };
+    },
+    enabled: !!user,
+    staleTime: 60_000,
+  });
 
-  function getCurrentTier(points: number): string {
-    return [...TIERS].reverse().find(t => points >= t.min)?.name || 'Bronze';
-  }
+  const loyaltyData = data?.loyaltyData ?? { points: 0, tier: 'Bronze', totalEarned: 0, totalSpent: 0, nextTierPoints: 1000, nextTierName: 'Silver' };
+  const history = data?.history ?? [];
 
   const currentTier = TIERS.find(t => t.name === loyaltyData.tier) || TIERS[0];
   const TierIcon = currentTier.icon;
@@ -133,7 +114,6 @@ export default function LoyaltyPage() {
           <ArrowLeft className="h-4 w-4 mr-2" />Kembali
         </Button>
 
-        {/* Tier Card */}
         {loading ? (
           <div className="h-40 bg-muted rounded-2xl animate-pulse" />
         ) : (
@@ -173,14 +153,11 @@ export default function LoyaltyPage() {
           </Card>
         )}
 
-        {/* Tier Info */}
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Level Member</CardTitle>
-          </CardHeader>
+          <CardHeader className="pb-2"><CardTitle className="text-sm">Level Member</CardTitle></CardHeader>
           <CardContent>
             <div className="grid grid-cols-4 gap-2">
-              {TIERS.map((t, i) => {
+              {TIERS.map(t => {
                 const active = t.name === loyaltyData.tier;
                 const unlocked = loyaltyData.points >= t.min;
                 return (
@@ -224,9 +201,7 @@ export default function LoyaltyPage() {
                         </div>
                         <div>
                           <p className="text-sm font-medium">{h.description}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {format(new Date(h.created_at), 'dd MMM yyyy', { locale: idLocale })}
-                          </p>
+                          <p className="text-xs text-muted-foreground">{format(new Date(h.created_at), 'dd MMM yyyy', { locale: idLocale })}</p>
                         </div>
                       </div>
                       <span className="font-bold text-emerald-600">+{h.points}</span>

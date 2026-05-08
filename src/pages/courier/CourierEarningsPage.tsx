@@ -1,4 +1,3 @@
-import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Wallet, TrendingUp, Package, CheckCircle, ArrowLeft } from 'lucide-react';
@@ -10,6 +9,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { formatPrice } from '@/lib/utils';
+import { useQuery } from '@tanstack/react-query';
+import { useEffect } from 'react';
 
 interface EarningRecord {
   id: string;
@@ -21,63 +22,69 @@ interface EarningRecord {
   paid_at: string | null;
 }
 
-interface EarningsStats {
-  totalEarnings: number;
-  todayEarnings: number;
-  weekEarnings: number;
-  monthEarnings: number;
-  totalDeliveries: number;
-  paidEarnings: number;
+interface EarningsData {
+  earnings: EarningRecord[];
+  stats: {
+    totalEarnings: number;
+    todayEarnings: number;
+    weekEarnings: number;
+    monthEarnings: number;
+    totalDeliveries: number;
+    paidEarnings: number;
+  };
 }
 
 export default function CourierEarningsPage() {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
-  const [earnings, setEarnings] = useState<EarningRecord[]>([]);
-  const [stats, setStats] = useState<EarningsStats>({ totalEarnings: 0, todayEarnings: 0, weekEarnings: 0, monthEarnings: 0, totalDeliveries: 0, paidEarnings: 0 });
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!authLoading && user) fetchData();
-    else if (!authLoading && !user) navigate('/auth');
-  }, [user, authLoading]);
+    if (!authLoading && !user) navigate('/auth');
+  }, [user, authLoading, navigate]);
 
-  const fetchData = async () => {
-    if (!user) return;
-    try {
-      const { data: courier } = await supabase.from('couriers').select('id, registration_status').eq('user_id', user.id).maybeSingle();
-      if (!courier || courier.registration_status !== 'APPROVED') { navigate('/courier'); return; }
+  const { data, isLoading: loading } = useQuery<EarningsData>({
+    queryKey: ['courier-earnings', user?.id],
+    queryFn: async () => {
+      const { data: courier } = await supabase
+        .from('couriers')
+        .select('id, registration_status')
+        .eq('user_id', user!.id)
+        .maybeSingle();
 
-      const { data } = await supabase
+      if (!courier || courier.registration_status !== 'APPROVED') {
+        navigate('/courier');
+        return { earnings: [], stats: { totalEarnings: 0, todayEarnings: 0, weekEarnings: 0, monthEarnings: 0, totalDeliveries: 0, paidEarnings: 0 } };
+      }
+
+      const { data: earningsData } = await supabase
         .from('courier_earnings')
         .select('*')
         .eq('courier_id', courier.id)
         .order('created_at', { ascending: false });
 
-      const all = data || [];
-      setEarnings(all);
+      const all: EarningRecord[] = earningsData || [];
 
       const now = new Date();
       const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
       const weekStart = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
       const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-
       const sum = (items: EarningRecord[]) => items.reduce((s, e) => s + e.amount, 0);
 
-      setStats({
-        totalEarnings: sum(all),
-        todayEarnings: sum(all.filter(e => new Date(e.created_at) >= todayStart)),
-        weekEarnings: sum(all.filter(e => new Date(e.created_at) >= weekStart)),
-        monthEarnings: sum(all.filter(e => new Date(e.created_at) >= monthStart)),
-        totalDeliveries: all.length,
-        paidEarnings: sum(all.filter(e => e.status === 'PAID')),
-      });
-    } catch (error) {
-      console.error('Error fetching earnings:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+      return {
+        earnings: all,
+        stats: {
+          totalEarnings: sum(all),
+          todayEarnings: sum(all.filter(e => new Date(e.created_at) >= todayStart)),
+          weekEarnings: sum(all.filter(e => new Date(e.created_at) >= weekStart)),
+          monthEarnings: sum(all.filter(e => new Date(e.created_at) >= monthStart)),
+          totalDeliveries: all.length,
+          paidEarnings: sum(all.filter(e => e.status === 'PAID')),
+        },
+      };
+    },
+    enabled: !!user && !authLoading,
+    staleTime: 60_000,
+  });
 
   if (authLoading || loading) {
     return (
@@ -87,8 +94,9 @@ export default function CourierEarningsPage() {
     );
   }
 
+  const earnings = data?.earnings ?? [];
+  const stats = data?.stats ?? { totalEarnings: 0, todayEarnings: 0, weekEarnings: 0, monthEarnings: 0, totalDeliveries: 0, paidEarnings: 0 };
   const pendingEarnings = earnings.filter(e => e.status === 'PENDING');
-  const paidEarnings = earnings.filter(e => e.status === 'PAID');
 
   return (
     <div className="min-h-screen bg-background">
@@ -171,13 +179,19 @@ export default function CourierEarningsPage() {
               ) : earnings.map(e => <EarningCard key={e.id} earning={e} />)}
             </TabsContent>
             <TabsContent value="delivery" className="mt-4 space-y-3">
-              {earnings.filter(e => e.type === 'DELIVERY').length === 0 ? <p className="text-center py-8 text-muted-foreground">Tidak ada pendapatan delivery</p> : earnings.filter(e => e.type === 'DELIVERY').map(e => <EarningCard key={e.id} earning={e} />)}
+              {earnings.filter(e => e.type === 'DELIVERY').length === 0
+                ? <p className="text-center py-8 text-muted-foreground">Tidak ada pendapatan delivery</p>
+                : earnings.filter(e => e.type === 'DELIVERY').map(e => <EarningCard key={e.id} earning={e} />)}
             </TabsContent>
             <TabsContent value="ride" className="mt-4 space-y-3">
-              {earnings.filter(e => e.type === 'RIDE').length === 0 ? <p className="text-center py-8 text-muted-foreground">Tidak ada pendapatan ojek</p> : earnings.filter(e => e.type === 'RIDE').map(e => <EarningCard key={e.id} earning={e} />)}
+              {earnings.filter(e => e.type === 'RIDE').length === 0
+                ? <p className="text-center py-8 text-muted-foreground">Tidak ada pendapatan ojek</p>
+                : earnings.filter(e => e.type === 'RIDE').map(e => <EarningCard key={e.id} earning={e} />)}
             </TabsContent>
             <TabsContent value="pending" className="mt-4 space-y-3">
-              {pendingEarnings.length === 0 ? <p className="text-center py-8 text-muted-foreground">Tidak ada pending</p> : pendingEarnings.map(e => <EarningCard key={e.id} earning={e} />)}
+              {pendingEarnings.length === 0
+                ? <p className="text-center py-8 text-muted-foreground">Tidak ada pending</p>
+                : pendingEarnings.map(e => <EarningCard key={e.id} earning={e} />)}
             </TabsContent>
           </Tabs>
         </motion.div>

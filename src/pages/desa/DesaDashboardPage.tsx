@@ -1,4 +1,3 @@
-import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Mountain, Store, Eye, AlertCircle, ExternalLink, Download } from 'lucide-react';
 import { DesaLayout } from '@/components/desa/DesaLayout';
@@ -9,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
+import { useQuery } from '@tanstack/react-query';
 
 interface VillageData {
   id: string;
@@ -18,11 +18,12 @@ interface VillageData {
   registration_status: string;
 }
 
-interface Stats {
-  totalTourism: number;
-  activeTourism: number;
-  totalMerchants: number;
-  totalViews: number;
+interface TourismItem {
+  id: string;
+  name: string;
+  is_active: boolean;
+  view_count: number;
+  facilities: string[] | null;
 }
 
 interface MerchantItem {
@@ -34,66 +35,58 @@ interface MerchantItem {
   phone: string | null;
 }
 
-interface TourismItem {
-  id: string;
-  name: string;
-  is_active: boolean;
-  view_count: number;
-  facilities: string[] | null;
+interface DashboardData {
+  village: VillageData | null;
+  tourism: TourismItem[];
+  merchants: MerchantItem[];
 }
 
 export default function DesaDashboardPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [village, setVillage] = useState<VillageData | null>(null);
-  const [stats, setStats] = useState<Stats>({ totalTourism: 0, activeTourism: 0, totalMerchants: 0, totalViews: 0 });
-  const [merchants, setMerchants] = useState<MerchantItem[]>([]);
-  const [tourismData, setTourismData] = useState<TourismItem[]>([]);
-  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      if (!user) return;
-      try {
-        const { data: userVillage } = await supabase
-          .from('user_villages')
-          .select('village_id, villages(id, name, district, regency, registration_status)')
-          .eq('user_id', user.id)
-          .maybeSingle();
+  const { data, isLoading: loading } = useQuery<DashboardData>({
+    queryKey: ['desa-dashboard', user?.id],
+    queryFn: async () => {
+      const { data: userVillage } = await supabase
+        .from('user_villages')
+        .select('village_id, villages(id, name, district, regency, registration_status)')
+        .eq('user_id', user!.id)
+        .maybeSingle();
 
-        const villageData = userVillage?.villages as unknown as VillageData | null;
-        if (!villageData) { setLoading(false); return; }
-        setVillage(villageData);
+      const village = userVillage?.villages as unknown as VillageData | null;
+      if (!village) return { village: null, tourism: [], merchants: [] };
 
-        const [tourismRes, merchantsRes] = await Promise.all([
-          supabase.from('tourism').select('id, name, is_active, view_count, facilities').eq('village_id', villageData.id),
-          supabase.from('merchants').select('id, name, status, registration_status, business_category, phone').eq('village_id', villageData.id),
-        ]);
+      const [tourismRes, merchantsRes] = await Promise.all([
+        supabase.from('tourism').select('id, name, is_active, view_count, facilities').eq('village_id', village.id),
+        supabase.from('merchants').select('id, name, status, registration_status, business_category, phone').eq('village_id', village.id),
+      ]);
 
-        const tourism = tourismRes.data || [];
-        const merchantList = merchantsRes.data || [];
-        setTourismData(tourism);
-        setMerchants(merchantList);
+      return {
+        village,
+        tourism: tourismRes.data || [],
+        merchants: merchantsRes.data || [],
+      };
+    },
+    enabled: !!user,
+    staleTime: 60_000,
+  });
 
-        setStats({
-          totalTourism: tourism.length,
-          activeTourism: tourism.filter(t => t.is_active).length,
-          totalMerchants: merchantList.filter(m => m.status === 'ACTIVE').length,
-          totalViews: tourism.reduce((sum, t) => sum + (t.view_count || 0), 0),
-        });
-      } catch (error) {
-        console.error('Error fetching data:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchData();
-  }, [user]);
+  const village = data?.village ?? null;
+  const tourism = data?.tourism ?? [];
+  const merchants = data?.merchants ?? [];
+
+  const stats = {
+    totalTourism: tourism.length,
+    activeTourism: tourism.filter(t => t.is_active).length,
+    totalMerchants: merchants.filter(m => m.status === 'ACTIVE').length,
+    totalViews: tourism.reduce((sum, t) => sum + (t.view_count || 0), 0),
+  };
 
   const exportTourismCSV = () => {
-    if (tourismData.length === 0) { toast.error('Tidak ada data wisata'); return; }
+    if (tourism.length === 0) { toast.error('Tidak ada data wisata'); return; }
     const headers = ['Nama', 'Status', 'Views', 'Fasilitas'];
-    const rows = tourismData.map(t => [
+    const rows = tourism.map(t => [
       t.name,
       t.is_active ? 'Aktif' : 'Nonaktif',
       String(t.view_count || 0),
@@ -135,20 +128,17 @@ export default function DesaDashboardPage() {
 
   return (
     <DesaLayout title="Dashboard" subtitle="Ringkasan desa wisata">
-      {/* Village Info */}
       <div className="bg-card rounded-xl border border-border p-5 mb-6">
         <h3 className="font-semibold text-lg">{village.name}</h3>
         <p className="text-sm text-muted-foreground">{village.district}, {village.regency}</p>
       </div>
 
-      {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
         <StatsCard title="Total Wisata" value={stats.totalTourism} icon={<Mountain className="h-5 w-5" />} description={`${stats.activeTourism} aktif`} />
         <StatsCard title="Total Merchant" value={stats.totalMerchants} icon={<Store className="h-5 w-5" />} />
         <StatsCard title="Total Views" value={stats.totalViews} icon={<Eye className="h-5 w-5" />} />
       </div>
 
-      {/* Quick Actions */}
       <div className="grid grid-cols-2 gap-4 mb-8">
         <Button variant="outline" className="h-auto py-4 flex flex-col items-center gap-2" onClick={() => navigate('/desa/tourism')}>
           <Mountain className="h-6 w-6" />
@@ -160,7 +150,6 @@ export default function DesaDashboardPage() {
         </Button>
       </div>
 
-      {/* Merchant List */}
       <Card>
         <CardHeader>
           <CardTitle className="text-lg flex items-center gap-2">

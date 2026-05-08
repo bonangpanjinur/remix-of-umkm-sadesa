@@ -1,18 +1,18 @@
-import { useEffect, useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Wallet, Send, Clock, CheckCircle, XCircle, Loader2, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Wallet, Send, Clock, CheckCircle, XCircle, Loader2 } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { formatPrice } from '@/lib/utils';
 import { toast } from 'sonner';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 interface CourierInfo {
   id: string;
@@ -37,118 +37,91 @@ interface WithdrawalRequest {
   processed_at: string | null;
 }
 
+interface WithdrawalData {
+  courier: CourierInfo;
+  withdrawals: WithdrawalRequest[];
+  minimumBalance: number;
+}
+
 export default function CourierWithdrawalPage() {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
-  const [courier, setCourier] = useState<CourierInfo | null>(null);
-  const [withdrawals, setWithdrawals] = useState<WithdrawalRequest[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
+  const queryClient = useQueryClient();
+
   const [amount, setAmount] = useState('');
   const [bankName, setBankName] = useState('');
   const [accountNumber, setAccountNumber] = useState('');
   const [accountHolder, setAccountHolder] = useState('');
-  const [minimumBalance, setMinimumBalance] = useState(50000);
 
   useEffect(() => {
-    if (!authLoading && user) fetchData();
-    else if (!authLoading && !user) navigate('/auth');
-  }, [user, authLoading]);
+    if (!authLoading && !user) navigate('/auth');
+  }, [user, authLoading, navigate]);
 
-  const fetchData = async () => {
-    if (!user) return;
-    try {
+  const { data, isLoading: loading } = useQuery<WithdrawalData>({
+    queryKey: ['courier-withdrawal', user?.id],
+    queryFn: async () => {
       const { data: courierData } = await supabase
         .from('couriers')
         .select('id, name, available_balance, pending_balance, total_withdrawn, bank_name, bank_account_number, bank_account_name, registration_status')
-        .eq('user_id', user.id)
+        .eq('user_id', user!.id)
         .maybeSingle();
 
       if (!courierData || courierData.registration_status !== 'APPROVED') {
         navigate('/courier');
-        return;
+        return null as any;
       }
 
-      setCourier(courierData as CourierInfo);
+      const [{ data: wds }, { data: minBalSetting }] = await Promise.all([
+        supabase.from('courier_withdrawal_requests').select('*').eq('courier_id', courierData.id).order('created_at', { ascending: false }),
+        supabase.from('app_settings').select('value').eq('key', 'courier_minimum_balance').maybeSingle(),
+      ]);
+
       setBankName(courierData.bank_name || '');
       setAccountNumber(courierData.bank_account_number || '');
       setAccountHolder(courierData.bank_account_name || '');
 
-      const [{ data: wds }, { data: minBalSetting }] = await Promise.all([
-        supabase
-          .from('courier_withdrawal_requests')
-          .select('*')
-          .eq('courier_id', courierData.id)
-          .order('created_at', { ascending: false }),
-        supabase
-          .from('app_settings')
-          .select('value')
-          .eq('key', 'courier_minimum_balance')
-          .maybeSingle(),
-      ]);
+      return {
+        courier: courierData as CourierInfo,
+        withdrawals: wds || [],
+        minimumBalance: (minBalSetting?.value as any)?.amount || 50000,
+      };
+    },
+    enabled: !!user && !authLoading,
+    staleTime: 60_000,
+  });
 
-      setWithdrawals(wds || []);
-      if (minBalSetting?.value) {
-        setMinimumBalance((minBalSetting.value as any).amount || 50000);
-      }
-    } catch (error) {
-      console.error('Error:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const submitMutation = useMutation({
+    mutationFn: async () => {
+      if (!data?.courier) return;
+      const amountNum = parseInt(amount);
+      if (!amountNum || amountNum <= 0) throw new Error('Masukkan jumlah yang valid');
+      if (amountNum > (data.courier.available_balance || 0)) throw new Error('Saldo tidak mencukupi');
+      const remaining = (data.courier.available_balance || 0) - amountNum;
+      if (remaining < data.minimumBalance) throw new Error(`Saldo setelah penarikan harus minimal ${formatPrice(data.minimumBalance)}`);
+      if (!bankName || !accountNumber || !accountHolder) throw new Error('Lengkapi data rekening bank');
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!courier) return;
-    const amountNum = parseInt(amount);
-    if (!amountNum || amountNum <= 0) {
-      toast.error('Masukkan jumlah yang valid');
-      return;
-    }
-    if (amountNum > (courier.available_balance || 0)) {
-      toast.error('Saldo tidak mencukupi');
-      return;
-    }
-    const remainingBalance = (courier.available_balance || 0) - amountNum;
-    if (remainingBalance < minimumBalance) {
-      toast.error(`Saldo setelah penarikan harus minimal ${formatPrice(minimumBalance)}`);
-      return;
-    }
-    if (!bankName || !accountNumber || !accountHolder) {
-      toast.error('Lengkapi data rekening bank');
-      return;
-    }
-
-    setSubmitting(true);
-    try {
       const { error } = await supabase.from('courier_withdrawal_requests').insert({
-        courier_id: courier.id,
+        courier_id: data.courier.id,
         amount: amountNum,
         bank_name: bankName,
         account_number: accountNumber,
         account_holder: accountHolder,
       });
-
       if (error) throw error;
 
-      // Update courier bank info if changed
       await supabase.from('couriers').update({
         bank_name: bankName,
         bank_account_number: accountNumber,
         bank_account_name: accountHolder,
-      }).eq('id', courier.id);
-
+      }).eq('id', data.courier.id);
+    },
+    onSuccess: () => {
       toast.success('Permintaan penarikan berhasil diajukan');
       setAmount('');
-      fetchData();
-    } catch (error) {
-      console.error('Error:', error);
-      toast.error('Gagal mengajukan penarikan');
-    } finally {
-      setSubmitting(false);
-    }
-  };
+      queryClient.invalidateQueries({ queryKey: ['courier-withdrawal', user?.id] });
+    },
+    onError: (err: any) => toast.error(err.message || 'Gagal mengajukan penarikan'),
+  });
 
   if (authLoading || loading) {
     return (
@@ -157,6 +130,10 @@ export default function CourierWithdrawalPage() {
       </div>
     );
   }
+
+  const courier = data?.courier;
+  const withdrawals = data?.withdrawals ?? [];
+  const minimumBalance = data?.minimumBalance ?? 50000;
 
   const statusBadge = (status: string) => {
     switch (status) {
@@ -176,7 +153,6 @@ export default function CourierWithdrawalPage() {
           <ArrowLeft className="h-4 w-4 mr-2" /> Kembali
         </Button>
 
-        {/* Balance Card */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
           <Card className="bg-gradient-to-br from-primary to-primary/80 text-primary-foreground">
             <CardHeader className="pb-2">
@@ -193,14 +169,13 @@ export default function CourierWithdrawalPage() {
           </Card>
         </motion.div>
 
-        {/* Withdrawal Form */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
           <Card>
             <CardHeader>
               <CardTitle className="text-lg flex items-center gap-2"><Send className="h-5 w-5" />Ajukan Penarikan</CardTitle>
             </CardHeader>
             <CardContent>
-              <form onSubmit={handleSubmit} className="space-y-4">
+              <form onSubmit={e => { e.preventDefault(); submitMutation.mutate(); }} className="space-y-4">
                 <div className="space-y-2">
                   <Label>Jumlah (Rp)</Label>
                   <Input type="number" value={amount} onChange={e => setAmount(e.target.value)} placeholder="Masukkan jumlah" min={1} />
@@ -219,8 +194,8 @@ export default function CourierWithdrawalPage() {
                     <Input value={accountHolder} onChange={e => setAccountHolder(e.target.value)} placeholder="Nama pemilik rekening" />
                   </div>
                 </div>
-                <Button type="submit" className="w-full" disabled={submitting}>
-                  {submitting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Send className="h-4 w-4 mr-2" />}
+                <Button type="submit" className="w-full" disabled={submitMutation.isPending}>
+                  {submitMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Send className="h-4 w-4 mr-2" />}
                   Ajukan Penarikan
                 </Button>
               </form>
@@ -228,7 +203,6 @@ export default function CourierWithdrawalPage() {
           </Card>
         </motion.div>
 
-        {/* History */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
           <h3 className="font-bold text-lg mb-3">Riwayat Penarikan</h3>
           {withdrawals.length === 0 ? (

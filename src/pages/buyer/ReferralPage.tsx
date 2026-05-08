@@ -1,10 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Header } from '@/components/layout/Header';
 import { BottomNav } from '@/components/layout/BottomNav';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -13,6 +12,7 @@ import { ArrowLeft, Users, Copy, Share2, Gift, CheckCircle, TrendingUp, Link } f
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { id as idLocale } from 'date-fns/locale';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 interface ReferralUsage {
   id: string;
@@ -21,99 +21,54 @@ interface ReferralUsage {
   referred_reward: number;
   reward_status: string;
   created_at: string;
-  referred_user?: { full_name: string; email: string };
 }
 
 const REFERRER_REWARD = 25000;
 const REFERRED_REWARD = 15000;
 
+const generateCode = (userId: string) => 'DESA' + userId.replace(/-/g, '').substring(0, 8).toUpperCase();
+
 export default function ReferralPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [referralCode, setReferralCode] = useState('');
-  const [usages, setUsages] = useState<ReferralUsage[]>([]);
-  const [totalEarned, setTotalEarned] = useState(0);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [inputCode, setInputCode] = useState('');
-  const [submitting, setSubmitting] = useState(false);
 
-  useEffect(() => {
-    if (user) fetchData();
-  }, [user]);
-
-  const generateCode = (userId: string) =>
-    'DESA' + userId.replace(/-/g, '').substring(0, 8).toUpperCase();
-
-  const fetchData = async () => {
-    try {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('referral_code, referred_by')
-        .eq('id', user!.id)
-        .maybeSingle();
-
+  const { data, isLoading: loading } = useQuery<{ referralCode: string; usages: ReferralUsage[]; totalEarned: number }>({
+    queryKey: ['referral', user?.id],
+    queryFn: async () => {
+      const { data: profile } = await supabase.from('profiles').select('referral_code, referred_by').eq('id', user!.id).maybeSingle();
       let code = (profile as any)?.referral_code;
       if (!code) {
         code = generateCode(user!.id);
         await supabase.from('profiles').update({ referral_code: code }).eq('id', user!.id);
       }
-      setReferralCode(code);
 
-      const { data: usageData } = await (supabase as any)
-        .from('referral_usages')
-        .select('*')
-        .eq('referrer_id', user!.id)
-        .order('created_at', { ascending: false });
-
+      const { data: usageData } = await (supabase as any).from('referral_usages').select('*').eq('referrer_id', user!.id).order('created_at', { ascending: false });
       const list = (usageData || []) as ReferralUsage[];
-      setUsages(list);
-      setTotalEarned(list.filter(u => u.reward_status === 'confirmed').reduce((s, u) => s + u.referrer_reward, 0));
-    } catch (err) {
-      console.error('Error fetching referral:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
+      return {
+        referralCode: code,
+        usages: list,
+        totalEarned: list.filter(u => u.reward_status === 'confirmed').reduce((s, u) => s + u.referrer_reward, 0),
+      };
+    },
+    enabled: !!user,
+    staleTime: 60_000,
+  });
 
-  const copyCode = () => {
-    navigator.clipboard.writeText(referralCode);
-    toast.success('Kode referral disalin!');
-  };
+  const referralCode = data?.referralCode ?? '';
+  const usages = data?.usages ?? [];
+  const totalEarned = data?.totalEarned ?? 0;
 
-  const shareCode = () => {
-    const text = `🎁 Belanja di DesaMart dan dapatkan diskon ${formatPrice(REFERRED_REWARD)}!\nGunakan kode referral saya: *${referralCode}*\nDaftar & belanja sekarang di DesaMart — Produk Asli Desa Indonesia 🌿`;
-    if (navigator.share) {
-      navigator.share({ title: 'DesaMart Referral', text });
-    } else {
-      navigator.clipboard.writeText(text);
-      toast.success('Teks referral disalin ke clipboard!');
-    }
-  };
-
-  const submitReferralCode = async () => {
-    if (!inputCode.trim()) return;
-    setSubmitting(true);
-    try {
-      const { data: referrerProfile } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('referral_code', inputCode.trim().toUpperCase())
-        .maybeSingle();
-
-      if (!referrerProfile) {
-        toast.error('Kode referral tidak ditemukan');
-        return;
-      }
-      if ((referrerProfile as any).id === user!.id) {
-        toast.error('Tidak bisa menggunakan kode referral sendiri');
-        return;
-      }
+  const submitMutation = useMutation({
+    mutationFn: async () => {
+      if (!inputCode.trim()) return;
+      const { data: referrerProfile } = await supabase.from('profiles').select('id').eq('referral_code', inputCode.trim().toUpperCase()).maybeSingle();
+      if (!referrerProfile) throw new Error('Kode referral tidak ditemukan');
+      if ((referrerProfile as any).id === user!.id) throw new Error('Tidak bisa menggunakan kode referral sendiri');
 
       const { data: myProfile } = await supabase.from('profiles').select('referred_by').eq('id', user!.id).maybeSingle();
-      if ((myProfile as any)?.referred_by) {
-        toast.error('Kamu sudah pernah memasukkan kode referral');
-        return;
-      }
+      if ((myProfile as any)?.referred_by) throw new Error('Kamu sudah pernah memasukkan kode referral');
 
       await supabase.from('profiles').update({ referred_by: (referrerProfile as any).id }).eq('id', user!.id);
       await (supabase as any).from('referral_usages').insert({
@@ -124,14 +79,20 @@ export default function ReferralPage() {
         referred_reward: REFERRED_REWARD,
         reward_status: 'pending',
       });
-
-      toast.success(`Kode referral berhasil! Kamu dan pengundang mendapat reward setelah transaksi pertama.`);
+    },
+    onSuccess: () => {
+      toast.success('Kode referral berhasil! Kamu dan pengundang mendapat reward setelah transaksi pertama.');
       setInputCode('');
-    } catch (err) {
-      toast.error('Gagal memasukkan kode referral');
-    } finally {
-      setSubmitting(false);
-    }
+      queryClient.invalidateQueries({ queryKey: ['referral', user?.id] });
+    },
+    onError: (err: any) => toast.error(err.message || 'Gagal memasukkan kode referral'),
+  });
+
+  const copyCode = () => { navigator.clipboard.writeText(referralCode); toast.success('Kode referral disalin!'); };
+  const shareCode = () => {
+    const text = `🎁 Belanja di DesaMart dan dapatkan diskon ${formatPrice(REFERRED_REWARD)}!\nGunakan kode referral saya: *${referralCode}*\nDaftar & belanja sekarang di DesaMart — Produk Asli Desa Indonesia 🌿`;
+    if (navigator.share) navigator.share({ title: 'DesaMart Referral', text });
+    else { navigator.clipboard.writeText(text); toast.success('Teks referral disalin ke clipboard!'); }
   };
 
   const statusColor = (s: string) => s === 'confirmed' ? 'bg-emerald-100 text-emerald-700' : s === 'pending' ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-500';
@@ -152,7 +113,6 @@ export default function ReferralPage() {
           </div>
         ) : (
           <div className="space-y-4">
-            {/* Hero Card */}
             <Card className="bg-gradient-to-br from-violet-500 to-purple-700 text-white border-0 shadow-lg">
               <CardContent className="p-5">
                 <div className="flex items-center gap-2 mb-2">
@@ -170,12 +130,9 @@ export default function ReferralPage() {
               </CardContent>
             </Card>
 
-            {/* Your Referral Code */}
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                  <Link className="h-4 w-4 text-violet-600" /> Kode Referral Kamu
-                </CardTitle>
+                <CardTitle className="text-sm font-semibold flex items-center gap-2"><Link className="h-4 w-4 text-violet-600" /> Kode Referral Kamu</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
                 <div className="flex items-center gap-2 bg-violet-50 border border-violet-200 rounded-lg px-4 py-3">
@@ -190,26 +147,16 @@ export default function ReferralPage() {
               </CardContent>
             </Card>
 
-            {/* Enter referral code */}
             <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-semibold">Punya Kode Referral?</CardTitle>
-              </CardHeader>
+              <CardHeader className="pb-2"><CardTitle className="text-sm font-semibold">Punya Kode Referral?</CardTitle></CardHeader>
               <CardContent className="flex gap-2">
-                <Input
-                  placeholder="Masukkan kode referral teman"
-                  value={inputCode}
-                  onChange={e => setInputCode(e.target.value.toUpperCase())}
-                  className="font-mono uppercase"
-                  maxLength={16}
-                />
-                <Button onClick={submitReferralCode} disabled={submitting || !inputCode.trim()} className="shrink-0">
-                  {submitting ? 'Proses...' : 'Gunakan'}
+                <Input placeholder="Masukkan kode referral teman" value={inputCode} onChange={e => setInputCode(e.target.value.toUpperCase())} className="font-mono uppercase" maxLength={16} />
+                <Button onClick={() => submitMutation.mutate()} disabled={submitMutation.isPending || !inputCode.trim()} className="shrink-0">
+                  {submitMutation.isPending ? 'Proses...' : 'Gunakan'}
                 </Button>
               </CardContent>
             </Card>
 
-            {/* History */}
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-semibold flex items-center gap-2">
@@ -231,16 +178,12 @@ export default function ReferralPage() {
                           <CheckCircle className="h-4 w-4 text-emerald-500" />
                           <div>
                             <p className="text-sm font-medium">Teman #{u.id.substring(0, 8).toUpperCase()}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {format(new Date(u.created_at), 'd MMM yyyy', { locale: idLocale })}
-                            </p>
+                            <p className="text-xs text-muted-foreground">{format(new Date(u.created_at), 'd MMM yyyy', { locale: idLocale })}</p>
                           </div>
                         </div>
                         <div className="text-right">
                           <p className="text-sm font-bold text-emerald-600">+{formatPrice(u.referrer_reward)}</p>
-                          <span className={`text-xs px-1.5 py-0.5 rounded-full ${statusColor(u.reward_status)}`}>
-                            {statusLabel(u.reward_status)}
-                          </span>
+                          <span className={`text-xs px-1.5 py-0.5 rounded-full ${statusColor(u.reward_status)}`}>{statusLabel(u.reward_status)}</span>
                         </div>
                       </div>
                     ))}

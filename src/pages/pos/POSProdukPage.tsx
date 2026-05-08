@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useRef } from 'react';
 import { POSLayout } from '@/components/pos/POSLayout';
 import { usePOS } from '@/contexts/POSContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -13,8 +13,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { Plus, Search, Pencil, Package, AlertTriangle, X, Download, Printer } from 'lucide-react';
+import { Plus, Search, Pencil, Package, X, Download, Printer } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 interface Product {
   id: string;
@@ -51,16 +52,14 @@ interface Brand { id: string; name: string; }
 
 export default function POSProdukPage() {
   const { tenant, activeOutlet, formatCurrency } = usePOS();
-  const [products, setProducts] = useState<Product[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [brands, setBrands] = useState<Brand[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
   const [search, setSearch] = useState('');
   const [filterCat, setFilterCat] = useState('all');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [editing, setEditing] = useState<Product | null>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
   const [variants, setVariants] = useState<Variant[]>([]);
   const [form, setForm] = useState({
     name: '', sku: '', barcode: '', category_id: '', brand_id: '', unit: 'pcs',
@@ -68,33 +67,121 @@ export default function POSProdukPage() {
     is_stock_tracked: true, has_variants: false, is_active: true,
   });
 
-  useEffect(() => {
-    if (tenant) {
-      fetchProducts();
-      fetchMeta();
-    }
-  }, [tenant]);
+  const { data: products = [], isLoading: loading } = useQuery<Product[]>({
+    queryKey: ['pos-products', tenant?.id],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('pos_products' as any)
+        .select('*, pos_categories(name), pos_brands(name)')
+        .eq('tenant_id', tenant!.id)
+        .order('name');
+      return (data || []) as unknown as Product[];
+    },
+    enabled: !!tenant,
+    staleTime: 60_000,
+  });
 
-  const fetchProducts = async () => {
-    if (!tenant) return;
-    const { data } = await supabase
-      .from('pos_products' as any)
-      .select('*, pos_categories(name), pos_brands(name)')
-      .eq('tenant_id', tenant.id)
-      .order('name');
-    setProducts((data || []) as unknown as Product[]);
-    setLoading(false);
-  };
+  const { data: categories = [] } = useQuery<Category[]>({
+    queryKey: ['pos-categories-meta', tenant?.id],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('pos_categories' as any)
+        .select('id, name')
+        .eq('tenant_id', tenant!.id)
+        .eq('is_active', true)
+        .order('name');
+      return (data || []) as unknown as Category[];
+    },
+    enabled: !!tenant,
+    staleTime: 120_000,
+  });
 
-  const fetchMeta = async () => {
-    if (!tenant) return;
-    const [catRes, brandRes] = await Promise.all([
-      supabase.from('pos_categories' as any).select('id, name').eq('tenant_id', tenant.id).eq('is_active', true).order('name'),
-      supabase.from('pos_brands' as any).select('id, name').eq('tenant_id', tenant.id).eq('is_active', true).order('name'),
-    ]);
-    setCategories((catRes.data || []) as unknown as Category[]);
-    setBrands((brandRes.data || []) as unknown as Brand[]);
-  };
+  const { data: brands = [] } = useQuery<Brand[]>({
+    queryKey: ['pos-brands-meta', tenant?.id],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('pos_brands' as any)
+        .select('id, name')
+        .eq('tenant_id', tenant!.id)
+        .eq('is_active', true)
+        .order('name');
+      return (data || []) as unknown as Brand[];
+    },
+    enabled: !!tenant,
+    staleTime: 120_000,
+  });
+
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      if (!tenant) return;
+      const payload: any = {
+        name: form.name.trim(),
+        sku: form.sku || null,
+        barcode: form.barcode || null,
+        category_id: form.category_id || null,
+        brand_id: form.brand_id || null,
+        unit: form.unit,
+        price: Number(form.price),
+        cost_price: Number(form.cost_price) || 0,
+        tax_rate: Number(form.tax_rate) || 0,
+        description: form.description || null,
+        is_stock_tracked: form.is_stock_tracked,
+        has_variants: form.has_variants,
+        is_active: form.is_active,
+        tenant_id: tenant.id,
+      };
+
+      let productId = editing?.id;
+      if (editing) {
+        await supabase.from('pos_products' as any).update(payload).eq('id', editing.id);
+      } else {
+        const { data } = await supabase.from('pos_products' as any).insert(payload).select().single();
+        productId = (data as any)?.id;
+        if (activeOutlet && productId && !form.has_variants) {
+          await supabase.from('pos_stock' as any).insert({
+            tenant_id: tenant.id, product_id: productId, outlet_id: activeOutlet.id,
+            quantity: 0, min_stock: 5,
+          });
+        }
+      }
+
+      if (form.has_variants && productId) {
+        for (const v of variants) {
+          if (!v.name.trim()) continue;
+          const vPayload = {
+            product_id: productId, tenant_id: tenant.id, name: v.name,
+            sku: v.sku || null, barcode: v.barcode || null,
+            price: v.price !== '' ? Number(v.price) : null,
+            cost_price: v.cost_price !== '' ? Number(v.cost_price) : null,
+            is_active: v.is_active,
+          };
+          if (v.id) {
+            await supabase.from('pos_product_variants' as any).update(vPayload).eq('id', v.id);
+          } else {
+            await supabase.from('pos_product_variants' as any).insert(vPayload);
+          }
+        }
+      }
+    },
+    onSuccess: () => {
+      toast.success(editing ? 'Produk diperbarui' : 'Produk berhasil ditambahkan');
+      setDialogOpen(false);
+      queryClient.invalidateQueries({ queryKey: ['pos-products', tenant?.id] });
+    },
+    onError: (err: any) => toast.error(err.message),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await supabase.from('pos_products' as any).update({ is_active: false }).eq('id', id);
+    },
+    onSuccess: () => {
+      toast.success('Produk dinonaktifkan');
+      setDeleteId(null);
+      queryClient.invalidateQueries({ queryKey: ['pos-products', tenant?.id] });
+    },
+    onError: () => toast.error('Gagal menonaktifkan produk'),
+  });
 
   const filtered = products.filter(p => {
     const matchSearch = p.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -159,78 +246,10 @@ export default function POSProdukPage() {
   const removeVariant = (i: number) => setVariants(v => v.filter((_, idx) => idx !== i));
   const updateVariant = (i: number, field: keyof Variant, val: any) => setVariants(v => v.map((item, idx) => idx === i ? { ...item, [field]: val } : item));
 
-  const handleSave = async () => {
-    if (!tenant) return;
+  const handleSave = () => {
     if (!form.name.trim()) { toast.error('Nama produk wajib diisi'); return; }
     if (!form.price || isNaN(Number(form.price))) { toast.error('Harga jual wajib diisi'); return; }
-
-    const payload: any = {
-      name: form.name.trim(),
-      sku: form.sku || null,
-      barcode: form.barcode || null,
-      category_id: form.category_id || null,
-      brand_id: form.brand_id || null,
-      unit: form.unit,
-      price: Number(form.price),
-      cost_price: Number(form.cost_price) || 0,
-      tax_rate: Number(form.tax_rate) || 0,
-      description: form.description || null,
-      is_stock_tracked: form.is_stock_tracked,
-      has_variants: form.has_variants,
-      is_active: form.is_active,
-      tenant_id: tenant.id,
-    };
-
-    try {
-      let productId = editing?.id;
-      if (editing) {
-        await supabase.from('pos_products' as any).update(payload).eq('id', editing.id);
-      } else {
-        const { data } = await supabase.from('pos_products' as any).insert(payload).select().single();
-        productId = (data as any)?.id;
-
-        // Create initial stock entry for active outlet
-        if (activeOutlet && productId && !form.has_variants) {
-          await supabase.from('pos_stock' as any).insert({
-            tenant_id: tenant.id, product_id: productId, outlet_id: activeOutlet.id,
-            quantity: 0, min_stock: 5,
-          });
-        }
-      }
-
-      // Handle variants
-      if (form.has_variants && productId) {
-        for (const v of variants) {
-          if (!v.name.trim()) continue;
-          const vPayload = {
-            product_id: productId, tenant_id: tenant.id, name: v.name,
-            sku: v.sku || null, barcode: v.barcode || null,
-            price: v.price !== '' ? Number(v.price) : null,
-            cost_price: v.cost_price !== '' ? Number(v.cost_price) : null,
-            is_active: v.is_active,
-          };
-          if (v.id) {
-            await supabase.from('pos_product_variants' as any).update(vPayload).eq('id', v.id);
-          } else {
-            await supabase.from('pos_product_variants' as any).insert(vPayload);
-          }
-        }
-      }
-
-      toast.success(editing ? 'Produk diperbarui' : 'Produk berhasil ditambahkan');
-      setDialogOpen(false);
-      fetchProducts();
-    } catch (err: any) {
-      toast.error(err.message);
-    }
-  };
-
-  const handleDelete = async () => {
-    if (!deleteId) return;
-    await supabase.from('pos_products' as any).update({ is_active: false }).eq('id', deleteId);
-    toast.success('Produk dinonaktifkan');
-    setDeleteId(null);
-    fetchProducts();
+    saveMutation.mutate();
   };
 
   const exportCSV = () => {
@@ -481,7 +500,7 @@ export default function POSProdukPage() {
                       </div>
                       <div className="grid grid-cols-2 gap-2">
                         <Input placeholder="SKU varian" value={v.sku} onChange={e => updateVariant(i, 'sku', e.target.value)} className="h-8 text-sm" />
-                        <Input placeholder="Barcode" value={v.barcode} onChange={e => updateVariant(i, 'barcode', e.target.value)} className="h-8 text-sm" />
+                        <Input placeholder="Barcode varian" value={v.barcode} onChange={e => updateVariant(i, 'barcode', e.target.value)} className="h-8 text-sm" />
                       </div>
                     </CardContent>
                   </Card>
@@ -492,7 +511,9 @@ export default function POSProdukPage() {
 
           <DialogFooter className="mt-4">
             <Button variant="outline" onClick={() => setDialogOpen(false)}>Batal</Button>
-            <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={handleSave}>Simpan Produk</Button>
+            <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={handleSave} disabled={saveMutation.isPending}>
+              {saveMutation.isPending ? 'Menyimpan...' : 'Simpan'}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -501,11 +522,11 @@ export default function POSProdukPage() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Nonaktifkan Produk?</AlertDialogTitle>
-            <AlertDialogDescription>Produk tidak akan muncul di kasir, tetapi data transaksi lama tetap tersimpan.</AlertDialogDescription>
+            <AlertDialogDescription>Produk akan dinonaktifkan dan tidak muncul di kasir.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Batal</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete}>Nonaktifkan</AlertDialogAction>
+            <AlertDialogAction onClick={() => deleteId && deleteMutation.mutate(deleteId)} className="bg-destructive hover:bg-destructive/90">Nonaktifkan</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

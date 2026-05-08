@@ -13,6 +13,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { formatPrice } from '@/lib/utils';
 import { format } from 'date-fns';
 import { id as idLocale } from 'date-fns/locale';
+import { useQuery } from '@tanstack/react-query';
 
 interface DeliveryRecord {
   id: string;
@@ -35,21 +36,26 @@ interface DeliveryRecord {
 export default function CourierHistoryPage() {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
-  const [deliveries, setDeliveries] = useState<DeliveryRecord[]>([]);
-  const [loading, setLoading] = useState(true);
   const [selectedPOD, setSelectedPOD] = useState<DeliveryRecord | null>(null);
   const [serviceTab, setServiceTab] = useState<'delivery' | 'ride'>('delivery');
 
   useEffect(() => {
-    if (!authLoading && user) fetchDeliveries();
-    else if (!authLoading && !user) navigate('/auth');
-  }, [user, authLoading]);
+    if (!authLoading && !user) navigate('/auth');
+  }, [user, authLoading, navigate]);
 
-  const fetchDeliveries = async () => {
-    if (!user) return;
-    try {
-      const { data: courier } = await supabase.from('couriers').select('id, registration_status').eq('user_id', user.id).maybeSingle();
-      if (!courier || courier.registration_status !== 'APPROVED') { navigate('/courier'); return; }
+  const { data: deliveries = [], isLoading: loading } = useQuery<DeliveryRecord[]>({
+    queryKey: ['courier-history', user?.id],
+    queryFn: async () => {
+      const { data: courier } = await supabase
+        .from('couriers')
+        .select('id, registration_status')
+        .eq('user_id', user!.id)
+        .maybeSingle();
+
+      if (!courier || courier.registration_status !== 'APPROVED') {
+        navigate('/courier');
+        return [];
+      }
 
       const { data } = await supabase
         .from('orders')
@@ -57,24 +63,20 @@ export default function CourierHistoryPage() {
         .eq('courier_id', courier.id)
         .order('created_at', { ascending: false });
 
-      setDeliveries(data || []);
-    } catch (error) {
-      console.error('Error fetching deliveries:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+      return data || [];
+    },
+    enabled: !!user && !authLoading,
+    staleTime: 60_000,
+  });
 
-  // Split by service type — ride orders have delivery_type 'RIDE', rest are delivery
   const rideOrders = deliveries.filter(d => d.delivery_type === 'RIDE');
   const deliveryOrders = deliveries.filter(d => d.delivery_type !== 'RIDE');
   const currentList = serviceTab === 'ride' ? rideOrders : deliveryOrders;
-
   const completedList = currentList.filter(d => d.status === 'DELIVERED' || d.status === 'DONE');
   const cancelledList = currentList.filter(d => d.status === 'CANCELLED');
 
   const getStatusBadge = (status: string) => {
-    const styles: Record<string, { variant: 'success' | 'destructive' | 'info' | 'warning' | 'pending' | 'secondary'; label: string }> = {
+    const styles: Record<string, { variant: any; label: string }> = {
       DELIVERED: { variant: 'success', label: 'Terkirim' },
       DONE: { variant: 'success', label: 'Selesai' },
       CANCELLED: { variant: 'destructive', label: 'Dibatalkan' },
@@ -83,7 +85,7 @@ export default function CourierHistoryPage() {
       SENT: { variant: 'info', label: 'Dalam Perjalanan' },
       ON_DELIVERY: { variant: 'info', label: 'Dalam Perjalanan' },
     };
-    const style = styles[status] || { variant: 'secondary' as const, label: status };
+    const style = styles[status] || { variant: 'secondary', label: status };
     return <Badge variant={style.variant}>{style.label}</Badge>;
   };
 
@@ -142,7 +144,6 @@ export default function CourierHistoryPage() {
 
   return (
     <CourierLayout title="Riwayat" subtitle="Pengiriman & ojek">
-      {/* Service type tabs */}
       <div className="flex gap-2 mb-4">
         <Button variant={serviceTab === 'delivery' ? 'default' : 'outline'} size="sm" onClick={() => setServiceTab('delivery')}>
           <Package className="h-4 w-4 mr-1" /> Pengiriman ({deliveryOrders.length})
@@ -152,39 +153,18 @@ export default function CourierHistoryPage() {
         </Button>
       </div>
 
-      {/* Stats */}
       <div className="grid grid-cols-3 gap-3 mb-6">
-        <Card>
-          <CardContent className="p-4 text-center">
-            <Package className="h-6 w-6 mx-auto text-primary mb-1" />
-            <p className="text-2xl font-bold">{currentList.length}</p>
-            <p className="text-xs text-muted-foreground">Total</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4 text-center">
-            <CheckCircle className="h-6 w-6 mx-auto text-green-500 mb-1" />
-            <p className="text-2xl font-bold">{completedList.length}</p>
-            <p className="text-xs text-muted-foreground">Selesai</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4 text-center">
-            <XCircle className="h-6 w-6 mx-auto text-red-500 mb-1" />
-            <p className="text-2xl font-bold">{cancelledList.length}</p>
-            <p className="text-xs text-muted-foreground">Batal</p>
-          </CardContent>
-        </Card>
+        <Card><CardContent className="p-4 text-center"><Package className="h-6 w-6 mx-auto text-primary mb-1" /><p className="text-2xl font-bold">{currentList.length}</p><p className="text-xs text-muted-foreground">Total</p></CardContent></Card>
+        <Card><CardContent className="p-4 text-center"><CheckCircle className="h-6 w-6 mx-auto text-green-500 mb-1" /><p className="text-2xl font-bold">{completedList.length}</p><p className="text-xs text-muted-foreground">Selesai</p></CardContent></Card>
+        <Card><CardContent className="p-4 text-center"><XCircle className="h-6 w-6 mx-auto text-red-500 mb-1" /><p className="text-2xl font-bold">{cancelledList.length}</p><p className="text-xs text-muted-foreground">Batal</p></CardContent></Card>
       </div>
 
-      {/* Status tabs */}
       <Tabs defaultValue="all">
         <TabsList className="w-full">
           <TabsTrigger value="all" className="flex-1">Semua</TabsTrigger>
           <TabsTrigger value="completed" className="flex-1">Selesai</TabsTrigger>
           <TabsTrigger value="cancelled" className="flex-1">Batal</TabsTrigger>
         </TabsList>
-
         <TabsContent value="all" className="mt-4 space-y-3">
           {currentList.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
@@ -205,7 +185,6 @@ export default function CourierHistoryPage() {
         </TabsContent>
       </Tabs>
 
-      {/* POD Dialog */}
       <Dialog open={!!selectedPOD} onOpenChange={() => setSelectedPOD(null)}>
         <DialogContent className="max-w-md">
           <DialogHeader><DialogTitle>Bukti Pengiriman (POD)</DialogTitle></DialogHeader>
