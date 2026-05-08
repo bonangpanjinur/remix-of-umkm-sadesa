@@ -7,20 +7,28 @@
 
 ## Status Pengerjaan
 
-| Prioritas | Fitur | Status |
+| Prioritas | Fitur | File Utama | Status |
+|---|---|---|---|
+| 🔴 P1 | Kirim struk via WhatsApp (kasir) | `src/pages/pos/POSKasirPage.tsx` | ✅ Selesai |
+| 🔴 P1 | Export PDF struk (kasir) | `src/pages/pos/POSKasirPage.tsx` | ✅ Selesai |
+| 🔴 P1 | Export PDF Laporan Laba Rugi | `src/pages/pos/POSLaporanLabaRugiPage.tsx` | ✅ Selesai |
+| 🔴 P1 | Export PDF Laporan Cashflow | `src/pages/pos/POSLaporanCashflowPage.tsx` | ✅ Selesai |
+| 🟠 P2 | Manajemen Bahan Baku + Resep/BOM | `src/pages/pos/POSBahanBakuPage.tsx` `src/pages/pos/POSResepPage.tsx` | ✅ Selesai |
+| 🟠 P2 | Manajemen Meja + Kitchen Display (KDS) | `src/pages/pos/POSMejaPage.tsx` `src/pages/pos/POSKDSPage.tsx` | ✅ Selesai |
+| 🟡 P3 | Absensi Karyawan + Jadwal Shift | — | 🔲 Belum |
+| 🟡 P3 | Penggajian / Payroll Karyawan | — | 🔲 Belum |
+| 🟢 P4 | Hutang & Piutang (AP/AR) lengkap | — | 🔲 Belum |
+| 🟢 P4 | Target Omzet & Tracking Pencapaian | — | 🔲 Belum |
+| 🔵 P5 | Landing Page Paket Berlangganan (poles) | — | 🔲 Belum |
+| 🔵 P5 | Export PDF Laporan Kasir & Stok | — | 🔲 Belum |
+
+### Migration SQL yang perlu dijalankan di Supabase
+
+| File | Fitur | Status |
 |---|---|---|
-| 🔴 P1 | Kirim struk via WhatsApp (kasir) | ✅ Selesai |
-| 🔴 P1 | Export PDF struk (kasir) | ✅ Selesai |
-| 🔴 P1 | Export PDF Laporan Laba Rugi | ✅ Selesai |
-| 🔴 P1 | Export PDF Laporan Cashflow | ✅ Selesai |
-| 🟠 P2 | Manajemen Bahan Baku + Resep/BOM | 🔲 Belum |
-| 🟠 P2 | Manajemen Meja + Kitchen Display (KDS) | 🔲 Belum |
-| 🟡 P3 | Absensi Karyawan + Jadwal Shift | 🔲 Belum |
-| 🟡 P3 | Penggajian / Payroll Karyawan | 🔲 Belum |
-| 🟢 P4 | Hutang & Piutang (AP/AR) lengkap | 🔲 Belum |
-| 🟢 P4 | Target Omzet & Tracking Pencapaian | 🔲 Belum |
-| 🔵 P5 | Landing Page Paket Berlangganan (poles) | 🔲 Belum |
-| 🔵 P5 | Export PDF Laporan Kasir & Stok | 🔲 Belum |
+| `supabase/migrations/20260508000000_phase1_pos_saas.sql` | Core POS (kasir, produk, stok, dll) | ✅ Sudah ada |
+| `supabase/migrations/20260510000000_phase2_bahan_baku_resep.sql` | Bahan Baku + Resep/BOM | ⚠️ Perlu dijalankan |
+| `supabase/migrations/20260512000000_phase2b_meja_kds.sql` | Manajemen Meja + KDS | ⚠️ Perlu dijalankan |
 
 ---
 
