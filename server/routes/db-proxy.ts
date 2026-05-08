@@ -6,6 +6,7 @@
 import { Router, Request, Response } from "express";
 import { pool } from "../db";
 import { getSessionUser, getUserById } from "../auth";
+import { broadcastDbEvent } from "../sse-manager";
 
 const router = Router();
 
@@ -429,7 +430,11 @@ router.post("/insert", async (req: Request, res: Response) => {
         }
         sql += " RETURNING *";
         const result = await client.query(sql, values);
-        if (result.rows[0]) results.push(result.rows[0]);
+        if (result.rows[0]) {
+          results.push(result.rows[0]);
+          // Broadcast SSE event for realtime subscribers
+          broadcastDbEvent({ type: "postgres_changes", table: tbl, event: "INSERT", record: result.rows[0], schema: "public" });
+        }
       }
       return res.json({ data: results });
     } finally {
@@ -468,6 +473,10 @@ router.post("/update", async (req: Request, res: Response) => {
 
       sql += " RETURNING *";
       const result = await client.query(sql, params);
+      // Broadcast SSE events for each updated row
+      for (const row of result.rows) {
+        broadcastDbEvent({ type: "postgres_changes", table: tbl, event: "UPDATE", record: row, schema: "public" });
+      }
       return res.json({ data: result.rows });
     } finally {
       client.release();
@@ -502,6 +511,10 @@ router.post("/delete", async (req: Request, res: Response) => {
 
       sql += " RETURNING *";
       const result = await client.query(sql, params);
+      // Broadcast SSE events for each deleted row
+      for (const row of result.rows) {
+        broadcastDbEvent({ type: "postgres_changes", table: tbl, event: "DELETE", record: row, old_record: row, schema: "public" });
+      }
       return res.json({ data: result.rows });
     } finally {
       client.release();

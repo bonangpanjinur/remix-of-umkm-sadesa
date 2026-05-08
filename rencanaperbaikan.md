@@ -74,7 +74,7 @@ Query L2, L3, L4 tidak menyertakan `product_id` → secondary fetch tidak jalan 
 
 ---
 
-### P1-06: Realtime (WebSocket) Mati Total
+### P1-06: Realtime (WebSocket) Mati Total ✅ SELESAI
 **File:** `src/integrations/supabase/client.ts`
 **Dampak:** Chat tidak live, notifikasi tidak muncul real-time, status pesanan tidak update otomatis, tracking kurir tidak bergerak, order baru ke merchant tidak bunyi
 
@@ -83,6 +83,12 @@ Query L2, L3, L4 tidak menyertakan `product_id` → secondary fetch tidak jalan 
 20+ komponen bergantung: `OrderChat`, `NotificationDropdown`, `CourierLocationUpdater`, `CourierMap`, `useRealtimeOrders`, `useFlashSales`, dll.
 
 **Solusi:** Implementasi Server-Sent Events (SSE) di Express server sebagai pengganti Supabase Realtime
+
+**Implementasi:**
+- `server/sse-manager.ts` — mengelola koneksi SSE per user, broadcast ke channel
+- `server/routes/sse.ts` — endpoint `GET /api/sse` (stream), `POST /api/sse/broadcast` (relay lokasi kurir)
+- `server/routes/db-proxy.ts` — setiap INSERT/UPDATE/DELETE memanggil `broadcastDbEvent()` ke semua client SSE
+- `src/integrations/supabase/client.ts` — `channel()` diganti `RealtimeChannel` berbasis SSE nyata, filter `postgres_changes` dan `broadcast` bekerja otomatis, auto-reconnect 3 detik
 
 ---
 
@@ -210,4 +216,4 @@ REST API + webhook untuk integrasi third-party. Fondasi API key management sudah
 | 9 | P2-03 | PWA Workbox — target URL difix ke server lokal | `vite.config.ts` | ✅ Selesai |
 | 10 | P3-02 | QueryClient defaultOptions — staleTime 60s | `App.tsx` | ✅ Selesai |
 | 11 | P2-04 | AdminUsersPage — sudah benar, profiles.user_id OK | `AdminUsersPage.tsx` | ✅ Sudah OK |
-| 12 | P1-06 | Realtime SSE — implementasi pengganti supabase.channel() | Server + client | ⬜ Belum |
+| 12 | P1-06 | Realtime SSE — implementasi pengganti supabase.channel() | Server + client | ✅ Selesai |

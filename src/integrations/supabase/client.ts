@@ -2,6 +2,7 @@
  * Supabase client compatibility shim for Replit environment.
  * All database calls are proxied through the secure API server at /api/db/*.
  * Authentication is handled by our own auth system via /api/auth/*.
+ * Realtime is implemented via Server-Sent Events (SSE) at /api/sse.
  */
 
 const API_BASE = "/api";
@@ -20,6 +21,9 @@ function setSession(token: string | null, user: any | null) {
     if (token) localStorage.setItem("session_token", token);
     else localStorage.removeItem("session_token");
   } catch {}
+  // Reconnect SSE when session changes
+  if (token) sseConnect();
+  else sseDisconnect();
 }
 
 function getAuthHeaders(): Record<string, string> {
@@ -36,6 +40,216 @@ async function apiCall(path: string, options: RequestInit = {}) {
       ...(options.headers as Record<string, string> || {}),
     },
   });
+}
+
+// ─── SSE Realtime Engine ──────────────────────────────────────────────────────
+/**
+ * Each channel subscriber registers:
+ * - channelName: string
+ * - type: "postgres_changes" | "broadcast"
+ * - event: string (INSERT|UPDATE|DELETE|* for postgres_changes, or broadcast event name)
+ * - table?: string
+ * - filter?: string  (e.g. "user_id=eq.abc123")
+ * - callback: (payload: any) => void
+ */
+interface SSESubscription {
+  channelName: string;
+  type: "postgres_changes" | "broadcast";
+  event: string;
+  table?: string;
+  filter?: string;
+  callback: (payload: any) => void;
+}
+
+let _sseSource: EventSource | null = null;
+let _sseSubscriptions: SSESubscription[] = [];
+let _sseReconnectTimer: ReturnType<typeof setTimeout> | null = null;
+let _sseConnected = false;
+
+/**
+ * Connect to SSE endpoint. Called automatically when a user logs in.
+ * Reconnects with exponential backoff on failure.
+ */
+function sseConnect() {
+  if (!_sessionToken) return;
+  if (_sseSource && _sseSource.readyState !== EventSource.CLOSED) return;
+
+  sseDisconnect();
+
+  const url = `${API_BASE}/sse?token=${encodeURIComponent(_sessionToken)}`;
+  const source = new EventSource(url);
+  _sseSource = source;
+
+  source.onopen = () => {
+    _sseConnected = true;
+  };
+
+  source.onmessage = (e) => {
+    try {
+      const payload = JSON.parse(e.data);
+      if (payload.type === "connected") return; // handshake
+      dispatchSSEEvent(payload);
+    } catch {}
+  };
+
+  source.onerror = () => {
+    _sseConnected = false;
+    source.close();
+    _sseSource = null;
+    // Reconnect after 3s
+    if (_sessionToken) {
+      if (_sseReconnectTimer) clearTimeout(_sseReconnectTimer);
+      _sseReconnectTimer = setTimeout(sseConnect, 3000);
+    }
+  };
+}
+
+function sseDisconnect() {
+  if (_sseReconnectTimer) { clearTimeout(_sseReconnectTimer); _sseReconnectTimer = null; }
+  if (_sseSource) { _sseSource.close(); _sseSource = null; }
+  _sseConnected = false;
+}
+
+/**
+ * Route an incoming SSE event to matching subscriptions.
+ *
+ * For postgres_changes: match on type, table, event, and filter
+ * For broadcast: match on channelName and event
+ */
+function dispatchSSEEvent(payload: any) {
+  for (const sub of _sseSubscriptions) {
+    if (payload.type === "postgres_changes" && sub.type === "postgres_changes") {
+      // Match table
+      if (sub.table && sub.table !== payload.table) continue;
+      // Match event (* = all)
+      if (sub.event !== "*" && sub.event !== payload.event) continue;
+      // Match filter (e.g. "user_id=eq.abc123")
+      if (sub.filter && !matchFilter(sub.filter, payload.record)) continue;
+      sub.callback({ eventType: payload.event, new: payload.record, old: payload.old_record || {} });
+    } else if (payload.type === "broadcast" && sub.type === "broadcast") {
+      if (sub.channelName !== payload.channel) continue;
+      if (sub.event !== payload.event) continue;
+      sub.callback(payload);
+    }
+  }
+}
+
+/**
+ * Parse and match Supabase-style filter string against a record.
+ * Supports: col=eq.val, col=neq.val, col=gt.val, col=lt.val, col=gte.val, col=lte.val
+ */
+function matchFilter(filter: string, record: Record<string, any>): boolean {
+  if (!record) return false;
+  // Support comma-separated filters: "col1=eq.val1,col2=eq.val2"
+  const parts = filter.split(",");
+  return parts.every((part) => {
+    const m = part.trim().match(/^(\w+)=(eq|neq|gt|lt|gte|lte)\.(.+)$/);
+    if (!m) return true; // unrecognised filter → pass through
+    const [, col, op, val] = m;
+    const recVal = record[col];
+    if (op === "eq") return String(recVal) === String(val);
+    if (op === "neq") return String(recVal) !== String(val);
+    const numVal = Number(val);
+    const numRec = Number(recVal);
+    if (op === "gt") return numRec > numVal;
+    if (op === "lt") return numRec < numVal;
+    if (op === "gte") return numRec >= numVal;
+    if (op === "lte") return numRec <= numVal;
+    return true;
+  });
+}
+
+// ─── Realtime Channel ─────────────────────────────────────────────────────────
+/**
+ * Real SSE-backed channel that replaces the Supabase Realtime channel stub.
+ * Supports both postgres_changes and broadcast event types.
+ */
+class RealtimeChannel {
+  private _name: string;
+  private _subs: SSESubscription[] = [];
+  private _subscribeCallback: ((status: string) => void) | null = null;
+  // Required RealtimeChannel shape fields
+  topic: string;
+  params: Record<string, unknown> = {};
+  socket: any = null;
+  bindings: Record<string, unknown> = {};
+  state: string = "closed";
+  presence: any = null;
+  broadcastEndpointURL: string = "";
+
+  constructor(name: string) {
+    this._name = name;
+    this.topic = name;
+  }
+
+  on(eventType: string, filterOrCallback: any, callback?: any): this {
+    if (eventType === "postgres_changes") {
+      // filterOrCallback is { event, schema, table, filter }
+      const filter = filterOrCallback;
+      const cb = callback;
+      if (!cb) return this;
+      const sub: SSESubscription = {
+        channelName: this._name,
+        type: "postgres_changes",
+        event: filter.event || "*",
+        table: filter.table,
+        filter: filter.filter,
+        callback: cb,
+      };
+      this._subs.push(sub);
+    } else if (eventType === "broadcast") {
+      // filterOrCallback is { event: string }
+      const filter = filterOrCallback;
+      const cb = callback;
+      if (!cb) return this;
+      const sub: SSESubscription = {
+        channelName: this._name,
+        type: "broadcast",
+        event: filter.event,
+        callback: cb,
+      };
+      this._subs.push(sub);
+    }
+    return this;
+  }
+
+  subscribe(callback?: (status: string) => void): this {
+    this._subscribeCallback = callback || null;
+    // Register all pending subscriptions with the global SSE engine
+    for (const sub of this._subs) {
+      _sseSubscriptions.push(sub);
+    }
+    this.state = "joined";
+    // Ensure SSE connection is alive
+    if (_sessionToken && (!_sseSource || _sseSource.readyState === EventSource.CLOSED)) {
+      sseConnect();
+    }
+    callback?.("SUBSCRIBED");
+    return this;
+  }
+
+  async unsubscribe(): Promise<void> {
+    // Remove all subscriptions registered by this channel
+    _sseSubscriptions = _sseSubscriptions.filter((s) => !this._subs.includes(s));
+    this._subs = [];
+    this.state = "closed";
+  }
+
+  /** Broadcast a message to all subscribers on this channel (via server relay) */
+  async send(msg: { type: string; event: string; payload: any }): Promise<void> {
+    if (!_sessionToken) return;
+    try {
+      await fetch(`${API_BASE}/sse/broadcast`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${_sessionToken}` },
+        body: JSON.stringify({ channel: this._name, event: msg.event, payload: msg.payload }),
+      });
+    } catch {}
+  }
+
+  // Presence stubs (not needed but expected by TypeScript types)
+  async track(_state: any) { return "ok" as const; }
+  async untrack() { return "ok" as const; }
 }
 
 // ─── Query builder ────────────────────────────────────────────────────────────
@@ -226,6 +440,8 @@ const auth = {
     _authListeners.push(callback);
     auth.getSession().then(({ data: { session } }) => {
       callback(session ? "SIGNED_IN" : "SIGNED_OUT", session);
+      // Start SSE if already logged in
+      if (session && _sessionToken) sseConnect();
     });
     return {
       data: {
@@ -359,35 +575,34 @@ async function rpc(fn: string, args?: any): Promise<{ data: any; error: any }> {
   } catch (err) { return { data: null, error: err }; }
 }
 
-// ─── Realtime channel stub ────────────────────────────────────────────────────
-function makeChannel(_name: string) {
-  const ch: any = {
-    on: (_event: string, _filter: any, _callback?: any) => ch,
-    subscribe: (_cb?: any) => ch,
-    unsubscribe: () => Promise.resolve(),
-    // Required RealtimeChannel shape stubs
-    topic: _name,
-    params: {},
-    socket: null as any,
-    bindings: {},
-    state: "closed",
-    presence: null as any,
-    broadcastEndpointURL: "",
-    send: () => Promise.resolve(),
-    track: () => Promise.resolve(),
-    untrack: () => Promise.resolve(),
-  };
-  return ch;
+// ─── Main supabase client ─────────────────────────────────────────────────────
+
+// Active channels map for removeChannel
+const _activeChannels = new Map<string, RealtimeChannel>();
+
+// Auto-connect SSE if already logged in (page refresh case)
+if (typeof window !== "undefined" && _sessionToken) {
+  // Delay slightly to let the app initialize first
+  setTimeout(sseConnect, 500);
 }
 
-// ─── Main supabase client ─────────────────────────────────────────────────────
 export const supabase = {
   from: (table: string) => new QueryBuilder(table),
   auth,
   storage,
   rpc,
-  channel: (name: string) => makeChannel(name),
-  removeChannel: (_channel: any) => Promise.resolve("ok" as const),
+
+  channel(name: string): RealtimeChannel {
+    const ch = new RealtimeChannel(name);
+    _activeChannels.set(name + "_" + Date.now(), ch);
+    return ch;
+  },
+
+  async removeChannel(channel: RealtimeChannel): Promise<"ok"> {
+    await channel.unsubscribe();
+    return "ok";
+  },
+
   realtime: { setAuth: () => {} },
 };
 
