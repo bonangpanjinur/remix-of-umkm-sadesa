@@ -53,14 +53,24 @@ router.get("/", async (req: Request, res: Response) => {
     }
   }, 25000);
 
+  // O5: Max 30 menit per koneksi — cegah zombie connection memory leak
+  const MAX_DURATION_MS = 30 * 60 * 1000;
+  const connectionTimeout = setTimeout(() => {
+    clearInterval(heartbeat);
+    removeSSEClient(client);
+    res.end();
+  }, MAX_DURATION_MS);
+
   // Bersihkan saat disconnect
   req.on("close", () => {
     clearInterval(heartbeat);
+    clearTimeout(connectionTimeout);
     removeSSEClient(client);
   });
 
   req.on("error", () => {
     clearInterval(heartbeat);
+    clearTimeout(connectionTimeout);
     removeSSEClient(client);
   });
 });

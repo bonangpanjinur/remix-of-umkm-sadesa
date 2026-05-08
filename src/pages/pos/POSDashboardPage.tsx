@@ -1,6 +1,5 @@
 import { POSLayout } from '@/components/pos/POSLayout';
 import { usePOS } from '@/contexts/POSContext';
-import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
@@ -10,7 +9,7 @@ import {
   ArrowRight, BarChart3, Calendar, CreditCard, Monitor
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
-import { format, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subDays } from 'date-fns';
+import { format } from 'date-fns';
 import { id as idLocale } from 'date-fns/locale';
 
 interface DashboardStats {
@@ -26,43 +25,12 @@ interface DashboardStats {
 }
 
 async function fetchDashboardStats(tenantId: string, outletId: string): Promise<DashboardStats> {
-  const now = new Date();
-  const todayStart = startOfDay(now).toISOString();
-  const todayEnd = endOfDay(now).toISOString();
-  const monthStart = startOfMonth(now).toISOString();
-  const monthEnd = endOfMonth(now).toISOString();
-  const weekStart = startOfWeek(now, { weekStartsOn: 1 }).toISOString();
-  const weekEnd = endOfWeek(now, { weekStartsOn: 1 }).toISOString();
-
-  const [todaySalesRes, weekSalesRes, monthSalesRes, productsRes, customersRes, stockRes] = await Promise.all([
-    supabase.from('pos_sales' as any).select('total').eq('tenant_id', tenantId).eq('outlet_id', outletId).eq('status', 'completed').gte('created_at', todayStart).lte('created_at', todayEnd),
-    supabase.from('pos_sales' as any).select('total').eq('tenant_id', tenantId).eq('outlet_id', outletId).eq('status', 'completed').gte('created_at', weekStart).lte('created_at', weekEnd),
-    supabase.from('pos_sales' as any).select('total').eq('tenant_id', tenantId).eq('outlet_id', outletId).eq('status', 'completed').gte('created_at', monthStart).lte('created_at', monthEnd),
-    supabase.from('pos_products' as any).select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId).eq('is_active', true),
-    supabase.from('pos_customers' as any).select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId),
-    supabase.from('pos_stock' as any).select('quantity, min_stock, product_id').eq('outlet_id', outletId),
-  ]);
-
-  const todaySales = (todaySalesRes.data || []).reduce((s: number, r: any) => s + parseFloat(r.total), 0);
-  const todayTransactions = todaySalesRes.data?.length || 0;
-  const weekSales = (weekSalesRes.data || []).reduce((s: number, r: any) => s + parseFloat(r.total), 0);
-  const monthSales = (monthSalesRes.data || []).reduce((s: number, r: any) => s + parseFloat(r.total), 0);
-  const totalProducts = productsRes.count || 0;
-  const totalCustomers = customersRes.count || 0;
-  const lowStockCount = (stockRes.data || []).filter((s: any) => s.quantity <= (s.min_stock || 5)).length;
-
-  // Grafik penjualan 7 hari terakhir
-  const salesChart = [];
-  for (let i = 6; i >= 0; i--) {
-    const day = subDays(now, i);
-    const start = startOfDay(day).toISOString();
-    const end = endOfDay(day).toISOString();
-    const { data } = await supabase.from('pos_sales' as any).select('total').eq('tenant_id', tenantId).eq('outlet_id', outletId).eq('status', 'completed').gte('created_at', start).lte('created_at', end);
-    const total = (data || []).reduce((s: number, r: any) => s + parseFloat(r.total), 0);
-    salesChart.push({ label: format(day, 'EEE', { locale: idLocale }), total });
-  }
-
-  return { todaySales, todayTransactions, weekSales, monthSales, totalProducts, totalCustomers, lowStockCount, topProducts: [], salesChart };
+  const res = await fetch(
+    `/api/pos/dashboard-stats?tenant_id=${tenantId}&outlet_id=${outletId}`,
+    { credentials: 'include' }
+  );
+  if (!res.ok) throw new Error('Gagal memuat statistik dashboard');
+  return res.json();
 }
 
 export default function POSDashboardPage() {

@@ -5,6 +5,7 @@ import storageRouter from "./storage";
 import sseRouter from "./sse";
 import pushRouter from "./push";
 import publicApiRouter from "./public-api";
+import posRouter from "./pos";
 
 const router = Router();
 
@@ -14,5 +15,6 @@ router.use("/storage", storageRouter);
 router.use("/sse", sseRouter);
 router.use("/push", pushRouter);
 router.use("/v1", publicApiRouter);
+router.use("/pos", posRouter);
 
 export default router;
