@@ -16,7 +16,7 @@ import {
 } from 'recharts';
 import {
   TrendingUp, TrendingDown, Minus, Download, Printer,
-  DollarSign, ShoppingCart, Package, AlertCircle, RefreshCw
+  DollarSign, ShoppingCart, Package, AlertCircle, RefreshCw, FileDown
 } from 'lucide-react';
 import {
   format, startOfDay, endOfDay, subDays, startOfWeek, endOfWeek,
@@ -183,6 +183,101 @@ export default function POSLaporanLabaRugiPage() {
 
   const printReport = () => window.print();
 
+  const exportPDF = () => {
+    const storeName = (tenant as any)?.name || 'Toko';
+    const outletName = activeOutlet ? (activeOutlet as any).name : '';
+    const periodLabel = PERIOD_OPTIONS.find(p => p.value === period)?.label || period;
+    const now = format(new Date(), 'dd MMMM yyyy HH:mm', { locale: idLocale });
+    const fc = (n: number) => `Rp ${Math.abs(n).toLocaleString('id-ID')}`;
+
+    const biayaRows = data.biayaRincian.map(b =>
+      `<tr><td style="padding:3px 8px;color:#666">${BIAYA_LABELS[b.category] || b.category}</td><td style="text-align:right;color:#ef4444">(${fc(b.amount)})</td></tr>`
+    ).join('');
+
+    const topProdRows = data.topProducts.slice(0, 10).map((p, i) =>
+      `<tr style="background:${i % 2 === 0 ? '#f9fafb' : '#fff'}">
+        <td style="padding:4px 8px">${p.name}</td>
+        <td style="text-align:right;padding:4px 8px">${p.qty}</td>
+        <td style="text-align:right;padding:4px 8px">${fc(p.revenue)}</td>
+        <td style="text-align:right;padding:4px 8px">${fc(p.hpp)}</td>
+        <td style="text-align:right;padding:4px 8px;color:${p.profit >= 0 ? '#059669' : '#ef4444'}">${p.profit >= 0 ? '' : '('}${fc(p.profit)}${p.profit < 0 ? ')' : ''}</td>
+      </tr>`
+    ).join('');
+
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
+    <title>Laporan Laba Rugi — ${storeName}</title>
+    <style>
+      @page { size: A4; margin: 15mm; }
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body { font-family: Arial, sans-serif; font-size: 12px; color: #111; }
+      h1 { font-size: 18px; margin-bottom: 2px; }
+      h2 { font-size: 13px; color: #374151; border-bottom: 2px solid #10b981; padding-bottom: 4px; margin: 16px 0 8px; }
+      table { width: 100%; border-collapse: collapse; margin-bottom: 8px; }
+      th { background: #10b981; color: white; padding: 6px 8px; text-align: left; font-size: 11px; }
+      .val { text-align: right; }
+      .positive { color: #059669; font-weight: bold; }
+      .negative { color: #ef4444; }
+      .total-row td { font-weight: bold; border-top: 2px solid #111; padding-top: 6px; font-size: 13px; }
+      .section-row td { font-weight: bold; background: #f0fdf4; padding: 5px 8px; color: #065f46; }
+      .kpi-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 16px; }
+      .kpi-card { border: 1px solid #e5e7eb; border-radius: 8px; padding: 10px; text-align: center; }
+      .kpi-label { font-size: 10px; color: #6b7280; margin-bottom: 4px; }
+      .kpi-value { font-size: 16px; font-weight: bold; }
+      @media print { button { display: none; } }
+    </style></head><body>
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px">
+      <div>
+        <h1>Laporan Laba Rugi</h1>
+        <div style="color:#6b7280;font-size:11px">${storeName}${outletName ? ` — ${outletName}` : ''}</div>
+        <div style="color:#6b7280;font-size:11px">Periode: ${periodLabel} &nbsp;|&nbsp; Dicetak: ${now}</div>
+      </div>
+    </div>
+
+    <div class="kpi-grid">
+      <div class="kpi-card"><div class="kpi-label">Omzet Penjualan</div><div class="kpi-value" style="color:#059669">${fc(data.omzet)}</div></div>
+      <div class="kpi-card"><div class="kpi-label">Laba Kotor</div><div class="kpi-value" style="color:#0891b2">${fc(data.labaKotor)}</div></div>
+      <div class="kpi-card"><div class="kpi-label">Laba Bersih</div><div class="kpi-value" style="color:${data.labaBersih >= 0 ? '#059669' : '#ef4444'}">${data.labaBersih < 0 ? '(' : ''}${fc(data.labaBersih)}${data.labaBersih < 0 ? ')' : ''}</div></div>
+      <div class="kpi-card"><div class="kpi-label">HPP</div><div class="kpi-value" style="color:#dc2626">${fc(data.hpp)}</div></div>
+      <div class="kpi-card"><div class="kpi-label">Total Diskon</div><div class="kpi-value" style="color:#d97706">${fc(data.totalDiskon)}</div></div>
+      <div class="kpi-card"><div class="kpi-label">Jumlah Transaksi</div><div class="kpi-value">${data.jumlahTransaksi.toLocaleString('id-ID')}</div></div>
+    </div>
+
+    <h2>Laporan Laba Rugi</h2>
+    <table>
+      <tbody>
+        <tr class="section-row"><td>PENDAPATAN</td><td></td></tr>
+        <tr><td style="padding:3px 8px">Omzet Penjualan</td><td style="text-align:right" class="positive">${fc(data.omzet)}</td></tr>
+        ${data.totalDiskon > 0 ? `<tr><td style="padding:3px 8px;color:#666">Total Diskon</td><td style="text-align:right;color:#ef4444">(${fc(data.totalDiskon)})</td></tr>` : ''}
+        ${data.totalRetur > 0 ? `<tr><td style="padding:3px 8px;color:#666">Total Retur</td><td style="text-align:right;color:#ef4444">(${fc(data.totalRetur)})</td></tr>` : ''}
+        <tr><td style="padding:3px 8px;color:#666">HPP (Harga Pokok Penjualan)</td><td style="text-align:right;color:#ef4444">(${fc(data.hpp)})</td></tr>
+        <tr style="font-weight:bold;background:#f0fdf4"><td style="padding:5px 8px">LABA KOTOR</td><td style="text-align:right;padding:5px 8px;color:#0891b2">${fc(data.labaKotor)}</td></tr>
+
+        <tr class="section-row"><td style="padding-top:8px">BEBAN OPERASIONAL</td><td></td></tr>
+        ${biayaRows}
+        <tr style="font-weight:bold"><td style="padding:3px 8px">Total Beban</td><td style="text-align:right;color:#ef4444">(${fc(data.bebanOperasional)})</td></tr>
+
+        <tr class="total-row"><td style="padding:6px 8px">LABA BERSIH</td><td style="text-align:right;padding:6px 8px;color:${data.labaBersih >= 0 ? '#059669' : '#ef4444'}">${data.labaBersih < 0 ? '(' : ''}${fc(data.labaBersih)}${data.labaBersih < 0 ? ')' : ''}</td></tr>
+      </tbody>
+    </table>
+
+    ${data.topProducts.length > 0 ? `
+    <h2>Produk Terlaris (Top 10)</h2>
+    <table>
+      <thead><tr>
+        <th>Produk</th><th style="text-align:right">Qty</th><th style="text-align:right">Omzet</th><th style="text-align:right">HPP</th><th style="text-align:right">Laba</th>
+      </tr></thead>
+      <tbody>${topProdRows}</tbody>
+    </table>` : ''}
+    </body></html>`;
+
+    const win = window.open('', '_blank', 'width=900,height=700');
+    if (!win) { return; }
+    win.document.write(html);
+    win.document.close();
+    win.focus();
+    setTimeout(() => win.print(), 400);
+  };
+
   const exportCSV = () => {
     const rows = [
       ['Laporan Laba Rugi', format(new Date(), 'dd/MM/yyyy HH:mm')],
@@ -254,6 +349,9 @@ export default function POSLaporanLabaRugiPage() {
             </Button>
             <Button variant="outline" size="sm" onClick={exportCSV}>
               <Download className="h-4 w-4 mr-1" /> Export CSV
+            </Button>
+            <Button variant="outline" size="sm" onClick={exportPDF} className="border-blue-400 text-blue-600 hover:bg-blue-50">
+              <FileDown className="h-4 w-4 mr-1" /> Export PDF
             </Button>
             <Button variant="outline" size="sm" onClick={printReport}>
               <Printer className="h-4 w-4 mr-1" /> Cetak

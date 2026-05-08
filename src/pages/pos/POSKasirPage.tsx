@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
-import { Search, Package, ChevronLeft, Barcode, CheckCircle2, Star, Ticket, Percent, Printer, Gift } from 'lucide-react';
+import { Search, Package, ChevronLeft, Barcode, CheckCircle2, Star, Ticket, Percent, Printer, Gift, MessageCircle, FileDown } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { POSSidebar } from '@/components/pos/POSSidebar';
 import { BarcodeScanner } from '@/components/pos/BarcodeScanner';
@@ -473,6 +473,148 @@ export default function POSKasirPage() {
     await printReceiptBrowser(receiptData);
   };
 
+  const sendReceiptViaWhatsApp = () => {
+    if (!lastSale) return;
+    const storeName = (tenant as any)?.name || 'Toko';
+    const storePhone = (tenant as any)?.phone || '';
+    const now = new Date();
+    const tgl = now.toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    const payLabel: Record<string, string> = { cash: 'Tunai', qris: 'QRIS', transfer: 'Transfer', debit: 'Debit' };
+    const methodLabel = payLabel[lastSale.paymentMethod] || lastSale.paymentMethod;
+
+    const lines: string[] = [];
+    lines.push(`🧾 *STRUK PEMBAYARAN*`);
+    lines.push(`*${storeName}*`);
+    if (storePhone) lines.push(`📞 ${storePhone}`);
+    lines.push(`─────────────────────`);
+    lines.push(`No : ${lastSale.saleNumber}`);
+    lines.push(`Tgl: ${tgl}`);
+    if (lastSale.customerName && lastSale.customerName !== 'Umum') lines.push(`Plg: ${lastSale.customerName}`);
+    lines.push(`─────────────────────`);
+    for (const item of lastSale.items) {
+      const name = item.variantName ? `${item.name} (${item.variantName})` : item.name;
+      lines.push(`${name}`);
+      const sub = item.price * item.qty - (item.discount || 0);
+      lines.push(`  ${item.qty}x ${formatCurrency(item.price)}  =  ${formatCurrency(sub)}`);
+      if ((item.discount || 0) > 0) lines.push(`  Diskon: -${formatCurrency(item.discount)}`);
+    }
+    lines.push(`─────────────────────`);
+    if ((lastSale.promoDiscount || 0) > 0) lines.push(`Diskon Promo : -${formatCurrency(lastSale.promoDiscount)}`);
+    if ((lastSale.voucherDiscount || 0) > 0) lines.push(`Voucher : -${formatCurrency(lastSale.voucherDiscount)}`);
+    if ((lastSale.pointsDiscount || 0) > 0) lines.push(`Tukar Poin : -${formatCurrency(lastSale.pointsDiscount)}`);
+    lines.push(`*TOTAL : ${formatCurrency(lastSale.total)}*`);
+    lines.push(`Metode : ${methodLabel}`);
+    if (lastSale.paymentMethod === 'cash' && (lastSale.change || 0) > 0) {
+      lines.push(`Kembalian : ${formatCurrency(lastSale.change)}`);
+    }
+    if ((lastSale.pointsEarned || 0) > 0) {
+      lines.push(`─────────────────────`);
+      lines.push(`⭐ Poin diperoleh: +${lastSale.pointsEarned.toLocaleString('id-ID')} poin`);
+      if (lastSale.newPointsBalance !== null) lines.push(`   Saldo poin: ${lastSale.newPointsBalance.toLocaleString('id-ID')} poin`);
+    }
+    lines.push(`─────────────────────`);
+    lines.push(`Terima kasih telah berbelanja! 🙏`);
+
+    const message = encodeURIComponent(lines.join('\n'));
+    const customerPhone = selectedCustomer?.phone?.replace(/\D/g, '').replace(/^0/, '62') || '';
+    const url = customerPhone
+      ? `https://wa.me/${customerPhone}?text=${message}`
+      : `https://wa.me/?text=${message}`;
+    window.open(url, '_blank');
+  };
+
+  const exportReceiptPDF = () => {
+    if (!lastSale) return;
+    const storeName = (tenant as any)?.name || 'Toko';
+    const storeAddress = (tenant as any)?.address || '';
+    const storePhone = (tenant as any)?.phone || '';
+    const receiptHeader = (tenant as any)?.receipt_header || '';
+    const receiptFooter = (tenant as any)?.receipt_footer || 'Terima kasih telah berbelanja!';
+    const now = new Date();
+    const tgl = now.toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    const payLabel: Record<string, string> = { cash: 'Tunai', qris: 'QRIS', transfer: 'Transfer', debit: 'Debit' };
+    const methodLabel = payLabel[lastSale.paymentMethod] || lastSale.paymentMethod;
+
+    const itemRows = lastSale.items.map((item: any) => {
+      const name = item.variantName ? `${item.name} (${item.variantName})` : item.name;
+      const sub = item.price * item.qty - (item.discount || 0);
+      const discRow = (item.discount || 0) > 0
+        ? `<tr><td colspan="3" style="color:#ef4444;font-size:10px;padding:0 0 2px 4px">Diskon: -${formatCurrency(item.discount)}</td></tr>`
+        : '';
+      return `<tr>
+        <td style="padding:3px 0;vertical-align:top">${name}</td>
+        <td style="text-align:center;white-space:nowrap">${item.qty}x</td>
+        <td style="text-align:right;white-space:nowrap">${formatCurrency(sub)}</td>
+      </tr>${discRow}`;
+    }).join('');
+
+    const discountRows = [
+      (lastSale.promoDiscount || 0) > 0 ? `<tr><td colspan="2" style="color:#f97316">Diskon Promo</td><td style="text-align:right;color:#f97316">-${formatCurrency(lastSale.promoDiscount)}</td></tr>` : '',
+      (lastSale.voucherDiscount || 0) > 0 ? `<tr><td colspan="2" style="color:#a855f7">Voucher (${lastSale.appliedVoucherCode})</td><td style="text-align:right;color:#a855f7">-${formatCurrency(lastSale.voucherDiscount)}</td></tr>` : '',
+      (lastSale.pointsDiscount || 0) > 0 ? `<tr><td colspan="2" style="color:#10b981">Tukar Poin</td><td style="text-align:right;color:#10b981">-${formatCurrency(lastSale.pointsDiscount)}</td></tr>` : '',
+    ].join('');
+
+    const pointsSection = (lastSale.pointsEarned || 0) > 0 ? `
+      <div style="background:#ecfdf5;border:1px solid #a7f3d0;border-radius:6px;padding:8px;margin-top:8px;font-size:11px">
+        <div style="color:#065f46;font-weight:bold;margin-bottom:4px">⭐ Ringkasan Poin</div>
+        ${(lastSale.pointsRedeemed || 0) > 0 ? `<div style="display:flex;justify-content:space-between;color:#dc2626"><span>Ditukar</span><span>-${lastSale.pointsRedeemed.toLocaleString('id-ID')} poin</span></div>` : ''}
+        <div style="display:flex;justify-content:space-between;color:#059669"><span>Diperoleh</span><span>+${lastSale.pointsEarned.toLocaleString('id-ID')} poin</span></div>
+        ${lastSale.newPointsBalance !== null ? `<div style="display:flex;justify-content:space-between;font-weight:bold;color:#065f46;border-top:1px solid #a7f3d0;margin-top:4px;padding-top:4px"><span>Saldo Poin</span><span>${lastSale.newPointsBalance.toLocaleString('id-ID')} poin</span></div>` : ''}
+      </div>` : '';
+
+    const changeRow = lastSale.paymentMethod === 'cash' && (lastSale.change || 0) > 0
+      ? `<tr><td colspan="2">Kembalian</td><td style="text-align:right">${formatCurrency(lastSale.change)}</td></tr>` : '';
+
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
+    <title>Struk - ${lastSale.saleNumber}</title>
+    <style>
+      @page { size: 80mm auto; margin: 4mm; }
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body { font-family: 'Courier New', Courier, monospace; font-size: 12px; color: #111; width: 72mm; }
+      .center { text-align: center; }
+      .bold { font-weight: bold; }
+      .divider { border-top: 1px dashed #999; margin: 6px 0; }
+      table { width: 100%; border-collapse: collapse; font-size: 11px; }
+      .total-row td { font-weight: bold; font-size: 13px; border-top: 1px solid #111; padding-top: 4px; }
+      @media print {
+        body { margin: 0; }
+        button { display: none; }
+      }
+    </style>
+    </head><body>
+    <div class="center bold" style="font-size:14px;margin-bottom:2px">${storeName}</div>
+    ${storeAddress ? `<div class="center" style="font-size:10px">${storeAddress}</div>` : ''}
+    ${storePhone ? `<div class="center" style="font-size:10px">${storePhone}</div>` : ''}
+    ${receiptHeader ? `<div class="center" style="font-size:10px;margin-top:2px">${receiptHeader}</div>` : ''}
+    <div class="divider"></div>
+    <table><tbody>
+      <tr><td>No</td><td colspan="2">: ${lastSale.saleNumber}</td></tr>
+      <tr><td>Tgl</td><td colspan="2">: ${tgl}</td></tr>
+      ${lastSale.customerName && lastSale.customerName !== 'Umum' ? `<tr><td>Plg</td><td colspan="2">: ${lastSale.customerName}</td></tr>` : ''}
+    </tbody></table>
+    <div class="divider"></div>
+    <table><tbody>${itemRows}</tbody></table>
+    <div class="divider"></div>
+    <table><tbody>
+      ${discountRows}
+      <tr class="total-row"><td colspan="2">TOTAL</td><td style="text-align:right">${formatCurrency(lastSale.total)}</td></tr>
+      <tr><td colspan="2">Metode</td><td style="text-align:right">${methodLabel}</td></tr>
+      ${changeRow}
+    </tbody></table>
+    ${pointsSection}
+    <div class="divider"></div>
+    <div class="center" style="font-size:10px;margin-top:4px">${receiptFooter}</div>
+    <div style="height:8px"></div>
+    </body></html>`;
+
+    const win = window.open('', '_blank', 'width=400,height=600');
+    if (!win) { toast.error('Popup diblokir. Izinkan popup untuk export PDF.'); return; }
+    win.document.write(html);
+    win.document.close();
+    win.focus();
+    setTimeout(() => { win.print(); }, 300);
+  };
+
   if (!tenant) return (
     <div className="flex items-center justify-center h-screen">
       <div className="text-center">
@@ -618,9 +760,19 @@ export default function POSKasirPage() {
                 )}
               </div>
             )}
-            <div className="flex gap-2 mt-4">
-              <Button variant="outline" className="flex-1" onClick={printReceipt}><Printer className="h-4 w-4 mr-2" />Cetak Struk</Button>
-              <Button className="flex-1 bg-emerald-600 hover:bg-emerald-700" onClick={() => { setSuccessDialog(false); searchRef.current?.focus(); }}>Transaksi Baru</Button>
+            <div className="grid grid-cols-2 gap-2 mt-4">
+              <Button variant="outline" className="flex-1 text-sm" onClick={printReceipt}>
+                <Printer className="h-4 w-4 mr-1.5" />Cetak Struk
+              </Button>
+              <Button className="flex-1 text-sm bg-emerald-600 hover:bg-emerald-700" onClick={() => { setSuccessDialog(false); searchRef.current?.focus(); }}>
+                Transaksi Baru
+              </Button>
+              <Button variant="outline" className="flex-1 text-sm border-green-500 text-green-600 hover:bg-green-50" onClick={sendReceiptViaWhatsApp}>
+                <MessageCircle className="h-4 w-4 mr-1.5" />Kirim via WA
+              </Button>
+              <Button variant="outline" className="flex-1 text-sm border-blue-400 text-blue-600 hover:bg-blue-50" onClick={exportReceiptPDF}>
+                <FileDown className="h-4 w-4 mr-1.5" />Simpan PDF
+              </Button>
             </div>
             {ThermalPrinter.isSupported() && (
               <Button variant="ghost" size="sm" className={`w-full mt-1 text-xs ${thermalConnected ? 'text-emerald-600' : 'text-muted-foreground'}`}

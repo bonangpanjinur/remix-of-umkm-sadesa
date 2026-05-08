@@ -14,7 +14,7 @@ import {
 } from 'recharts';
 import {
   TrendingUp, TrendingDown, Minus, ArrowUpCircle, ArrowDownCircle,
-  Download, RefreshCw, DollarSign, Wallet, AlertCircle
+  Download, RefreshCw, DollarSign, Wallet, AlertCircle, FileDown
 } from 'lucide-react';
 import {
   format, startOfDay, endOfDay, startOfWeek, endOfWeek,
@@ -239,6 +239,98 @@ export default function POSLaporanCashflowPage() {
 
   const netPositive = data.netCashflow >= 0;
 
+  const exportPDF = () => {
+    const storeName = (tenant as any)?.name || 'Toko';
+    const outletName = activeOutlet ? (activeOutlet as any).name : '';
+    const periodLabel = PERIOD_OPTIONS.find(p => p.value === period)?.label || period;
+    const now = format(new Date(), 'dd MMMM yyyy HH:mm', { locale: idLocale });
+    const fc = (n: number) => `Rp ${Math.abs(n).toLocaleString('id-ID')}`;
+
+    const masukRows = data.rincianMasuk.filter(r => r.amount > 0).map((r, i) =>
+      `<tr style="background:${i % 2 === 0 ? '#f9fafb' : '#fff'}">
+        <td style="padding:4px 8px">${r.label}</td>
+        <td style="text-align:right;padding:4px 8px;color:#059669">${fc(r.amount)}</td>
+      </tr>`
+    ).join('');
+
+    const keluarRows = data.rincianKeluar.filter(r => r.amount > 0).map((r, i) =>
+      `<tr style="background:${i % 2 === 0 ? '#f9fafb' : '#fff'}">
+        <td style="padding:4px 8px">${r.label}</td>
+        <td style="text-align:right;padding:4px 8px;color:#ef4444">(${fc(r.amount)})</td>
+      </tr>`
+    ).join('');
+
+    const netColor = data.netCashflow >= 0 ? '#059669' : '#ef4444';
+
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
+    <title>Laporan Cashflow — ${storeName}</title>
+    <style>
+      @page { size: A4; margin: 15mm; }
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body { font-family: Arial, sans-serif; font-size: 12px; color: #111; }
+      h1 { font-size: 18px; margin-bottom: 2px; }
+      h2 { font-size: 13px; color: #374151; border-bottom: 2px solid #10b981; padding-bottom: 4px; margin: 16px 0 8px; }
+      table { width: 100%; border-collapse: collapse; }
+      th { background: #10b981; color: white; padding: 6px 8px; text-align: left; font-size: 11px; }
+      .kpi-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 16px; }
+      .kpi-card { border: 1px solid #e5e7eb; border-radius: 8px; padding: 10px; text-align: center; }
+      .kpi-label { font-size: 10px; color: #6b7280; margin-bottom: 4px; }
+      .kpi-value { font-size: 16px; font-weight: bold; }
+      .section-row td { font-weight: bold; background: #f0fdf4; padding: 6px 8px; color: #065f46; font-size: 13px; }
+      .total-row td { font-weight: bold; border-top: 2px solid #111; padding: 6px 8px; font-size: 13px; }
+      .net-row td { font-weight: bold; background: ${data.netCashflow >= 0 ? '#ecfdf5' : '#fef2f2'}; padding: 8px; font-size: 14px; border-radius: 4px; }
+      @media print { button { display: none; } }
+    </style></head><body>
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px">
+      <div>
+        <h1>Laporan Cashflow (Arus Kas)</h1>
+        <div style="color:#6b7280;font-size:11px">${storeName}${outletName ? ` — ${outletName}` : ''}</div>
+        <div style="color:#6b7280;font-size:11px">Periode: ${periodLabel} &nbsp;|&nbsp; Dicetak: ${now}</div>
+      </div>
+    </div>
+
+    <div class="kpi-grid">
+      <div class="kpi-card"><div class="kpi-label">Total Kas Masuk</div><div class="kpi-value" style="color:#059669">${fc(data.totalMasuk)}</div></div>
+      <div class="kpi-card"><div class="kpi-label">Total Kas Keluar</div><div class="kpi-value" style="color:#ef4444">${fc(data.totalKeluar)}</div></div>
+      <div class="kpi-card"><div class="kpi-label">Net Cashflow</div><div class="kpi-value" style="color:${netColor}">${data.netCashflow < 0 ? '(' : ''}${fc(data.netCashflow)}${data.netCashflow < 0 ? ')' : ''}</div></div>
+    </div>
+
+    <h2>Kas Masuk</h2>
+    <table>
+      <thead><tr><th>Sumber</th><th style="text-align:right">Jumlah</th></tr></thead>
+      <tbody>
+        ${masukRows}
+        <tr class="total-row"><td>TOTAL KAS MASUK</td><td style="text-align:right;color:#059669">${fc(data.totalMasuk)}</td></tr>
+      </tbody>
+    </table>
+
+    <h2 style="margin-top:20px">Kas Keluar</h2>
+    <table>
+      <thead><tr><th>Kategori</th><th style="text-align:right">Jumlah</th></tr></thead>
+      <tbody>
+        ${keluarRows}
+        <tr class="total-row"><td>TOTAL KAS KELUAR</td><td style="text-align:right;color:#ef4444">(${fc(data.totalKeluar)})</td></tr>
+      </tbody>
+    </table>
+
+    <table style="margin-top:12px">
+      <tbody>
+        <tr class="net-row">
+          <td>NET CASHFLOW</td>
+          <td style="text-align:right;color:${netColor}">${data.netCashflow < 0 ? '(' : ''}${fc(data.netCashflow)}${data.netCashflow < 0 ? ')' : ''}</td>
+        </tr>
+      </tbody>
+    </table>
+    </body></html>`;
+
+    const win = window.open('', '_blank', 'width=900,height=700');
+    if (!win) { return; }
+    win.document.write(html);
+    win.document.close();
+    win.focus();
+    setTimeout(() => win.print(), 400);
+  };
+
   const handleExport = () => {
     const rows = [
       ['Laporan Cashflow', ''],
@@ -277,6 +369,10 @@ export default function POSLaporanCashflowPage() {
           <Button variant="outline" size="sm" onClick={handleExport} disabled={loading}>
             <Download className="h-4 w-4 mr-1" />
             Export CSV
+          </Button>
+          <Button variant="outline" size="sm" onClick={exportPDF} disabled={loading} className="border-blue-400 text-blue-600 hover:bg-blue-50">
+            <FileDown className="h-4 w-4 mr-1" />
+            Export PDF
           </Button>
         </div>
       }
