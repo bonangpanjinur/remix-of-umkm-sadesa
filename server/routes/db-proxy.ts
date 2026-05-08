@@ -31,9 +31,21 @@ const FK_MAP: Record<string, { fk: string; ref_col?: string }> = {
   "wishlists:merchants":       { fk: "merchant_id",   ref_col: "id" },
   "merchant_favorites:merchants": { fk: "merchant_id", ref_col: "id" },
   "product_images:products":   { fk: "product_id",    ref_col: "id" },
-  "pos_sales:pos_sale_items":  { fk: "sale_id",       ref_col: "id" },
-  "pos_sale_items:pos_sales":  { fk: "sale_id",       ref_col: "id" },
-  "notifications:profiles":    { fk: "user_id",       ref_col: "id" },
+  "pos_sales:pos_sale_items":       { fk: "sale_id",       ref_col: "id" },
+  "pos_sale_items:pos_sales":       { fk: "sale_id",       ref_col: "id" },
+  "pos_sale_items:pos_products":    { fk: "product_id",    ref_col: "id" },
+  "pos_stock:pos_products":         { fk: "product_id",    ref_col: "id" },
+  "flash_sales:products":           { fk: "product_id",    ref_col: "id" },
+  "vouchers:merchants":             { fk: "merchant_id",   ref_col: "id" },
+  "courier_earnings:couriers":      { fk: "courier_id",    ref_col: "id" },
+  "broadcast_messages:villages":    { fk: "village_id",    ref_col: "id" },
+  "village_events:villages":        { fk: "village_id",    ref_col: "id" },
+  "commission_rules:merchants":     { fk: "target_id",     ref_col: "id" },
+  "notifications:profiles":         { fk: "user_id",       ref_col: "id" },
+  "orders:buyers":                  { fk: "buyer_id",      ref_col: "id" },
+  "reviews:products":               { fk: "product_id",    ref_col: "id" },
+  "reviews:merchants":              { fk: "merchant_id",   ref_col: "id" },
+  "user_villages:villages":         { fk: "village_id",    ref_col: "id" },
 };
 
 interface ParsedRelationship {
@@ -221,6 +233,8 @@ router.post("/select", async (req: Request, res: Response) => {
     "pos_audit_logs", "pos_transfer_orders", "pos_transfer_order_items",
     "merchant_operating_hours", "admin_banners", "halal_certificates", "merchant_dues",
     "payment_proofs", "search_history", "product_views", "merchant_visitors",
+    "commission_rules", "broadcast_messages", "village_events", "user_villages",
+    "courier_ratings", "verifikator_events",
   ];
 
   const tbl = String(table).replace(/[^a-z0-9_]/g, "");

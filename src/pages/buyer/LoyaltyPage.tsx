@@ -66,7 +66,7 @@ export default function LoyaltyPage() {
       const { data: orders } = await (supabase as any)
         .from('orders')
         .select('total, created_at, id')
-        .eq('user_id', user.id)
+        .eq('buyer_id', user.id)
         .eq('status', 'COMPLETED')
         .order('created_at', { ascending: false });
 

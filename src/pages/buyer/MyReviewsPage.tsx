@@ -40,7 +40,7 @@ export default function MyReviewsPage() {
       const result: any = await supabase
         .from('reviews' as any)
         .select('id, rating, comment, created_at, merchant_reply, product_id, merchant_id')
-        .eq('user_id', user.id)
+        .eq('buyer_id', user.id)
         .order('created_at', { ascending: false });
       const data = result.data as any[];
       const error = result.error;
