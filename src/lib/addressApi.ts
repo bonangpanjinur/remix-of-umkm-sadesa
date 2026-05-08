@@ -136,26 +136,19 @@ async function fetchDirect(url: string, signal?: AbortSignal): Promise<Response 
   return null;
 }
 
-async function fetchViaEdgeFunction(type: string, code: string | undefined, signal?: AbortSignal): Promise<Response | null> {
+async function fetchViaLocalProxy(type: string, code: string | undefined, signal?: AbortSignal): Promise<Response | null> {
   try {
-    const projectUrl = import.meta.env.VITE_SUPABASE_URL;
-    const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-    if (!projectUrl || !anonKey) return null;
-
     const params = new URLSearchParams({ type });
     if (code) params.append('code', code);
 
-    const response = await fetch(`${projectUrl}/functions/v1/wilayah-proxy?${params.toString()}`, {
-      headers: {
-        'Authorization': `Bearer ${anonKey}`,
-        'Content-Type': 'application/json',
-      },
+    const response = await fetch(`/api/wilayah?${params.toString()}`, {
+      headers: { 'Content-Type': 'application/json' },
       signal,
     });
     if (response.ok) return response;
   } catch (error) {
     if ((error as Error).name === 'AbortError') throw error;
-    console.warn('Edge function fetch failed:', error);
+    console.warn('Local proxy fetch failed:', error);
   }
   return null;
 }
@@ -224,7 +217,7 @@ async function fetchWithFallbacks(type: string, code?: string): Promise<Region[]
 
     const wilayahPromises = [
       mustSucceed(() => fetchDirect(url, signal)),
-      mustSucceed(() => fetchViaEdgeFunction(type, code, signal)),
+      mustSucceed(() => fetchViaLocalProxy(type, code, signal)),
       mustSucceed(() => fetchViaCorsProxy(url, signal)),
     ];
 

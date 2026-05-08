@@ -12,9 +12,8 @@ interface AssignCourierResult {
   candidates_count?: number;
 }
 
-/**
- * Auto-assign the nearest available courier to an order
- */
+const API_BASE = '/api';
+
 export async function autoAssignCourier(
   orderId: string,
   merchantLat?: number,
@@ -22,36 +21,34 @@ export async function autoAssignCourier(
   maxDistanceKm: number = 10
 ): Promise<AssignCourierResult> {
   try {
-    const { data, error } = await supabase.functions.invoke('assign-courier', {
-      body: {
+    const response = await fetch(`${API_BASE}/assign-courier`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
         order_id: orderId,
         merchant_lat: merchantLat,
         merchant_lng: merchantLng,
         max_distance_km: maxDistanceKm,
-      },
+      }),
     });
 
-    if (error) {
-      console.error('Error calling assign-courier:', error);
-      return { success: false, error: error.message };
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({ error: 'Failed to assign courier' }));
+      return { success: false, error: err.error || 'Failed to assign courier' };
     }
 
-    return data as AssignCourierResult;
+    return response.json();
   } catch (err) {
     console.error('Error in autoAssignCourier:', err);
     return { success: false, error: 'Failed to assign courier' };
   }
 }
 
-/**
- * Manually assign a specific courier to an order
- */
 export async function manualAssignCourier(
   orderId: string,
   courierId: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    // Check if courier is available
     const { data: courier, error: courierError } = await supabase
       .from('couriers')
       .select('id, name, is_available, status')
@@ -66,7 +63,6 @@ export async function manualAssignCourier(
       return { success: false, error: 'Kurir tidak aktif' };
     }
 
-    // Update order with courier
     const { error: updateError } = await supabase
       .from('orders')
       .update({
@@ -81,7 +77,6 @@ export async function manualAssignCourier(
       return { success: false, error: 'Gagal menugaskan kurir' };
     }
 
-    // Create notification for courier
     const { data: courierData } = await supabase
       .from('couriers')
       .select('user_id')
@@ -105,9 +100,6 @@ export async function manualAssignCourier(
   }
 }
 
-/**
- * Get available couriers within a radius
- */
 export async function getAvailableCouriers(
   lat?: number,
   lng?: number,
@@ -120,7 +112,6 @@ export async function getAvailableCouriers(
   active_orders: number;
 }>> {
   try {
-    // Get all available couriers
     const { data: couriers, error } = await supabase
       .from('couriers')
       .select('id, name, vehicle_type, current_lat, current_lng')
@@ -130,7 +121,6 @@ export async function getAvailableCouriers(
 
     if (error || !couriers) return [];
 
-    // Get active order counts
     const courierIds = couriers.map((c) => c.id);
     const { data: activeOrders } = await supabase
       .from('orders')
@@ -143,7 +133,6 @@ export async function getAvailableCouriers(
       orderCounts[o.courier_id] = (orderCounts[o.courier_id] || 0) + 1;
     });
 
-    // Calculate distances and return
     return couriers
       .map((c) => {
         let distance_km: number | undefined;
@@ -171,7 +160,6 @@ export async function getAvailableCouriers(
   }
 }
 
-// Haversine formula
 function calculateDistance(
   lat1: number,
   lng1: number,
@@ -185,8 +173,7 @@ function calculateDistance(
     Math.sin(dLat / 2) * Math.sin(dLat / 2) +
     Math.cos((lat1 * Math.PI) / 180) *
       Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLng / 2) *
-      Math.sin(dLng / 2);
+      Math.sin(dLng / 2) * Math.sin(dLng / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return R * c;
 }

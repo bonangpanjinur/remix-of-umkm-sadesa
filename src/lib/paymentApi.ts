@@ -21,41 +21,30 @@ export interface PaymentStatus {
   payment_method?: string;
 }
 
-/**
- * Create payment invoice via Xendit
- */
+const API_BASE = '/api';
+
 export async function createPaymentInvoice(request: CreatePaymentRequest): Promise<PaymentInvoice> {
-  const { data, error } = await supabase.functions.invoke('xendit-payment/create-invoice', {
-    body: {
+  const response = await fetch(`${API_BASE}/xendit/create-invoice`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
       order_id: request.orderId,
       amount: request.amount,
       payer_email: request.payerEmail,
       description: request.description,
-    },
+    }),
   });
 
-  if (error) {
-    console.error('Error creating payment invoice:', error);
-    throw new Error(error.message || 'Failed to create payment invoice');
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({ error: 'Failed to create payment invoice' }));
+    throw new Error(err.error || 'Failed to create payment invoice');
   }
 
-  return data as PaymentInvoice;
+  return response.json();
 }
 
-/**
- * Check payment status for an invoice
- */
 export async function checkPaymentStatus(invoiceId: string): Promise<PaymentStatus> {
-  const response = await fetch(
-    `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/xendit-payment/check-status?invoice_id=${invoiceId}`,
-    {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
-        'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-      },
-    }
-  );
+  const response = await fetch(`${API_BASE}/xendit/check-status?invoice_id=${invoiceId}`);
 
   if (!response.ok) {
     throw new Error('Failed to check payment status');
@@ -64,9 +53,6 @@ export async function checkPaymentStatus(invoiceId: string): Promise<PaymentStat
   return response.json();
 }
 
-/**
- * Check if Xendit payment is enabled
- */
 export async function isXenditEnabled(): Promise<boolean> {
   const { data, error } = await supabase
     .from('app_settings')
