@@ -22,11 +22,11 @@ DesaMart is a multi-role e-commerce platform and tourism directory for Indonesia
   - `lib/` - Utilities, API wrappers, i18n
   - `contexts/` - React Contexts (Auth, Cart, Whitelabel, POS)
   - `types/` - TypeScript definitions
-- `supabase/` - DB migrations (schema reference)
+- `supabase/` - DB migrations (schema reference) and Edge Functions
 - `public/` - Static assets and PWA manifest
-- `server/` - Server-side DB connection (Drizzle/pg, provisioned but not yet used by frontend)
+- `server/` - Server-side DB connection (Drizzle/pg, available for future server-side use)
 
-## Environment Variables (set in Replit Secrets/Env Vars)
+## Environment Variables (set in Replit Env Vars)
 - `VITE_SUPABASE_URL` - Supabase project URL
 - `VITE_SUPABASE_PUBLISHABLE_KEY` - Supabase anon/public key
 - `VITE_SUPABASE_PROJECT_ID` - Supabase project ID
@@ -45,6 +45,14 @@ DesaMart is a multi-role e-commerce platform and tourism directory for Indonesia
 - `verifikator` - Village-level trade group coordinator
 - `admin_desa` - Village administrator (tourism, desa dashboard)
 - `admin` - System administrator (full access)
+
+## Supabase Edge Functions
+The app uses Supabase Edge Functions for:
+- `assign-courier` - Auto-assign nearest available courier to an order
+- `xendit-payment` - Payment invoice creation/status checking via Xendit
+- `send-push-notification` - Push notifications
+- `wilayah-proxy` - Indonesian region data proxy
+- `xendit-webhook` - Payment webhook handler
 
 ## User Preferences
 - Use Indonesian/English bilingual comments where relevant
