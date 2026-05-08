@@ -15,7 +15,7 @@ import {
 } from 'recharts';
 import {
   Archive, Download, RefreshCw, AlertCircle, ArrowUp, ArrowDown,
-  AlertTriangle, TrendingUp, TrendingDown, Search
+  AlertTriangle, TrendingUp, TrendingDown, Search, Printer
 } from 'lucide-react';
 import {
   format, startOfDay, endOfDay, startOfMonth, endOfMonth, parseISO
@@ -161,6 +161,57 @@ export default function POSLaporanStokPage() {
 
   const topMoving = [...stokSummary].sort((a, b) => b.totalSales - a.totalSales).slice(0, 8);
 
+  const exportPDF = () => {
+    const win = window.open('', '_blank', 'width=900,height=700');
+    if (!win) return;
+    win.document.write(`
+      <html><head><style>
+        @page{size:A4;margin:20mm}
+        body{font-family:Arial,sans-serif;font-size:11px;color:#111}
+        h1{font-size:18px;margin-bottom:2px} h2{font-size:13px;color:#555;font-weight:normal;margin-bottom:16px}
+        .kpi{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}
+        .kpi-card{border:1px solid #ddd;border-radius:8px;padding:12px}
+        .kpi-card .label{font-size:10px;color:#888;margin-bottom:4px}
+        .kpi-card .value{font-size:16px;font-weight:bold}
+        table{width:100%;border-collapse:collapse;margin-top:12px}
+        th{background:#f3f4f6;padding:8px;text-align:left;font-size:10px;text-transform:uppercase}
+        td{padding:7px 8px;border-bottom:1px solid #f0f0f0;font-size:10px}
+        .habis{color:#dc2626;font-weight:bold} .menipis{color:#d97706;font-weight:bold} .normal{color:#059669}
+        .footer{margin-top:24px;font-size:9px;color:#aaa;text-align:center}
+      </style></head><body>
+        <h1>Stock Opname — Laporan Stok</h1>
+        <h2>${tenant?.name||'DesaMart POS'} • ${activeOutlet?.name||''} • ${dateStart} s/d ${dateEnd}</h2>
+        <div class="kpi">
+          <div class="kpi-card"><div class="label">Total Produk</div><div class="value">${stokSummary.length}</div></div>
+          <div class="kpi-card"><div class="label">Total Masuk</div><div class="value" style="color:#059669">${stokSummary.reduce((s,p)=>s+p.totalIn,0)}</div></div>
+          <div class="kpi-card"><div class="label">Total Keluar</div><div class="value" style="color:#dc2626">${stokSummary.reduce((s,p)=>s+p.totalOut,0)}</div></div>
+          <div class="kpi-card"><div class="label">Stok Habis/Menipis</div><div class="value" style="color:#d97706">${lowStock.length}</div></div>
+        </div>
+        <table>
+          <thead><tr><th>Produk</th><th>SKU</th><th style="text-align:right">Stok</th><th style="text-align:right">Min</th><th style="text-align:right">Masuk</th><th style="text-align:right">Keluar</th><th style="text-align:right">Terjual</th><th>Status</th></tr></thead>
+          <tbody>
+            ${filteredSummary.map(s=>{
+              const status = s.currentStock<=0?'habis':s.currentStock<=s.minStock?'menipis':'normal';
+              return `<tr>
+                <td><strong>${s.productName}</strong></td>
+                <td>${s.sku}</td>
+                <td style="text-align:right" class="${status}">${s.currentStock} ${s.unit}</td>
+                <td style="text-align:right">${s.minStock}</td>
+                <td style="text-align:right">+${s.totalIn}</td>
+                <td style="text-align:right">-${s.totalOut}</td>
+                <td style="text-align:right">${s.totalSales}</td>
+                <td class="${status}">${status==='habis'?'HABIS':status==='menipis'?'Menipis':'Normal'}</td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+        <div class="footer">Dicetak: ${format(new Date(),'dd/MM/yyyy HH:mm')} • DesaMart POS</div>
+      </body></html>
+    `);
+    win.document.close();
+    win.print();
+  };
+
   const exportCSV = () => {
     const rows = [
       ['Laporan Pergerakan Stok', `${dateStart} - ${dateEnd}`],
@@ -203,6 +254,9 @@ export default function POSLaporanStokPage() {
             </Button>
             <Button variant="outline" size="sm" onClick={exportCSV}>
               <Download className="h-4 w-4 mr-1" /> Export CSV
+            </Button>
+            <Button variant="outline" size="sm" onClick={exportPDF}>
+              <Printer className="h-4 w-4 mr-1" /> Export PDF
             </Button>
           </div>
         </div>

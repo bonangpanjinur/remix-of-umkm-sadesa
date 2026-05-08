@@ -169,6 +169,12 @@ const POSBahanBakuPage = lazy(() => import("./pages/pos/POSBahanBakuPage"));
 const POSResepPage = lazy(() => import("./pages/pos/POSResepPage"));
 const POSMejaPage = lazy(() => import("./pages/pos/POSMejaPage"));
 const POSKDSPage = lazy(() => import("./pages/pos/POSKDSPage"));
+const POSJadwalPage = lazy(() => import("./pages/pos/POSJadwalPage"));
+const POSAbsensiPage = lazy(() => import("./pages/pos/POSAbsensiPage"));
+const POSPenggajianPage = lazy(() => import("./pages/pos/POSPenggajianPage"));
+const POSHutangPiutangPage = lazy(() => import("./pages/pos/POSHutangPiutangPage"));
+const POSTargetOmzetPage = lazy(() => import("./pages/pos/POSTargetOmzetPage"));
+const POSHargaPage = lazy(() => import("./pages/pos/POSHargaPage"));
 
 // Desa Pages
 const DesaDashboardPage = lazy(() => import("./pages/desa/DesaDashboardPage"));
@@ -838,6 +844,12 @@ const App = () => (
               <Route path="/pos/resep" element={<ProtectedRoute><POSResepPage /></ProtectedRoute>} />
               <Route path="/pos/meja" element={<ProtectedRoute><POSMejaPage /></ProtectedRoute>} />
               <Route path="/pos/kds" element={<ProtectedRoute><POSKDSPage /></ProtectedRoute>} />
+              <Route path="/pos/jadwal" element={<ProtectedRoute><POSJadwalPage /></ProtectedRoute>} />
+              <Route path="/pos/absensi" element={<ProtectedRoute><POSAbsensiPage /></ProtectedRoute>} />
+              <Route path="/pos/penggajian" element={<ProtectedRoute><POSPenggajianPage /></ProtectedRoute>} />
+              <Route path="/pos/hutang-piutang" element={<ProtectedRoute><POSHutangPiutangPage /></ProtectedRoute>} />
+              <Route path="/pos/target-omzet" element={<ProtectedRoute><POSTargetOmzetPage /></ProtectedRoute>} />
+              <Route path="/pos/harga" element={<POSHargaPage />} />
 
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />

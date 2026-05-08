@@ -15,7 +15,7 @@ import {
   CartesianGrid, Legend, Cell
 } from 'recharts';
 import {
-  UserCog, Download, RefreshCw, AlertCircle, Trophy, Clock, TrendingUp
+  UserCog, Download, RefreshCw, AlertCircle, Trophy, Clock, TrendingUp, Printer
 } from 'lucide-react';
 import {
   format, startOfDay, endOfDay, startOfWeek, endOfWeek,
@@ -161,6 +161,56 @@ export default function POSLaporanKasirPage() {
 
   useEffect(() => { fetchReport(); }, [fetchReport]);
 
+  const exportPDF = () => {
+    const { start, end } = getRange();
+    const win = window.open('', '_blank', 'width=900,height=700');
+    if (!win) return;
+    win.document.write(`
+      <html><head><style>
+        @page{size:A4;margin:20mm}
+        body{font-family:Arial,sans-serif;font-size:11px;color:#111}
+        h1{font-size:18px;margin-bottom:2px} h2{font-size:13px;color:#555;font-weight:normal;margin-bottom:16px}
+        .kpi{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}
+        .kpi-card{border:1px solid #ddd;border-radius:8px;padding:12px}
+        .kpi-card .label{font-size:10px;color:#888;margin-bottom:4px}
+        .kpi-card .value{font-size:16px;font-weight:bold;color:#059669}
+        table{width:100%;border-collapse:collapse;margin-top:12px}
+        th{background:#f3f4f6;padding:8px;text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.05em}
+        td{padding:7px 8px;border-bottom:1px solid #f0f0f0;font-size:11px}
+        tr:hover td{background:#f9fafb}
+        .footer{margin-top:24px;font-size:9px;color:#aaa;text-align:center}
+        .trophy{color:#d97706}
+      </style></head><body>
+        <h1>Laporan Per Kasir</h1>
+        <h2>${tenant?.name || 'DesaMart POS'} • ${activeOutlet?.name || ''} • ${format(start,'dd MMM',{locale:idLocale})} – ${format(end,'dd MMM yyyy',{locale:idLocale})}</h2>
+        <div class="kpi">
+          <div class="kpi-card"><div class="label">Total Kasir Aktif</div><div class="value">${kasirStats.length}</div></div>
+          <div class="kpi-card"><div class="label">Total Omzet</div><div class="value">Rp ${grandTotal.toLocaleString('id-ID')}</div></div>
+          <div class="kpi-card"><div class="label">Total Transaksi</div><div class="value">${kasirStats.reduce((s,k)=>s+k.totalTransaksi,0)}</div></div>
+          <div class="kpi-card"><div class="label">Kasir Terbaik</div><div class="value" style="font-size:13px">${bestKasir?.kasirName||'-'}</div></div>
+        </div>
+        <table>
+          <thead><tr><th>#</th><th>Kasir</th><th style="text-align:right">Transaksi</th><th style="text-align:right">Omzet</th><th style="text-align:right">Avg/Trx</th><th style="text-align:right">Total Diskon</th></tr></thead>
+          <tbody>
+            ${kasirStats.map((k,i)=>`
+              <tr>
+                <td>${i===0?'🏆':i+1}</td>
+                <td><strong>${k.kasirName}</strong></td>
+                <td style="text-align:right">${k.totalTransaksi}</td>
+                <td style="text-align:right"><strong>Rp ${k.totalOmzet.toLocaleString('id-ID')}</strong></td>
+                <td style="text-align:right">Rp ${k.avgBasket.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g,',')}</td>
+                <td style="text-align:right">Rp ${k.totalDiskon.toLocaleString('id-ID')}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+        <div class="footer">Dicetak: ${format(new Date(),'dd/MM/yyyy HH:mm')} • DesaMart POS</div>
+      </body></html>
+    `);
+    win.document.close();
+    win.print();
+  };
+
   const exportCSV = () => {
     const rows = [
       ['Laporan Per Kasir'],
@@ -197,6 +247,9 @@ export default function POSLaporanKasirPage() {
             </Button>
             <Button variant="outline" size="sm" onClick={exportCSV}>
               <Download className="h-4 w-4 mr-1" /> Export CSV
+            </Button>
+            <Button variant="outline" size="sm" onClick={exportPDF}>
+              <Printer className="h-4 w-4 mr-1" /> Export PDF
             </Button>
           </div>
         </div>

@@ -6,7 +6,8 @@ import {
   TrendingUp, UserCheck, BoxesIcon, PieChart,
   ArrowRightLeft, GitCompare, Shield, KeyRound,
   Ticket, Star, Globe, Banknote, Monitor, BookOpen,
-  FlaskConical, ChefHat, Table2, Tv2
+  FlaskConical, ChefHat, Table2, Tv2,
+  Calendar, Clock, DollarSign, Target, CreditCard
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { usePOS } from '@/contexts/POSContext';
@@ -55,6 +56,11 @@ export function POSSidebar() {
     { label: 'Ekspor Akuntansi', href: '/pos/akuntansi', icon: <BookOpen className="h-4 w-4" /> },
     { label: 'Mode Kiosk', href: '/pos/kiosk', icon: <Monitor className="h-4 w-4" /> },
     { label: 'Integrasi Marketplace', href: '/pos/integrasi', icon: <Globe className="h-4 w-4" /> },
+    { label: 'Jadwal Shift', href: '/pos/jadwal', icon: <Calendar className="h-4 w-4" /> },
+    { label: 'Absensi', href: '/pos/absensi', icon: <Clock className="h-4 w-4" /> },
+    { label: 'Penggajian', href: '/pos/penggajian', icon: <DollarSign className="h-4 w-4" /> },
+    { label: 'Hutang & Piutang', href: '/pos/hutang-piutang', icon: <CreditCard className="h-4 w-4" /> },
+    { label: 'Target Omzet', href: '/pos/target-omzet', icon: <Target className="h-4 w-4" /> },
     { label: 'Pengguna', href: '/pos/pengguna', icon: <UserCog className="h-4 w-4" /> },
     { label: 'Pengaturan', href: '/pos/pengaturan', icon: <Settings className="h-4 w-4" /> },
   ];
