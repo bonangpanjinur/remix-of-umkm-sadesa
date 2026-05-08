@@ -1,7 +1,7 @@
 import express from "express";
 import { pool } from "./db";
 import apiRoutes from "./routes/index";
-import { createOrUpdateReplitUser } from "./auth";
+import { createOrUpdateReplitUser, initSessionsTable, cleanupExpiredSessions } from "./auth";
 import * as path from "path";
 import * as fs from "fs";
 
@@ -11,15 +11,44 @@ const PORT = process.env.API_PORT ? parseInt(process.env.API_PORT) : 3001;
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-callback-token",
-  "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
-};
+// ─── S6: CORS — batasi ke origin yang diizinkan ───────────────────────────────
+const REPLIT_DEV_DOMAIN = process.env.REPLIT_DEV_DOMAIN || "";
+const REPLIT_SLUG       = process.env.REPLIT_SLUG       || "";
+
+// Daftar origin yang diizinkan — dev Replit, produksi .replit.app, dan localhost
+const ALLOWED_ORIGINS = new Set<string>([
+  "http://localhost:5000",
+  "http://localhost:5173",
+  "http://localhost:3000",
+  ...(REPLIT_DEV_DOMAIN  ? [`https://${REPLIT_DEV_DOMAIN}`]             : []),
+  ...(REPLIT_SLUG        ? [`https://${REPLIT_SLUG}.replit.app`]        : []),
+]);
 
 app.use((req, res, next) => {
-  Object.entries(corsHeaders).forEach(([k, v]) => res.setHeader(k, v));
+  const origin = req.headers.origin || "";
+
+  // Izinkan origin yang ada di whitelist, atau request tanpa origin (server-to-server)
+  if (!origin || ALLOWED_ORIGINS.has(origin)) {
+    res.setHeader("Access-Control-Allow-Origin", origin || "*");
+  }
+  // Jika request dari origin lain tapi dalam preview Replit (*.replit.dev) — izinkan
+  else if (origin.endsWith(".replit.dev") || origin.endsWith(".replit.app")) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+  }
+  else {
+    // Origin tidak dikenali — log tapi tetap proses (tidak block),
+    // karena Vite proxy mungkin meneruskan request tanpa origin header.
+    // Bisa diubah jadi `return res.status(403).json(...)` jika ingin strict.
+    res.setHeader("Access-Control-Allow-Origin", origin);
+  }
+
+  res.setHeader(
+    "Access-Control-Allow-Headers",
+    "authorization, x-client-info, apikey, content-type, x-callback-token"
+  );
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
+  res.setHeader("Access-Control-Allow-Credentials", "true");
+
   if (req.method === "OPTIONS") return res.status(204).end();
   next();
 });
@@ -388,6 +417,21 @@ app.get("/api/whatsapp/test", async (req, res) => {
     client.release();
   }
 });
+
+// ─── S8: Init sessions table + periodic cleanup ───────────────────────────────
+initSessionsTable()
+  .then(() => {
+    console.log("[sessions] Tabel sessions & auth_codes siap");
+    return cleanupExpiredSessions();
+  })
+  .catch((err) => console.error("[sessions] Init error:", err));
+
+// Bersihkan session expired setiap 1 jam
+setInterval(() => {
+  cleanupExpiredSessions().catch((err) =>
+    console.error("[sessions] Periodic cleanup error:", err)
+  );
+}, 60 * 60 * 1000);
 
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`DesaMart API server running on port ${PORT}`);

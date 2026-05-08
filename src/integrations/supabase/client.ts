@@ -580,10 +580,60 @@ async function rpc(fn: string, args?: any): Promise<{ data: any; error: any }> {
 // Active channels map for removeChannel
 const _activeChannels = new Map<string, RealtimeChannel>();
 
+// ─── S4: Exchange auth code dari URL (Replit OAuth callback) ─────────────────
+/**
+ * Setelah Replit OAuth, server redirect ke /?auth=success&code=xxx
+ * (bukan &token= langsung). Di sini kita tukar code tersebut menjadi session token.
+ * Code hanya berlaku 1 menit dan langsung dihapus setelah dipakai.
+ */
+async function handleAuthCodeFromUrl(): Promise<void> {
+  if (typeof window === "undefined") return;
+  const params = new URLSearchParams(window.location.search);
+  const code = params.get("code");
+  const authStatus = params.get("auth");
+
+  if (authStatus !== "success" || !code) return;
+
+  try {
+    const resp = await fetch(`${API_BASE}/auth/exchange-code`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code }),
+    });
+    const json = await resp.json();
+
+    if (resp.ok && json.token && json.user) {
+      setSession(json.token, json.user);
+      const session = {
+        user: {
+          id: json.user.id,
+          email: json.user.email,
+          user_metadata: { full_name: json.user.full_name },
+        },
+        access_token: json.token,
+      };
+      _authListeners.forEach((l) => l("SIGNED_IN", session));
+    }
+  } catch (err) {
+    console.error("[auth] Exchange code error:", err);
+  } finally {
+    // Hapus ?auth=success&code=... dari URL — token tidak boleh ada di history browser
+    const clean = new URL(window.location.href);
+    clean.searchParams.delete("auth");
+    clean.searchParams.delete("code");
+    window.history.replaceState({}, "", clean.toString());
+  }
+}
+
 // Auto-connect SSE if already logged in (page refresh case)
 if (typeof window !== "undefined" && _sessionToken) {
   // Delay slightly to let the app initialize first
   setTimeout(sseConnect, 500);
+}
+
+// S4: Proses exchange code dari URL saat halaman dimuat
+if (typeof window !== "undefined") {
+  handleAuthCodeFromUrl();
 }
 
 export const supabase = {

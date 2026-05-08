@@ -609,12 +609,12 @@ Saat ini menampilkan grafik dasar. Fitur yang akan meningkatkan nilai bisnis:
 |---|---|---|---|---|
 | S1 | Auth di INSERT/UPDATE/DELETE | 🔴 Kritis | 2 jam | ✅ Sprint 1 |
 | S2 | Guard DELETE/UPDATE tanpa filter | 🔴 Kritis | 1 jam | ✅ Sprint 1 |
-| S3 | SSE broadcast per-user | 🔴 Kritis | 4 jam | ⬜ Belum |
-| S4 | Token di URL → Cookie | 🔴 Kritis | 2 jam | ⬜ Belum |
+| S3 | SSE broadcast per-user | 🔴 Kritis | 4 jam | ✅ Sprint 2 |
+| S4 | Token di URL → Cookie | 🔴 Kritis | 2 jam | ✅ Sprint 2 |
 | S5 | Push subscribe verifikasi user | 🔴 Kritis | 1 jam | ✅ Sprint 1 |
-| S6 | CORS restrict origin | 🟠 Penting | 1 jam | ⬜ Belum |
-| S7 | Rate limit di server | 🟠 Penting | 3 jam | ⬜ Belum |
-| S8 | Session persistent di DB | 🟠 Penting | 4 jam | ⬜ Belum |
+| S6 | CORS restrict origin | 🟠 Penting | 1 jam | ✅ Sprint 2 |
+| S7 | Rate limit di server | 🟠 Penting | 3 jam | ✅ Sprint 2 |
+| S8 | Session persistent di DB | 🟠 Penting | 4 jam | ✅ Sprint 2 |
 | S9 | Validasi file upload | 🟠 Penting | 2 jam | ⬜ Belum |
 | S10 | Validasi kekuatan password | 🟠 Penting | 1 jam | ✅ Sprint 1 |
 | B1 | POS Dashboard N+1 queries | 🔴 Kritis | 3 jam | ⬜ Belum |
