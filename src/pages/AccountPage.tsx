@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { 
   User, Settings, HelpCircle, LogIn, LogOut, Store, ChevronRight, Edit, Heart, 
   Bell, LayoutDashboard, Shield, CheckCircle, Bike, Building2, MapPin, Star, Clock,
-  MessageCircle, Package, ShoppingBag
+  MessageCircle, Package, ShoppingBag, Wallet, Users, RefreshCw
 } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
 import { BottomNav } from '@/components/layout/BottomNav';
@@ -324,6 +324,31 @@ export default function AccountPage() {
                     { icon: Package, label: 'Pesanan Saya', path: '/orders' },
                     { icon: Star, label: 'Ulasan Saya', path: '/reviews/mine' },
                     { icon: Bike, label: 'Riwayat Ojek', path: '/ride/history' },
+                    { icon: RefreshCw, label: 'Langganan Produk', path: '/langganan' },
+                  ].map((item) => (
+                    <button
+                      key={item.path}
+                      onClick={() => navigate(item.path)}
+                      className="w-full flex items-center justify-between p-4 bg-card rounded-xl border border-border hover:bg-secondary transition"
+                    >
+                      <div className="flex items-center gap-3">
+                        <item.icon className="h-5 w-5 text-muted-foreground" />
+                        <span className="font-medium">{item.label}</span>
+                      </div>
+                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Reward & Promo Section */}
+              <div>
+                <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 px-1">Reward & Promo</h3>
+                <div className="space-y-1">
+                  {[
+                    { icon: Wallet, label: 'Cashback Saya', path: '/cashback' },
+                    { icon: Users, label: 'Program Referral', path: '/referral' },
+                    { icon: Star, label: 'Loyalty Points', path: '/loyalty' },
                   ].map((item) => (
                     <button
                       key={item.path}

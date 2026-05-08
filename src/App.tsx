@@ -89,6 +89,8 @@ import AdminRidesPage from "./pages/admin/AdminRidesPage";
 import AdminKomisiPage from "./pages/admin/AdminKomisiPage";
 import AdminAuditLogPage from "./pages/admin/AdminAuditLogPage";
 import AdminWhatsAppPage from "./pages/admin/AdminWhatsAppPage";
+import AdminApiKeysPage from "./pages/admin/AdminApiKeysPage";
+import AdminCashbackPage from "./pages/admin/AdminCashbackPage";
 import CourierHistoryPage from "./pages/courier/CourierHistoryPage";
 import CourierWithdrawalPage from "./pages/courier/CourierWithdrawalPage";
 import CourierChatPage from "./pages/courier/CourierChatPage";
@@ -152,6 +154,8 @@ import POSLaporanStokPage from "./pages/pos/POSLaporanStokPage";
 import POSLaporanCashflowPage from "./pages/pos/POSLaporanCashflowPage";
 import POSAnalitikPage from "./pages/pos/POSAnalitikPage";
 import POSAnalitikProdukPage from "./pages/pos/POSAnalitikProdukPage";
+import POSKioskPage from "./pages/pos/POSKioskPage";
+import POSAkuntansiPage from "./pages/pos/POSAkuntansiPage";
 import POSTransferStokPage from "./pages/pos/POSTransferStokPage";
 import POSLaporanOutletPage from "./pages/pos/POSLaporanOutletPage";
 import POSAuditPage from "./pages/pos/POSAuditPage";
@@ -170,6 +174,11 @@ import DesaKeanggotaanPage from "./pages/desa/DesaKeanggotaanPage";
 import DesaBroadcastPage from "./pages/desa/DesaBroadcastPage";
 import DesaPetaPage from "./pages/desa/DesaPetaPage";
 import DesaLaporanWisataPage from "./pages/desa/DesaLaporanWisataPage";
+
+// Sprint 7 Buyer Pages
+import CashbackPage from "./pages/buyer/CashbackPage";
+import ReferralPage from "./pages/buyer/ReferralPage";
+import SubscriptionPage from "./pages/buyer/SubscriptionPage";
 
 // Buyer Pages
 import ReviewsPage from "./pages/buyer/ReviewsPage";
@@ -398,6 +407,9 @@ const App = () => (
               <Route path="/loyalty" element={<ProtectedRoute><LoyaltyPage /></ProtectedRoute>} />
               <Route path="/vouchers" element={<VoucherPage />} />
               <Route path="/rekomendasi" element={<RekomendasisPage />} />
+              <Route path="/cashback" element={<ProtectedRoute><CashbackPage /></ProtectedRoute>} />
+              <Route path="/referral" element={<ProtectedRoute><ReferralPage /></ProtectedRoute>} />
+              <Route path="/langganan" element={<ProtectedRoute><SubscriptionPage /></ProtectedRoute>} />
               {/* Admin routes */}
               <Route path="/admin" element={
                 <ProtectedRoute allowedRoles={['admin']}>
@@ -563,6 +575,16 @@ const App = () => (
               <Route path="/admin/whatsapp" element={
                 <ProtectedRoute allowedRoles={['admin']}>
                   <AdminWhatsAppPage />
+                </ProtectedRoute>
+              } />
+              <Route path="/admin/api-keys" element={
+                <ProtectedRoute allowedRoles={['admin']}>
+                  <AdminApiKeysPage />
+                </ProtectedRoute>
+              } />
+              <Route path="/admin/cashback" element={
+                <ProtectedRoute allowedRoles={['admin']}>
+                  <AdminCashbackPage />
                 </ProtectedRoute>
               } />
 
@@ -780,6 +802,8 @@ const App = () => (
               <Route path="/pos/loyalty" element={<ProtectedRoute><POSLoyaltyPage /></ProtectedRoute>} />
               <Route path="/pos/integrasi" element={<ProtectedRoute><POSIntegrasiPage /></ProtectedRoute>} />
               <Route path="/pos/analitik-produk" element={<ProtectedRoute><POSAnalitikProdukPage /></ProtectedRoute>} />
+              <Route path="/pos/kiosk" element={<ProtectedRoute><POSKioskPage /></ProtectedRoute>} />
+              <Route path="/pos/akuntansi" element={<ProtectedRoute><POSAkuntansiPage /></ProtectedRoute>} />
 
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />

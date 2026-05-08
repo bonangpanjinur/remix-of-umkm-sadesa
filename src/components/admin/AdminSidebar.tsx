@@ -24,7 +24,9 @@ import {
   Tags,
   Wallet,
   Activity,
-  X
+  X,
+  Key,
+  Gift
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -87,6 +89,8 @@ export function AdminSidebar({
     { label: 'Kasir POS', href: '/admin/pos', icon: <Receipt className="h-4 w-4" /> },
     { label: 'System Logs', href: '/admin/logs', icon: <ScrollText className="h-4 w-4" /> },
     { label: 'Kesehatan Sistem', href: '/admin/system-health', icon: <Activity className="h-4 w-4" /> },
+    { label: 'API Keys', href: '/admin/api-keys', icon: <Key className="h-4 w-4" /> },
+    { label: 'Program Cashback', href: '/admin/cashback', icon: <Gift className="h-4 w-4" /> },
     { label: 'Pengaturan', href: '/admin/settings', icon: <Settings className="h-4 w-4" /> },
   ];
 

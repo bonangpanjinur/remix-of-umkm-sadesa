@@ -145,12 +145,12 @@
 | # | Fitur | Dampak | Usaha | Bergantung pada |
 |---|-------|--------|-------|----------------|
 | **S7-01** | PWA offline-capable (IndexedDB + background sync) | ⭐⭐⭐ | L | — |
-| **S7-02** | API publik REST + API Key management | ⭐⭐ | L | — |
-| **S7-03** | Integrasi akuntansi (export jurnal ke Accurate/MYOB) | ⭐⭐ | L | Laporan laba rugi (✅) |
-| **S7-04** | Cashback & reward program marketplace | ⭐⭐ | L | S3-03 |
-| **S7-05** | Program afiliasi / referral (kode unik, komisi) | ⭐⭐ | L | — |
-| **S7-06** | Layanan langganan produk rutin (subscribe & save) | ⭐⭐ | L | — |
-| **S7-07** | Mode kiosk / self-checkout | ⭐ | L | — |
+| **S7-02** | API publik REST + API Key management ✅ | ⭐⭐ | L | — |
+| **S7-03** | Integrasi akuntansi (export jurnal ke Accurate/MYOB) ✅ | ⭐⭐ | L | Laporan laba rugi (✅) |
+| **S7-04** | Cashback & reward program marketplace ✅ | ⭐⭐ | L | S3-03 |
+| **S7-05** | Program afiliasi / referral (kode unik, komisi) ✅ | ⭐⭐ | L | — |
+| **S7-06** | Layanan langganan produk rutin (subscribe & save) ✅ | ⭐⭐ | L | — |
+| **S7-07** | Mode kiosk / self-checkout ✅ | ⭐ | L | — |
 | **S7-08** | Dashboard multi-brand / multi-toko | ⭐ | L | Multi-outlet (✅) |
 
 ---
