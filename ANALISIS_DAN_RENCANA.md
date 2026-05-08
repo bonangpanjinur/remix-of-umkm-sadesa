@@ -2,455 +2,280 @@
 
 > Dibuat: Mei 2026 | Stack: React 18 + Vite + Express + PostgreSQL (Replit)
 > File ini adalah **satu-satunya sumber kebenaran** untuk rencana perbaikan.
+> Update terakhir: Sprint 2 selesai (10 item security sudah dikerjakan)
+
+---
+
+## PROGRESS SPRINT
+
+| Sprint | Selesai | Item |
+|---|---|---|
+| ✅ Sprint 1 | 6 item | S1, S2, S5, S10, B5, B7 |
+| ✅ Sprint 2 | 5 item | S3, S4, S6, S7, S8 |
+| ⬜ Sprint 3 (berikutnya) | — | B1, B2, F3, O1, O5 |
 
 ---
 
 ## RINGKASAN EKSEKUTIF
 
-| Kategori | Temuan Kritis | Temuan Penting | Total |
+| Kategori | Total | Selesai | Belum |
 |---|---|---|---|
-| Keamanan | 5 | 5 | 10 |
-| Bug / Potensi Bug | 5 | 5 | 10 |
-| Optimasi | 4 | 4 | 8 |
-| Fitur Bisnis Urgent | 5 | 4 | 9 |
+| Keamanan | 10 | **9** ✅ | 1 |
+| Bug / Potensi Bug | 10 | **3** ✅ | 7 |
+| Optimasi | 8 | 0 | 8 |
+| Fitur Bisnis Urgent | 9 | 0 | 9 |
 
 ---
 
 ## 1. KEAMANAN
 
-### 🔴 S1 — KRITIS: INSERT / UPDATE / DELETE Tanpa Autentikasi
-
-**File:** `server/routes/db-proxy.ts` (baris 407–520)
-
-Route `POST /api/db/insert`, `/api/db/update`, `/api/db/delete` **tidak memanggil `getUser()`** sebelum eksekusi. Fungsi `getUser()` sudah ada di file yang sama (baris 240) tetapi hanya digunakan untuk SELECT. Siapa pun — termasuk request yang tidak login — dapat:
-- Menyisipkan data palsu ke tabel mana saja (orders, merchants, profiles, dll.)
-- Mengubah harga produk, status order, atau saldo wallet
-- Menghapus record tanpa batasan
-
-**Solusi:**
-```ts
-// Tambahkan di awal setiap route INSERT/UPDATE/DELETE:
-router.post("/insert", async (req, res) => {
-  const user = await getUser(req);
-  if (!user) return res.status(401).json({ error: "Unauthorized" });
-  // ... lanjut eksekusi
-});
-```
-Untuk operasi sensitif (update wallet, order status), tambahkan juga validasi kepemilikan data.
-
----
-
-### 🔴 S2 — KRITIS: DELETE / UPDATE Tanpa Filter = Hapus Semua Data
+### ✅ S1 — SELESAI: INSERT / UPDATE / DELETE Tanpa Autentikasi
 
 **File:** `server/routes/db-proxy.ts`
-
-Jika `filters` kosong atau tidak dikirim, query DELETE akan menjadi:
-```sql
-DELETE FROM public.orders RETURNING *
-```
-Ini menghapus **seluruh tabel**. Tidak ada guard terhadap operasi ini.
-
-**Solusi:**
-```ts
-// Wajibkan minimal satu filter untuk DELETE dan UPDATE:
-if (!filters || !Array.isArray(filters) || filters.length === 0) {
-  return res.status(400).json({ error: "filters are required for delete/update" });
-}
-```
+**Sprint 1** — Route INSERT/UPDATE/DELETE kini wajib login. Tiga tabel publik (`product_views`, `search_history`, `merchant_visitors`) dikecualikan via `PUBLIC_WRITE_TABLES`. Request tanpa token langsung `401 Unauthorized`.
 
 ---
 
-### 🔴 S3 — KRITIS: SSE Broadcast ke Semua Client (Data Leak Antar User)
+### ✅ S2 — SELESAI: DELETE / UPDATE Tanpa Filter = Hapus Semua Data
 
-**File:** `server/sse-manager.ts`, `server/routes/db-proxy.ts`
-
-Fungsi `broadcastDbEvent()` mengirim setiap perubahan DB (INSERT/UPDATE/DELETE) ke **semua** koneksi SSE yang aktif via `allClients`. Artinya:
-- Notifikasi order user A terkirim juga ke user B
-- Data chat, status order, saldo — semuanya bocor ke semua sesi yang terhubung
-
-**Solusi:** Filter broadcast berdasarkan `userId` yang relevan:
-```ts
-// Di broadcastDbEvent, tambahkan field target_user_id
-// Hanya kirim ke client milik user tersebut
-export function broadcastToUser(userId: string, payload: object) {
-  const userClients = clients.get(userId) || [];
-  for (const c of userClients) sendEvent(c.res, payload);
-}
-```
+**File:** `server/routes/db-proxy.ts`
+**Sprint 1** — UPDATE dan DELETE sekarang wajib ada minimal satu filter. Tanpa filter → `400 Bad Request`. Tidak ada lagi risiko `DELETE FROM orders` tanpa `WHERE`.
 
 ---
 
-### 🔴 S4 — KRITIS: Session Token Muncul di URL (Replit Callback)
+### ✅ S3 — SELESAI: SSE Broadcast ke Semua Client (Data Leak Antar User)
 
-**File:** `server/routes/auth.ts` (baris ~120)
-
-```ts
-return res.redirect(`/?auth=success&token=${token}`);
-```
-
-Token session yang diredirect ke URL akan:
-- Masuk ke browser history
-- Muncul di Referer header saat user mengklik link lain
-- Tercatat di server access logs
-
-**Solusi:** Gunakan HttpOnly cookie untuk menyampaikan token, bukan query string:
-```ts
-res.cookie("session_token", token, { httpOnly: true, sameSite: "lax", maxAge: 7*24*60*60*1000 });
-return res.redirect("/");
-```
+**File:** `server/sse-manager.ts`
+**Sprint 2** — `broadcastDbEvent()` kini routing berdasarkan `user_id` atau `buyer_id` di record. Tabel sensitif (`notifications`, `orders`, `withdrawal_requests`, dll.) hanya dikirim ke user yang bersangkutan. Tabel publik (produk, toko) tetap broadcast ke semua.
 
 ---
 
-### 🔴 S5 — KRITIS: Push Subscribe Tanpa Verifikasi User
+### ✅ S4 — SELESAI: Session Token Muncul di URL (Replit Callback)
 
-**File:** `server/routes/push.ts` (baris ~30)
-
-```ts
-const { user_id, subscription } = req.body; // user_id dari body, tidak diverifikasi!
-```
-
-Siapapun bisa mendaftarkan push subscription dengan `user_id` orang lain, sehingga bisa menerima notifikasi push milik user lain.
-
-**Solusi:** Ambil `user_id` dari sesi yang terautentikasi, bukan dari body:
-```ts
-router.post("/subscribe", async (req, res) => {
-  const user = await getUser(req); // dari session token
-  if (!user) return res.status(401).json({ error: "Unauthorized" });
-  const userId = user.id; // bukan dari req.body
-  // ...
-});
-```
+**File:** `server/routes/auth.ts`, `src/integrations/supabase/client.ts`
+**Sprint 2** — Replit OAuth callback sekarang mengirim `?code=` (one-time code, TTL 1 menit) bukan `?token=`. Frontend exchange code ke token via `POST /api/auth/exchange-code`, lalu URL dibersihkan via `history.replaceState`. Token tidak pernah ada di browser history.
 
 ---
 
-### 🟠 S6 — PENTING: CORS Wildcard untuk Semua Endpoint
+### ✅ S5 — SELESAI: Push Subscribe Tanpa Verifikasi User
 
-**File:** `server/index.ts` (baris 14–18)
-
-```ts
-"Access-Control-Allow-Origin": "*"
-```
-
-Semua endpoint termasuk yang butuh autentikasi menerima request dari origin mana saja. Untuk endpoint publik ini OK, tetapi untuk `/api/auth/*` dan `/api/db/*` seharusnya dibatasi ke origin app sendiri.
-
-**Solusi:**
-```ts
-const allowedOrigins = [process.env.FRONTEND_URL || "http://localhost:5000"];
-app.use(cors({ origin: allowedOrigins, credentials: true }));
-```
+**File:** `server/routes/push.ts`, `src/hooks/usePushNotification.ts`
+**Sprint 1** — `user_id` kini diambil dari session token di server (bukan dari `req.body`). Frontend mengirim `Authorization: Bearer <token>` bukan `user_id`. Tidak bisa mendaftarkan subscription atas nama orang lain.
 
 ---
 
-### 🟠 S7 — PENTING: Rate Limiting Hanya di Client-Side
+### ✅ S6 — SELESAI: CORS Wildcard untuk Semua Endpoint
 
-**File:** `src/lib/rateLimit.ts`
-
-Rate limiting login/register/checkout berjalan sepenuhnya di browser (in-memory Map). Dapat dibypass dengan:
-- Membuka tab baru / incognito
-- Mengirim request langsung via curl/Postman
-- Refresh halaman
-
-**Solusi:** Implementasi rate limiting di server (`server/routes/auth.ts`) menggunakan `express-rate-limit` atau Redis-based counter di PostgreSQL.
+**File:** `server/index.ts`
+**Sprint 2** — Ganti `*` dengan whitelist: domain Replit dev (`REPLIT_DEV_DOMAIN`), subdomain `*.replit.dev`, `*.replit.app`, dan localhost. `Access-Control-Allow-Credentials: true` ditambahkan.
 
 ---
 
-### 🟠 S8 — PENTING: Session In-Memory (Hilang Saat Restart)
+### ✅ S7 — SELESAI: Rate Limiting Hanya di Client-Side
 
-**File:** `server/auth.ts` (baris 156)
-
-```ts
-const sessions = new Map<string, { userId: string; expiresAt: number }>();
-```
-
-Setiap kali server Express restart (deployment, error crash, dll), semua session hilang. Seluruh user yang sedang login akan keluar tiba-tiba.
-
-**Solusi:** Simpan session di PostgreSQL:
-```sql
-CREATE TABLE sessions (
-  token TEXT PRIMARY KEY,
-  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  expires_at TIMESTAMPTZ NOT NULL,
-  created_at TIMESTAMPTZ DEFAULT now()
-);
-```
+**File:** `server/auth.ts`, `server/routes/auth.ts`
+**Sprint 2** — Rate limiter in-memory di server: **10 percobaan / 15 menit per IP** untuk login dan register. Melewati batas → `429 Too Many Requests`. Counter reset otomatis setelah login berhasil.
 
 ---
 
-### 🟠 S9 — PENTING: File Upload Tanpa Validasi Tipe Konten
+### ✅ S8 — SELESAI: Session In-Memory (Hilang Saat Restart)
+
+**File:** `server/auth.ts`, `server/index.ts`
+**Sprint 2** — Tabel `sessions` dan `auth_codes` dibuat otomatis di PostgreSQL saat server start. `createSession`, `getSessionUser`, `deleteSession` semuanya async dan query ke DB. Session expired dibersihkan setiap 1 jam. Semua user tetap login setelah server restart.
+
+---
+
+### ⬜ S9 — BELUM: File Upload Tanpa Validasi Tipe Konten
 
 **File:** `server/routes/storage.ts`
 
-Upload file hanya mengambil ekstensi dari `filePath` string (`split(".").pop()`), tidak memvalidasi konten file (magic bytes). Attacker bisa upload file `.php` atau `.js` dengan ekstensi `.jpg`.
+Upload file hanya mengambil ekstensi dari nama file string, tidak memvalidasi magic bytes konten file. Attacker bisa upload file `.php` atau `.js` dengan ekstensi `.jpg`.
 
-**Solusi:** Validasi MIME type menggunakan library seperti `file-type`:
+**Solusi:**
 ```ts
 import { fileTypeFromBuffer } from 'file-type';
 const type = await fileTypeFromBuffer(buffer);
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 if (!type || !ALLOWED_TYPES.includes(type.mime)) {
-  return res.status(400).json({ error: "File type not allowed" });
+  return res.status(400).json({ error: "Tipe file tidak diizinkan" });
 }
 ```
 
 ---
 
-### 🟠 S10 — PENTING: Validasi Password Lemah
+### ✅ S10 — SELESAI: Validasi Password Lemah
 
 **File:** `server/routes/auth.ts`
-
-Tidak ada validasi panjang minimum atau kompleksitas password. User bisa mendaftar dengan password `"1"`.
-
-**Solusi:**
-```ts
-if (password.length < 8) {
-  return res.status(400).json({ error: "Password minimal 8 karakter" });
-}
-```
+**Sprint 1** — Register dan update-password menolak password < 8 karakter atau tidak mengandung kombinasi huruf + angka.
 
 ---
 
 ## 2. BUG DAN POTENSI BUG
 
-### 🔴 B1 — BUG: POSDashboard N+1 Query (7 HTTP Calls Sequential)
+### ⬜ B1 — BELUM: POSDashboard N+1 Query (7 HTTP Calls Sequential)
 
-**File:** `src/pages/pos/POSDashboardPage.tsx` (fungsi `fetchDashboardStats`)
+**File:** `src/pages/pos/POSDashboardPage.tsx`
 
-```ts
-// Loop ini melakukan 7 query terpisah satu per satu!
-for (let i = 6; i >= 0; i--) {
-  const { data } = await supabase.from('pos_sales').select('total')
-    .eq('tenant_id', tenantId)...
-  salesChart.push(...)
-}
-```
+Loop di `fetchDashboardStats` melakukan **13 request HTTP sequential** setiap render. Ini lambat dan memboroskan koneksi DB.
 
-Setiap render POSDashboard membuat **7 + 6 = 13 request HTTP** secara sequential. Ini lambat dan memboroskan koneksi DB.
-
-**Solusi:** Ganti dengan satu query SQL GROUP BY:
+**Solusi:** Satu query SQL GROUP BY:
 ```sql
 SELECT DATE_TRUNC('day', created_at) as day, SUM(total) as total
 FROM pos_sales
-WHERE tenant_id = $1 AND outlet_id = $2
-  AND created_at >= NOW() - INTERVAL '7 days'
-  AND status = 'completed'
+WHERE tenant_id = $1 AND created_at >= NOW() - INTERVAL '7 days'
 GROUP BY 1 ORDER BY 1
 ```
+Atau tambahkan endpoint `/api/pos/dashboard-stats` yang mengembalikan semua data sekaligus.
 
 ---
 
-### 🔴 B2 — BUG: useMerchantQuota Sequential Loop per Merchant
+### ⬜ B2 — BELUM: useMerchantQuota Sequential Loop per Merchant
 
 **File:** `src/hooks/useMerchantQuota.ts`
 
-```ts
-for (const merchantId of merchantIds) {
-  // 2 query per merchant — sequential!
-  const { data: merchant } = await supabase.from('merchants').select(...)
-  const { data: subscriptions } = await supabase.from('merchant_subscriptions').select(...)
-}
-```
+Di checkout dengan 3 merchant = 6 request sequential. Memperlambat proses checkout secara signifikan.
 
-Di halaman checkout dengan 3 merchant, ini = 6 request sequential. Memperlambat proses checkout secara signifikan.
-
-**Solusi:** Gunakan `Promise.all()` atau satu query batch:
+**Solusi:**
 ```ts
 const results = await Promise.all(merchantIds.map(id => fetchMerchantQuota(id)));
 ```
 
 ---
 
-### 🔴 B3 — BUG: File Upload ke Local Filesystem (Tidak Persistent)
+### ⬜ B3 — BELUM: File Upload ke Local Filesystem (Tidak Persistent)
 
-**File:** `server/routes/storage.ts`, `server/index.ts`
+**File:** `server/routes/storage.ts`
 
-Gambar produk, foto profil, dan bukti refund disimpan di folder `uploads/` di filesystem lokal container Replit. File ini **hilang** saat:
-- Server restart/redeploy
-- Container di-recycle oleh Replit
+Gambar produk, foto profil, bukti refund disimpan di `uploads/` di container Replit. File hilang saat container di-recycle atau server redeploy. Semua gambar akan broken di produksi.
 
-Semua gambar produk yang sudah diupload akan broken setelah deployment berikutnya.
-
-**Solusi Sementara:** Mount ke volume persistent, atau gunakan Replit Object Storage / Cloudflare R2.
+**Solusi:** Integrasi ke object storage eksternal (Cloudflare R2, Backblaze B2, atau Replit Object Storage). Lihat F2.
 
 ---
 
-### 🔴 B4 — BUG: AuthContext Masih Punya Supabase Auth Shim Dependency
+### ⬜ B4 — BELUM: AuthContext Masih Bergantung pada Supabase Auth Shim
 
 **File:** `src/contexts/AuthContext.tsx`
 
-```ts
-const { data: { subscription } } = supabase.auth.onAuthStateChange(...)
-supabase.auth.getSession()
-supabase.auth.signInWithPassword(...)
-```
+Semua fungsi auth (`onAuthStateChange`, `getSession`, `signInWithPassword`) masih melewati shim `supabase.auth.*`. Jika shim tidak trigger event dengan benar, state auth bisa tidak sinkron antar tab.
 
-Semua ini bergantung pada implementasi shim di `src/integrations/supabase/client.ts`. Jika shim untuk `auth.onAuthStateChange` tidak benar-benar trigger event saat session berubah (misal setelah login di tab lain), state auth bisa tidak sinkron.
-
-**Solusi:** Refactor AuthContext untuk langsung call `/api/auth/*` tanpa melewati shim Supabase.
+**Solusi:** Refactor AuthContext untuk langsung call `/api/auth/*` tanpa melewati shim.
 
 ---
 
-### 🔴 B5 — BUG: React Router Future Flag Warnings (Console Noise)
+### ✅ B5 — SELESAI: React Router Future Flag Warnings
 
 **File:** `src/App.tsx`
-
-Browser console menampilkan warning React Router v7 di setiap page load:
-```
-⚠️ React Router Future Flag Warning: v7_startTransition
-⚠️ React Router Future Flag Warning: v7_relativeSplatPath
-```
-
-**Solusi:** Tambahkan future flags di BrowserRouter:
-```tsx
-<BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-```
+**Sprint 1** — Ditambah `future={{ v7_startTransition: true, v7_relativeSplatPath: true }}` ke `BrowserRouter`. Warning di console sudah hilang.
 
 ---
 
-### 🟠 B6 — POTENSI BUG: Email Reset Password Tidak Terkirim
+### ⬜ B6 — BELUM: Email Reset Password Tidak Terkirim
 
-**File:** `src/pages/ForgotPasswordPage.tsx`, `server/routes/auth.ts`
+**File:** `src/pages/ForgotPasswordPage.tsx`
 
-Halaman reset password ada di frontend (`/forgot-password`) tetapi tidak ada endpoint backend yang benar-benar mengirim email. Supabase Auth yang dulu menangani ini sudah dihapus. User yang klik "Lupa Password" tidak akan menerima email apapun.
-
----
-
-### 🟠 B7 — POTENSI BUG: Xendit Webhook Tidak Validasi Signature
-
-**File:** `server/index.ts` (sekitar baris 220–260)
-
-Endpoint `POST /api/xendit/webhook` menerima semua request tanpa memverifikasi `X-CALLBACK-TOKEN` dari Xendit (atau jika ada pengecekan, perlu diverifikasi). Attacker bisa memalsukan webhook payment success untuk memproses order tanpa bayar.
-
-**Solusi:** Validasi header `x-callback-token` terhadap `XENDIT_WEBHOOK_TOKEN` env var.
+Halaman reset password ada di frontend tetapi tidak ada backend yang benar-benar mengirim email. User yang klik "Lupa Password" tidak akan menerima apapun. Bergantung pada F1 (Email SMTP).
 
 ---
 
-### 🟠 B8 — POTENSI BUG: Scheduled Jobs Tidak Punya Scheduler
+### ✅ B7 — SELESAI: Xendit Webhook Validasi Signature Lemah
 
-**File:** `server/routes/db-proxy.ts` (ALLOWED_RPCS)
-
-RPC `auto_cancel_pending_orders` dan `auto_complete_delivered_orders` ada di allowlist tapi tidak ada scheduler (cron job) yang memanggil ini secara otomatis. Order tidak akan pernah auto-cancel atau auto-complete kecuali ada trigger manual.
-
----
-
-### 🟠 B9 — POTENSI BUG: Cashback Balance Tidak Ada Logika Auto-Credit
-
-**File:** `src/integrations/supabase/types.ts`, `src/pages/buyer/CashbackPage.tsx`
-
-Kolom `cashback_balance` ada di `profiles` tapi tidak ada server-side logic yang otomatis kredit cashback saat order `DONE`. Frontend hanya menampilkan saldo, tidak ada transaksi yang mencatatnya.
+**File:** `server/index.ts`
+**Sprint 1** — Validasi diperketat: jika `callback_token` dikonfigurasi maka wajib cocok, jika belum dikonfigurasi ada warning log sebagai pengingat admin.
 
 ---
 
-### 🟠 B10 — POTENSI BUG: Refund Tidak Ada Logika Transfer Saldo
+### ⬜ B8 — BELUM: Scheduled Jobs Tidak Ada Scheduler
+
+**File:** `server/routes/db-proxy.ts`
+
+RPC `auto_cancel_pending_orders` dan `auto_complete_delivered_orders` ada di allowlist tapi tidak ada yang memanggilnya secara terjadwal. Bergantung pada F3 (Cron Job).
+
+---
+
+### ⬜ B9 — BELUM: Cashback Balance Tidak Ada Logika Auto-Credit
+
+**File:** `src/pages/buyer/CashbackPage.tsx`
+
+Kolom `cashback_balance` ada di `profiles` tapi tidak ada server-side logic yang otomatis kredit cashback saat order `DONE`. Bergantung pada F7.
+
+---
+
+### ⬜ B10 — BELUM: Refund Tidak Ada Logika Transfer Saldo
 
 **File:** `src/pages/admin/AdminRefundsPage.tsx`
 
-UI refund ada (approve/reject) tapi saat admin approve refund, tidak ada kode yang:
-1. Mendebit saldo merchant
-2. Mengkredit wallet/cashback buyer
-3. Mencatat mutasi keuangan
-
-Admin hanya mengubah `status` refund, bukan memproses transfer uang yang sebenarnya.
+Admin hanya mengubah `status` refund. Tidak ada debit merchant, kredit buyer, atau pencatatan mutasi keuangan. Bergantung pada F4.
 
 ---
 
 ## 3. OPTIMASI
 
-### 🔴 O1 — HIGH IMPACT: POSKasirPage.tsx Terlalu Besar (1525 Baris)
+### ⬜ O1 — BELUM: POSKasirPage.tsx Terlalu Besar (1525 Baris)
 
 **File:** `src/pages/pos/POSKasirPage.tsx`
 
-Satu file dengan 1525 baris mengandung:
-- Antarmuka cart
-- Dialog payment
-- Logika loyalty/member
-- Barcode scanner
-- Held bills (tagihan ditahan)
-- Promo dan voucher
+Satu file mengandung cart, dialog payment, loyalty, barcode scanner, held bills, promo — semua state di satu komponen menyebabkan re-render berlebihan.
 
-Ini menyebabkan re-render berlebihan karena semua state di satu komponen. Juga sulit di-maintain.
-
-**Solusi:** Pecah menjadi komponen terpisah:
-- `POSCart.tsx` — manajemen item keranjang
-- `POSPaymentDialog.tsx` — dialog proses pembayaran
-- `POSLoyaltySection.tsx` — member & poin
-- `POSHeldBills.tsx` — tagihan ditahan
+**Solusi:** Pecah menjadi: `POSCart.tsx`, `POSPaymentDialog.tsx`, `POSLoyaltySection.tsx`, `POSHeldBills.tsx`.
 
 ---
 
-### 🔴 O2 — HIGH IMPACT: Image Upload via Base64 (Inefisien)
+### ⬜ O2 — BELUM: Image Upload via Base64 (Inefisien, +33% Ukuran)
 
-**File:** `server/routes/storage.ts`, klien yang upload
+**File:** `server/routes/storage.ts`
 
-Upload gambar saat ini di-encode ke base64 di browser, dikirim sebagai JSON. Base64 menambah overhead **~33%** ukuran file. Untuk foto produk 2MB, dikirim 2.7MB.
+Upload gambar di-encode ke base64 di browser dan dikirim sebagai JSON. Untuk foto 2MB → dikirim 2.7MB.
 
-**Solusi:** Gunakan `multipart/form-data` dengan `multer`:
-```ts
-import multer from 'multer';
-const upload = multer({ dest: 'uploads/tmp/' });
-router.post("/upload", upload.single('file'), async (req, res) => {
-  // req.file sudah tersedia
-});
-```
+**Solusi:** Gunakan `multipart/form-data` dengan `multer`.
 
 ---
 
-### 🟠 O3 — PENTING: React Query staleTime Seragam untuk Semua Data
+### ⬜ O3 — BELUM: React Query staleTime Seragam untuk Semua Data
 
 **File:** `src/App.tsx`
 
-Semua query menggunakan `staleTime: 60_000` (1 menit). Data seperti `categories`, `wilayah`, `app_settings` sangat jarang berubah dan bisa di-cache jauh lebih lama, sementara data seperti `orders` dan `notifications` harus lebih sering refresh.
-
-**Solusi:** Set `staleTime` per query:
-```ts
-// Data statis
-useQuery({ queryKey: ['categories'], staleTime: 60 * 60 * 1000 }) // 1 jam
-
-// Data dinamis
-useQuery({ queryKey: ['orders', userId], staleTime: 30_000 }) // 30 detik
-```
+Semua query pakai `staleTime: 60_000`. Data statis (categories, wilayah) bisa di-cache 1 jam. Data dinamis (orders, notifications) seharusnya lebih sering refresh.
 
 ---
 
-### 🟠 O4 — PENTING: FK Join di DB Proxy Tidak Menggunakan Database JOIN
+### ⬜ O4 — BELUM: FK Join di DB Proxy Belum Optimal
 
 **File:** `server/routes/db-proxy.ts`
 
-Query SELECT dengan relasi (misal orders + merchants + products) dilakukan dengan **multiple round-trips**: query utama dulu, lalu query FK untuk setiap relasi. Ini N+1 di level server.
-
-**Solusi:** Manfaatkan PostgreSQL JOIN langsung atau gunakan query yang lebih efisien dengan `WITH` CTE.
+Query SELECT dengan relasi sudah menggunakan `LEFT JOIN LATERAL` di server, tapi query untuk relasi nested-nested masih menggunakan subquery inline yang bisa dioptimasi lebih lanjut dengan CTE.
 
 ---
 
-### 🟠 O5 — PENTING: SSE Heartbeat Memory Leak Saat Koneksi Banyak
+### ⬜ O5 — BELUM: SSE Heartbeat Interval Tanpa Max Connection Timeout
 
 **File:** `server/routes/sse.ts`
 
-Setiap koneksi SSE membuat `setInterval(25000)`. Dengan 1000 user aktif = 1000 interval berjalan. Jika cleanup `req.on('close')` tidak selalu terpanggil (misal timeout paksa), interval bisa tidak pernah dibersihkan.
+Setiap koneksi SSE membuat `setInterval(25s)`. Jika `req.on('close')` tidak terpanggil akibat timeout paksa, interval bisa bocor memory.
 
-**Solusi:** Tambahkan timeout maksimum koneksi dan pastikan cleanup berjalan:
+**Solusi:**
 ```ts
-const MAX_CONNECTION_MS = 30 * 60 * 1000; // 30 menit
-const timeout = setTimeout(() => res.end(), MAX_CONNECTION_MS);
+const MAX_MS = 30 * 60 * 1000;
+const timeout = setTimeout(() => res.end(), MAX_MS);
 req.on("close", () => { clearInterval(heartbeat); clearTimeout(timeout); });
 ```
 
 ---
 
-### 🟠 O6 — PENTING: `useMerchantQuota` Dipanggil di Checkout dengan Loop Sequential
+### ⬜ O6 — BELUM: useMerchantQuota Loop Sequential (lihat B2)
 
-Sudah disebutkan di B2. Impact ganda: bug dan performance issue di checkout.
+Impact ganda: bug dan performance issue di checkout.
 
 ---
 
-### 🟢 O7 — MINOR: Lazy Loading Sudah Ada, Tapi Suspense Fallback Tidak Konsisten
+### ⬜ O7 — BELUM: Suspense Fallback Tidak Konsisten
 
 **File:** `src/App.tsx`
 
-`React.lazy()` sudah diimplementasi untuk 150+ halaman. Namun beberapa halaman mungkin tidak punya `<Suspense>` fallback yang baik (hanya loading spinner generic). Untuk halaman besar seperti POSKasirPage, fallback skeleton yang sesuai akan meningkatkan UX.
+`React.lazy()` sudah diimplementasi untuk 150+ halaman tetapi beberapa halaman besar tidak punya skeleton fallback yang sesuai.
 
 ---
 
-### 🟢 O8 — MINOR: Cart di localStorage Tidak Ada Batas Ukuran
+### ⬜ O8 — BELUM: Cart di localStorage Tidak Ada Batas Ukuran
 
 **File:** `src/contexts/CartContext.tsx`
 
@@ -460,48 +285,27 @@ Cart disimpan di `localStorage` tanpa validasi ukuran. Jika user menambah 100+ i
 
 ## 4. FITUR BISNIS URGENT
 
-### 🔴 F1 — URGENT: Email Notifikasi (Konfirmasi Order, Reset Password, Verifikasi Akun)
+### ⬜ F1 — BELUM: Email Notifikasi (Konfirmasi Order, Reset Password)
 
-**Status:** Belum ada implementasi sama sekali
+Tidak ada SMTP atau email service. User tidak bisa reset password, merchant tidak dapat notifikasi order via email.
 
-Saat ini tidak ada SMTP atau email service. Dampak bisnis:
-- User tidak bisa reset password (flow ada, email tidak terkirim)
-- Konfirmasi order hanya via notifikasi in-app (tidak ada email backup)
-- Merchant tidak mendapat notifikasi order baru via email
-
-**Rencana:** Integrasi dengan Nodemailer + SMTP (Gmail/Mailgun/Resend):
-- Template HTML untuk: konfirmasi order, reset password, verifikasi email, notifikasi status pesanan
-- Endpoint `/api/email/send` di server
-- Trigger otomatis dari order status changes
+**Rencana:** Nodemailer + SMTP (Gmail/Mailgun/Resend). Template HTML untuk: konfirmasi order, reset password, verifikasi email, status pesanan.
 
 ---
 
-### 🔴 F2 — URGENT: Object Storage Persistent (Pengganti Local Filesystem)
+### ⬜ F2 — BELUM: Object Storage Persistent (Pengganti Local Filesystem)
 
-**Status:** Upload ke `uploads/` — tidak survive restart
+Semua foto produk dan profil hilang saat container Replit di-recycle.
 
-Semua foto produk, foto profil, bukti refund akan hilang setiap kali container di-recycle. Ini akan menyebabkan semua gambar broken di produksi.
+**Rencana:** Cloudflare R2 (gratis 10GB) atau Backblaze B2. Migrasi `server/routes/storage.ts` untuk upload ke bucket eksternal.
+
+---
+
+### ⬜ F3 — BELUM: Scheduler / Cron Job untuk Otomasi Bisnis
+
+RPC auto-cancel dan auto-complete order ada tapi tidak ada yang memanggilnya secara terjadwal.
 
 **Rencana:**
-- Gunakan **Cloudflare R2** (gratis 10GB) atau **Backblaze B2**
-- Atau gunakan Replit Object Storage jika tersedia
-- Migrasi `server/routes/storage.ts` untuk upload ke bucket eksternal
-- Update `publicUrl` agar mengarah ke CDN URL
-
----
-
-### 🔴 F3 — URGENT: Scheduler / Cron Job untuk Otomasi Bisnis
-
-**Status:** RPC ada, tidak ada yang memanggilnya secara terjadwal
-
-Proses bisnis yang seharusnya otomatis:
-- Auto-cancel order pending > 24 jam
-- Auto-complete order yang sudah 3 hari DELIVERED
-- Auto-generate laporan bulanan kas
-- Cleanup expired chat dan push subscriptions
-- Flash sale auto-start dan auto-end berdasarkan jadwal
-
-**Rencana:** Implementasi cron job sederhana di `server/index.ts`:
 ```ts
 import cron from 'node-cron';
 cron.schedule('*/30 * * * *', () => runRPC('auto_cancel_pending_orders'));
@@ -510,172 +314,112 @@ cron.schedule('0 2 * * *', () => runRPC('auto_complete_delivered_orders'));
 
 ---
 
-### 🔴 F4 — URGENT: Refund Processing Otomatis (Transfer Saldo)
+### ⬜ F4 — BELUM: Refund Processing Otomatis (Transfer Saldo)
 
-**Status:** Hanya UI approve/reject, tidak ada transfer nyata
+Saat admin approve refund: tidak ada debit merchant, kredit buyer, atau pencatatan mutasi keuangan.
 
-Saat admin approve refund:
-1. Saldo merchant harus didebit
-2. Wallet buyer harus dikredit (atau cashback)
-3. Mutasi keuangan harus tercatat
-4. Notifikasi harus terkirim ke buyer
-
-**Rencana:** Server endpoint `POST /api/refunds/:id/process`:
-```ts
-// Gunakan database transaction:
-BEGIN;
-  UPDATE merchant_subscriptions SET ... -- debit merchant
-  UPDATE profiles SET cashback_balance = cashback_balance + amount WHERE user_id = buyer_id;
-  INSERT INTO financial_mutations ...;
-  UPDATE refund_requests SET status = 'approved', processed_at = now();
-COMMIT;
-```
+**Rencana:** Endpoint `POST /api/refunds/:id/process` dengan database transaction (BEGIN/COMMIT).
 
 ---
 
-### 🔴 F5 — URGENT: Komplain / Dispute Buyer dengan Bukti Foto
+### ⬜ F5 — BELUM: Halaman Komplain / Dispute Buyer dengan Bukti Foto
 
-**Status:** Belum ada halaman khusus buyer untuk komplain
+Buyer tidak punya cara formal untuk mengajukan komplain dengan bukti foto setelah barang diterima.
 
-Saat ini buyer tidak punya cara formal untuk mengajukan komplain dengan bukti foto setelah barang diterima. Hanya ada chat order yang terbatas.
-
-**Rencana:** Halaman baru `/orders/:id/dispute`:
-- Form komplain dengan upload bukti foto (maks 3 foto)
-- Kategori masalah (barang rusak, tidak sesuai, tidak datang)
-- Status tracking komplain
-- Notifikasi ke merchant dan admin
-- Admin bisa mediasi dan putuskan refund
+**Rencana:** Halaman `/orders/:id/dispute` dengan form komplain, upload foto, status tracking, notifikasi merchant + admin.
 
 ---
 
-### 🟠 F6 — PENTING: Export Laporan Keuangan (PDF / Excel)
+### ⬜ F6 — BELUM: Export Laporan Keuangan (PDF / CSV)
 
-**Status:** Halaman laporan ada tapi tidak ada tombol export
+Halaman laporan ada tapi tidak ada tombol export. Merchant butuh export untuk akuntansi.
 
-Merchant dan admin butuh export data untuk akuntansi, laporan pajak, dan rekonsiliasi.
-
-**Rencana:**
-- Export CSV untuk daftar transaksi (mudah diimplementasi)
-- Export PDF untuk laporan ringkasan bulanan (gunakan `pdfkit` atau `puppeteer`)
-- Endpoint: `GET /api/reports/export?format=csv&month=2026-05&type=sales`
+**Rencana:** Endpoint `GET /api/reports/export?format=csv&month=2026-05`. PDF dengan `pdfkit`.
 
 ---
 
-### 🟠 F7 — PENTING: Cashback Auto-Credit Logic di Server
+### ⬜ F7 — BELUM: Cashback Auto-Credit Logic di Server
 
-**Status:** Field `cashback_balance` ada di DB tapi tidak ada kode yang mengisinya
+Field `cashback_balance` ada di DB tapi tidak ada kode yang mengisinya otomatis saat order `DONE`.
 
-Cashback harus dikreditkan otomatis saat order status berubah ke `DONE` berdasarkan persentase yang dikonfigurasi admin.
-
-**Rencana:** Trigger di server saat update status order:
-```ts
-if (newStatus === 'DONE') {
-  const cashbackPercent = await getCashbackSettings();
-  const cashback = order.total * cashbackPercent;
-  await creditCashback(order.buyer_id, cashback, order.id);
-}
-```
+**Rencana:** Trigger server saat update status order ke `DONE`: kredit cashback berdasarkan persentase dari `cashback_rules`.
 
 ---
 
-### 🟠 F8 — PENTING: Verifikasi Merchant Otomatis dengan Halaman Status
+### ⬜ F8 — BELUM: Verifikasi Merchant dengan Status Tracking Jelas
 
-**Status:** Merchant mendaftar tapi tidak ada tracking status verifikasi yang jelas
+Merchant baru tidak tahu status verifikasi mereka. Tidak ada notifikasi perubahan status.
 
-Merchant yang baru mendaftar tidak tahu kapan dan apakah verifikasi mereka diproses. Tidak ada notifikasi email (lihat F1) dan status di dashboard kurang informatif.
-
-**Rencana:**
-- Halaman `/merchant/verification-status` dengan progress step yang jelas
-- Email notifikasi saat status berubah (butuh F1 selesai dulu)
-- Admin diberi notifikasi saat ada merchant baru menunggu verifikasi
+**Rencana:** Halaman `/merchant/verification-status` dengan progress steps. Notifikasi admin saat ada merchant baru menunggu. (Butuh F1 untuk email.)
 
 ---
 
-### 🟢 F9 — NICE-TO-HAVE: Laporan Analytics Merchant yang Lebih Kaya
+### ⬜ F9 — BELUM: Analytics Merchant yang Lebih Kaya
 
-**File:** `src/pages/merchant/MerchantAnalyticsPage.tsx`
-
-Saat ini menampilkan grafik dasar. Fitur yang akan meningkatkan nilai bisnis:
-- Produk paling sering ditambah ke wishlist (intent data)
-- Konversi cart-to-order per produk
-- Rata-rata nilai order (AOV) trend
-- Perbandingan bulan ini vs bulan lalu dengan persentase growth
+Saat ini grafik dasar. Belum ada: produk paling sering di-wishlist, konversi cart-to-order, AOV trend, perbandingan bulan ini vs lalu.
 
 ---
 
-## STATUS & PRIORITAS PENGERJAAN
+## STATUS LENGKAP — SEMUA ITEM
 
 | ID | Judul | Prioritas | Estimasi | Status |
 |---|---|---|---|---|
+| **KEAMANAN** | | | | |
 | S1 | Auth di INSERT/UPDATE/DELETE | 🔴 Kritis | 2 jam | ✅ Sprint 1 |
 | S2 | Guard DELETE/UPDATE tanpa filter | 🔴 Kritis | 1 jam | ✅ Sprint 1 |
 | S3 | SSE broadcast per-user | 🔴 Kritis | 4 jam | ✅ Sprint 2 |
-| S4 | Token di URL → Cookie | 🔴 Kritis | 2 jam | ✅ Sprint 2 |
+| S4 | Token di URL → exchange code | 🔴 Kritis | 2 jam | ✅ Sprint 2 |
 | S5 | Push subscribe verifikasi user | 🔴 Kritis | 1 jam | ✅ Sprint 1 |
 | S6 | CORS restrict origin | 🟠 Penting | 1 jam | ✅ Sprint 2 |
 | S7 | Rate limit di server | 🟠 Penting | 3 jam | ✅ Sprint 2 |
 | S8 | Session persistent di DB | 🟠 Penting | 4 jam | ✅ Sprint 2 |
-| S9 | Validasi file upload | 🟠 Penting | 2 jam | ⬜ Belum |
+| S9 | Validasi magic bytes file upload | 🟠 Penting | 2 jam | ⬜ Belum |
 | S10 | Validasi kekuatan password | 🟠 Penting | 1 jam | ✅ Sprint 1 |
+| **BUG** | | | | |
 | B1 | POS Dashboard N+1 queries | 🔴 Kritis | 3 jam | ⬜ Belum |
 | B2 | useMerchantQuota sequential | 🔴 Kritis | 2 jam | ⬜ Belum |
-| B3 | File upload tidak persistent | 🔴 Kritis | 1 hari | ⬜ Belum |
+| B3 | File upload tidak persistent | 🔴 Kritis | 1 hari | ⬜ Belum (lihat F2) |
 | B4 | Refactor AuthContext dari shim | 🔴 Kritis | 4 jam | ⬜ Belum |
 | B5 | React Router future flags | 🟠 Penting | 30 menit | ✅ Sprint 1 |
-| B6 | Email reset password | 🟠 Penting | Lihat F1 | ⬜ Belum |
+| B6 | Email reset password | 🟠 Penting | — | ⬜ Belum (lihat F1) |
 | B7 | Xendit webhook signature | 🟠 Penting | 1 jam | ✅ Sprint 1 |
-| B8 | Scheduled jobs | 🟠 Penting | Lihat F3 | ⬜ Belum |
-| B9 | Cashback auto-credit | 🟠 Penting | Lihat F7 | ⬜ Belum |
-| B10 | Refund saldo transfer | 🟠 Penting | Lihat F4 | ⬜ Belum |
+| B8 | Scheduled jobs tidak ada | 🟠 Penting | — | ⬜ Belum (lihat F3) |
+| B9 | Cashback auto-credit | 🟠 Penting | — | ⬜ Belum (lihat F7) |
+| B10 | Refund saldo transfer | 🟠 Penting | — | ⬜ Belum (lihat F4) |
+| **OPTIMASI** | | | | |
 | O1 | Pecah POSKasirPage.tsx | 🔴 High | 1 hari | ⬜ Belum |
 | O2 | Upload multipart bukan base64 | 🟠 Penting | 3 jam | ⬜ Belum |
 | O3 | staleTime per query | 🟠 Penting | 2 jam | ⬜ Belum |
 | O4 | DB join efficiency | 🟠 Penting | 4 jam | ⬜ Belum |
-| O5 | SSE connection timeout | 🟢 Minor | 1 jam | ⬜ Belum |
+| O5 | SSE connection max timeout | 🟢 Minor | 1 jam | ⬜ Belum |
+| O6 | useMerchantQuota paralel | 🟠 Penting | — | ⬜ Belum (lihat B2) |
+| O7 | Suspense fallback konsisten | 🟢 Minor | 2 jam | ⬜ Belum |
 | O8 | Cart localStorage size limit | 🟢 Minor | 30 menit | ⬜ Belum |
+| **FITUR** | | | | |
 | F1 | Email notifikasi (SMTP) | 🔴 Urgent | 2 hari | ⬜ Belum |
 | F2 | Object storage persistent | 🔴 Urgent | 1 hari | ⬜ Belum |
 | F3 | Cron job / scheduler | 🔴 Urgent | 4 jam | ⬜ Belum |
 | F4 | Refund processing otomatis | 🔴 Urgent | 1 hari | ⬜ Belum |
 | F5 | Halaman dispute/komplain buyer | 🔴 Urgent | 1 hari | ⬜ Belum |
 | F6 | Export laporan PDF/CSV | 🟠 Penting | 1 hari | ⬜ Belum |
-| F7 | Cashback logic server-side | 🟠 Penting | 4 jam | ⬜ Belum |
-| F8 | Status verifikasi merchant | 🟠 Penting | 6 jam | ⬜ Belum |
-| F9 | Analytics merchant lebih kaya | 🟢 Nice | 2 hari | ⬜ Belum |
+| F7 | Cashback auto-credit server | 🟠 Penting | 4 jam | ⬜ Belum |
+| F8 | Status verifikasi merchant | 🟠 Penting | 1 hari | ⬜ Belum |
+| F9 | Analytics merchant richer | 🟢 Nice-to-have | 2 hari | ⬜ Belum |
 
 ---
 
-## URUTAN PENGERJAAN YANG DISARANKAN
+## REKOMENDASI SPRINT BERIKUTNYA
 
-### Sprint 1 — Keamanan Kritis (1–2 hari)
-1. **S1** — Auth INSERT/UPDATE/DELETE *(paling bahaya)*
-2. **S2** — Guard DELETE/UPDATE tanpa filter
-3. **S5** — Push subscribe verifikasi user
-4. **S10** — Validasi password minimum
-5. **B5** — React Router future flags *(cepat)*
-6. **B7** — Xendit webhook signature
+### Sprint 3 — Bug & Performance (estimasi ~1 hari)
+1. **B1** — POS Dashboard query N+1 → satu endpoint `/api/pos/dashboard-stats`
+2. **B2 / O6** — useMerchantQuota paralel dengan `Promise.all`
+3. **O5** — SSE connection max timeout (quick fix)
+4. **S9** — Validasi magic bytes file upload
+5. **O1** — Mulai pecah POSKasirPage.tsx
 
-### Sprint 2 — Stabilitas (2–3 hari)
-1. **S8** — Session persistent di PostgreSQL
-2. **S4** — Token di URL → HttpOnly Cookie
-3. **B4** — Refactor AuthContext dari shim
-4. **F3** — Cron job / scheduler
-5. **S7** — Rate limit server-side
-
-### Sprint 3 — Performance & Data Safety (2–3 hari)
-1. **F2** — Object storage persistent *(data bisa hilang kapan saja)*
-2. **B1** — POS Dashboard N+1 queries
-3. **B2** — useMerchantQuota sequential
-4. **S3** — SSE broadcast per-user
-5. **O2** — Upload multipart
-
-### Sprint 4 — Fitur Bisnis (3–5 hari)
-1. **F1** — Email notifikasi (SMTP)
-2. **F4** — Refund processing otomatis
-3. **F5** — Halaman dispute/komplain buyer
-4. **F7** — Cashback auto-credit
-5. **F6** — Export laporan CSV/PDF
-
----
-
-*File ini diperbarui setiap kali ada item yang selesai dikerjakan.*
+### Sprint 4 — Fitur Bisnis Kritikal (estimasi ~3 hari)
+1. **F3** — Cron job: auto-cancel order, auto-complete delivered
+2. **F2 + B3** — Object storage persistent (Cloudflare R2)
+3. **F1 + B6** — Email SMTP + reset password
+4. **F4 + B10** — Refund processing dengan transfer saldo
+5. **F7 + B9** — Cashback auto-credit saat order DONE
