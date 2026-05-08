@@ -175,8 +175,14 @@ router.post("/order-status", async (req, res) => {
   }
 });
 
-// POST /api/push/broadcast — kirim push ke semua user (admin)
+// POST /api/push/broadcast — kirim push ke semua user (admin only)
 router.post("/broadcast", async (req, res) => {
+  const authUser = await getAuthUser(req);
+  if (!authUser) return res.status(401).json({ error: "Unauthorized: login diperlukan" });
+  if (!authUser.roles.includes("admin")) {
+    return res.status(403).json({ error: "Forbidden: hanya admin yang dapat broadcast" });
+  }
+
   const { title, body, url } = req.body as { title: string; body: string; url?: string };
 
   if (!title || !body) {

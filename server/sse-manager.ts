@@ -161,6 +161,17 @@ export function broadcastChannelEvent(payload: {
   sendToChannel(payload.channel, payload);
 }
 
+/** Subscribe user ke named channel (dipakai oleh POST /api/sse/subscribe) */
+export function addClientChannel(userId: string, channelName: string): boolean {
+  const byUser = clients.get(userId) || [];
+  let joined = false;
+  for (const client of byUser) {
+    subscribeClientToChannel(client, channelName);
+    joined = true;
+  }
+  return joined;
+}
+
 export function getClientCount(): number {
   return allClients.length;
 }

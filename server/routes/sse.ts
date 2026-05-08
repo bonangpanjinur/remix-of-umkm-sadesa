@@ -12,6 +12,7 @@ import {
   removeSSEClient,
   broadcastChannelEvent,
   getClientCount,
+  addClientChannel,
 } from "../sse-manager";
 import { getSessionUser } from "../auth";
 
@@ -83,7 +84,10 @@ router.post("/subscribe", async (req: Request, res: Response) => {
   if (!userId) return res.status(401).json({ error: "Unauthorized" });
 
   const { channel } = req.body;
-  res.json({ ok: true, channel });
+  if (!channel) return res.status(400).json({ error: "channel wajib diisi" });
+
+  const joined = addClientChannel(userId, channel);
+  res.json({ ok: true, channel, joined });
 });
 
 // POST /api/sse/broadcast — kirim broadcast event (mis. lokasi kurir)

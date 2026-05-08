@@ -36,9 +36,12 @@ app.use((req, res, next) => {
     res.setHeader("Access-Control-Allow-Origin", origin);
   }
   else {
-    // Origin tidak dikenali — log tapi tetap proses (tidak block),
-    // karena Vite proxy mungkin meneruskan request tanpa origin header.
-    // Bisa diubah jadi `return res.status(403).json(...)` jika ingin strict.
+    // S-03: Origin tidak dikenali — tolak kecuali mode development
+    if (process.env.NODE_ENV === "production") {
+      return res.status(403).json({ error: "CORS: origin tidak diizinkan" });
+    }
+    // Di development: izinkan tapi log peringatan
+    console.warn(`[CORS] Origin tidak dikenal diizinkan (dev mode): ${origin}`);
     res.setHeader("Access-Control-Allow-Origin", origin);
   }
 
@@ -222,13 +225,21 @@ app.post("/api/webhook/marketplace-order", async (req, res) => {
   try {
     const { order_id, tenant_id, items, status, customer_name, customer_phone, total, created_at } = req.body;
     if (!order_id || !tenant_id) return res.status(400).json({ error: "order_id and tenant_id are required" });
+    // Log incoming webhook ke audit_logs untuk traceability
+    await client.query(
+      `INSERT INTO public.admin_audit_logs (admin_id, action, entity_type, entity_id, new_value, created_at)
+       VALUES (gen_random_uuid(), 'marketplace_order_webhook', 'order', $1::uuid, $2, now())`,
+      [order_id, JSON.stringify({ tenant_id, status, customer_name, total, created_at })]
+    ).catch(() => {}); // non-blocking
     return res.json({ success: true, message: "Webhook received", order_id });
   } catch (err) { return res.status(500).json({ error: "Server error" }); }
   finally { client.release(); }
 });
 
+// S-01: sync-stock — TODO Sprint 4: implementasi logika sync stok POS ↔ marketplace
 app.post("/api/pos/sync-stock", async (req, res) => {
-  return res.json({ success: true, message: "Stock sync triggered" });
+  console.warn("[pos/sync-stock] Endpoint belum diimplementasi — Sprint 4");
+  return res.status(501).json({ success: false, message: "Belum diimplementasi — Sprint 4" });
 });
 
 // ─── S6-08: WhatsApp Notification API ─────────────────────────────────────────
@@ -316,15 +327,12 @@ app.post("/api/whatsapp/send", async (req, res) => {
 
     const success = await sendWhatsAppMessage(to, finalMessage, settings);
 
-    // Log the notification
+    // R-04: Log ke admin_audit_logs, bukan app_settings (hindari polusi konfigurasi)
     await client.query(
-      `INSERT INTO public.app_settings (key, value) VALUES ($1, $2)
-       ON CONFLICT DO NOTHING`,
-      [
-        `wa_log_${Date.now()}`,
-        JSON.stringify({ to, status: success ? "sent" : "failed", sent_at: new Date().toISOString() }),
-      ]
-    );
+      `INSERT INTO public.admin_audit_logs (admin_id, action, entity_type, new_value, created_at)
+       VALUES (gen_random_uuid(), 'whatsapp_send', 'notification', $1, now())`,
+      [JSON.stringify({ to, status: success ? "sent" : "failed", sent_at: new Date().toISOString() })]
+    ).catch(() => {}); // non-blocking — log failure tidak boleh gagalkan response
 
     return res.json({ success, message: success ? "Pesan terkirim" : "Gagal mengirim pesan" });
   } catch (err) {

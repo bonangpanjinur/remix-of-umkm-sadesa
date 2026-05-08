@@ -65,6 +65,7 @@ let _sseSource: EventSource | null = null;
 let _sseSubscriptions: SSESubscription[] = [];
 let _sseReconnectTimer: ReturnType<typeof setTimeout> | null = null;
 let _sseConnected = false;
+let _sseBackoffMs = 3000;
 
 /**
  * Connect to SSE endpoint. Called automatically when a user logs in.
@@ -96,10 +97,11 @@ function sseConnect() {
     _sseConnected = false;
     source.close();
     _sseSource = null;
-    // Reconnect after 3s
+    // Exponential backoff: 3s → 6s → 12s → ... → max 60s
     if (_sessionToken) {
       if (_sseReconnectTimer) clearTimeout(_sseReconnectTimer);
-      _sseReconnectTimer = setTimeout(sseConnect, 3000);
+      _sseBackoffMs = Math.min((_sseBackoffMs || 3000) * 2, 60000);
+      _sseReconnectTimer = setTimeout(sseConnect, _sseBackoffMs);
     }
   };
 }
@@ -108,6 +110,7 @@ function sseDisconnect() {
   if (_sseReconnectTimer) { clearTimeout(_sseReconnectTimer); _sseReconnectTimer = null; }
   if (_sseSource) { _sseSource.close(); _sseSource = null; }
   _sseConnected = false;
+  _sseBackoffMs = 3000; // reset backoff saat disconnect disengaja
 }
 
 /**
