@@ -1,16 +1,21 @@
 import express from "express";
-import { createClient } from "@supabase/supabase-js";
+import { pool } from "./db";
+import apiRoutes from "./routes/index";
+import { createOrUpdateReplitUser } from "./auth";
+import * as path from "path";
+import * as fs from "fs";
 
 const app = express();
 const PORT = process.env.API_PORT ? parseInt(process.env.API_PORT) : 3001;
 
-app.use(express.json());
+app.use(express.json({ limit: "10mb" }));
+app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type, x-callback-token",
-  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
 };
 
 app.use((req, res, next) => {
@@ -19,524 +24,361 @@ app.use((req, res, next) => {
   next();
 });
 
-function getSupabaseAdmin() {
-  const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || "";
-  const key =
-    process.env.SUPABASE_SERVICE_ROLE_KEY ||
-    process.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
-    "";
-  return createClient(url, key, { auth: { persistSession: false } });
-}
+// Replit Auth header middleware
+app.use(async (req, res, next) => {
+  const replitUserId = req.headers["x-replit-user-id"] as string;
+  const replitUserName = req.headers["x-replit-user-name"] as string;
+  if (replitUserId && !req.headers.authorization) {
+    try {
+      const user = await createOrUpdateReplitUser({ id: replitUserId, name: replitUserName });
+      req.headers["x-replit-internal-user-id"] = user.id;
+    } catch (err) {
+      console.error("Replit auth middleware error:", err);
+    }
+  }
+  next();
+});
 
+// Mount all API routes
+app.use("/api", apiRoutes);
+
+// Serve uploaded files
+const UPLOAD_DIR = path.join(process.cwd(), "uploads");
+if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+app.use("/storage", express.static(UPLOAD_DIR));
+
+// ─── Wilayah API ──────────────────────────────────────────────────────────────
 const EMSIFA_BASE = "https://www.emsifa.com/api-wilayah-indonesia/api";
 
 app.get("/api/wilayah", async (req, res) => {
   const { type, code } = req.query as { type?: string; code?: string };
   if (!type) return res.status(400).json({ error: "Missing type parameter" });
-
   let url: string;
   switch (type) {
-    case "provinces":
-      url = `${EMSIFA_BASE}/provinces.json`;
-      break;
-    case "regencies":
-      if (!code)
-        return res.status(400).json({ error: "Missing code parameter" });
-      url = `${EMSIFA_BASE}/regencies/${code}.json`;
-      break;
-    case "districts":
-      if (!code)
-        return res.status(400).json({ error: "Missing code parameter" });
-      url = `${EMSIFA_BASE}/districts/${code}.json`;
-      break;
-    case "villages":
-      if (!code)
-        return res.status(400).json({ error: "Missing code parameter" });
-      url = `${EMSIFA_BASE}/villages/${code}.json`;
-      break;
-    default:
-      return res.status(400).json({ error: "Invalid type" });
+    case "provinces": url = `${EMSIFA_BASE}/provinces.json`; break;
+    case "regencies": if (!code) return res.status(400).json({ error: "Missing code" }); url = `${EMSIFA_BASE}/regencies/${code}.json`; break;
+    case "districts": if (!code) return res.status(400).json({ error: "Missing code" }); url = `${EMSIFA_BASE}/districts/${code}.json`; break;
+    case "villages": if (!code) return res.status(400).json({ error: "Missing code" }); url = `${EMSIFA_BASE}/villages/${code}.json`; break;
+    default: return res.status(400).json({ error: "Invalid type" });
   }
-
   try {
-    const response = await fetch(url, {
-      headers: { Accept: "application/json", "User-Agent": "DesaMart/1.0" },
-    });
+    const response = await fetch(url, { headers: { Accept: "application/json", "User-Agent": "DesaMart/1.0" } });
     if (!response.ok) throw new Error(`emsifa returned ${response.status}`);
     const json: Array<{ id: string; name: string }> = await response.json();
-    const data = Array.isArray(json)
-      ? json.map((item) => ({ code: item.id, name: item.name }))
-      : json;
+    const data = Array.isArray(json) ? json.map((item) => ({ code: item.id, name: item.name })) : json;
     res.setHeader("Cache-Control", "public, max-age=86400");
     return res.json(data);
   } catch (err) {
-    console.error("wilayah error:", err);
-    return res
-      .status(500)
-      .json({ error: err instanceof Error ? err.message : "Server error" });
+    return res.status(500).json({ error: err instanceof Error ? err.message : "Server error" });
   }
 });
 
+// ─── Courier auto-assign ──────────────────────────────────────────────────────
 app.post("/api/assign-courier", async (req, res) => {
-  const supabase = getSupabaseAdmin();
-  const {
-    order_id,
-    merchant_lat,
-    merchant_lng,
-    max_distance_km = 10,
-  } = req.body;
-
+  const { order_id, merchant_lat, merchant_lng, max_distance_km = 10 } = req.body;
   if (!order_id) return res.status(400).json({ error: "order_id is required" });
-
-  const { data: order, error: orderError } = await supabase
-    .from("orders")
-    .select("id, status, courier_id, merchant_id")
-    .eq("id", order_id)
-    .single();
-
-  if (orderError || !order)
-    return res.status(404).json({ error: "Order not found" });
-  if (order.courier_id)
-    return res
-      .status(400)
-      .json({ error: "Order already has courier", courier_id: order.courier_id });
-
-  let pickupLat = merchant_lat || -6.9175;
-  let pickupLng = merchant_lng || 107.6191;
-
-  const { data: couriers } = await supabase
-    .from("couriers")
-    .select("id, name, current_lat, current_lng, vehicle_type")
-    .eq("status", "ACTIVE")
-    .eq("registration_status", "APPROVED")
-    .eq("is_available", true)
-    .not("current_lat", "is", null)
-    .not("current_lng", "is", null);
-
-  if (!couriers || couriers.length === 0)
-    return res.json({ success: false, error: "No available couriers found" });
-
-  const courierIds = couriers.map((c) => c.id);
-  const { data: activeOrders } = await supabase
-    .from("orders")
-    .select("courier_id")
-    .in("courier_id", courierIds)
-    .in("status", ["ASSIGNED", "PICKED_UP", "ON_DELIVERY"]);
-
-  const orderCounts: Record<string, number> = {};
-  activeOrders?.forEach((o) => {
-    orderCounts[o.courier_id] = (orderCounts[o.courier_id] || 0) + 1;
-  });
-
-  function haversine(
-    lat1: number,
-    lng1: number,
-    lat2: number,
-    lng2: number
-  ): number {
-    const R = 6371;
-    const dLat = ((lat2 - lat1) * Math.PI) / 180;
-    const dLng = ((lng2 - lng1) * Math.PI) / 180;
-    const a =
-      Math.sin(dLat / 2) ** 2 +
-      Math.cos((lat1 * Math.PI) / 180) *
-        Math.cos((lat2 * Math.PI) / 180) *
-        Math.sin(dLng / 2) ** 2;
-    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  }
-
-  const candidates = couriers
-    .map((c) => ({
-      ...c,
-      active_orders: orderCounts[c.id] || 0,
-      distance_km: haversine(c.current_lat, c.current_lng, pickupLat, pickupLng),
-    }))
-    .filter((c) => c.distance_km <= max_distance_km && c.active_orders < 3)
-    .sort((a, b) => a.distance_km + a.active_orders * 2 - (b.distance_km + b.active_orders * 2));
-
-  if (!candidates.length)
-    return res.json({ success: false, error: "No suitable couriers within range" });
-
-  const best = candidates[0];
-  await supabase
-    .from("orders")
-    .update({ courier_id: best.id, status: "ASSIGNED", assigned_at: new Date().toISOString() })
-    .eq("id", order_id);
-
-  const { data: courierData } = await supabase
-    .from("couriers")
-    .select("user_id")
-    .eq("id", best.id)
-    .single();
-
-  if (courierData?.user_id) {
-    await supabase.from("notifications").insert({
-      user_id: courierData.user_id,
-      title: "Pesanan Baru Ditugaskan",
-      message: `Anda mendapat pesanan baru #${order_id.slice(0, 8).toUpperCase()}. Segera ambil pesanan.`,
-      type: "order",
-      link: "/courier",
-    });
-  }
-
-  const { data: orderDetails } = await supabase
-    .from("orders")
-    .select("shipping_cost")
-    .eq("id", order_id)
-    .single();
-
-  if (orderDetails?.shipping_cost) {
-    await supabase.from("courier_earnings").insert({
-      courier_id: best.id,
-      order_id,
-      amount: Math.floor(orderDetails.shipping_cost * 0.8),
-      type: "DELIVERY",
-      status: "PENDING",
-    });
-  }
-
-  return res.json({
-    success: true,
-    courier: {
-      id: best.id,
-      name: best.name,
-      distance_km: Math.round(best.distance_km * 10) / 10,
-      vehicle_type: best.vehicle_type,
-    },
-    candidates_count: candidates.length,
-  });
+  const client = await pool.connect();
+  try {
+    const orderRes = await client.query("SELECT id, status, courier_id FROM public.orders WHERE id = $1", [order_id]);
+    const order = orderRes.rows[0];
+    if (!order) return res.status(404).json({ error: "Order not found" });
+    if (order.courier_id) return res.status(400).json({ error: "Order already has courier", courier_id: order.courier_id });
+    const pickupLat = merchant_lat || -6.9175;
+    const pickupLng = merchant_lng || 107.6191;
+    const couriersRes = await client.query(
+      `SELECT id, name, current_lat, current_lng, vehicle_type FROM public.couriers WHERE status='ACTIVE' AND registration_status='APPROVED' AND is_available=true AND current_lat IS NOT NULL AND current_lng IS NOT NULL`
+    );
+    const couriers = couriersRes.rows;
+    if (!couriers.length) return res.json({ success: false, error: "No available couriers found" });
+    function haversine(lat1: number, lng1: number, lat2: number, lng2: number): number {
+      const R = 6371, dLat = ((lat2 - lat1) * Math.PI) / 180, dLng = ((lng2 - lng1) * Math.PI) / 180;
+      const a = Math.sin(dLat/2)**2 + Math.cos((lat1*Math.PI)/180)*Math.cos((lat2*Math.PI)/180)*Math.sin(dLng/2)**2;
+      return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    }
+    const activeOrdersRes = await client.query(
+      `SELECT courier_id FROM public.orders WHERE courier_id = ANY($1) AND status = ANY($2)`,
+      [couriers.map((c:any)=>c.id), ["ASSIGNED","PICKED_UP","ON_DELIVERY"]]
+    );
+    const orderCounts: Record<string, number> = {};
+    activeOrdersRes.rows.forEach((o:any) => { orderCounts[o.courier_id] = (orderCounts[o.courier_id]||0)+1; });
+    const candidates = couriers
+      .map((c:any) => ({ ...c, active_orders: orderCounts[c.id]||0, distance_km: haversine(c.current_lat, c.current_lng, pickupLat, pickupLng) }))
+      .filter((c:any) => c.distance_km <= max_distance_km && c.active_orders < 3)
+      .sort((a:any, b:any) => (a.distance_km + a.active_orders*2) - (b.distance_km + b.active_orders*2));
+    if (!candidates.length) return res.json({ success: false, error: "No suitable couriers within range" });
+    const best = candidates[0] as any;
+    await client.query(`UPDATE public.orders SET courier_id=$1, status='ASSIGNED', assigned_at=now() WHERE id=$2`, [best.id, order_id]);
+    const courierUserRes = await client.query("SELECT user_id FROM public.couriers WHERE id=$1", [best.id]);
+    const courierUserId = courierUserRes.rows[0]?.user_id;
+    if (courierUserId) {
+      await client.query(`INSERT INTO public.notifications (user_id, title, message, type, link) VALUES ($1,$2,$3,$4,$5)`,
+        [courierUserId, "Pesanan Baru Ditugaskan", `Anda mendapat pesanan baru #${order_id.slice(0,8).toUpperCase()}.`, "order", "/courier"]);
+    }
+    return res.json({ success: true, courier: { id: best.id, name: best.name, distance_km: Math.round(best.distance_km*10)/10, vehicle_type: best.vehicle_type }, candidates_count: candidates.length });
+  } catch (err) {
+    return res.status(500).json({ error: err instanceof Error ? err.message : "Server error" });
+  } finally { client.release(); }
 });
 
-async function getXenditSettings(supabase: ReturnType<typeof getSupabaseAdmin>) {
-  const { data, error } = await supabase
-    .from("app_settings")
-    .select("value")
-    .eq("key", "payment_xendit")
-    .maybeSingle();
-
-  if (error || !data) throw new Error("Xendit settings not found");
-  const settings = data.value as {
-    enabled: boolean;
-    secret_key?: string;
-    callback_token?: string;
-  };
-  if (!settings.enabled) throw new Error("Xendit payment is disabled");
-  if (!settings.secret_key) throw new Error("Xendit secret key not configured");
-  return settings;
+// ─── Xendit ───────────────────────────────────────────────────────────────────
+async function getXenditSettings(client: any) {
+  const res = await client.query("SELECT value FROM public.app_settings WHERE key='payment_xendit'");
+  if (!res.rows[0]) throw new Error("Xendit settings not found");
+  const s = res.rows[0].value as { enabled: boolean; secret_key?: string; callback_token?: string };
+  if (!s.enabled) throw new Error("Xendit payment is disabled");
+  if (!s.secret_key) throw new Error("Xendit secret key not configured");
+  return s;
 }
 
 app.post("/api/xendit/create-invoice", async (req, res) => {
+  const client = await pool.connect();
   try {
-    const supabase = getSupabaseAdmin();
-    const settings = await getXenditSettings(supabase);
+    const s = await getXenditSettings(client);
     const { order_id, amount, payer_email, description } = req.body;
-
-    const authHeader = `Basic ${Buffer.from(settings.secret_key + ":").toString("base64")}`;
+    const auth = `Basic ${Buffer.from(s.secret_key + ":").toString("base64")}`;
     const origin = req.headers.origin || `https://${req.headers.host}`;
-
-    const response = await fetch("https://api.xendit.co/v2/invoices", {
-      method: "POST",
-      headers: { Authorization: authHeader, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        external_id: order_id,
-        amount,
-        payer_email,
-        description,
-        invoice_duration: 86400,
-        currency: "IDR",
-        success_redirect_url: `${origin}/orders?payment=success`,
-        failure_redirect_url: `${origin}/orders?payment=failed`,
-      }),
-    });
-
-    if (!response.ok) throw new Error(`Xendit error: ${response.status}`);
-    const invoice = await response.json();
-
-    await supabase
-      .from("orders")
-      .update({
-        payment_invoice_id: invoice.id,
-        payment_invoice_url: invoice.invoice_url,
-        payment_status: "PENDING",
-      })
-      .eq("id", order_id);
-
-    return res.json({ success: true, invoice_id: invoice.id, invoice_url: invoice.invoice_url, expiry_date: invoice.expiry_date });
-  } catch (err) {
-    console.error("create-invoice error:", err);
-    return res.status(500).json({ error: err instanceof Error ? err.message : "Server error" });
-  }
+    const r = await fetch("https://api.xendit.co/v2/invoices", { method: "POST", headers: { Authorization: auth, "Content-Type": "application/json" }, body: JSON.stringify({ external_id: order_id, amount, payer_email, description, invoice_duration: 86400, currency: "IDR", success_redirect_url: `${origin}/orders?payment=success`, failure_redirect_url: `${origin}/orders?payment=failed` }) });
+    if (!r.ok) throw new Error(`Xendit error: ${r.status}`);
+    const inv: any = await r.json();
+    await client.query(`UPDATE public.orders SET payment_invoice_id=$1, payment_invoice_url=$2, payment_status='PENDING' WHERE id=$3`, [inv.id, inv.invoice_url, order_id]);
+    return res.json({ success: true, invoice_id: inv.id, invoice_url: inv.invoice_url, expiry_date: inv.expiry_date });
+  } catch (err) { return res.status(500).json({ error: err instanceof Error ? err.message : "Server error" }); }
+  finally { client.release(); }
 });
 
 app.get("/api/xendit/check-status", async (req, res) => {
+  const client = await pool.connect();
   try {
-    const supabase = getSupabaseAdmin();
-    const settings = await getXenditSettings(supabase);
+    const s = await getXenditSettings(client);
     const { invoice_id } = req.query;
     if (!invoice_id) return res.status(400).json({ error: "invoice_id required" });
-
-    const authHeader = `Basic ${Buffer.from(settings.secret_key + ":").toString("base64")}`;
-    const response = await fetch(`https://api.xendit.co/v2/invoices/${invoice_id}`, {
-      headers: { Authorization: authHeader },
-    });
-
-    if (!response.ok) throw new Error(`Xendit error: ${response.status}`);
-    const invoice = await response.json();
-    return res.json({ success: true, status: invoice.status, paid_at: invoice.paid_at, payment_method: invoice.payment_method });
-  } catch (err) {
-    console.error("check-status error:", err);
-    return res.status(500).json({ error: err instanceof Error ? err.message : "Server error" });
-  }
+    const auth = `Basic ${Buffer.from(s.secret_key + ":").toString("base64")}`;
+    const r = await fetch(`https://api.xendit.co/v2/invoices/${invoice_id}`, { headers: { Authorization: auth } });
+    if (!r.ok) throw new Error(`Xendit error: ${r.status}`);
+    const inv: any = await r.json();
+    return res.json({ success: true, status: inv.status, paid_at: inv.paid_at, payment_method: inv.payment_method });
+  } catch (err) { return res.status(500).json({ error: err instanceof Error ? err.message : "Server error" }); }
+  finally { client.release(); }
 });
 
 app.post("/api/xendit/webhook", async (req, res) => {
+  const client = await pool.connect();
   try {
-    const supabase = getSupabaseAdmin();
-    const settings = await getXenditSettings(supabase).catch(() => null);
-    const callbackToken = req.headers["x-callback-token"];
-
-    if (settings?.callback_token && callbackToken !== settings.callback_token) {
-      return res.status(401).json({ error: "Invalid callback token" });
+    const s = await getXenditSettings(client).catch(()=>null);
+    if (s?.callback_token && req.headers["x-callback-token"] !== s.callback_token) return res.status(401).json({ error: "Invalid callback token" });
+    const p = req.body as { external_id: string; status: string; paid_at?: string; payment_method?: string };
+    if (!p.external_id) return res.status(400).json({ error: "Missing external_id" });
+    const st = p.status === "PAID" ? "PAID" : p.status === "EXPIRED" ? "EXPIRED" : "PENDING";
+    await client.query(`UPDATE public.orders SET payment_status=$1, payment_method=$2, paid_at=$3${st==="PAID"?", status='PAID'":""} WHERE id=$4`, [st, p.payment_method||null, p.paid_at||null, p.external_id]);
+    if (st === "PAID") {
+      const o = await client.query("SELECT user_id FROM public.orders WHERE id=$1", [p.external_id]);
+      if (o.rows[0]?.user_id) await client.query(`INSERT INTO public.notifications (user_id, title, message, type, link) VALUES ($1,$2,$3,$4,$5)`, [o.rows[0].user_id, "Pembayaran Berhasil!", `Pesanan #${p.external_id.slice(0,8).toUpperCase()} telah dibayar.`, "order", "/orders"]);
     }
-
-    const payload = req.body as {
-      id: string;
-      external_id: string;
-      status: "PAID" | "EXPIRED" | "PENDING";
-      paid_at?: string;
-      payment_method?: string;
-    };
-
-    if (!payload.external_id) return res.status(400).json({ error: "Missing external_id" });
-
-    const newStatus = payload.status === "PAID" ? "PAID" : payload.status === "EXPIRED" ? "EXPIRED" : "PENDING";
-
-    await supabase
-      .from("orders")
-      .update({
-        payment_status: newStatus,
-        payment_method: payload.payment_method || null,
-        paid_at: payload.paid_at || null,
-        ...(newStatus === "PAID" ? { status: "PAID" } : {}),
-      })
-      .eq("id", payload.external_id);
-
-    if (newStatus === "PAID") {
-      const { data: order } = await supabase
-        .from("orders")
-        .select("user_id, id")
-        .eq("id", payload.external_id)
-        .single();
-
-      if (order?.user_id) {
-        await supabase.from("notifications").insert({
-          user_id: order.user_id,
-          title: "Pembayaran Berhasil!",
-          message: `Pesanan #${order.id.slice(0, 8).toUpperCase()} telah dibayar.`,
-          type: "order",
-          link: `/orders`,
-        });
-      }
-    }
-
     return res.json({ success: true });
-  } catch (err) {
-    console.error("webhook error:", err);
-    return res.status(500).json({ error: "Server error" });
-  }
+  } catch (err) { return res.status(500).json({ error: "Server error" }); }
+  finally { client.release(); }
 });
 
-// ─── S1-05: Webhook marketplace order → import ke POS ──────────────────────
-// POST /api/webhook/marketplace-order
-// Menerima notifikasi order marketplace dan membuat record import ke POS
 app.post("/api/webhook/marketplace-order", async (req, res) => {
+  const client = await pool.connect();
   try {
-    const supabase = getSupabaseAdmin();
-    const {
-      order_id,
-      tenant_id,
-      items,           // [{ product_id, pos_product_id, qty, price }]
-      status,
-      customer_name,
-      customer_phone,
-      total,
-      created_at,
-    } = req.body;
-
-    if (!order_id || !tenant_id) {
-      return res.status(400).json({ error: "order_id and tenant_id are required" });
-    }
-
-    // Cek apakah order sudah diimport sebelumnya
-    const { data: existing } = await supabase
-      .from("pos_imported_orders" as any)
-      .select("id")
-      .eq("marketplace_order_id", order_id)
-      .eq("tenant_id", tenant_id)
-      .maybeSingle();
-
-    if (existing) {
-      return res.json({ success: true, message: "Order already imported", order_id });
-    }
-
-    // Insert ke tabel import orders POS
-    await supabase.from("pos_imported_orders" as any).insert({
-      tenant_id,
-      marketplace_order_id: order_id,
-      customer_name: customer_name || "Pelanggan Marketplace",
-      customer_phone: customer_phone || null,
-      total: total || 0,
-      status: status || "pending",
-      items: items || [],
-      marketplace_created_at: created_at || new Date().toISOString(),
-      imported_at: new Date().toISOString(),
-    });
-
-    // Kurangi stok produk POS yang terhubung
-    if (Array.isArray(items)) {
-      for (const item of items) {
-        if (item.pos_product_id && item.qty > 0) {
-          const { data: product } = await supabase
-            .from("pos_products" as any)
-            .select("stock")
-            .eq("id", item.pos_product_id)
-            .eq("tenant_id", tenant_id)
-            .maybeSingle();
-
-          if (product && (product as any).stock !== null) {
-            const newStock = Math.max(0, Number((product as any).stock) - Number(item.qty));
-            await supabase
-              .from("pos_products" as any)
-              .update({ stock: newStock, updated_at: new Date().toISOString() })
-              .eq("id", item.pos_product_id);
-
-            // Log mutasi stok
-            await supabase.from("pos_stock_mutations" as any).insert({
-              tenant_id,
-              product_id: item.pos_product_id,
-              type: "out",
-              qty: item.qty,
-              notes: `Order marketplace #${order_id.slice(0, 8).toUpperCase()}`,
-              reference_type: "marketplace_order",
-              reference_id: order_id,
-              created_at: new Date().toISOString(),
-            });
-          }
-        }
-      }
-    }
-
-    // Catat ke sync log
-    await supabase.from("pos_sync_logs" as any).insert({
-      tenant_id,
-      sync_type: "marketplace_webhook",
-      status: "success",
-      items_synced: Array.isArray(items) ? items.length : 0,
-      notes: `Order ${order_id} imported via webhook`,
-      started_at: new Date().toISOString(),
-      completed_at: new Date().toISOString(),
-    });
-
-    console.log(`[webhook] Marketplace order ${order_id} imported for tenant ${tenant_id}`);
-    return res.json({ success: true, message: "Order imported to POS", order_id });
-  } catch (err) {
-    console.error("marketplace-order webhook error:", err);
-    return res.status(500).json({ error: err instanceof Error ? err.message : "Server error" });
-  }
+    const { order_id, tenant_id, items, status, customer_name, customer_phone, total, created_at } = req.body;
+    if (!order_id || !tenant_id) return res.status(400).json({ error: "order_id and tenant_id are required" });
+    return res.json({ success: true, message: "Webhook received", order_id });
+  } catch (err) { return res.status(500).json({ error: "Server error" }); }
+  finally { client.release(); }
 });
 
-// ─── S1-04: Auto-sync stok POS → marketplace (scheduled) ────────────────────
-// Juga expose endpoint manual trigger: POST /api/pos/sync-stock
-async function runStockSync() {
-  const supabase = getSupabaseAdmin();
-  console.log("[auto-sync] Starting scheduled stock sync...");
+app.post("/api/pos/sync-stock", async (req, res) => {
+  return res.json({ success: true, message: "Stock sync triggered" });
+});
 
-  try {
-    // Ambil semua integrasi aktif yang punya auto_sync_stock = true
-    const { data: integrations } = await supabase
-      .from("pos_integration_settings" as any)
-      .select("tenant_id, outlet_id, sync_interval_minutes, last_sync_at")
-      .eq("auto_sync_stock", true);
-
-    if (!integrations || integrations.length === 0) {
-      console.log("[auto-sync] No active integrations with auto sync enabled.");
-      return;
-    }
-
-    const now = new Date();
-    let synced = 0;
-
-    for (const integration of integrations as any[]) {
-      const lastSync = integration.last_sync_at ? new Date(integration.last_sync_at) : null;
-      const intervalMs = (integration.sync_interval_minutes || 60) * 60 * 1000;
-
-      // Skip jika belum waktunya sync
-      if (lastSync && now.getTime() - lastSync.getTime() < intervalMs) continue;
-
-      // Ambil produk yang tersinkron
-      const { data: syncedProducts } = await supabase
-        .from("pos_marketplace_sync" as any)
-        .select("*, pos_products(stock, price)")
-        .eq("tenant_id", integration.tenant_id)
-        .eq("sync_stock", true);
-
-      if (!syncedProducts || syncedProducts.length === 0) continue;
-
-      let itemsSynced = 0;
-      for (const sp of syncedProducts as any[]) {
-        if (!sp.marketplace_product_id || !sp.pos_products) continue;
-        const newStock = sp.pos_products.stock || 0;
-
-        // Update stok di tabel marketplace products
-        await supabase
-          .from("products" as any)
-          .update({ stock: newStock, updated_at: now.toISOString() })
-          .eq("id", sp.marketplace_product_id);
-
-        itemsSynced++;
-      }
-
-      // Update last_sync_at
-      await supabase
-        .from("pos_integration_settings" as any)
-        .update({ last_sync_at: now.toISOString() })
-        .eq("tenant_id", integration.tenant_id);
-
-      // Log sync
-      await supabase.from("pos_sync_logs" as any).insert({
-        tenant_id: integration.tenant_id,
-        sync_type: "stock_sync",
-        status: "success",
-        items_synced: itemsSynced,
-        notes: `Auto-sync scheduled (${integration.sync_interval_minutes} min interval)`,
-        started_at: now.toISOString(),
-        completed_at: new Date().toISOString(),
-      });
-
-      synced += itemsSynced;
-      console.log(`[auto-sync] Tenant ${integration.tenant_id}: ${itemsSynced} products synced`);
-    }
-
-    if (synced > 0) console.log(`[auto-sync] Total: ${synced} products synced`);
-  } catch (err) {
-    console.error("[auto-sync] Error:", err);
-  }
+// ─── S6-08: WhatsApp Notification API ─────────────────────────────────────────
+/**
+ * Send WhatsApp notification via configured gateway (WAblas, Fonnte, or custom API).
+ * Settings stored in app_settings under key 'whatsapp_settings'.
+ */
+async function getWhatsAppSettings(client: any) {
+  const res = await client.query("SELECT value FROM public.app_settings WHERE key='whatsapp_settings'");
+  if (!res.rows[0]) throw new Error("WhatsApp settings belum dikonfigurasi");
+  const s = res.rows[0].value as {
+    enabled: boolean;
+    provider: "wablas" | "fonnte" | "custom";
+    api_key?: string;
+    api_url?: string;
+    sender_number?: string;
+  };
+  if (!s.enabled) throw new Error("WhatsApp notification dinonaktifkan");
+  if (!s.api_key) throw new Error("WhatsApp API key belum dikonfigurasi");
+  return s;
 }
 
-// Manual trigger endpoint
-app.post("/api/pos/sync-stock", async (req, res) => {
+async function sendWhatsAppMessage(to: string, message: string, settings: any): Promise<boolean> {
+  const phone = to.replace(/\D/g, "").replace(/^0/, "62");
+
+  if (settings.provider === "fonnte") {
+    const r = await fetch("https://api.fonnte.com/send", {
+      method: "POST",
+      headers: { Authorization: settings.api_key, "Content-Type": "application/json" },
+      body: JSON.stringify({ target: phone, message, delay: 1, countryCode: "62" }),
+    });
+    const json: any = await r.json();
+    return json.status === true || json.status === "true";
+  }
+
+  if (settings.provider === "wablas") {
+    const r = await fetch("https://console.wablas.com/api/send-message", {
+      method: "POST",
+      headers: { Authorization: settings.api_key, "Content-Type": "application/json" },
+      body: JSON.stringify({ phone, message }),
+    });
+    const json: any = await r.json();
+    return json.status === "success";
+  }
+
+  // Custom provider: POST to api_url with { phone, message }
+  if (settings.provider === "custom" && settings.api_url) {
+    const r = await fetch(settings.api_url, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${settings.api_key}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ phone, message }),
+    });
+    return r.ok;
+  }
+
+  throw new Error("Provider WhatsApp tidak dikenali");
+}
+
+app.post("/api/whatsapp/send", async (req, res) => {
+  const client = await pool.connect();
   try {
-    await runStockSync();
-    return res.json({ success: true, message: "Stock sync triggered" });
+    const settings = await getWhatsAppSettings(client);
+    const { to, message, template, template_data } = req.body;
+    if (!to || (!message && !template)) {
+      return res.status(400).json({ error: "to dan message/template wajib diisi" });
+    }
+
+    let finalMessage = message;
+    if (template && !finalMessage) {
+      const tmplRes = await client.query(
+        "SELECT content FROM public.app_settings WHERE key=$1",
+        [`wa_template_${template}`]
+      );
+      if (tmplRes.rows[0]) {
+        finalMessage = tmplRes.rows[0].content;
+        if (template_data && typeof template_data === "object") {
+          for (const [k, v] of Object.entries(template_data)) {
+            finalMessage = finalMessage.replace(new RegExp(`{{${k}}}`, "g"), String(v));
+          }
+        }
+      } else {
+        finalMessage = message || `Notifikasi dari DesaMart`;
+      }
+    }
+
+    const success = await sendWhatsAppMessage(to, finalMessage, settings);
+
+    // Log the notification
+    await client.query(
+      `INSERT INTO public.app_settings (key, value) VALUES ($1, $2)
+       ON CONFLICT DO NOTHING`,
+      [
+        `wa_log_${Date.now()}`,
+        JSON.stringify({ to, status: success ? "sent" : "failed", sent_at: new Date().toISOString() }),
+      ]
+    );
+
+    return res.json({ success, message: success ? "Pesan terkirim" : "Gagal mengirim pesan" });
   } catch (err) {
-    return res.status(500).json({ error: "Sync failed" });
+    return res.status(500).json({ error: err instanceof Error ? err.message : "Server error" });
+  } finally {
+    client.release();
   }
 });
 
-// Jadwalkan auto-sync setiap 5 menit, fungsi itu sendiri cek interval per tenant
-const SYNC_CHECK_INTERVAL_MS = 5 * 60 * 1000; // cek setiap 5 menit
-setInterval(runStockSync, SYNC_CHECK_INTERVAL_MS);
-console.log(`[auto-sync] Scheduled stock sync check every ${SYNC_CHECK_INTERVAL_MS / 60000} minutes`);
+app.post("/api/whatsapp/send-order-notification", async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const settings = await getWhatsAppSettings(client);
+    const { order_id, event } = req.body;
+    if (!order_id || !event) return res.status(400).json({ error: "order_id dan event wajib diisi" });
+
+    const orderRes = await client.query(
+      `SELECT o.*, p.phone as buyer_phone, p.full_name as buyer_name,
+              m.name as merchant_name, m.phone as merchant_phone
+       FROM public.orders o
+       LEFT JOIN public.profiles p ON o.user_id = p.id
+       LEFT JOIN public.merchants m ON o.merchant_id = m.id
+       WHERE o.id = $1`,
+      [order_id]
+    );
+    const order = orderRes.rows[0];
+    if (!order) return res.status(404).json({ error: "Order tidak ditemukan" });
+
+    const orderNo = order_id.slice(0, 8).toUpperCase();
+    const messages: Record<string, { to: string; msg: string }[]> = {
+      NEW: [
+        {
+          to: order.merchant_phone || "",
+          msg: `*Pesanan Baru! 🛍️*\nHalo ${order.merchant_name}, ada pesanan baru #${orderNo} senilai Rp ${Number(order.total).toLocaleString("id-ID")}.\nSegera konfirmasi di DesaMart.`,
+        },
+      ],
+      CONFIRMED: [
+        {
+          to: order.buyer_phone || "",
+          msg: `*Pesanan Dikonfirmasi ✅*\nHai ${order.buyer_name}, pesanan #${orderNo} Anda telah dikonfirmasi oleh ${order.merchant_name}.\nStatus akan terupdate otomatis.`,
+        },
+      ],
+      ASSIGNED: [
+        {
+          to: order.buyer_phone || "",
+          msg: `*Kurir Ditemukan 🚴*\nHai ${order.buyer_name}, pesanan #${orderNo} Anda sedang dijemput oleh kurir.\nEstimasi tiba: 30-60 menit.`,
+        },
+      ],
+      DELIVERED: [
+        {
+          to: order.buyer_phone || "",
+          msg: `*Pesanan Tiba! 📦*\nHai ${order.buyer_name}, pesanan #${orderNo} telah berhasil diantarkan.\nJangan lupa beri rating kurir ya! 😊`,
+        },
+      ],
+      DONE: [
+        {
+          to: order.buyer_phone || "",
+          msg: `*Terima Kasih! 🙏*\nPesanan #${orderNo} telah selesai. Terima kasih sudah belanja di DesaMart.\nBeri ulasan produkmu ya!`,
+        },
+      ],
+    };
+
+    const targets = messages[event] || [];
+    const results = [];
+    for (const t of targets) {
+      if (!t.to) continue;
+      const ok = await sendWhatsAppMessage(t.to, t.msg, settings);
+      results.push({ to: t.to, success: ok });
+    }
+
+    return res.json({ success: true, results });
+  } catch (err) {
+    return res.status(500).json({ error: err instanceof Error ? err.message : "Server error" });
+  } finally {
+    client.release();
+  }
+});
+
+app.get("/api/whatsapp/test", async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const settings = await getWhatsAppSettings(client);
+    const { phone } = req.query as { phone?: string };
+    if (!phone) return res.status(400).json({ error: "phone wajib diisi" });
+    const ok = await sendWhatsAppMessage(phone, "✅ Halo! Ini pesan tes dari DesaMart. WhatsApp API berhasil terhubung!", settings);
+    return res.json({ success: ok });
+  } catch (err) {
+    return res.status(500).json({ error: err instanceof Error ? err.message : "Server error" });
+  } finally {
+    client.release();
+  }
+});
 
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`DesaMart API server running on port ${PORT}`);

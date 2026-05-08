@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route, useLocation, useNavigate } from "react-ro
 import { useEffect } from "react";
 import { CartProvider } from "@/contexts/CartContext";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { useRestockNotification } from "@/hooks/useRestockNotification";
 import { WhitelabelProvider } from "@/contexts/WhitelabelContext";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { InstallBanner } from "@/components/pwa/InstallBanner";
@@ -87,6 +88,7 @@ import AdminPOSPage from "./pages/admin/AdminPOSPage";
 import AdminRidesPage from "./pages/admin/AdminRidesPage";
 import AdminKomisiPage from "./pages/admin/AdminKomisiPage";
 import AdminAuditLogPage from "./pages/admin/AdminAuditLogPage";
+import AdminWhatsAppPage from "./pages/admin/AdminWhatsAppPage";
 import CourierHistoryPage from "./pages/courier/CourierHistoryPage";
 import CourierWithdrawalPage from "./pages/courier/CourierWithdrawalPage";
 import CourierChatPage from "./pages/courier/CourierChatPage";
@@ -201,6 +203,12 @@ function RedirectHandler() {
   return null;
 }
 
+// S3-05: Restok wishlist notification (inside auth context)
+function RestockNotificationHandler() {
+  useRestockNotification();
+  return null;
+}
+
 const App = () => (
   <ErrorBoundary>
     <QueryClientProvider client={queryClient}>
@@ -212,6 +220,7 @@ const App = () => (
               <Toaster />
               <Sonner />
               <OfflineIndicator />
+              <RestockNotificationHandler />
               <BrowserRouter>
                 <RedirectHandler />
                 <SEO />
@@ -549,6 +558,11 @@ const App = () => (
               <Route path="/admin/system-health" element={
                 <ProtectedRoute allowedRoles={['admin']}>
                   <AdminSystemHealthPage />
+                </ProtectedRoute>
+              } />
+              <Route path="/admin/whatsapp" element={
+                <ProtectedRoute allowedRoles={['admin']}>
+                  <AdminWhatsAppPage />
                 </ProtectedRoute>
               } />
 

@@ -25,6 +25,7 @@ import { OrderChat } from "@/components/chat/OrderChat";
 import { toast } from "@/hooks/use-toast";
 import { OrderCancelDialog } from "@/components/order/OrderCancelDialog";
 import { OrderDetailSheet } from "@/components/order/OrderDetailSheet";
+import { CourierRatingDialog } from "@/components/buyer/CourierRatingDialog";
 
 interface BuyerOrderItem {
   id: string;
@@ -112,6 +113,7 @@ const OrdersPage = () => {
   const [fetchError, setFetchError] = useState(false);
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [isDetailSheetOpen, setIsDetailSheetOpen] = useState(false);
+  const [ratingOrder, setRatingOrder] = useState<{ id: string; orderNumber: string; courierId: string; courierName: string } | null>(null);
   const navigate = useNavigate();
   const reorder = useReorder();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -603,6 +605,24 @@ const OrdersPage = () => {
                                   <Star className="w-3 h-3 mr-1 fill-amber-400 text-amber-400" /> Beri Rating
                                 </Button>
                               )}
+                              {!(order as any).courier_rated && (order as any).courier_id && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="text-xs h-8 rounded-full px-4 border-blue-300 text-blue-700 hover:bg-blue-50"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setRatingOrder({
+                                      id: order.id,
+                                      orderNumber: order.id.slice(0, 8).toUpperCase(),
+                                      courierId: (order as any).courier_id,
+                                      courierName: (order as any).courier_name || 'Kurir',
+                                    });
+                                  }}
+                                >
+                                  <Star className="w-3 h-3 mr-1" /> Nilai Kurir
+                                </Button>
+                              )}
                               <Button
                                 size="sm"
                                 variant="outline"
@@ -676,6 +696,17 @@ const OrdersPage = () => {
         orderId={cancelOrderId || ''}
         onCancelled={() => { setCancelOrderId(null); fetchOrders(); }}
       />
+      {/* S4-03: Rating kurir dialog */}
+      {ratingOrder && (
+        <CourierRatingDialog
+          open={!!ratingOrder}
+          onClose={() => setRatingOrder(null)}
+          orderId={ratingOrder.id}
+          courierId={ratingOrder.courierId}
+          courierName={ratingOrder.courierName}
+          orderNumber={ratingOrder.orderNumber}
+        />
+      )}
       <BottomNav />
     </div>
   );

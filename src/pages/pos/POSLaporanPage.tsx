@@ -7,7 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
-import { Download, TrendingUp, ShoppingCart, Package, CreditCard, Banknote, QrCode } from 'lucide-react';
+import { Download, TrendingUp, ShoppingCart, Package, CreditCard, Banknote, QrCode, FileText, FileSpreadsheet } from 'lucide-react';
+import { exportPOSSales, exportToPDF } from '@/lib/exportReport';
 import { format, startOfDay, endOfDay, subDays, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear, eachDayOfInterval, eachWeekOfInterval } from 'date-fns';
 import { id as idLocale } from 'date-fns/locale';
 
@@ -122,17 +123,48 @@ export default function POSLaporanPage() {
   }
 
   const exportCSV = () => {
-    const rows = [['Metrik', 'Nilai']];
-    rows.push(['Omzet', String(stats.totalOmzet)]);
-    rows.push(['Jumlah Transaksi', String(stats.totalTransactions)]);
-    rows.push(['Rata-rata per Transaksi', String(stats.avgBasket)]);
-    rows.push(['Total Diskon', String(stats.totalDiscount)]);
-    rows.push(['', '']);
-    rows.push(['Produk Terlaris', '']);
-    stats.topProducts.forEach(p => rows.push([p.name, `${p.qty}x = ${p.total}`]));
-    const csv = rows.map(r => r.map(c => `"${c}"`).join(',')).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `laporan-${period}.csv`; a.click();
+    const topProductRows = stats.topProducts.map(p => ({
+      name: p.name,
+      qty: p.qty,
+      total: p.total,
+    }));
+    exportPOSSales(
+      topProductRows.map((p, i) => ({
+        invoice_no: String(i + 1),
+        created_at: new Date().toISOString(),
+        cashier_name: '-',
+        customer_name: '-',
+        subtotal: p.total,
+        discount_amount: 0,
+        tax_amount: 0,
+        total: p.total,
+        payment_method: '-',
+        status: 'completed',
+      })),
+      stats.periodLabel,
+      tenant?.name,
+    );
+  };
+
+  const exportPDF = async () => {
+    await exportToPDF({
+      title: 'Laporan Penjualan POS',
+      storeName: tenant?.name,
+      period: stats.periodLabel,
+      filename: `laporan-${period}`,
+      columns: [
+        { header: 'Produk', key: 'name' },
+        { header: 'Qty Terjual', key: 'qty', format: 'number' },
+        { header: 'Total Omzet', key: 'total', format: 'currency' },
+      ],
+      rows: stats.topProducts,
+      summary: {
+        totalOmzet: { label: 'Total Omzet', value: stats.totalOmzet },
+        totalTrx: { label: 'Total Transaksi', value: stats.totalTransactions },
+        avgBasket: { label: 'Rata-rata per Transaksi', value: stats.avgBasket },
+        totalDiskon: { label: 'Total Diskon', value: stats.totalDiscount },
+      },
+    });
   };
 
   return (
@@ -148,7 +180,8 @@ export default function POSLaporanPage() {
               <SelectItem value="year">Tahun Ini</SelectItem>
             </SelectContent>
           </Select>
-          <Button variant="outline" size="sm" onClick={exportCSV}><Download className="h-4 w-4 mr-1" />Export</Button>
+          <Button variant="outline" size="sm" onClick={exportCSV}><FileSpreadsheet className="h-4 w-4 mr-1" />Excel</Button>
+          <Button variant="outline" size="sm" onClick={exportPDF}><FileText className="h-4 w-4 mr-1" />PDF</Button>
         </div>
       }>
 

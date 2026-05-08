@@ -1,0 +1,459 @@
+/**
+ * Database Proxy Routes
+ * This module proxies database queries from the frontend through the secure API server.
+ * The frontend's Supabase client is shimmed to call these endpoints instead.
+ */
+import { Router, Request, Response } from "express";
+import { pool } from "../db";
+import { getSessionUser, getUserById } from "../auth";
+
+const router = Router();
+
+// ─── Supabase relationship parser ─────────────────────────────────────────────
+/**
+ * Maps table -> { fkColumn, referencedTable } to resolve relationship joins.
+ * Key is `parentTable:relatedTable` or just `relatedTable` as fallback.
+ */
+const FK_MAP: Record<string, { fk: string; ref_col?: string }> = {
+  "products:merchants":        { fk: "merchant_id",   ref_col: "id" },
+  "merchants:villages":        { fk: "village_id",    ref_col: "id" },
+  "merchants:profiles":        { fk: "user_id",       ref_col: "id" },
+  "orders:merchants":          { fk: "merchant_id",   ref_col: "id" },
+  "orders:profiles":           { fk: "user_id",       ref_col: "id" },
+  "orders:couriers":           { fk: "courier_id",    ref_col: "id" },
+  "tourism:villages":          { fk: "village_id",    ref_col: "id" },
+  "couriers:profiles":         { fk: "user_id",       ref_col: "id" },
+  "reviews:profiles":          { fk: "user_id",       ref_col: "id" },
+  "order_items:products":      { fk: "product_id",    ref_col: "id" },
+  "order_items:orders":        { fk: "order_id",      ref_col: "id" },
+  "chat_messages:profiles":    { fk: "sender_id",     ref_col: "id" },
+  "wishlists:products":        { fk: "product_id",    ref_col: "id" },
+  "wishlists:merchants":       { fk: "merchant_id",   ref_col: "id" },
+  "merchant_favorites:merchants": { fk: "merchant_id", ref_col: "id" },
+  "product_images:products":   { fk: "product_id",    ref_col: "id" },
+  "pos_sales:pos_sale_items":  { fk: "sale_id",       ref_col: "id" },
+  "pos_sale_items:pos_sales":  { fk: "sale_id",       ref_col: "id" },
+  "notifications:profiles":    { fk: "user_id",       ref_col: "id" },
+};
+
+interface ParsedRelationship {
+  alias: string;
+  table: string;
+  fk: string;
+  refCol: string;
+  cols: string;
+  isArray: boolean;
+}
+
+/**
+ * Parse Supabase PostgREST-style column string into SQL SELECT + LEFT JOINs.
+ * Example: "*, merchants (id, name, is_open, villages (name))"
+ * → SELECT t.*, row_to_json(m.*) AS merchants FROM products t LEFT JOIN merchants m ON m.id = t.merchant_id
+ */
+function parseSupabaseColumns(columns: string, mainTable: string): { selectClause: string; joinClauses: string } {
+  if (!columns || columns === "*") return { selectClause: `"${mainTable}".*`, joinClauses: "" };
+
+  const relationships: ParsedRelationship[] = [];
+  let directCols = "";
+
+  // Parse the top-level: extract `table_name (...)` groups
+  let remaining = columns.trim();
+  const directColParts: string[] = [];
+
+  // Split by commas at depth 0
+  let depth = 0;
+  let current = "";
+  const topLevelParts: string[] = [];
+
+  for (let i = 0; i < remaining.length; i++) {
+    const ch = remaining[i];
+    if (ch === "(") depth++;
+    else if (ch === ")") depth--;
+    if (ch === "," && depth === 0) {
+      topLevelParts.push(current.trim());
+      current = "";
+    } else {
+      current += ch;
+    }
+  }
+  if (current.trim()) topLevelParts.push(current.trim());
+
+  // Pattern: "table_name ( cols... )" — nested relationship
+  const relPattern = /^(\w+):\w+\s*\((.+)\)$|^(\w+)\s*\((.+)\)$/s;
+
+  for (const part of topLevelParts) {
+    const m = part.match(relPattern);
+    if (m) {
+      // Nested relationship
+      const alias = (m[1] || m[3]).trim();
+      const innerCols = (m[2] || m[4]).trim();
+
+      // Look up FK
+      const fkKey = `${mainTable}:${alias}`;
+      const fkInfo = FK_MAP[fkKey] || FK_MAP[alias];
+      if (!fkInfo) {
+        // Unknown relationship — skip embedding and just ignore the nested part
+        directColParts.push(`NULL AS ${alias}`);
+        continue;
+      }
+
+      // Check for nested-nested relationships in innerCols
+      const hasNested = /\w+\s*\(/.test(innerCols);
+      let innerSelect = innerCols;
+      if (hasNested) {
+        // Flatten nested: just take non-relationship columns
+        const flat: string[] = [];
+        let d2 = 0, cur2 = "";
+        for (let i = 0; i < innerCols.length; i++) {
+          const ch = innerCols[i];
+          if (ch === "(") d2++;
+          else if (ch === ")") d2--;
+          if (ch === "," && d2 === 0) {
+            flat.push(cur2.trim());
+            cur2 = "";
+          } else cur2 += ch;
+        }
+        if (cur2.trim()) flat.push(cur2.trim());
+
+        innerSelect = flat
+          .filter(p => !/\w+\s*\(/.test(p))
+          .join(", ") || "*";
+
+        // Handle nested-nested: add sub-joins inline
+        const subNested = flat.filter(p => /\w+\s*\(/.test(p));
+        for (const sn of subNested) {
+          const snm = sn.match(/^(\w+)\s*\((.+)\)$/s);
+          if (snm) {
+            const snAlias = snm[1];
+            const snCols = snm[2].replace(/\s+/g, ' ').trim();
+            const snFkKey = `${alias}:${snAlias}`;
+            const snFk = FK_MAP[snFkKey] || FK_MAP[snAlias];
+            if (snFk) {
+              // Reference parent table columns directly (we're inside FROM public.alias subquery)
+              innerSelect += `, (SELECT row_to_json(_sn) FROM (SELECT ${snCols} FROM public.${snAlias} WHERE ${snAlias}.${snFk.ref_col || "id"} = ${alias}.${snFk.fk} LIMIT 1) _sn) AS ${snAlias}`;
+            }
+          }
+        }
+      }
+
+      relationships.push({
+        alias,
+        table: alias,
+        fk: fkInfo.fk,
+        refCol: fkInfo.ref_col || "id",
+        cols: innerSelect || "*",
+        isArray: false,
+      });
+    } else {
+      // Direct column
+      if (part === "*") {
+        directColParts.push(`"${mainTable}".*`);
+      } else {
+        directColParts.push(part);
+      }
+    }
+  }
+
+  // Build SELECT and JOINs
+  const joinParts: string[] = [];
+  const selectExtraAliases: string[] = [];
+
+  for (const rel of relationships) {
+    const joinAlias = `_j_${rel.alias}`;
+    joinParts.push(
+      `LEFT JOIN LATERAL (` +
+        `SELECT row_to_json(_r) AS _data FROM (` +
+          `SELECT ${rel.cols} FROM public.${rel.table} WHERE ${rel.table}.${rel.refCol} = "${mainTable}".${rel.fk} LIMIT 1` +
+        `) _r` +
+      `) ${joinAlias} ON true`
+    );
+    selectExtraAliases.push(`${joinAlias}._data AS ${rel.alias}`);
+  }
+
+  if (directColParts.length === 0 && relationships.length > 0) {
+    directColParts.push(`"${mainTable}".*`);
+  }
+
+  const selectClause = [...directColParts, ...selectExtraAliases].join(", ") || `"${mainTable}".*`;
+  const joinClauses = joinParts.join(" ");
+
+  return { selectClause, joinClauses };
+}
+
+// Helper to get user from request
+async function getUser(req: Request) {
+  const token = req.headers.authorization?.replace("Bearer ", "");
+  if (!token) return null;
+  const userId = getSessionUser(token);
+  if (!userId) return null;
+  return getUserById(userId);
+}
+
+// Generic SELECT query proxy
+// POST /api/db/select
+router.post("/select", async (req: Request, res: Response) => {
+  const { table, columns, filters, order, limit: limitVal, offset: offsetVal, count, single, maybeSingle } = req.body;
+
+  if (!table) return res.status(400).json({ error: "table is required" });
+
+  // Security: table whitelist
+  const ALLOWED_TABLES = [
+    "profiles", "user_roles", "villages", "user_villages", "categories", "trade_groups",
+    "transaction_packages", "merchants", "merchant_subscriptions", "group_members",
+    "kas_payments", "products", "product_images", "product_variants", "quota_tiers",
+    "tourism", "couriers", "orders", "order_items", "flash_sales", "reviews",
+    "refund_requests", "withdrawal_requests", "courier_earnings", "courier_withdrawal_requests",
+    "platform_fees", "insurance_fund", "verifikator_codes", "verifikator_earnings",
+    "verifikator_withdrawals", "group_announcements", "vouchers", "voucher_usages",
+    "promotions", "notifications", "broadcast_notifications", "chat_messages", "wishlists",
+    "saved_addresses", "push_subscriptions", "app_settings", "admin_audit_logs",
+    "backup_logs", "backup_schedules", "rate_limits", "seo_settings", "quota_usage_logs",
+    "page_views", "halal_regulations", "pos_packages", "pos_settings", "pos_subscriptions",
+    "pos_transactions", "ride_requests", "merchant_gallery", "courier_deposits",
+    "courier_balance_logs", "merchant_favorites", "users",
+    "pos_tenants", "pos_outlets", "pos_users", "pos_categories", "pos_brands",
+    "pos_products", "pos_product_variants", "pos_stock", "pos_stock_mutations",
+    "pos_sales", "pos_sale_items", "pos_purchase_orders", "pos_purchase_order_items",
+    "pos_purchase_returns", "pos_purchase_return_items", "pos_cash_sessions",
+    "pos_cash_transactions", "pos_suppliers", "pos_customers", "pos_loyalty_programs",
+    "pos_loyalty_points", "pos_discounts", "pos_promotions", "pos_integration_settings",
+    "pos_marketplace_sync", "pos_sync_logs", "pos_imported_orders", "pos_stock_mutations",
+    "pos_audit_logs", "pos_transfer_orders", "pos_transfer_order_items",
+    "merchant_operating_hours", "admin_banners", "halal_certificates", "merchant_dues",
+    "payment_proofs", "search_history", "product_views", "merchant_visitors",
+  ];
+
+  const tbl = String(table).replace(/[^a-z0-9_]/g, "");
+  if (!ALLOWED_TABLES.includes(tbl)) {
+    return res.status(403).json({ error: `Table '${tbl}' not allowed` });
+  }
+
+  try {
+    const client = await pool.connect();
+    try {
+      // Parse Supabase-style nested relationship selects into proper SQL JOINs
+      const { selectClause, joinClauses } = parseSupabaseColumns(columns, tbl);
+      let sql = `SELECT ${selectClause} FROM public.${tbl}`;
+      if (joinClauses) sql += " " + joinClauses;
+      const params: any[] = [];
+
+      if (filters && Array.isArray(filters) && filters.length > 0) {
+        const conditions: string[] = [];
+        for (const f of filters) {
+          params.push(f.value);
+          const op = f.op || "=";
+          if (op === "is" && f.value === null) {
+            conditions.push(`${f.column} IS NULL`);
+            params.pop();
+          } else if (op === "is" && f.value !== null) {
+            conditions.push(`${f.column} IS NOT NULL`);
+            params.pop();
+          } else if (op === "in") {
+            conditions.push(`${f.column} = ANY($${params.length})`);
+          } else if (op === "ilike") {
+            conditions.push(`${f.column} ILIKE $${params.length}`);
+          } else if (op === "gte") {
+            conditions.push(`${f.column} >= $${params.length}`);
+          } else if (op === "lte") {
+            conditions.push(`${f.column} <= $${params.length}`);
+          } else if (op === "gt") {
+            conditions.push(`${f.column} > $${params.length}`);
+          } else if (op === "lt") {
+            conditions.push(`${f.column} < $${params.length}`);
+          } else if (op === "neq") {
+            conditions.push(`${f.column} != $${params.length}`);
+          } else {
+            conditions.push(`${f.column} = $${params.length}`);
+          }
+        }
+        sql += ` WHERE ${conditions.join(" AND ")}`;
+      }
+
+      if (order) {
+        const dir = order.ascending === false ? "DESC" : "ASC";
+        sql += ` ORDER BY ${order.column} ${dir}`;
+      }
+
+      if (limitVal) {
+        sql += ` LIMIT ${parseInt(limitVal)}`;
+      }
+
+      if (offsetVal) {
+        sql += ` OFFSET ${parseInt(offsetVal)}`;
+      }
+
+      let countResult: number | null = null;
+      if (count === "exact") {
+        const countSql = `SELECT COUNT(*) FROM public.${tbl}` + (sql.includes("WHERE") ? " WHERE " + sql.split("WHERE")[1].split("ORDER")[0].split("LIMIT")[0] : "");
+        try {
+          const cRes = await client.query(countSql, params);
+          countResult = parseInt(cRes.rows[0]?.count || "0");
+        } catch {}
+      }
+
+      const result = await client.query(sql, params);
+      const data = result.rows;
+
+      if (single) {
+        if (data.length === 0) return res.status(406).json({ error: "No rows", data: null, count: countResult });
+        return res.json({ data: data[0], count: countResult });
+      }
+
+      if (maybeSingle) {
+        return res.json({ data: data[0] || null, count: countResult });
+      }
+
+      return res.json({ data, count: countResult });
+    } finally {
+      client.release();
+    }
+  } catch (err: any) {
+    console.error("DB select error:", err.message);
+    return res.status(500).json({ error: err.message, data: null });
+  }
+});
+
+// INSERT
+router.post("/insert", async (req: Request, res: Response) => {
+  const { table, rows, upsert, onConflict } = req.body;
+  if (!table || !rows) return res.status(400).json({ error: "table and rows are required" });
+
+  const tbl = String(table).replace(/[^a-z0-9_]/g, "");
+  const data = Array.isArray(rows) ? rows : [rows];
+  if (data.length === 0) return res.json({ data: [] });
+
+  try {
+    const client = await pool.connect();
+    try {
+      const results = [];
+      for (const row of data) {
+        const keys = Object.keys(row);
+        const values = keys.map((k) => row[k]);
+        const placeholders = keys.map((_, i) => `$${i + 1}`).join(", ");
+        let sql = `INSERT INTO public.${tbl} (${keys.join(", ")}) VALUES (${placeholders})`;
+        if (upsert && onConflict) {
+          const updateSet = keys.filter(k => k !== onConflict).map((k, i) => `${k} = EXCLUDED.${k}`).join(", ");
+          sql += ` ON CONFLICT (${onConflict}) DO UPDATE SET ${updateSet}`;
+        } else if (upsert) {
+          sql += ` ON CONFLICT DO NOTHING`;
+        }
+        sql += " RETURNING *";
+        const result = await client.query(sql, values);
+        if (result.rows[0]) results.push(result.rows[0]);
+      }
+      return res.json({ data: results });
+    } finally {
+      client.release();
+    }
+  } catch (err: any) {
+    console.error("DB insert error:", err.message);
+    return res.status(500).json({ error: err.message, data: null });
+  }
+});
+
+// UPDATE
+router.post("/update", async (req: Request, res: Response) => {
+  const { table, updates, filters } = req.body;
+  if (!table || !updates) return res.status(400).json({ error: "table and updates are required" });
+
+  const tbl = String(table).replace(/[^a-z0-9_]/g, "");
+  const keys = Object.keys(updates);
+  if (keys.length === 0) return res.json({ data: [] });
+
+  try {
+    const client = await pool.connect();
+    try {
+      const params: any[] = keys.map((k) => updates[k]);
+      const setClauses = keys.map((k, i) => `${k} = $${i + 1}`).join(", ");
+      let sql = `UPDATE public.${tbl} SET ${setClauses}`;
+
+      if (filters && Array.isArray(filters) && filters.length > 0) {
+        const conditions: string[] = [];
+        for (const f of filters) {
+          params.push(f.value);
+          conditions.push(`${f.column} = $${params.length}`);
+        }
+        sql += ` WHERE ${conditions.join(" AND ")}`;
+      }
+
+      sql += " RETURNING *";
+      const result = await client.query(sql, params);
+      return res.json({ data: result.rows });
+    } finally {
+      client.release();
+    }
+  } catch (err: any) {
+    console.error("DB update error:", err.message);
+    return res.status(500).json({ error: err.message, data: null });
+  }
+});
+
+// DELETE
+router.post("/delete", async (req: Request, res: Response) => {
+  const { table, filters } = req.body;
+  if (!table) return res.status(400).json({ error: "table is required" });
+
+  const tbl = String(table).replace(/[^a-z0-9_]/g, "");
+
+  try {
+    const client = await pool.connect();
+    try {
+      let sql = `DELETE FROM public.${tbl}`;
+      const params: any[] = [];
+
+      if (filters && Array.isArray(filters) && filters.length > 0) {
+        const conditions: string[] = [];
+        for (const f of filters) {
+          params.push(f.value);
+          conditions.push(`${f.column} = $${params.length}`);
+        }
+        sql += ` WHERE ${conditions.join(" AND ")}`;
+      }
+
+      sql += " RETURNING *";
+      const result = await client.query(sql, params);
+      return res.json({ data: result.rows });
+    } finally {
+      client.release();
+    }
+  } catch (err: any) {
+    console.error("DB delete error:", err.message);
+    return res.status(500).json({ error: err.message, data: null });
+  }
+});
+
+// RPC call proxy
+router.post("/rpc/:fn", async (req: Request, res: Response) => {
+  const fn = req.params.fn.replace(/[^a-z0-9_]/g, "");
+  const args = req.body || {};
+
+  // Allowlist of safe RPCs
+  const ALLOWED_RPCS = [
+    "apply_voucher", "accept_ride", "check_cod_eligibility",
+    "get_quota_cost", "check_merchant_quota", "check_rate_limit",
+    "cleanup_expired_chats", "generate_monthly_kas",
+  ];
+
+  if (!ALLOWED_RPCS.includes(fn)) {
+    return res.status(403).json({ error: `RPC '${fn}' not allowed` });
+  }
+
+  try {
+    const client = await pool.connect();
+    try {
+      const keys = Object.keys(args);
+      const params = keys.map((k) => args[k]);
+      const argList = keys.map((k, i) => `${k} => $${i + 1}`).join(", ");
+      const sql = `SELECT * FROM public.${fn}(${argList})`;
+      const result = await client.query(sql, params);
+      return res.json({ data: result.rows[0] || null });
+    } finally {
+      client.release();
+    }
+  } catch (err: any) {
+    console.error(`RPC ${fn} error:`, err.message);
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+export default router;

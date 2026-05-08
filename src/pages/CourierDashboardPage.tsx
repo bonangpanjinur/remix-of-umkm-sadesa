@@ -29,6 +29,7 @@ import { Badge } from '@/components/ui/badge';
 import { CourierLocationUpdater } from '@/components/CourierLocationUpdater';
 import { NavigationButton } from '@/components/courier/NavigationButton';
 import { ProofOfDelivery } from '@/components/courier/ProofOfDelivery';
+import { OrderBatchingPanel } from '@/components/courier/OrderBatchingPanel';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
@@ -554,6 +555,30 @@ export default function CourierDashboardPage() {
             <Navigation className="h-4 w-4 text-muted-foreground" />
           </Link>
         </motion.div>
+
+        {/* S4-06: Multi-Order Batching Panel */}
+        {courier && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.19 }}
+          >
+            <OrderBatchingPanel
+              courierId={courier.id}
+              activeOrders={orders.map(o => ({
+                id: o.id,
+                order_number: o.id.slice(0, 8).toUpperCase(),
+                buyer_name: o.delivery_name || 'Pembeli',
+                buyer_address: o.delivery_address || '-',
+                merchant_name: '-',
+                total: o.total,
+                status: o.status,
+                created_at: o.created_at,
+              }))}
+              onRefresh={fetchCourierData}
+            />
+          </motion.div>
+        )}
 
         {/* Orders Section */}
         <motion.div
