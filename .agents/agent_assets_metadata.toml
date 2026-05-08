@@ -6,3 +6,9 @@ id = "5TItq_PZv_oSeeKd8xnPC"
 uri = "file://DESAMART_POS_PROGRESS_REPORT.md"
 type = "text"
 title = "DesaMart POS SaaS — Progress Report (Phase 1–3)"
+
+[[outputs]]
+id = "iOQiO96Lo8Fjl-y6pxXyL"
+uri = "file://docs/PROGRESS.md"
+type = "text"
+title = "Progress Fitur DesaMart"
