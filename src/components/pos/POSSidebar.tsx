@@ -6,7 +6,7 @@ import {
   TrendingUp, UserCheck, BoxesIcon, PieChart,
   ArrowRightLeft, GitCompare, Shield, KeyRound,
   Ticket, Star, Globe, Banknote, Monitor, BookOpen,
-  FlaskConical, ChefHat
+  FlaskConical, ChefHat, Table2, Tv2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { usePOS } from '@/contexts/POSContext';
@@ -26,6 +26,8 @@ export function POSSidebar() {
   const menuItems: SidebarItem[] = [
     { label: 'Dashboard', href: '/pos', icon: <LayoutDashboard className="h-4 w-4" /> },
     { label: 'Kasir (POS)', href: '/pos/kasir', icon: <ShoppingCart className="h-4 w-4" /> },
+    { label: 'Manajemen Meja', href: '/pos/meja', icon: <Table2 className="h-4 w-4" /> },
+    { label: 'KDS (Dapur)', href: '/pos/kds', icon: <Tv2 className="h-4 w-4" /> },
     { label: 'Transaksi', href: '/pos/transaksi', icon: <ClipboardList className="h-4 w-4" /> },
     { label: 'Retur', href: '/pos/retur', icon: <RotateCcw className="h-4 w-4" /> },
     { label: 'Pembelian', href: '/pos/pembelian', icon: <ShoppingBag className="h-4 w-4" /> },
