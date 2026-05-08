@@ -201,4 +201,32 @@ router.post("/broadcast", async (req, res) => {
   }
 });
 
+// GET /api/push/generate-vapid — generate new VAPID key pair
+router.get("/generate-vapid", (_req, res) => {
+  try {
+    const keys = webpush.generateVAPIDKeys();
+    return res.json({ publicKey: keys.publicKey, privateKey: keys.privateKey });
+  } catch (err) {
+    return res.status(500).json({ error: "Failed to generate VAPID keys" });
+  }
+});
+
+// POST /api/push/update-vapid — update in-memory VAPID config (runtime only)
+router.post("/update-vapid", (req, res) => {
+  const { public_key, private_key, email } = req.body as {
+    public_key: string;
+    private_key: string;
+    email: string;
+  };
+  if (!public_key || !private_key) {
+    return res.status(400).json({ error: "public_key and private_key are required" });
+  }
+  try {
+    webpush.setVapidDetails(email || VAPID_EMAIL, public_key, private_key);
+    return res.json({ success: true });
+  } catch (err) {
+    return res.status(500).json({ error: "Invalid VAPID keys" });
+  }
+});
+
 export default router;

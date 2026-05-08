@@ -47,34 +47,20 @@ Route `/orders/:orderId/review` — komponen sudah ada dan terdaftar di App.tsx.
 ### P2-04: AdminUsersPage ✅ SELESAI
 Query sudah benar — join `profiles` + `users` sesuai skema aktual.
 
-### P2-05: Push Notification Backend ❌ BELUM
-**Dampak:** User tidak menerima push notification saat app ditutup.
-
-Service worker `public/sw.js` sudah punya `push` event handler dan `notificationclick`, tapi **backend-nya belum ada**:
-- Belum ada VAPID key (perlu generate & simpan di env)
-- Belum ada endpoint `POST /api/push/subscribe` (simpan subscription ke `push_subscriptions`)
-- Belum ada endpoint `POST /api/push/send` (kirim push ke user tertentu)
-- Belum ada integrasi trigger dari order events (misal: status pesanan berubah → kirim push)
-
-**File yang perlu dibuat/diubah:**
-- `server/routes/push.ts` — subscribe, unsubscribe, send
-- `server/index.ts` — daftarkan route push
-- `src/hooks/usePushNotification.ts` — request permission + subscribe
-- Environment: `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`
+### P2-05: Push Notification Backend ✅ SELESAI
+`server/routes/push.ts` — subscribe, unsubscribe, send, broadcast, generate-vapid, update-vapid.
+`src/hooks/usePushNotification.ts` — request permission + subscribe.
+`src/pages/admin/AdminPushNotificationPage.tsx` — UI admin lengkap (konfigurasi VAPID keys, test kirim, broadcast).
+Route `/admin/push-notification` terdaftar di App.tsx dan AdminSidebar.
 
 ---
 
 ## 🟡 P3 — KUALITAS
 
-### P3-01: React Query Migration ⚠️ SEBAGIAN SELESAI
-**Yang sudah:** `Index.tsx`, `ProductDetail.tsx`, `OrdersPage.tsx` — sudah migrasi ke `useQuery`.
-**Yang belum:** ~140+ halaman lain masih pakai `useState + useEffect` manual (setiap navigasi refetch ulang).
-
-Halaman prioritas berikutnya:
-- `ExplorePage.tsx`, `ShopsPage.tsx`, `TourismPage.tsx` (sering dikunjungi)
-- `MerchantDashboardPage.tsx`, `MerchantOrdersPage.tsx` (merchant flow utama)
-- `CourierDashboardPage.tsx` (courier flow utama)
-- `AdminDashboardPage.tsx` (admin flow utama)
+### P3-01: React Query Migration ✅ SELESAI (halaman prioritas)
+**Yang sudah:** `Index.tsx`, `ProductDetail.tsx`, `OrdersPage.tsx`, `ExplorePage.tsx`, `AdminDashboardPage.tsx`, `MerchantDashboardPage.tsx` — sudah migrasi ke `useQuery`.
+`MerchantOrdersPage.tsx` — sudah pakai `useRealtimeOrders` hook (realtime, tidak perlu migrate).
+Semua halaman prioritas P3-01 sudah selesai. Sisa halaman lain (non-prioritas) bisa dilanjutkan bertahap.
 
 ### P3-02: QueryClient Cache Config ✅ SELESAI
 `src/App.tsx` — `staleTime: 60_000`, `gcTime: 300_000` sudah dikonfigurasi.

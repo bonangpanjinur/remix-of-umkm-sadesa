@@ -1,4 +1,5 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { 
   Package, Receipt, TrendingUp, DollarSign, AlertCircle, Settings,
@@ -49,62 +50,49 @@ interface OrderData {
 export default function MerchantDashboardPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [merchant, setMerchant] = useState<MerchantData | null>(null);
-  const [orders, setOrders] = useState<OrderData[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
 
-  useEffect(() => {
-    const fetchData = async () => {
-      if (!user) return;
+  // React Query: merchant data (P3-01)
+  const { data: merchant = null, isLoading: merchantLoading } = useQuery<MerchantData | null>({
+    queryKey: ['merchant-profile', user?.id],
+    queryFn: async () => {
+      if (!user) return null;
+      const { data } = await supabase
+        .from('merchants')
+        .select('id, name, is_open, status, registration_status, rejection_reason, image_url, slug')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      return data || null;
+    },
+    enabled: !!user,
+    staleTime: 60_000,
+  });
 
-      try {
-        const { data: merchantData } = await supabase
-          .from('merchants')
-          .select('id, name, is_open, status, registration_status, rejection_reason, image_url, slug')
-          .eq('user_id', user.id)
-          .maybeSingle();
+  // React Query: merchant orders for chart (P3-01)
+  const { data: orders = [] } = useQuery<OrderData[]>({
+    queryKey: ['merchant-orders-chart', merchant?.id],
+    queryFn: async () => {
+      if (!merchant?.id) return [];
+      const { data } = await supabase
+        .from('orders')
+        .select('id, status, total, created_at')
+        .eq('merchant_id', merchant.id)
+        .order('created_at', { ascending: false })
+        .limit(500);
+      return data || [];
+    },
+    enabled: !!merchant?.id,
+    staleTime: 60_000,
+  });
 
-        if (!merchantData) {
-          setLoading(false);
-          return;
-        }
-
-        setMerchant(merchantData);
-
-        // Parallel fetch orders after getting merchant ID
-        const [ordersResult] = await Promise.all([
-          supabase
-            .from('orders')
-            .select('id, status, total, created_at')
-            .eq('merchant_id', merchantData.id)
-            .order('created_at', { ascending: false })
-            .limit(500),
-        ]);
-
-        setOrders(ordersResult.data || []);
-      } catch (error) {
-        console.error('Error fetching merchant data:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchData();
-  }, [user]);
+  const loading = merchantLoading;
 
   // Realtime orders with sound notification
-  const handleNewOrder = useCallback((order: OrderRow) => {
-    // Also refresh local orders
-    if (merchant) {
-      supabase
-        .from('orders')
-        .select('id, status, total, subtotal, created_at')
-        .eq('merchant_id', merchant.id)
-        .then(({ data }) => setOrders(data || []));
-    }
-  }, [merchant]);
+  const handleNewOrder = useCallback((_order: OrderRow) => {
+    queryClient.invalidateQueries({ queryKey: ['merchant-orders-chart', merchant?.id] });
+  }, [merchant?.id, queryClient]);
 
   const { orders: realtimeOrders, updateOrderStatus } = useRealtimeOrders({
     merchantId: merchant?.id || null,
@@ -148,7 +136,7 @@ export default function MerchantDashboardPage() {
 
       if (error) throw error;
 
-      setMerchant({ ...merchant, is_open: isOpen });
+      queryClient.setQueryData(['merchant-profile', user?.id], { ...merchant, is_open: isOpen });
       toast.success(isOpen ? 'Toko sekarang buka' : 'Toko sekarang tutup');
     } catch (error) {
       toast.error('Gagal mengubah status toko');

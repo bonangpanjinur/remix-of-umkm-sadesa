@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MapPin, Camera, ShoppingBag } from 'lucide-react';
 import { Header } from '../components/layout/Header';
@@ -26,10 +27,6 @@ export default function ExplorePage() {
   const navigate = useNavigate();
   const { history, addToHistory, removeFromHistory, clearHistory } = useSearchHistory();
   
-  const [villages, setVillages] = useState<Village[]>([]);
-  const [tourismSpots, setTourismSpots] = useState<Tourism[]>([]);
-  const [products, setProducts] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState<ExploreCategory>('all');
   const [sortOption, setSortOption] = useState<SortOption>('relevance');
@@ -39,32 +36,32 @@ export default function ExplorePage() {
     districts: [],
     minRating: null,
   });
-  
+
   // Pagination state
   const [displayedProducts, setDisplayedProducts] = useState(ITEMS_PER_PAGE);
   const [displayedTourism, setDisplayedTourism] = useState(ITEMS_PER_PAGE);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
 
-  useEffect(() => {
-    async function loadData() {
-      try {
-        const [villagesData, tourismData, productsData] = await Promise.all([
-          fetchVillages(),
-          fetchTourism(),
-          fetchProducts(),
-        ]);
-        
-        setVillages(villagesData);
-        setTourismSpots(tourismData);
-        setProducts(productsData);
-      } catch (error) {
-        console.error('Error loading data:', error);
-      } finally {
-        setLoading(false);
-      }
-    }
-    loadData();
-  }, []);
+  // React Query: parallel data fetching with caching (P3-01)
+  const { data: villages = [], isLoading: villagesLoading } = useQuery<Village[]>({
+    queryKey: ['explore-villages'],
+    queryFn: fetchVillages,
+    staleTime: 60_000,
+  });
+
+  const { data: tourismSpots = [], isLoading: tourismLoading } = useQuery<Tourism[]>({
+    queryKey: ['explore-tourism'],
+    queryFn: fetchTourism,
+    staleTime: 60_000,
+  });
+
+  const { data: products = [], isLoading: productsLoading } = useQuery<Product[]>({
+    queryKey: ['explore-products'],
+    queryFn: fetchProducts,
+    staleTime: 60_000,
+  });
+
+  const loading = villagesLoading || tourismLoading || productsLoading;
 
   // Reset pagination when filters change
   useEffect(() => {

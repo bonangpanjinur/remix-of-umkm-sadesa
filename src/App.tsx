@@ -89,6 +89,7 @@ const AdminKomisiPage = lazy(() => import("./pages/admin/AdminKomisiPage"));
 const AdminAuditLogPage = lazy(() => import("./pages/admin/AdminAuditLogPage"));
 const AdminWhatsAppPage = lazy(() => import("./pages/admin/AdminWhatsAppPage"));
 const AdminApiKeysPage = lazy(() => import("./pages/admin/AdminApiKeysPage"));
+const AdminPushNotificationPage = lazy(() => import("./pages/admin/AdminPushNotificationPage"));
 const AdminCashbackPage = lazy(() => import("./pages/admin/AdminCashbackPage"));
 
 // Courier Pages
@@ -596,6 +597,11 @@ const App = () => (
               <Route path="/admin/api-keys" element={
                 <ProtectedRoute allowedRoles={['admin']}>
                   <AdminApiKeysPage />
+                </ProtectedRoute>
+              } />
+              <Route path="/admin/push-notification" element={
+                <ProtectedRoute allowedRoles={['admin']}>
+                  <AdminPushNotificationPage />
                 </ProtectedRoute>
               } />
               <Route path="/admin/cashback" element={

@@ -1,4 +1,5 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Store, MapPin, Bike, Clock, CheckCheck, X, Calendar, RefreshCw } from 'lucide-react';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { StatsCard } from '@/components/admin/StatsCard';
@@ -55,13 +56,9 @@ export default function AdminDashboardPage() {
   // Realtime stats hook
   const { stats: realtimeStats, recentEvents, isConnected, loading: realtimeLoading, refresh: refreshRealtime } = useRealtimeStats();
   
-  const [pendingMerchants, setPendingMerchants] = useState<Merchant[]>([]);
-  const [pendingVillages, setPendingVillages] = useState<Village[]>([]);
-  const [pendingCouriers, setPendingCouriers] = useState<Courier[]>([]);
-  const [orders, setOrders] = useState<OrderData[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [dateRange, setDateRange] = useState('14days');
-  
+
   // Bulk action states
   const [selectedItems, setSelectedItems] = useState<SelectedItem[]>([]);
   const [bulkDialogOpen, setBulkDialogOpen] = useState(false);
@@ -83,36 +80,47 @@ export default function AdminDashboardPage() {
     }
   };
 
-  const loadData = async () => {
-    try {
-      const { start } = getDateRange();
-      
-      // Fetch pending approvals and chart data in parallel
-      const [merchants, villages, couriers, ordersResult] = await Promise.all([
-        fetchPendingMerchants(),
-        fetchPendingVillages(),
-        fetchPendingCouriers(),
-        supabase
-          .from('orders')
-          .select('total, created_at, status')
-          .gte('created_at', start.toISOString())
-          .order('created_at', { ascending: true }),
-      ]);
-      
-      setPendingMerchants(merchants);
-      setPendingVillages(villages);
-      setPendingCouriers(couriers);
-      setOrders(ordersResult.data || []);
-    } catch (error) {
-      console.error('Error loading admin data:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  // React Query: parallel fetching with caching (P3-01)
+  const { data: pendingMerchants = [], isLoading: merchantsLoading } = useQuery<Merchant[]>({
+    queryKey: ['admin-pending-merchants'],
+    queryFn: fetchPendingMerchants,
+    staleTime: 30_000,
+  });
 
-  useEffect(() => {
-    loadData();
-  }, [dateRange]);
+  const { data: pendingVillages = [], isLoading: villagesLoading } = useQuery<Village[]>({
+    queryKey: ['admin-pending-villages'],
+    queryFn: fetchPendingVillages,
+    staleTime: 30_000,
+  });
+
+  const { data: pendingCouriers = [], isLoading: couriersLoading } = useQuery<Courier[]>({
+    queryKey: ['admin-pending-couriers'],
+    queryFn: fetchPendingCouriers,
+    staleTime: 30_000,
+  });
+
+  const { data: orders = [], isLoading: ordersLoading } = useQuery<OrderData[]>({
+    queryKey: ['admin-orders-chart', dateRange],
+    queryFn: async () => {
+      const { start } = getDateRange();
+      const { data } = await supabase
+        .from('orders')
+        .select('total, created_at, status')
+        .gte('created_at', start.toISOString())
+        .order('created_at', { ascending: true });
+      return data || [];
+    },
+    staleTime: 60_000,
+  });
+
+  const loading = merchantsLoading || villagesLoading || couriersLoading || ordersLoading;
+
+  const loadData = () => {
+    queryClient.invalidateQueries({ queryKey: ['admin-pending-merchants'] });
+    queryClient.invalidateQueries({ queryKey: ['admin-pending-villages'] });
+    queryClient.invalidateQueries({ queryKey: ['admin-pending-couriers'] });
+    queryClient.invalidateQueries({ queryKey: ['admin-orders-chart', dateRange] });
+  };
 
   // Calculate chart data from orders
   const salesChartData = useMemo<SalesChartData[]>(() => {

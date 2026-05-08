@@ -83,6 +83,7 @@ export function AdminSidebar({
     { label: 'Banner Homepage', href: '/admin/banners', icon: <Image className="h-4 w-4" /> },
     { label: 'Promosi', href: '/admin/promotions', icon: <Megaphone className="h-4 w-4" /> },
     { label: 'Broadcast', href: '/admin/broadcast', icon: <Bell className="h-4 w-4" /> },
+    { label: 'Push Notification', href: '/admin/push-notification', icon: <Bell className="h-4 w-4" /> },
     { label: 'Kode Verifikator', href: '/admin/codes', icon: <TicketCheck className="h-4 w-4" /> },
     { label: 'Backup Data', href: '/admin/backup', icon: <Database className="h-4 w-4" /> },
     { label: 'Ojek Desa', href: '/admin/rides', icon: <Activity className="h-4 w-4" /> },
