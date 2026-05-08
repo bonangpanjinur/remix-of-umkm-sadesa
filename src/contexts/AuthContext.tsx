@@ -1,6 +1,8 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import type { AppRole } from '@/types/auth';
+
+const AUTH_CHANNEL_NAME = 'desamart_auth';
 
 interface AuthUser {
   id: string;
@@ -40,6 +42,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [roles, setRoles] = useState<AppRole[]>([]);
   const [loading, setLoading] = useState(true);
   const [rolesLoading, setRolesLoading] = useState(true);
+  const broadcastRef = useRef<BroadcastChannel | null>(null);
 
   const fetchUserRoles = useCallback(async (userId: string) => {
     try {
@@ -98,6 +101,45 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => subscription.unsubscribe();
   }, [fetchUserRoles]);
 
+  // R-03: Multi-tab auth sync via BroadcastChannel
+  useEffect(() => {
+    if (typeof BroadcastChannel === 'undefined') return;
+
+    const channel = new BroadcastChannel(AUTH_CHANNEL_NAME);
+    broadcastRef.current = channel;
+
+    channel.onmessage = (event: MessageEvent) => {
+      const { type } = event.data as { type: 'LOGOUT' | 'LOGIN' };
+
+      if (type === 'LOGOUT') {
+        // Tab lain logout — bersihkan state di tab ini tanpa memanggil signOut lagi
+        supabase.auth.signOut().catch(() => {});
+        setUser(null);
+        setSession(null);
+        setRoles([]);
+        setLoading(false);
+        setRolesLoading(false);
+        // Arahkan ke halaman auth
+        window.location.href = '/auth';
+      } else if (type === 'LOGIN') {
+        // Tab lain login — refresh session agar tab ini ikut terotentikasi
+        supabase.auth.getSession().then(async ({ data: { session } }) => {
+          if (session?.user) {
+            setSession(session as AuthSession | null);
+            setUser(session.user as AuthUser);
+            await fetchUserRoles(session.user.id);
+            setLoading(false);
+          }
+        });
+      }
+    };
+
+    return () => {
+      channel.close();
+      broadcastRef.current = null;
+    };
+  }, [fetchUserRoles]);
+
   const signUp = async (email: string, password: string, fullName: string) => {
     const { data, error } = await supabase.auth.signUp({
       email,
@@ -117,12 +159,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       email,
       password,
     });
+    if (!error) {
+      broadcastRef.current?.postMessage({ type: 'LOGIN' });
+    }
     return { error };
   };
 
   const signOut = async () => {
     await supabase.auth.signOut();
     setRoles([]);
+    // R-03: Beritahu semua tab lain agar ikut logout
+    broadcastRef.current?.postMessage({ type: 'LOGOUT' });
   };
 
   const hasRole = useCallback((role: AppRole): boolean => {

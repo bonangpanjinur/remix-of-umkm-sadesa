@@ -11,7 +11,7 @@
 | 🔴 Kritis  | 4     | 4       | 0    |
 | 🟠 Tinggi  | 4     | 4       | 0    |
 | 🟡 Sedang  | 4     | 4       | 0    |
-| 🔵 Rendah  | 4     | 3       | 1    |
+| 🔵 Rendah  | 4     | 4       | 0    |
 
 ---
 
@@ -101,10 +101,10 @@
 - **Perbaikan:** Tambah variabel `_sseBackoffMs` — backoff 3s → 6s → 12s → max 60s; reset saat disconnect disengaja
 - **File:** `src/integrations/supabase/client.ts`
 
-### R-03: Multi-tab logout tidak sinkron ⬜ BELUM
+### R-03: Multi-tab logout tidak sinkron ✅ SELESAI
 - **Dampak:** Logout di tab A tidak mempengaruhi tab B sampai ada network request gagal
-- **Perbaikan (Sprint 4):** Gunakan `window.addEventListener('storage', ...)` untuk listen perubahan `session_token` di localStorage, lalu trigger logout di semua tab
-- **File:** `src/integrations/supabase/client.ts` atau `src/contexts/AuthContext.tsx`
+- **Perbaikan:** Gunakan `BroadcastChannel('desamart_auth')` di `AuthProvider` — saat `signOut` dipanggil, broadcast pesan `{ type: 'LOGOUT' }` ke semua tab; tiap tab mendengarkan dan langsung bersihkan state + redirect ke `/auth`. Login juga disinkronkan via pesan `{ type: 'LOGIN' }`. Graceful fallback jika browser tidak support `BroadcastChannel`.
+- **File:** `src/contexts/AuthContext.tsx`
 
 ### R-04: WhatsApp log ditulis ke tabel `app_settings` ✅ SELESAI
 - **Dampak:** Log `wa_log_xxxxx` ditulis ke tabel konfigurasi → polusi data, sulit dibedakan dari setting asli
