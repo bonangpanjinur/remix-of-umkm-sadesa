@@ -142,6 +142,7 @@ import POSKasPage from "./pages/pos/POSKasPage";
 import POSLaporanLabaRugiPage from "./pages/pos/POSLaporanLabaRugiPage";
 import POSLaporanKasirPage from "./pages/pos/POSLaporanKasirPage";
 import POSLaporanStokPage from "./pages/pos/POSLaporanStokPage";
+import POSLaporanCashflowPage from "./pages/pos/POSLaporanCashflowPage";
 import POSAnalitikPage from "./pages/pos/POSAnalitikPage";
 import POSTransferStokPage from "./pages/pos/POSTransferStokPage";
 import POSLaporanOutletPage from "./pages/pos/POSLaporanOutletPage";
@@ -678,6 +679,7 @@ const App = () => (
               <Route path="/pos/laporan/laba-rugi" element={<ProtectedRoute><POSLaporanLabaRugiPage /></ProtectedRoute>} />
               <Route path="/pos/laporan/kasir" element={<ProtectedRoute><POSLaporanKasirPage /></ProtectedRoute>} />
               <Route path="/pos/laporan/stok" element={<ProtectedRoute><POSLaporanStokPage /></ProtectedRoute>} />
+              <Route path="/pos/laporan/cashflow" element={<ProtectedRoute><POSLaporanCashflowPage /></ProtectedRoute>} />
               <Route path="/pos/analitik" element={<ProtectedRoute><POSAnalitikPage /></ProtectedRoute>} />
               <Route path="/pos/transfer-stok" element={<ProtectedRoute><POSTransferStokPage /></ProtectedRoute>} />
               <Route path="/pos/laporan/outlet" element={<ProtectedRoute><POSLaporanOutletPage /></ProtectedRoute>} />

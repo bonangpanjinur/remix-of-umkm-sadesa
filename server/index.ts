@@ -346,6 +346,198 @@ app.post("/api/xendit/webhook", async (req, res) => {
   }
 });
 
+// ─── S1-05: Webhook marketplace order → import ke POS ──────────────────────
+// POST /api/webhook/marketplace-order
+// Menerima notifikasi order marketplace dan membuat record import ke POS
+app.post("/api/webhook/marketplace-order", async (req, res) => {
+  try {
+    const supabase = getSupabaseAdmin();
+    const {
+      order_id,
+      tenant_id,
+      items,           // [{ product_id, pos_product_id, qty, price }]
+      status,
+      customer_name,
+      customer_phone,
+      total,
+      created_at,
+    } = req.body;
+
+    if (!order_id || !tenant_id) {
+      return res.status(400).json({ error: "order_id and tenant_id are required" });
+    }
+
+    // Cek apakah order sudah diimport sebelumnya
+    const { data: existing } = await supabase
+      .from("pos_imported_orders" as any)
+      .select("id")
+      .eq("marketplace_order_id", order_id)
+      .eq("tenant_id", tenant_id)
+      .maybeSingle();
+
+    if (existing) {
+      return res.json({ success: true, message: "Order already imported", order_id });
+    }
+
+    // Insert ke tabel import orders POS
+    await supabase.from("pos_imported_orders" as any).insert({
+      tenant_id,
+      marketplace_order_id: order_id,
+      customer_name: customer_name || "Pelanggan Marketplace",
+      customer_phone: customer_phone || null,
+      total: total || 0,
+      status: status || "pending",
+      items: items || [],
+      marketplace_created_at: created_at || new Date().toISOString(),
+      imported_at: new Date().toISOString(),
+    });
+
+    // Kurangi stok produk POS yang terhubung
+    if (Array.isArray(items)) {
+      for (const item of items) {
+        if (item.pos_product_id && item.qty > 0) {
+          const { data: product } = await supabase
+            .from("pos_products" as any)
+            .select("stock")
+            .eq("id", item.pos_product_id)
+            .eq("tenant_id", tenant_id)
+            .maybeSingle();
+
+          if (product && (product as any).stock !== null) {
+            const newStock = Math.max(0, Number((product as any).stock) - Number(item.qty));
+            await supabase
+              .from("pos_products" as any)
+              .update({ stock: newStock, updated_at: new Date().toISOString() })
+              .eq("id", item.pos_product_id);
+
+            // Log mutasi stok
+            await supabase.from("pos_stock_mutations" as any).insert({
+              tenant_id,
+              product_id: item.pos_product_id,
+              type: "out",
+              qty: item.qty,
+              notes: `Order marketplace #${order_id.slice(0, 8).toUpperCase()}`,
+              reference_type: "marketplace_order",
+              reference_id: order_id,
+              created_at: new Date().toISOString(),
+            });
+          }
+        }
+      }
+    }
+
+    // Catat ke sync log
+    await supabase.from("pos_sync_logs" as any).insert({
+      tenant_id,
+      sync_type: "marketplace_webhook",
+      status: "success",
+      items_synced: Array.isArray(items) ? items.length : 0,
+      notes: `Order ${order_id} imported via webhook`,
+      started_at: new Date().toISOString(),
+      completed_at: new Date().toISOString(),
+    });
+
+    console.log(`[webhook] Marketplace order ${order_id} imported for tenant ${tenant_id}`);
+    return res.json({ success: true, message: "Order imported to POS", order_id });
+  } catch (err) {
+    console.error("marketplace-order webhook error:", err);
+    return res.status(500).json({ error: err instanceof Error ? err.message : "Server error" });
+  }
+});
+
+// ─── S1-04: Auto-sync stok POS → marketplace (scheduled) ────────────────────
+// Juga expose endpoint manual trigger: POST /api/pos/sync-stock
+async function runStockSync() {
+  const supabase = getSupabaseAdmin();
+  console.log("[auto-sync] Starting scheduled stock sync...");
+
+  try {
+    // Ambil semua integrasi aktif yang punya auto_sync_stock = true
+    const { data: integrations } = await supabase
+      .from("pos_integration_settings" as any)
+      .select("tenant_id, outlet_id, sync_interval_minutes, last_sync_at")
+      .eq("auto_sync_stock", true);
+
+    if (!integrations || integrations.length === 0) {
+      console.log("[auto-sync] No active integrations with auto sync enabled.");
+      return;
+    }
+
+    const now = new Date();
+    let synced = 0;
+
+    for (const integration of integrations as any[]) {
+      const lastSync = integration.last_sync_at ? new Date(integration.last_sync_at) : null;
+      const intervalMs = (integration.sync_interval_minutes || 60) * 60 * 1000;
+
+      // Skip jika belum waktunya sync
+      if (lastSync && now.getTime() - lastSync.getTime() < intervalMs) continue;
+
+      // Ambil produk yang tersinkron
+      const { data: syncedProducts } = await supabase
+        .from("pos_marketplace_sync" as any)
+        .select("*, pos_products(stock, price)")
+        .eq("tenant_id", integration.tenant_id)
+        .eq("sync_stock", true);
+
+      if (!syncedProducts || syncedProducts.length === 0) continue;
+
+      let itemsSynced = 0;
+      for (const sp of syncedProducts as any[]) {
+        if (!sp.marketplace_product_id || !sp.pos_products) continue;
+        const newStock = sp.pos_products.stock || 0;
+
+        // Update stok di tabel marketplace products
+        await supabase
+          .from("products" as any)
+          .update({ stock: newStock, updated_at: now.toISOString() })
+          .eq("id", sp.marketplace_product_id);
+
+        itemsSynced++;
+      }
+
+      // Update last_sync_at
+      await supabase
+        .from("pos_integration_settings" as any)
+        .update({ last_sync_at: now.toISOString() })
+        .eq("tenant_id", integration.tenant_id);
+
+      // Log sync
+      await supabase.from("pos_sync_logs" as any).insert({
+        tenant_id: integration.tenant_id,
+        sync_type: "stock_sync",
+        status: "success",
+        items_synced: itemsSynced,
+        notes: `Auto-sync scheduled (${integration.sync_interval_minutes} min interval)`,
+        started_at: now.toISOString(),
+        completed_at: new Date().toISOString(),
+      });
+
+      synced += itemsSynced;
+      console.log(`[auto-sync] Tenant ${integration.tenant_id}: ${itemsSynced} products synced`);
+    }
+
+    if (synced > 0) console.log(`[auto-sync] Total: ${synced} products synced`);
+  } catch (err) {
+    console.error("[auto-sync] Error:", err);
+  }
+}
+
+// Manual trigger endpoint
+app.post("/api/pos/sync-stock", async (req, res) => {
+  try {
+    await runStockSync();
+    return res.json({ success: true, message: "Stock sync triggered" });
+  } catch (err) {
+    return res.status(500).json({ error: "Sync failed" });
+  }
+});
+
+// Jadwalkan auto-sync setiap 5 menit, fungsi itu sendiri cek interval per tenant
+const SYNC_CHECK_INTERVAL_MS = 5 * 60 * 1000; // cek setiap 5 menit
+setInterval(runStockSync, SYNC_CHECK_INTERVAL_MS);
+console.log(`[auto-sync] Scheduled stock sync check every ${SYNC_CHECK_INTERVAL_MS / 60000} minutes`);
+
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`DesaMart API server running on port ${PORT}`);
 });

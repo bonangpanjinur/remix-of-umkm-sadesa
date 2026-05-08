@@ -5,7 +5,7 @@ import {
   ChevronLeft, Store, RotateCcw, ShoppingBag, Wallet,
   TrendingUp, UserCheck, BoxesIcon, PieChart,
   ArrowRightLeft, GitCompare, Shield, KeyRound,
-  Ticket, Star, Globe
+  Ticket, Star, Globe, Banknote
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { usePOS } from '@/contexts/POSContext';
@@ -38,6 +38,7 @@ export function POSSidebar() {
     { label: 'Lap. Laba Rugi', href: '/pos/laporan/laba-rugi', icon: <TrendingUp className="h-4 w-4" /> },
     { label: 'Lap. Per Kasir', href: '/pos/laporan/kasir', icon: <UserCheck className="h-4 w-4" /> },
     { label: 'Lap. Stok', href: '/pos/laporan/stok', icon: <BoxesIcon className="h-4 w-4" /> },
+    { label: 'Lap. Cashflow', href: '/pos/laporan/cashflow', icon: <Banknote className="h-4 w-4" /> },
     { label: 'Analitik Pelanggan', href: '/pos/analitik', icon: <PieChart className="h-4 w-4" /> },
     { label: 'Transfer Stok', href: '/pos/transfer-stok', icon: <ArrowRightLeft className="h-4 w-4" /> },
     { label: 'Lap. Outlet', href: '/pos/laporan/outlet', icon: <GitCompare className="h-4 w-4" /> },

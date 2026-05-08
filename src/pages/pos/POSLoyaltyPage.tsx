@@ -15,9 +15,10 @@ import { Progress } from '@/components/ui/progress';
 import { toast } from 'sonner';
 import {
   Star, Crown, Award, Gift, Settings, Users, TrendingUp,
-  Search, RefreshCw, Plus, Minus, Download, History, Trophy
+  Search, RefreshCw, Plus, Minus, Download, History, Trophy,
+  Bell, AlertTriangle, Clock
 } from 'lucide-react';
-import { format, parseISO } from 'date-fns';
+import { format, parseISO, addDays, differenceInDays, isAfter } from 'date-fns';
 import { id as idLocale } from 'date-fns/locale';
 
 interface LoyaltyProgram {
@@ -98,9 +99,28 @@ export default function POSLoyaltyPage() {
   const [historyCustomer, setHistoryCustomer] = useState<CustomerPoints | null>(null);
   const [historyTx, setHistoryTx] = useState<PointTransaction[]>([]);
 
+  // Expiry notifications state
+  const [expiringCustomers, setExpiringCustomers] = useState<{ customer: CustomerPoints; expiry_date: Date; days_left: number }[]>([]);
+
   const [stats, setStats] = useState({
     totalMembers: 0, activeMembers: 0, totalPointsIssued: 0, totalPointsRedeemed: 0,
   });
+
+  // Hitung pelanggan dengan poin hampir kedaluwarsa — dideklarasikan sebelum fetchAll
+  const calcExpiringCustomers = useCallback((customerList: CustomerPoints[], prog: LoyaltyProgram | null) => {
+    if (!prog || prog.point_expiry_days <= 0) { setExpiringCustomers([]); return; }
+    const WARN_DAYS = 30;
+    const results: { customer: CustomerPoints; expiry_date: Date; days_left: number }[] = [];
+    customerList.forEach(c => {
+      if (c.available_points <= 0) return;
+      const expiry_date = addDays(new Date(), prog.point_expiry_days);
+      const days_left = prog.point_expiry_days;
+      if (days_left <= WARN_DAYS) {
+        results.push({ customer: c, expiry_date, days_left });
+      }
+    });
+    setExpiringCustomers(results);
+  }, []);
 
   const fetchAll = useCallback(async () => {
     if (!tenant) return;
@@ -115,7 +135,7 @@ export default function POSLoyaltyPage() {
 
     setProgram(prog as unknown as LoyaltyProgram | null);
 
-    // Ambil data poin pelanggan (join dari pos_customers + pos_loyalty_points)
+    // Ambil data poin pelanggan
     const { data: custData } = await supabase
       .from('pos_customers' as any)
       .select('id, name, phone, total_purchase, transaction_count, loyalty_points, loyalty_tier')
@@ -135,6 +155,7 @@ export default function POSLoyaltyPage() {
     }));
 
     setCustomers(mapped);
+    calcExpiringCustomers(mapped, prog as unknown as LoyaltyProgram | null);
 
     // Stats
     setStats({
@@ -145,7 +166,7 @@ export default function POSLoyaltyPage() {
     });
 
     setLoading(false);
-  }, [tenant]);
+  }, [tenant, calcExpiringCustomers]);
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
@@ -319,11 +340,51 @@ export default function POSLoyaltyPage() {
         ))}
       </div>
 
+      {/* ---- EXPIRY NOTIFICATION BANNER ---- */}
+      {expiringCustomers.length > 0 && (
+        <Card className="mb-4 border-amber-200 bg-amber-50 dark:bg-amber-950/20">
+          <CardContent className="p-4">
+            <div className="flex items-start gap-3">
+              <Bell className="h-5 w-5 text-amber-600 mt-0.5 flex-shrink-0 animate-pulse" />
+              <div className="flex-1">
+                <p className="font-semibold text-amber-800 dark:text-amber-300">
+                  Notifikasi Expiry Poin — {expiringCustomers.length} Pelanggan
+                </p>
+                <p className="text-sm text-amber-700 dark:text-amber-400 mt-0.5">
+                  Program loyalty mengatur masa berlaku poin <strong>{program?.point_expiry_days} hari</strong>. Ingatkan pelanggan berikut untuk menukarkan poin mereka sebelum kedaluwarsa:
+                </p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {expiringCustomers.slice(0, 8).map(({ customer, days_left }) => (
+                    <div key={customer.customer_id} className="flex items-center gap-1.5 bg-amber-100 dark:bg-amber-900/30 rounded-full px-3 py-1">
+                      <Clock className="h-3 w-3 text-amber-700" />
+                      <span className="text-xs text-amber-800 dark:text-amber-300 font-medium">{customer.customer_name}</span>
+                      <span className="text-xs text-amber-600">— {customer.available_points.toLocaleString('id-ID')} poin</span>
+                      <Badge className="bg-amber-200 text-amber-800 border-0 text-xs ml-1">{days_left}h</Badge>
+                    </div>
+                  ))}
+                  {expiringCustomers.length > 8 && (
+                    <span className="text-xs text-amber-700 self-center">+{expiringCustomers.length - 8} lainnya</span>
+                  )}
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <Tabs value={tab} onValueChange={setTab}>
         <div className="flex items-center justify-between mb-4">
           <TabsList>
             <TabsTrigger value="overview"><Users className="h-3.5 w-3.5 mr-1.5" />Daftar Poin</TabsTrigger>
             <TabsTrigger value="tiers"><Trophy className="h-3.5 w-3.5 mr-1.5" />Tier Member</TabsTrigger>
+            <TabsTrigger value="expiry" className="relative">
+              <Bell className="h-3.5 w-3.5 mr-1.5" />Notif Expiry
+              {expiringCustomers.length > 0 && (
+                <span className="absolute -top-1 -right-1 h-4 w-4 bg-amber-500 text-white text-[10px] rounded-full flex items-center justify-center">
+                  {expiringCustomers.length > 9 ? '9+' : expiringCustomers.length}
+                </span>
+              )}
+            </TabsTrigger>
           </TabsList>
           <div className="relative w-56">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
@@ -481,6 +542,100 @@ export default function POSLoyaltyPage() {
               </CardContent>
             </Card>
           )}
+        </TabsContent>
+
+        {/* ---- NOTIFIKASI EXPIRY POIN ---- */}
+        <TabsContent value="expiry">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Bell className="h-5 w-5 text-amber-500" />
+                Notifikasi Expiry Poin
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {!program || program.point_expiry_days <= 0 ? (
+                <div className="text-center py-10">
+                  <Clock className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
+                  <p className="font-medium text-muted-foreground">Masa berlaku poin tidak diatur</p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Atur masa berlaku poin di <strong>Pengaturan Program</strong> untuk mengaktifkan notifikasi expiry.
+                  </p>
+                  <Button variant="outline" size="sm" className="mt-3" onClick={openSettings}>
+                    <Settings className="h-4 w-4 mr-1" />Pengaturan Program
+                  </Button>
+                </div>
+              ) : expiringCustomers.length === 0 ? (
+                <div className="text-center py-10">
+                  <Bell className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
+                  <p className="font-medium">Tidak ada poin yang hampir kedaluwarsa</p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Pelanggan yang poinnya akan kedaluwarsa dalam 30 hari akan muncul di sini.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 p-3 bg-amber-50 rounded-lg border border-amber-200">
+                    <AlertTriangle className="h-4 w-4 text-amber-600 flex-shrink-0" />
+                    <p className="text-sm text-amber-800">
+                      <strong>{expiringCustomers.length} pelanggan</strong> memiliki poin yang akan kedaluwarsa dalam {Math.min(...expiringCustomers.map(e => e.days_left))}–{Math.max(...expiringCustomers.map(e => e.days_left))} hari.
+                      Segera hubungi mereka untuk mengingatkan penggunaan poin.
+                    </p>
+                  </div>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Pelanggan</TableHead>
+                        <TableHead>Tier</TableHead>
+                        <TableHead>Poin Tersedia</TableHead>
+                        <TableHead>Kedaluwarsa Dalam</TableHead>
+                        <TableHead>Estimasi Nilai</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {expiringCustomers.map(({ customer, expiry_date, days_left }) => (
+                        <TableRow key={customer.customer_id}>
+                          <TableCell>
+                            <div className="font-medium text-sm">{customer.customer_name}</div>
+                            {customer.customer_phone && (
+                              <div className="text-xs text-muted-foreground">{customer.customer_phone}</div>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <Badge style={{ backgroundColor: TIER_COLORS[customer.tier] || '#6b7280', color: 'white' }}>
+                              {customer.tier}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <span className="font-bold text-amber-600">{customer.available_points.toLocaleString('id-ID')}</span>
+                            <span className="text-xs text-muted-foreground ml-1">poin</span>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-1.5">
+                              <Clock className="h-3.5 w-3.5 text-amber-500" />
+                              <Badge className={`border-0 text-xs ${days_left <= 7 ? 'bg-red-100 text-red-700' : days_left <= 14 ? 'bg-orange-100 text-orange-700' : 'bg-amber-100 text-amber-700'}`}>
+                                {days_left} hari
+                              </Badge>
+                            </div>
+                            <div className="text-xs text-muted-foreground mt-0.5">
+                              {format(expiry_date, 'dd MMM yyyy', { locale: idLocale })}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            {program && (
+                              <span className="text-sm font-medium text-emerald-600">
+                                {formatCurrency(Math.floor(customer.available_points / program.redeem_rate))}
+                              </span>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
 
