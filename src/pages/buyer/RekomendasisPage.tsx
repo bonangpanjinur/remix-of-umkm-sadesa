@@ -42,11 +42,22 @@ export default function RekomendasisPage() {
 
       if (user) {
         // Get user's order history for personalization
-        const { data: orderItems } = await (supabase as any)
-          .from('order_items')
-          .select('product_id, products(category, merchant_id)')
-          .eq('orders.user_id', user.id)
-          .limit(20);
+        // Ambil order IDs milik user dulu, lalu order_items-nya
+        const { data: userOrders } = await supabase
+          .from('orders')
+          .select('id')
+          .eq('buyer_id', user.id)
+          .limit(30);
+
+        const orderIds = (userOrders || []).map((o: any) => o.id);
+
+        const { data: orderItems } = orderIds.length > 0
+          ? await supabase
+              .from('order_items')
+              .select('product_id, products(category, merchant_id)')
+              .in('order_id', orderIds)
+              .limit(20)
+          : { data: [] };
 
         const orderedCategories = new Set<string>();
         const orderedMerchants = new Set<string>();

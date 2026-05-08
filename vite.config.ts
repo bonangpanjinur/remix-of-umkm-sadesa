@@ -50,12 +50,13 @@ export default defineConfig(() => ({
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
         runtimeCaching: [
           {
-            urlPattern: /^https:\/\/.*\.supabase\.co\/storage\/v1\/object\/public\/.*/i,
+            // Cache gambar produk & storage lokal (P2-03: fix dari supabase.co ke server lokal)
+            urlPattern: /\/storage\/.*/i,
             handler: 'CacheFirst',
             options: {
-              cacheName: 'supabase-storage-cache',
+              cacheName: 'local-storage-cache',
               expiration: {
-                maxEntries: 100,
+                maxEntries: 200,
                 maxAgeSeconds: 60 * 60 * 24 * 30
               },
               cacheableResponse: {
@@ -64,13 +65,32 @@ export default defineConfig(() => ({
             }
           },
           {
-            urlPattern: /^https:\/\/.*\.supabase\.co\/rest\/v1\/.*/i,
+            // Cache API DB dengan NetworkFirst (data selalu fresh, fallback ke cache)
+            urlPattern: /\/api\/db\/.*/i,
             handler: 'NetworkFirst',
             options: {
-              cacheName: 'supabase-api-cache',
+              cacheName: 'api-db-cache',
+              expiration: {
+                maxEntries: 100,
+                maxAgeSeconds: 60 * 5
+              },
+              cacheableResponse: {
+                statuses: [0, 200]
+              }
+            }
+          },
+          {
+            // Cache data wilayah (jarang berubah)
+            urlPattern: /\/api\/wilayah.*/i,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'wilayah-cache',
               expiration: {
                 maxEntries: 50,
-                maxAgeSeconds: 60 * 60 * 24
+                maxAgeSeconds: 60 * 60 * 24 * 7
+              },
+              cacheableResponse: {
+                statuses: [0, 200]
               }
             }
           }

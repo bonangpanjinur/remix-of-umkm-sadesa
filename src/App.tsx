@@ -3,7 +3,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, useLocation, useNavigate } from "react-router-dom";
-import { useEffect } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { CartProvider } from "@/contexts/CartContext";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { useRestockNotification } from "@/hooks/useRestockNotification";
@@ -14,187 +14,202 @@ import { SEO } from "@/components/SEO";
 import { OfflineIndicator } from "@/components/pwa/OfflineIndicator";
 import { UpdatePrompt } from "@/components/pwa/UpdatePrompt";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
-
-// Pages
-import Index from "./pages/Index";
-import ProductsPage from "./pages/ProductsPage";
-import ProductDetail from "./pages/ProductDetail";
-import TourismPage from "./pages/TourismPage";
-import TourismDetail from "./pages/TourismDetail";
-import CartPage from "./pages/CartPage";
-import CheckoutPage from "./pages/CheckoutPage";
-import PaymentConfirmationPage from "./pages/PaymentConfirmationPage";
-import ExplorePage from "./pages/ExplorePage";
-import SearchResultsPage from "./pages/SearchResultsPage";
-import OrdersPage from "./pages/OrdersPage";
-import AccountPage from "./pages/AccountPage";
-import SettingsPage from "./pages/SettingsPage";
-import SavedAddressesPage from "./pages/SavedAddressesPage";
-import AuthPage from "./pages/AuthPage";
-import ForgotPasswordPage from "./pages/ForgotPasswordPage";
-import ResetPasswordPage from "./pages/ResetPasswordPage";
-import RegisterPage from "./pages/RegisterPage";
-import RegisterVillagePage from "./pages/RegisterVillagePage";
-import RegisterMerchantPage from "./pages/RegisterMerchantPage";
-import RegisterCourierPage from "./pages/RegisterCourierPage";
-import NotFound from "./pages/NotFound";
-import CourierDashboardPage from "./pages/CourierDashboardPage";
-import CourierEarningsPage from "./pages/courier/CourierEarningsPage";
-import CourierDepositPage from "./pages/courier/CourierDepositPage";
-import OrderTrackingPage from "./pages/OrderTrackingPage";
-import UnauthorizedPage from "./pages/UnauthorizedPage";
-import VillageDetailPage from "./pages/VillageDetailPage";
-// MerchantProfilePage is rendered via MerchantSlugResolver
-import MerchantSlugResolver from "./pages/MerchantSlugResolver";
-import ShopsPage from "./pages/ShopsPage";
-import InstallPage from "./pages/InstallPage";
-import HelpPage from "./pages/HelpPage";
-import PrivacyPolicyPage from "./pages/PrivacyPolicyPage";
-import TermsPage from "./pages/TermsPage";
-import EmailConfirmationPage from "./pages/EmailConfirmationPage";
-import RecentlyViewedPage from "./pages/buyer/RecentlyViewedPage";
-import AdminSystemHealthPage from "./pages/admin/AdminSystemHealthPage";
-
-// Admin Pages
-import AdminDashboardPage from "./pages/admin/AdminDashboardPage";
-import AdminSettingsPage from "./pages/admin/AdminSettingsPage";
-import AdminMerchantDetailPage from "./pages/admin/AdminMerchantDetailPage";
-import AdminMerchantsPage from "./pages/admin/AdminMerchantsPage";
-import AdminVillagesPage from "./pages/admin/AdminVillagesPage";
-import AdminVillageDetailPage from "./pages/admin/AdminVillageDetailPage";
-import AdminCouriersPage from "./pages/admin/AdminCouriersPage";
-import AdminPromotionsPage from "./pages/admin/AdminPromotionsPage";
-import AdminCodesPage from "./pages/admin/AdminCodesPage";
-import AdminOrdersPage from "./pages/admin/AdminOrdersPage";
-import AdminUsersPage from "./pages/admin/AdminUsersPage";
-import AdminReportsPage from "./pages/admin/AdminReportsPage";
-import AdminRefundsPage from "./pages/admin/AdminRefundsPage";
-import AdminLogsPage from "./pages/admin/AdminLogsPage";
-import AdminWithdrawalsPage from "./pages/admin/AdminWithdrawalsPage";
-import AdminHalalManagementPage from "./pages/admin/AdminHalalManagementPage";
-import AdminHalalRegulationPage from "./pages/admin/AdminHalalRegulationPage";
-
-import AdminTransactionQuotaPage from "./pages/admin/AdminTransactionQuotaPage";
-import AdminVerifikatorCommissionsPage from "./pages/admin/AdminVerifikatorCommissionsPage";
-import AdminFinancePage from "./pages/admin/AdminFinancePage";
-import AdminBannersPage from "./pages/admin/AdminBannersPage";
-import AdminBroadcastPage from "./pages/admin/AdminBroadcastPage";
-import AdminRolesPage from "./pages/admin/AdminRolesPage";
-import AdminBackupPage from "./pages/admin/AdminBackupPage";
-// AdminScheduledBackupPage is now merged into AdminBackupPage
-import AdminCategoriesPage from "./pages/admin/AdminCategoriesPage";
-import AdminVerifikatorWithdrawalsPage from "./pages/admin/AdminVerifikatorWithdrawalsPage";
-import AdminPOSPage from "./pages/admin/AdminPOSPage";
-import AdminRidesPage from "./pages/admin/AdminRidesPage";
-import AdminKomisiPage from "./pages/admin/AdminKomisiPage";
-import AdminAuditLogPage from "./pages/admin/AdminAuditLogPage";
-import AdminWhatsAppPage from "./pages/admin/AdminWhatsAppPage";
-import AdminApiKeysPage from "./pages/admin/AdminApiKeysPage";
-import AdminCashbackPage from "./pages/admin/AdminCashbackPage";
-import CourierHistoryPage from "./pages/courier/CourierHistoryPage";
-import CourierWithdrawalPage from "./pages/courier/CourierWithdrawalPage";
-import CourierChatPage from "./pages/courier/CourierChatPage";
-import CourierRidesPage from "./pages/courier/CourierRidesPage";
-import CourierPerformaPage from "./pages/courier/CourierPerformaPage";
-
-// Ride Pages
-import RideBookingPage from "./pages/ride/RideBookingPage";
-import RideTrackingPage from "./pages/ride/RideTrackingPage";
-import RideHistoryPage from "./pages/ride/RideHistoryPage";
-
-// Verifikator Pages
-import VerifikatorDashboardPage from "./pages/verifikator/VerifikatorDashboardPage";
-import VerifikatorMerchantsPage from "./pages/verifikator/VerifikatorMerchantsPage";
-import VerifikatorEarningsPage from "./pages/verifikator/VerifikatorEarningsPage";
-import VerifikatorKasReportPage from "./pages/verifikator/VerifikatorKasReportPage";
-import VerifikatorEkonomiPage from "./pages/verifikator/VerifikatorEkonomiPage";
-import VerifikatorEventPage from "./pages/verifikator/VerifikatorEventPage";
-
-// Merchant Pages
-import MerchantDashboardPage from "./pages/merchant/MerchantDashboardPage";
-import MerchantProductsPage from "./pages/merchant/MerchantProductsPage";
-import MerchantProductDetailPage from "./pages/merchant/MerchantProductDetailPage";
-import MerchantOrdersPage from "./pages/merchant/MerchantOrdersPage";
-import MerchantSettingsPage from "./pages/merchant/MerchantSettingsPage";
-import MerchantAnalyticsPage from "./pages/merchant/MerchantAnalyticsPage";
-import MerchantReviewsPage from "./pages/merchant/MerchantReviewsPage";
-import MerchantPromoPage from "./pages/merchant/MerchantPromoPage";
-import MerchantWithdrawalPage from "./pages/merchant/MerchantWithdrawalPage";
-import MerchantSubscriptionPage from "./pages/merchant/MerchantSubscriptionPage";
-import MerchantFlashSalePage from "./pages/merchant/MerchantFlashSalePage";
-import MerchantVouchersPage from "./pages/merchant/MerchantVouchersPage";
-import MerchantScheduledPromoPage from "./pages/merchant/MerchantScheduledPromoPage";
-import MerchantVisitorStatsPage from "./pages/merchant/MerchantVisitorStatsPage";
-import MerchantChatPage from "./pages/merchant/MerchantChatPage";
-import MerchantRefundsPage from "./pages/merchant/MerchantRefundsPage";
-import MerchantPOSPage from "./pages/merchant/MerchantPOSPage";
-import MerchantPOSSubscribePage from "./pages/merchant/MerchantPOSSubscribePage";
-import MerchantPOSSettingsPage from "./pages/merchant/MerchantPOSSettingsPage";
-import MerchantDuesPage from "./pages/merchant/MerchantDuesPage";
-
-// POS SaaS Pages
-import POSSetupPage from "./pages/pos/POSSetupPage";
-import POSDashboardPage from "./pages/pos/POSDashboardPage";
-import POSKasirPage from "./pages/pos/POSKasirPage";
-import POSTransaksiPage from "./pages/pos/POSTransaksiPage";
-import POSProdukPage from "./pages/pos/POSProdukPage";
-import POSKategoriPage from "./pages/pos/POSKategoriPage";
-import POSCustomerPage from "./pages/pos/POSCustomerPage";
-import POSSupplierPage from "./pages/pos/POSSupplierPage";
-import POSStokPage from "./pages/pos/POSStokPage";
-import POSLaporanPage from "./pages/pos/POSLaporanPage";
-import POSPenggunaPage from "./pages/pos/POSPenggunaPage";
-import POSPengaturanPage from "./pages/pos/POSPengaturanPage";
-import POSReturPage from "./pages/pos/POSReturPage";
-import POSPembelianPage from "./pages/pos/POSPembelianPage";
-import POSKasPage from "./pages/pos/POSKasPage";
-import POSLaporanLabaRugiPage from "./pages/pos/POSLaporanLabaRugiPage";
-import POSLaporanKasirPage from "./pages/pos/POSLaporanKasirPage";
-import POSLaporanStokPage from "./pages/pos/POSLaporanStokPage";
-import POSLaporanCashflowPage from "./pages/pos/POSLaporanCashflowPage";
-import POSAnalitikPage from "./pages/pos/POSAnalitikPage";
-import POSAnalitikProdukPage from "./pages/pos/POSAnalitikProdukPage";
-import POSKioskPage from "./pages/pos/POSKioskPage";
-import POSAkuntansiPage from "./pages/pos/POSAkuntansiPage";
-import POSTransferStokPage from "./pages/pos/POSTransferStokPage";
-import POSLaporanOutletPage from "./pages/pos/POSLaporanOutletPage";
-import POSAuditPage from "./pages/pos/POSAuditPage";
-import POSAksesPage from "./pages/pos/POSAksesPage";
-import POSPromosiPage from "./pages/pos/POSPromosiPage";
-import POSLoyaltyPage from "./pages/pos/POSLoyaltyPage";
-import POSIntegrasiPage from "./pages/pos/POSIntegrasiPage";
 import { POSProvider } from "./contexts/POSContext";
 
-// Desa Pages
-import DesaDashboardPage from "./pages/desa/DesaDashboardPage";
-import DesaTourismPage from "./pages/desa/DesaTourismPage";
-import DesaEkonomiPage from "./pages/desa/DesaEkonomiPage";
-import DesaEventPage from "./pages/desa/DesaEventPage";
-import DesaKeanggotaanPage from "./pages/desa/DesaKeanggotaanPage";
-import DesaBroadcastPage from "./pages/desa/DesaBroadcastPage";
-import DesaPetaPage from "./pages/desa/DesaPetaPage";
-import DesaLaporanWisataPage from "./pages/desa/DesaLaporanWisataPage";
+// Lazy-load semua halaman agar bundle awal kecil (P2-02)
+// Pages
+const Index = lazy(() => import("./pages/Index"));
+const ProductsPage = lazy(() => import("./pages/ProductsPage"));
+const ProductDetail = lazy(() => import("./pages/ProductDetail"));
+const TourismPage = lazy(() => import("./pages/TourismPage"));
+const TourismDetail = lazy(() => import("./pages/TourismDetail"));
+const CartPage = lazy(() => import("./pages/CartPage"));
+const CheckoutPage = lazy(() => import("./pages/CheckoutPage"));
+const PaymentConfirmationPage = lazy(() => import("./pages/PaymentConfirmationPage"));
+const ExplorePage = lazy(() => import("./pages/ExplorePage"));
+const SearchResultsPage = lazy(() => import("./pages/SearchResultsPage"));
+const OrdersPage = lazy(() => import("./pages/OrdersPage"));
+const AccountPage = lazy(() => import("./pages/AccountPage"));
+const SettingsPage = lazy(() => import("./pages/SettingsPage"));
+const SavedAddressesPage = lazy(() => import("./pages/SavedAddressesPage"));
+const AuthPage = lazy(() => import("./pages/AuthPage"));
+const ForgotPasswordPage = lazy(() => import("./pages/ForgotPasswordPage"));
+const ResetPasswordPage = lazy(() => import("./pages/ResetPasswordPage"));
+const RegisterPage = lazy(() => import("./pages/RegisterPage"));
+const RegisterVillagePage = lazy(() => import("./pages/RegisterVillagePage"));
+const RegisterMerchantPage = lazy(() => import("./pages/RegisterMerchantPage"));
+const RegisterCourierPage = lazy(() => import("./pages/RegisterCourierPage"));
+const NotFound = lazy(() => import("./pages/NotFound"));
+const CourierDashboardPage = lazy(() => import("./pages/CourierDashboardPage"));
+const CourierEarningsPage = lazy(() => import("./pages/courier/CourierEarningsPage"));
+const CourierDepositPage = lazy(() => import("./pages/courier/CourierDepositPage"));
+const OrderTrackingPage = lazy(() => import("./pages/OrderTrackingPage"));
+const UnauthorizedPage = lazy(() => import("./pages/UnauthorizedPage"));
+const VillageDetailPage = lazy(() => import("./pages/VillageDetailPage"));
+const MerchantSlugResolver = lazy(() => import("./pages/MerchantSlugResolver"));
+const ShopsPage = lazy(() => import("./pages/ShopsPage"));
+const InstallPage = lazy(() => import("./pages/InstallPage"));
+const HelpPage = lazy(() => import("./pages/HelpPage"));
+const PrivacyPolicyPage = lazy(() => import("./pages/PrivacyPolicyPage"));
+const TermsPage = lazy(() => import("./pages/TermsPage"));
+const EmailConfirmationPage = lazy(() => import("./pages/EmailConfirmationPage"));
+const RecentlyViewedPage = lazy(() => import("./pages/buyer/RecentlyViewedPage"));
+const AdminSystemHealthPage = lazy(() => import("./pages/admin/AdminSystemHealthPage"));
 
-// Sprint 7 Buyer Pages
-import CashbackPage from "./pages/buyer/CashbackPage";
-import ReferralPage from "./pages/buyer/ReferralPage";
-import SubscriptionPage from "./pages/buyer/SubscriptionPage";
+// Admin Pages
+const AdminDashboardPage = lazy(() => import("./pages/admin/AdminDashboardPage"));
+const AdminSettingsPage = lazy(() => import("./pages/admin/AdminSettingsPage"));
+const AdminMerchantDetailPage = lazy(() => import("./pages/admin/AdminMerchantDetailPage"));
+const AdminMerchantsPage = lazy(() => import("./pages/admin/AdminMerchantsPage"));
+const AdminVillagesPage = lazy(() => import("./pages/admin/AdminVillagesPage"));
+const AdminVillageDetailPage = lazy(() => import("./pages/admin/AdminVillageDetailPage"));
+const AdminCouriersPage = lazy(() => import("./pages/admin/AdminCouriersPage"));
+const AdminPromotionsPage = lazy(() => import("./pages/admin/AdminPromotionsPage"));
+const AdminCodesPage = lazy(() => import("./pages/admin/AdminCodesPage"));
+const AdminOrdersPage = lazy(() => import("./pages/admin/AdminOrdersPage"));
+const AdminUsersPage = lazy(() => import("./pages/admin/AdminUsersPage"));
+const AdminReportsPage = lazy(() => import("./pages/admin/AdminReportsPage"));
+const AdminRefundsPage = lazy(() => import("./pages/admin/AdminRefundsPage"));
+const AdminLogsPage = lazy(() => import("./pages/admin/AdminLogsPage"));
+const AdminWithdrawalsPage = lazy(() => import("./pages/admin/AdminWithdrawalsPage"));
+const AdminHalalManagementPage = lazy(() => import("./pages/admin/AdminHalalManagementPage"));
+const AdminHalalRegulationPage = lazy(() => import("./pages/admin/AdminHalalRegulationPage"));
+const AdminTransactionQuotaPage = lazy(() => import("./pages/admin/AdminTransactionQuotaPage"));
+const AdminVerifikatorCommissionsPage = lazy(() => import("./pages/admin/AdminVerifikatorCommissionsPage"));
+const AdminFinancePage = lazy(() => import("./pages/admin/AdminFinancePage"));
+const AdminBannersPage = lazy(() => import("./pages/admin/AdminBannersPage"));
+const AdminBroadcastPage = lazy(() => import("./pages/admin/AdminBroadcastPage"));
+const AdminRolesPage = lazy(() => import("./pages/admin/AdminRolesPage"));
+const AdminBackupPage = lazy(() => import("./pages/admin/AdminBackupPage"));
+const AdminCategoriesPage = lazy(() => import("./pages/admin/AdminCategoriesPage"));
+const AdminVerifikatorWithdrawalsPage = lazy(() => import("./pages/admin/AdminVerifikatorWithdrawalsPage"));
+const AdminPOSPage = lazy(() => import("./pages/admin/AdminPOSPage"));
+const AdminRidesPage = lazy(() => import("./pages/admin/AdminRidesPage"));
+const AdminKomisiPage = lazy(() => import("./pages/admin/AdminKomisiPage"));
+const AdminAuditLogPage = lazy(() => import("./pages/admin/AdminAuditLogPage"));
+const AdminWhatsAppPage = lazy(() => import("./pages/admin/AdminWhatsAppPage"));
+const AdminApiKeysPage = lazy(() => import("./pages/admin/AdminApiKeysPage"));
+const AdminCashbackPage = lazy(() => import("./pages/admin/AdminCashbackPage"));
+
+// Courier Pages
+const CourierHistoryPage = lazy(() => import("./pages/courier/CourierHistoryPage"));
+const CourierWithdrawalPage = lazy(() => import("./pages/courier/CourierWithdrawalPage"));
+const CourierChatPage = lazy(() => import("./pages/courier/CourierChatPage"));
+const CourierRidesPage = lazy(() => import("./pages/courier/CourierRidesPage"));
+const CourierPerformaPage = lazy(() => import("./pages/courier/CourierPerformaPage"));
+
+// Ride Pages
+const RideBookingPage = lazy(() => import("./pages/ride/RideBookingPage"));
+const RideTrackingPage = lazy(() => import("./pages/ride/RideTrackingPage"));
+const RideHistoryPage = lazy(() => import("./pages/ride/RideHistoryPage"));
+
+// Verifikator Pages
+const VerifikatorDashboardPage = lazy(() => import("./pages/verifikator/VerifikatorDashboardPage"));
+const VerifikatorMerchantsPage = lazy(() => import("./pages/verifikator/VerifikatorMerchantsPage"));
+const VerifikatorEarningsPage = lazy(() => import("./pages/verifikator/VerifikatorEarningsPage"));
+const VerifikatorKasReportPage = lazy(() => import("./pages/verifikator/VerifikatorKasReportPage"));
+const VerifikatorEkonomiPage = lazy(() => import("./pages/verifikator/VerifikatorEkonomiPage"));
+const VerifikatorEventPage = lazy(() => import("./pages/verifikator/VerifikatorEventPage"));
+
+// Merchant Pages
+const MerchantDashboardPage = lazy(() => import("./pages/merchant/MerchantDashboardPage"));
+const MerchantProductsPage = lazy(() => import("./pages/merchant/MerchantProductsPage"));
+const MerchantProductDetailPage = lazy(() => import("./pages/merchant/MerchantProductDetailPage"));
+const MerchantOrdersPage = lazy(() => import("./pages/merchant/MerchantOrdersPage"));
+const MerchantSettingsPage = lazy(() => import("./pages/merchant/MerchantSettingsPage"));
+const MerchantAnalyticsPage = lazy(() => import("./pages/merchant/MerchantAnalyticsPage"));
+const MerchantReviewsPage = lazy(() => import("./pages/merchant/MerchantReviewsPage"));
+const MerchantPromoPage = lazy(() => import("./pages/merchant/MerchantPromoPage"));
+const MerchantWithdrawalPage = lazy(() => import("./pages/merchant/MerchantWithdrawalPage"));
+const MerchantSubscriptionPage = lazy(() => import("./pages/merchant/MerchantSubscriptionPage"));
+const MerchantFlashSalePage = lazy(() => import("./pages/merchant/MerchantFlashSalePage"));
+const MerchantVouchersPage = lazy(() => import("./pages/merchant/MerchantVouchersPage"));
+const MerchantScheduledPromoPage = lazy(() => import("./pages/merchant/MerchantScheduledPromoPage"));
+const MerchantVisitorStatsPage = lazy(() => import("./pages/merchant/MerchantVisitorStatsPage"));
+const MerchantChatPage = lazy(() => import("./pages/merchant/MerchantChatPage"));
+const MerchantRefundsPage = lazy(() => import("./pages/merchant/MerchantRefundsPage"));
+const MerchantPOSPage = lazy(() => import("./pages/merchant/MerchantPOSPage"));
+const MerchantPOSSubscribePage = lazy(() => import("./pages/merchant/MerchantPOSSubscribePage"));
+const MerchantPOSSettingsPage = lazy(() => import("./pages/merchant/MerchantPOSSettingsPage"));
+const MerchantDuesPage = lazy(() => import("./pages/merchant/MerchantDuesPage"));
+
+// POS SaaS Pages
+const POSSetupPage = lazy(() => import("./pages/pos/POSSetupPage"));
+const POSDashboardPage = lazy(() => import("./pages/pos/POSDashboardPage"));
+const POSKasirPage = lazy(() => import("./pages/pos/POSKasirPage"));
+const POSTransaksiPage = lazy(() => import("./pages/pos/POSTransaksiPage"));
+const POSProdukPage = lazy(() => import("./pages/pos/POSProdukPage"));
+const POSKategoriPage = lazy(() => import("./pages/pos/POSKategoriPage"));
+const POSCustomerPage = lazy(() => import("./pages/pos/POSCustomerPage"));
+const POSSupplierPage = lazy(() => import("./pages/pos/POSSupplierPage"));
+const POSStokPage = lazy(() => import("./pages/pos/POSStokPage"));
+const POSLaporanPage = lazy(() => import("./pages/pos/POSLaporanPage"));
+const POSPenggunaPage = lazy(() => import("./pages/pos/POSPenggunaPage"));
+const POSPengaturanPage = lazy(() => import("./pages/pos/POSPengaturanPage"));
+const POSReturPage = lazy(() => import("./pages/pos/POSReturPage"));
+const POSPembelianPage = lazy(() => import("./pages/pos/POSPembelianPage"));
+const POSKasPage = lazy(() => import("./pages/pos/POSKasPage"));
+const POSLaporanLabaRugiPage = lazy(() => import("./pages/pos/POSLaporanLabaRugiPage"));
+const POSLaporanKasirPage = lazy(() => import("./pages/pos/POSLaporanKasirPage"));
+const POSLaporanStokPage = lazy(() => import("./pages/pos/POSLaporanStokPage"));
+const POSLaporanCashflowPage = lazy(() => import("./pages/pos/POSLaporanCashflowPage"));
+const POSAnalitikPage = lazy(() => import("./pages/pos/POSAnalitikPage"));
+const POSAnalitikProdukPage = lazy(() => import("./pages/pos/POSAnalitikProdukPage"));
+const POSKioskPage = lazy(() => import("./pages/pos/POSKioskPage"));
+const POSAkuntansiPage = lazy(() => import("./pages/pos/POSAkuntansiPage"));
+const POSTransferStokPage = lazy(() => import("./pages/pos/POSTransferStokPage"));
+const POSLaporanOutletPage = lazy(() => import("./pages/pos/POSLaporanOutletPage"));
+const POSAuditPage = lazy(() => import("./pages/pos/POSAuditPage"));
+const POSAksesPage = lazy(() => import("./pages/pos/POSAksesPage"));
+const POSPromosiPage = lazy(() => import("./pages/pos/POSPromosiPage"));
+const POSLoyaltyPage = lazy(() => import("./pages/pos/POSLoyaltyPage"));
+const POSIntegrasiPage = lazy(() => import("./pages/pos/POSIntegrasiPage"));
+
+// Desa Pages
+const DesaDashboardPage = lazy(() => import("./pages/desa/DesaDashboardPage"));
+const DesaTourismPage = lazy(() => import("./pages/desa/DesaTourismPage"));
+const DesaEkonomiPage = lazy(() => import("./pages/desa/DesaEkonomiPage"));
+const DesaEventPage = lazy(() => import("./pages/desa/DesaEventPage"));
+const DesaKeanggotaanPage = lazy(() => import("./pages/desa/DesaKeanggotaanPage"));
+const DesaBroadcastPage = lazy(() => import("./pages/desa/DesaBroadcastPage"));
+const DesaPetaPage = lazy(() => import("./pages/desa/DesaPetaPage"));
+const DesaLaporanWisataPage = lazy(() => import("./pages/desa/DesaLaporanWisataPage"));
 
 // Buyer Pages
-import ReviewsPage from "./pages/buyer/ReviewsPage";
-import WishlistPage from "./pages/buyer/WishlistPage";
-import MyReviewsPage from "./pages/buyer/MyReviewsPage";
-import BuyerChatPage from "./pages/buyer/BuyerChatPage";
-import FlashSalePage from "./pages/buyer/FlashSalePage";
-import ProductComparePage from "./pages/buyer/ProductComparePage";
-import LoyaltyPage from "./pages/buyer/LoyaltyPage";
-import VoucherPage from "./pages/buyer/VoucherPage";
-import RekomendasisPage from "./pages/buyer/RekomendasisPage";
+const CashbackPage = lazy(() => import("./pages/buyer/CashbackPage"));
+const ReferralPage = lazy(() => import("./pages/buyer/ReferralPage"));
+const SubscriptionPage = lazy(() => import("./pages/buyer/SubscriptionPage"));
+const ReviewsPage = lazy(() => import("./pages/buyer/ReviewsPage"));
+const WishlistPage = lazy(() => import("./pages/buyer/WishlistPage"));
+const MyReviewsPage = lazy(() => import("./pages/buyer/MyReviewsPage"));
+const BuyerChatPage = lazy(() => import("./pages/buyer/BuyerChatPage"));
+const FlashSalePage = lazy(() => import("./pages/buyer/FlashSalePage"));
+const ProductComparePage = lazy(() => import("./pages/buyer/ProductComparePage"));
+const LoyaltyPage = lazy(() => import("./pages/buyer/LoyaltyPage"));
+const VoucherPage = lazy(() => import("./pages/buyer/VoucherPage"));
+const RekomendasisPage = lazy(() => import("./pages/buyer/RekomendasisPage"));
 
 // Notifications
-import NotificationsPage from "./pages/NotificationsPage";
+const NotificationsPage = lazy(() => import("./pages/NotificationsPage"));
 
-const queryClient = new QueryClient();
+// QueryClient dengan konfigurasi cache optimal (P3-02)
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 60_000,
+      gcTime: 300_000,
+      retry: 1,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
+
+// Fallback loading saat lazy load
+const PageLoading = () => (
+  <div className="min-h-screen flex items-center justify-center bg-background">
+    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600" />
+  </div>
+);
 
 // Handle 404 redirect from hosting fallback
 function RedirectHandler() {
@@ -235,6 +250,7 @@ const App = () => (
                 <SEO />
                 <InstallBanner />
                 <UpdatePrompt />
+              <Suspense fallback={<PageLoading />}>
               <Routes>
               {/* Public routes */}
               <Route path="/" element={<Index />} />
@@ -808,6 +824,7 @@ const App = () => (
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
+            </Suspense>
           </BrowserRouter>
         </CartProvider>
             </POSProvider>

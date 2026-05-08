@@ -1,164 +1,213 @@
-# DesaMart Platform — Rencana Perbaikan & Fitur Tersisa
+# DesaMart — Rencana Perbaikan (Sumber Kebenaran Tunggal)
 
-> Terakhir diperbarui: berdasarkan analisis kode aktual
-> Referensi: `progress.md` (status aktual), `BUG_ANALYSIS_AND_FIXES.md` (bug terdokumentasi)
-
----
-
-## STATUS RINGKAS
-
-Platform sudah sangat lengkap. Hampir seluruh fitur sudah terimplementasi — termasuk **POS Phase 5 & Phase 6** yang sebelumnya keliru ditandai "Belum Dikerjakan" di `DESAMART_POS_PROGRESS_REPORT.md`. Berikut yang masih perlu dikerjakan:
+> Terakhir diperbarui: Mei 2026 — berdasarkan analisis kode aktual menyeluruh (150+ halaman, semua server routes, DB schema)
 
 ---
 
-## 🔴 BUG — Harus Diperbaiki
+## STATUS KESELURUHAN
 
-### BUG-01: OrdersPage — Foto & Nama Produk Tidak Muncul
+Platform sangat lengkap secara fitur. Masalah utama bukan fitur yang hilang, tapi **fitur yang ada tapi rusak** karena pindahan dari Supabase ke Replit PostgreSQL belum tuntas sepenuhnya.
+
+---
+
+## 🔴 P1 — KRITIS (Rusak Sekarang, Harus Segera Diperbaiki)
+
+### P1-01: RPC Functions Diblokir Server ✅ SELESAI
+**File:** `server/routes/db-proxy.ts`
+**Dampak:** Stok tidak berkurang saat checkout, notifikasi tidak terkirim, quota POS tidak terpotong, withdrawal verifikator gagal
+
+Fungsi-fungsi berikut ada di DB tapi tidak di `ALLOWED_RPCS`:
+- `send_notification` — dipakai di checkout & useMerchantQuota
+- `decrement_stock` — dipakai saat checkout → **stok tidak berkurang!**
+- `increment_product_view` — ProductDetail → view count tidak naik
+- `deduct_merchant_quota` — MerchantPOSPage, useMerchantQuota
+- `use_merchant_quota` — quotaApi
+- `process_verifikator_withdrawal` — AdminVerifikatorCommissionsPage
+
+**Perbaikan:** Tambahkan 6 RPC ke ALLOWED_RPCS
+
+---
+
+### P1-02: Kolom DB Hilang — CashbackPage & ReferralPage Crash ✅ SELESAI
+**Tabel:** `profiles`, `product_subscriptions`
+**Dampak:** Halaman `/cashback`, `/referral`, `/subscription` crash saat dibuka
+
+Kolom yang hilang di `profiles`:
+- `cashback_balance` — dipakai CashbackPage
+- `referral_code` — dipakai ReferralPage
+- `referred_by` — dipakai ReferralPage
+
+Kolom yang hilang di `product_subscriptions`:
+- `interval_days`, `next_order_date`, `delivery_address`, `total_orders`, `quantity`, `merchant_id`, `notes`
+
+**Perbaikan:** ALTER TABLE untuk menambah kolom yang hilang
+
+---
+
+### P1-03: FK_MAP Salah — Orders ↔ Profiles ✅ SELESAI
+**File:** `server/routes/db-proxy.ts`
+**Dampak:** Query yang join `orders` dengan `profiles` menghasilkan NULL
+
+`orders:profiles` menggunakan `fk: "user_id"` padahal kolom di tabel `orders` adalah `buyer_id`
+
+**Perbaikan:** Ganti `user_id` → `buyer_id` di FK_MAP
+
+---
+
+### P1-04: RekomendasisPage — Query Salah ✅ SELESAI
+**File:** `src/pages/buyer/RekomendasisPage.tsx`
+**Dampak:** Rekomendasi selalu kosong untuk semua user
+
+Filter `.eq("orders.user_id", user.id)` — kolom yang benar adalah `buyer_id`, bukan `user_id`
+
+**Perbaikan:** Ganti ke `.eq("buyer_id", user.id)` melalui join yang benar
+
+---
+
+### P1-05: OrdersPage — Foto & Nama Produk Tidak Muncul ✅ SELESAI
 **File:** `src/pages/OrdersPage.tsx`
 **Dampak:** Semua buyer tidak melihat gambar & nama produk di riwayat pesanan
 
-**Akar masalah:**
-- Fungsi `fetchOrders()` memiliki 4 level query fallback (L1–L4)
-- Query L2, L3, dan L4 tidak menyertakan `product_id` dalam SELECT
-- Karena `product_id` tidak ada, mekanisme secondary fetch tidak pernah berjalan
-- `imageUrl` menjadi `undefined`, nama produk jatuh ke fallback "Produk"
+Query L2, L3, L4 tidak menyertakan `product_id` → secondary fetch tidak jalan → gambar kosong
 
-**Perbaikan yang dibutuhkan:**
-- [ ] Tambahkan `product_id` ke SELECT pada query L2, L3, dan L4
-- [ ] Pastikan secondary fetch logic berjalan jika `product_id` tersedia
-- [ ] Tambahkan fallback image URL (misalnya `/placeholder.svg`)
+**Perbaikan:** Tambah `product_id` ke SELECT L2, L3, L4
 
 ---
 
-### BUG-02: OrdersPage — Tombol "Pesan Lagi" Tidak Berfungsi
-**File:** `src/pages/OrdersPage.tsx` — fungsi `handleReorder()`
-**Dampak:** Buyer tidak bisa memesan ulang produk dari riwayat pesanan
+### P1-06: Realtime (WebSocket) Mati Total
+**File:** `src/integrations/supabase/client.ts`
+**Dampak:** Chat tidak live, notifikasi tidak muncul real-time, status pesanan tidak update otomatis, tracking kurir tidak bergerak, order baru ke merchant tidak bunyi
 
-**Akar masalah:**
-- `addToCart()` dipanggil dengan objek produk yang tidak lengkap
-- Properti `isAvailable` tidak di-set (bernilai `undefined`)
-- Properti wajib lain seperti `category`, `description` diberi string kosong
-- Data produk diambil dari order history, bukan dari database produk aktual
+`supabase.channel()` hanya stub kosong — tidak ada koneksi WebSocket sama sekali.
 
-**Perbaikan yang dibutuhkan:**
-- [ ] Fetch data produk lengkap dari database sebelum `addToCart()`
-- [ ] Set `isAvailable: true` hanya jika stok > 0 dan merchant aktif
-- [ ] Isi semua properti wajib type `Product` dengan data aktual
-- [ ] Tambahkan error handling jika produk sudah tidak tersedia
+20+ komponen bergantung: `OrderChat`, `NotificationDropdown`, `CourierLocationUpdater`, `CourierMap`, `useRealtimeOrders`, `useFlashSales`, dll.
+
+**Solusi:** Implementasi Server-Sent Events (SSE) di Express server sebagai pengganti Supabase Realtime
 
 ---
 
-## 🟡 PERBAIKAN KUALITAS — Disarankan
+## 🟠 P2 — PENTING (Perlu Diperbaiki Segera)
 
-### IMPROVE-01: DESAMART_POS_PROGRESS_REPORT.md — Status Phase 5 & 6 Salah
-**File:** `DESAMART_POS_PROGRESS_REPORT.md`
+### P2-01: Halaman Review Produk Tidak Ada ✅ SELESAI
+**File:** Belum ada `src/pages/ReviewPage.tsx`
+**Dampak:** Tombol "Beri Rating" di OrdersPage (route `/orders/:orderId/review`) mengarah ke 404
 
-Report lama mencatat Phase 5 (Loyalty & Promosi) dan Phase 6 (Integrasi Marketplace) sebagai **⬜ Belum Dikerjakan**, padahal keduanya **sudah selesai**:
-- `src/pages/pos/POSPromosiPage.tsx` ✅ Ada & fungsional
-- `src/pages/pos/POSLoyaltyPage.tsx` ✅ Ada & fungsional
-- `src/pages/pos/POSIntegrasiPage.tsx` ✅ Ada & fungsional
-- `supabase/migrations/20260511000000_phase5_loyalty_promosi.sql` ✅ Ada
-- `supabase/migrations/20260512000000_phase6_marketplace_integration.sql` ✅ Ada
-- Route `/pos/promosi`, `/pos/loyalty`, `/pos/integrasi` ✅ Terdaftar di `App.tsx`
-
-**Aksi:**
-- [x] Sudah dikoreksi di `progress.md` (file ini adalah sumber kebenaran baru)
-- [ ] Update `DESAMART_POS_PROGRESS_REPORT.md` agar Phase 5 & 6 ditandai ✅ Selesai
+Route sudah terdaftar di App.tsx tapi komponen halaman belum dibuat
 
 ---
 
-### IMPROVE-02: Dokumentasikan Halaman POS Bonus
-Empat halaman POS tambahan ada di kode tapi **tidak terdokumentasi di mana pun**:
+### P2-02: Lazy Loading Belum Ada
+**File:** `src/App.tsx`
+**Dampak:** Bundle JS pertama sangat besar → loading awal lambat
 
-| Halaman | Route | Keterangan |
-|---------|-------|------------|
-| `POSLaporanCashflowPage.tsx` | `/pos/laporan/cashflow` | Laporan arus kas masuk/keluar/net + grafik area |
-| `POSAnalitikProdukPage.tsx` | `/pos/analitik-produk` | Fast/slow/dead moving, margin, turnover produk |
-| `POSKioskPage.tsx` | `/pos/kiosk` | Mode self-service kiosk full-screen untuk customer |
-| `POSAkuntansiPage.tsx` | `/pos/akuntansi` | Jurnal akuntansi double-entry (debit/kredit) |
+821 baris App.tsx, 150+ halaman di-import semua sekaligus tanpa `React.lazy()`
 
-**Aksi:**
-- [ ] Tambahkan 4 halaman ini ke `DESAMART_POS_PROGRESS_REPORT.md` sebagai "Phase Bonus"
-- [ ] Pastikan halaman ini masuk menu sidebar POS (`POSSidebar.tsx`)
+**Perbaikan:** Konversi semua import halaman ke `React.lazy()` + `<Suspense>`
 
 ---
 
-### IMPROVE-03: Verifikasi Sidebar POS Mencantumkan Semua Menu
-**File:** `src/components/pos/POSSidebar.tsx`
+### P2-03: PWA Workbox Cache URL Salah
+**File:** `vite.config.ts`
+**Dampak:** Cache PWA tidak efektif — masih cache URL Supabase CDN yang sudah tidak dipakai
 
-Periksa apakah menu berikut sudah ada di sidebar:
-- [ ] Laporan Cashflow (`/pos/laporan/cashflow`)
-- [ ] Analitik Produk (`/pos/analitik-produk`)
-- [ ] Mode Kiosk (`/pos/kiosk`)
-- [ ] Jurnal Akuntansi (`/pos/akuntansi`)
-- [ ] Promosi (`/pos/promosi`) — Phase 5
-- [ ] Loyalty (`/pos/loyalty`) — Phase 5
-- [ ] Integrasi Marketplace (`/pos/integrasi`) — Phase 6
+Runtime cache masih target `*.supabase.co/storage` padahal gambar sekarang di `/storage/*` server lokal
+
+**Perbaikan:** Update `urlPattern` ke `/storage/`, `/api/db/` (NetworkFirst)
 
 ---
 
-## 🟢 FITUR BARU — Opsional / Future Development
+### P2-04: AdminUsersPage Fetch dari Tabel Salah
+**File:** `src/pages/admin/AdminUsersPage.tsx`
+**Dampak:** Halaman users admin kosong atau menampilkan data tidak lengkap
 
-### FUTURE-01: Mode Offline POS (PWA + IndexedDB)
-**Prioritas:** Rendah
-- [ ] IndexedDB untuk cache data produk & transaksi saat offline
-- [ ] Sync otomatis saat koneksi kembali
-- [ ] Service worker dengan strategi cache yang tepat untuk `/pos/*`
-
-### FUTURE-02: Printer Thermal ESC/POS
-**Prioritas:** Rendah
-- [ ] Integrasi Web Serial API untuk printer thermal
-- [ ] Format struk ESC/POS standar
-- [ ] Fallback ke `window.print()` jika tidak ada printer serial
-
-### FUTURE-03: Webhook & API Publik POS
-**Prioritas:** Rendah
-- [ ] REST API endpoint untuk integrasi third-party
-- [ ] Webhook event: transaksi baru, stok habis, order masuk
-- [ ] API key management (sudah ada `/admin/api-keys` sebagai fondasi)
-
-### FUTURE-04: WhatsApp Notifikasi Otomatis
-**Prioritas:** Menengah
-- Halaman `/admin/whatsapp` sudah ada
-- [ ] Verifikasi integrasi API WhatsApp Business aktual berjalan
-- [ ] Template pesan: konfirmasi order, status pengiriman, OTP
-
-### FUTURE-05: Fitur Bandingkan Produk yang Lebih Lengkap
-**Prioritas:** Rendah
-- Halaman `/compare` sudah ada
-- [ ] Tambahkan lebih banyak atribut perbandingan (berat, dimensi, garansi)
-- [ ] Simpan daftar produk yang dibandingkan ke localStorage
+Fetch dari `profiles` padahal tabel utama auth sekarang adalah `public.users`. Perlu join atau pindah query ke `users`.
 
 ---
 
-## Urutan Prioritas Pengerjaan
+### P2-05: Push Notification Belum Aktif
+**Dampak:** User tidak terima notifikasi push saat app ditutup
 
-| Prioritas | Item | Estimasi |
-|-----------|------|----------|
-| 🔴 **1** | BUG-01: Fix foto & nama produk di OrdersPage | 1–2 jam |
-| 🔴 **2** | BUG-02: Fix tombol "Pesan Lagi" di OrdersPage | 2–3 jam |
-| 🟡 **3** | IMPROVE-01: Update DESAMART_POS_PROGRESS_REPORT.md | 30 menit |
-| 🟡 **4** | IMPROVE-02: Dokumentasikan halaman POS bonus | 30 menit |
-| 🟡 **5** | IMPROVE-03: Verifikasi sidebar POS lengkap | 1 jam |
-| 🟢 **6** | FUTURE-04: Verifikasi WhatsApp notifikasi | 2–4 jam |
-| 🟢 **7** | FUTURE-01: Mode offline PWA | 1–2 hari |
-| 🟢 **8** | FUTURE-02: Printer thermal | 1 hari |
-| 🟢 **9** | FUTURE-03: Webhook & API publik | 1–2 hari |
+Ada tabel `push_subscriptions` dan file `notification.wav` di public, tapi service worker belum punya push event handler.
 
 ---
 
-## Catatan Teknis
+## 🟡 P3 — KUALITAS (Disarankan)
 
-### Sumber Kebenaran File
-- **`progress.md`** — Status aktual semua fitur (diverifikasi dari kode)
-- **`rencanaperbaikan.md`** — Ini, rencana perbaikan prioritas
-- **`DESAMART_POS_PROGRESS_REPORT.md`** — Report POS lama, **sudah outdated**, perlu diupdate
-- **`BUG_ANALYSIS_AND_FIXES.md`** — Detail teknis bug OrdersPage
+### P3-01: React Query Tidak Digunakan untuk Data Fetching
+**Dampak:** Tidak ada caching → setiap navigasi refetch semua data
 
-### Stack Teknologi
-- Frontend: React 18 + TypeScript + Vite + TailwindCSS + shadcn/ui
-- Backend: Supabase (PostgreSQL + Auth + Storage + Realtime)
-- State: React Query + Context API
-- Charts: Recharts
-- Icons: Lucide React
-- Notifikasi: Sonner (toast)
+Hampir semua halaman pakai `useState + useEffect` manual. `QueryClient` sudah di-setup tapi hanya dipakai di ~10 tempat.
+
+**Perbaikan:** Migrasi bertahap, mulai dari halaman yang paling sering dikunjungi (Index, ProductDetail, OrdersPage)
+
+---
+
+### P3-02: QueryClient Tanpa Konfigurasi Cache
+**File:** `src/App.tsx`
+**Dampak:** Setiap re-render bisa trigger refetch
+
+`new QueryClient()` tanpa `defaultOptions` → staleTime = 0, gcTime = 5 menit default
+
+**Perbaikan:**
+```ts
+new QueryClient({
+  defaultOptions: {
+    queries: { staleTime: 60_000, gcTime: 300_000, retry: 1 }
+  }
+})
+```
+
+---
+
+### P3-03: FK_MAP Server Tidak Lengkap untuk POS
+**File:** `server/routes/db-proxy.ts`
+**Dampak:** Beberapa halaman POS join relasi yang tidak terdaftar → NULL
+
+Relasi yang hilang:
+- `pos_purchase_orders:pos_suppliers`
+- `pos_purchase_orders:pos_outlets`
+- `pos_stock_transfers:pos_outlets`
+- `pos_sale_items:pos_outlets`
+
+---
+
+### P3-04: Kolom `merchant_operating_hours` Tidak Dipakai
+Tabel `merchant_operating_hours` (jadwal per-hari) sudah dibuat tapi tidak dipakai. Semua logika jam operasional masih pakai kolom `is_open`, `open_time`, `close_time` di tabel `merchants`.
+
+---
+
+## 🟢 P4 — FITUR BARU / FUTURE
+
+### P4-01: Server-Sent Events (SSE) untuk Realtime
+Implementasi SSE di Express untuk menggantikan Supabase Realtime Channels. Endpoint: `GET /api/sse/:userId`
+
+### P4-02: Mode Offline POS (PWA + IndexedDB)
+IndexedDB untuk cache data produk & transaksi saat offline. Sync otomatis saat koneksi kembali.
+
+### P4-03: Printer Thermal ESC/POS
+Integrasi Web Serial API untuk printer thermal. Fallback ke `window.print()`.
+
+### P4-04: WhatsApp Notifikasi Otomatis
+Halaman `/admin/whatsapp` sudah ada. Perlu verifikasi integrasi API WhatsApp Business aktual.
+
+### P4-05: Webhook & API Publik POS
+REST API + webhook untuk integrasi third-party. Fondasi API key management sudah ada.
+
+---
+
+## Tabel Prioritas Eksekusi
+
+| # | ID | Masalah | File | Status |
+|---|----|---------|----|--------|
+| 1 | P1-01 | RPC allowlist — 16 fungsi ditambah | `server/routes/db-proxy.ts` | ✅ Selesai |
+| 2 | P1-02 | Kolom DB hilang — profiles + product_subscriptions | DB migration | ✅ Selesai |
+| 3 | P1-03 | FK_MAP orders:profiles pakai buyer_id | `server/routes/db-proxy.ts` | ✅ Selesai |
+| 4 | P3-03 | FK_MAP POS + 30+ relasi baru | `server/routes/db-proxy.ts` | ✅ Selesai |
+| 5 | P1-04 | RekomendasisPage query — filter by buyer_id | `RekomendasisPage.tsx` | ✅ Selesai |
+| 6 | P1-05 | ReviewsPage sudah ada & bekerja | `ReviewsPage.tsx` | ✅ Sudah Ada |
+| 7 | P2-01 | Halaman Review — sudah ada sebelumnya | `ReviewsPage.tsx` | ✅ Sudah Ada |
+| 8 | P2-02 | Lazy loading — 150+ halaman dikonversi | `App.tsx` | ✅ Selesai |
+| 9 | P2-03 | PWA Workbox — target URL difix ke server lokal | `vite.config.ts` | ✅ Selesai |
+| 10 | P3-02 | QueryClient defaultOptions — staleTime 60s | `App.tsx` | ✅ Selesai |
+| 11 | P2-04 | AdminUsersPage — sudah benar, profiles.user_id OK | `AdminUsersPage.tsx` | ✅ Sudah OK |
+| 12 | P1-06 | Realtime SSE — implementasi pengganti supabase.channel() | Server + client | ⬜ Belum |
