@@ -365,6 +365,48 @@ export default function POSKasirPage() {
         }
       }
 
+      // Kurangi bahan baku otomatis berdasarkan resep produk
+      try {
+        const productIds = [...new Set(cart.map(i => i.productId))];
+        const { data: recipes } = await supabase
+          .from('pos_recipes' as any)
+          .select('*, pos_raw_materials(id, name, current_stock, unit)')
+          .in('product_id', productIds)
+          .eq('tenant_id', tenant.id);
+
+        if (recipes && recipes.length > 0) {
+          for (const item of cart) {
+            const itemRecipes = (recipes as any[]).filter(r => r.product_id === item.productId);
+            for (const recipe of itemRecipes) {
+              const mat = recipe.pos_raw_materials as any;
+              if (!mat) continue;
+              const totalUsage = recipe.qty_needed * item.qty;
+              const qtyBefore = mat.current_stock;
+              const qtyAfter = Math.max(0, qtyBefore - totalUsage);
+              await supabase
+                .from('pos_raw_materials' as any)
+                .update({ current_stock: qtyAfter, updated_at: new Date().toISOString() })
+                .eq('id', mat.id);
+              await supabase.from('pos_raw_material_mutations' as any).insert({
+                tenant_id: tenant.id,
+                outlet_id: activeOutlet.id,
+                raw_material_id: mat.id,
+                type: 'usage',
+                qty: -totalUsage,
+                qty_before: qtyBefore,
+                qty_after: qtyAfter,
+                reference_id: saleId,
+                reference_type: 'pos_sale',
+                notes: `Penjualan: ${item.name} x${item.qty}`,
+                created_by: user.id,
+              });
+            }
+          }
+        }
+      } catch {
+        // Silent — jangan gagalkan transaksi karena BOM
+      }
+
       if (selectedCustomer) {
         const { data: cust } = await supabase.from('pos_customers' as any)
           .select('total_purchase, transaction_count, loyalty_points').eq('id', selectedCustomer.id).single();
