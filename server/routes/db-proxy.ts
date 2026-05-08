@@ -404,12 +404,22 @@ router.post("/select", async (req: Request, res: Response) => {
   }
 });
 
-// INSERT
+// S1 + S2: Tabel yang boleh ditulis tanpa autentikasi (sangat terbatas)
+const PUBLIC_WRITE_TABLES = new Set(["product_views", "search_history", "merchant_visitors"]);
+
+// INSERT — S1: wajib autentikasi kecuali tabel publik
 router.post("/insert", async (req: Request, res: Response) => {
   const { table, rows, upsert, onConflict } = req.body;
   if (!table || !rows) return res.status(400).json({ error: "table and rows are required" });
 
   const tbl = String(table).replace(/[^a-z0-9_]/g, "");
+
+  // S1: Cek autentikasi untuk tabel non-publik
+  if (!PUBLIC_WRITE_TABLES.has(tbl)) {
+    const user = await getUser(req);
+    if (!user) return res.status(401).json({ error: "Unauthorized: login diperlukan untuk operasi ini" });
+  }
+
   const data = Array.isArray(rows) ? rows : [rows];
   if (data.length === 0) return res.json({ data: [] });
 
@@ -432,7 +442,6 @@ router.post("/insert", async (req: Request, res: Response) => {
         const result = await client.query(sql, values);
         if (result.rows[0]) {
           results.push(result.rows[0]);
-          // Broadcast SSE event for realtime subscribers
           broadcastDbEvent({ type: "postgres_changes", table: tbl, event: "INSERT", record: result.rows[0], schema: "public" });
         }
       }
@@ -446,12 +455,22 @@ router.post("/insert", async (req: Request, res: Response) => {
   }
 });
 
-// UPDATE
+// UPDATE — S1: wajib autentikasi, S2: wajib ada filter
 router.post("/update", async (req: Request, res: Response) => {
   const { table, updates, filters } = req.body;
   if (!table || !updates) return res.status(400).json({ error: "table and updates are required" });
 
   const tbl = String(table).replace(/[^a-z0-9_]/g, "");
+
+  // S1: Cek autentikasi
+  const user = await getUser(req);
+  if (!user) return res.status(401).json({ error: "Unauthorized: login diperlukan untuk operasi ini" });
+
+  // S2: Wajib ada minimal satu filter — cegah UPDATE tanpa WHERE (full-table wipe)
+  if (!filters || !Array.isArray(filters) || filters.length === 0) {
+    return res.status(400).json({ error: "filters diperlukan untuk operasi update (tidak boleh kosong)" });
+  }
+
   const keys = Object.keys(updates);
   if (keys.length === 0) return res.json({ data: [] });
 
@@ -462,18 +481,15 @@ router.post("/update", async (req: Request, res: Response) => {
       const setClauses = keys.map((k, i) => `${k} = $${i + 1}`).join(", ");
       let sql = `UPDATE public.${tbl} SET ${setClauses}`;
 
-      if (filters && Array.isArray(filters) && filters.length > 0) {
-        const conditions: string[] = [];
-        for (const f of filters) {
-          params.push(f.value);
-          conditions.push(`${f.column} = $${params.length}`);
-        }
-        sql += ` WHERE ${conditions.join(" AND ")}`;
+      const conditions: string[] = [];
+      for (const f of filters) {
+        params.push(f.value);
+        conditions.push(`${f.column} = $${params.length}`);
       }
+      sql += ` WHERE ${conditions.join(" AND ")}`;
 
       sql += " RETURNING *";
       const result = await client.query(sql, params);
-      // Broadcast SSE events for each updated row
       for (const row of result.rows) {
         broadcastDbEvent({ type: "postgres_changes", table: tbl, event: "UPDATE", record: row, schema: "public" });
       }
@@ -487,12 +503,21 @@ router.post("/update", async (req: Request, res: Response) => {
   }
 });
 
-// DELETE
+// DELETE — S1: wajib autentikasi, S2: wajib ada filter
 router.post("/delete", async (req: Request, res: Response) => {
   const { table, filters } = req.body;
   if (!table) return res.status(400).json({ error: "table is required" });
 
   const tbl = String(table).replace(/[^a-z0-9_]/g, "");
+
+  // S1: Cek autentikasi
+  const user = await getUser(req);
+  if (!user) return res.status(401).json({ error: "Unauthorized: login diperlukan untuk operasi ini" });
+
+  // S2: Wajib ada minimal satu filter — cegah DELETE tanpa WHERE (full-table wipe)
+  if (!filters || !Array.isArray(filters) || filters.length === 0) {
+    return res.status(400).json({ error: "filters diperlukan untuk operasi delete (tidak boleh kosong)" });
+  }
 
   try {
     const client = await pool.connect();
@@ -500,18 +525,15 @@ router.post("/delete", async (req: Request, res: Response) => {
       let sql = `DELETE FROM public.${tbl}`;
       const params: any[] = [];
 
-      if (filters && Array.isArray(filters) && filters.length > 0) {
-        const conditions: string[] = [];
-        for (const f of filters) {
-          params.push(f.value);
-          conditions.push(`${f.column} = $${params.length}`);
-        }
-        sql += ` WHERE ${conditions.join(" AND ")}`;
+      const conditions: string[] = [];
+      for (const f of filters) {
+        params.push(f.value);
+        conditions.push(`${f.column} = $${params.length}`);
       }
+      sql += ` WHERE ${conditions.join(" AND ")}`;
 
       sql += " RETURNING *";
       const result = await client.query(sql, params);
-      // Broadcast SSE events for each deleted row
       for (const row of result.rows) {
         broadcastDbEvent({ type: "postgres_changes", table: tbl, event: "DELETE", record: row, old_record: row, schema: "public" });
       }

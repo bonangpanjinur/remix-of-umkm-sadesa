@@ -607,23 +607,23 @@ Saat ini menampilkan grafik dasar. Fitur yang akan meningkatkan nilai bisnis:
 
 | ID | Judul | Prioritas | Estimasi | Status |
 |---|---|---|---|---|
-| S1 | Auth di INSERT/UPDATE/DELETE | 🔴 Kritis | 2 jam | ⬜ Belum |
-| S2 | Guard DELETE/UPDATE tanpa filter | 🔴 Kritis | 1 jam | ⬜ Belum |
+| S1 | Auth di INSERT/UPDATE/DELETE | 🔴 Kritis | 2 jam | ✅ Sprint 1 |
+| S2 | Guard DELETE/UPDATE tanpa filter | 🔴 Kritis | 1 jam | ✅ Sprint 1 |
 | S3 | SSE broadcast per-user | 🔴 Kritis | 4 jam | ⬜ Belum |
 | S4 | Token di URL → Cookie | 🔴 Kritis | 2 jam | ⬜ Belum |
-| S5 | Push subscribe verifikasi user | 🔴 Kritis | 1 jam | ⬜ Belum |
+| S5 | Push subscribe verifikasi user | 🔴 Kritis | 1 jam | ✅ Sprint 1 |
 | S6 | CORS restrict origin | 🟠 Penting | 1 jam | ⬜ Belum |
 | S7 | Rate limit di server | 🟠 Penting | 3 jam | ⬜ Belum |
 | S8 | Session persistent di DB | 🟠 Penting | 4 jam | ⬜ Belum |
 | S9 | Validasi file upload | 🟠 Penting | 2 jam | ⬜ Belum |
-| S10 | Validasi kekuatan password | 🟠 Penting | 1 jam | ⬜ Belum |
+| S10 | Validasi kekuatan password | 🟠 Penting | 1 jam | ✅ Sprint 1 |
 | B1 | POS Dashboard N+1 queries | 🔴 Kritis | 3 jam | ⬜ Belum |
 | B2 | useMerchantQuota sequential | 🔴 Kritis | 2 jam | ⬜ Belum |
 | B3 | File upload tidak persistent | 🔴 Kritis | 1 hari | ⬜ Belum |
 | B4 | Refactor AuthContext dari shim | 🔴 Kritis | 4 jam | ⬜ Belum |
-| B5 | React Router future flags | 🟠 Penting | 30 menit | ⬜ Belum |
+| B5 | React Router future flags | 🟠 Penting | 30 menit | ✅ Sprint 1 |
 | B6 | Email reset password | 🟠 Penting | Lihat F1 | ⬜ Belum |
-| B7 | Xendit webhook signature | 🟠 Penting | 1 jam | ⬜ Belum |
+| B7 | Xendit webhook signature | 🟠 Penting | 1 jam | ✅ Sprint 1 |
 | B8 | Scheduled jobs | 🟠 Penting | Lihat F3 | ⬜ Belum |
 | B9 | Cashback auto-credit | 🟠 Penting | Lihat F7 | ⬜ Belum |
 | B10 | Refund saldo transfer | 🟠 Penting | Lihat F4 | ⬜ Belum |

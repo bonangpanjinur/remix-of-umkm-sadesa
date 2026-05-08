@@ -19,6 +19,14 @@ router.post("/register", async (req: Request, res: Response) => {
     return res.status(400).json({ error: "Email, password, and full_name are required" });
   }
 
+  // S10: Validasi kekuatan password minimum
+  if (typeof password !== "string" || password.length < 8) {
+    return res.status(400).json({ error: "Password minimal 8 karakter" });
+  }
+  if (!/[A-Za-z]/.test(password) || !/[0-9]/.test(password)) {
+    return res.status(400).json({ error: "Password harus mengandung huruf dan angka" });
+  }
+
   const client = await pool.connect();
   try {
     const existing = await client.query(
@@ -174,6 +182,14 @@ router.post("/update-password", async (req: Request, res: Response) => {
   const { current_password, new_password } = req.body;
   if (!current_password || !new_password) {
     return res.status(400).json({ error: "current_password and new_password required" });
+  }
+
+  // S10: Validasi password baru
+  if (typeof new_password !== "string" || new_password.length < 8) {
+    return res.status(400).json({ error: "Password baru minimal 8 karakter" });
+  }
+  if (!/[A-Za-z]/.test(new_password) || !/[0-9]/.test(new_password)) {
+    return res.status(400).json({ error: "Password baru harus mengandung huruf dan angka" });
   }
 
   const client = await pool.connect();

@@ -69,14 +69,15 @@ export function usePushNotification() {
         applicationServerKey: urlBase64ToUint8Array(publicKey),
       });
 
-      // Send to server
+      // Send to server — S5: kirim token auth, bukan user_id
+      const sessionToken = localStorage.getItem("session_token") || "";
       const res = await fetch(`${API_BASE}/subscribe`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          user_id: user.id,
-          subscription: subscription.toJSON(),
-        }),
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${sessionToken}`,
+        },
+        body: JSON.stringify({ subscription: subscription.toJSON() }),
       });
 
       if (!res.ok) throw new Error("Failed to save subscription");
@@ -98,9 +99,13 @@ export function usePushNotification() {
       const sub = await reg.pushManager.getSubscription();
       if (!sub) { setIsSubscribed(false); return true; }
 
+      const sessionToken = localStorage.getItem("session_token") || "";
       await fetch(`${API_BASE}/unsubscribe`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${sessionToken}`,
+        },
         body: JSON.stringify({ endpoint: sub.endpoint }),
       });
 

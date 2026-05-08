@@ -164,8 +164,17 @@ app.get("/api/xendit/check-status", async (req, res) => {
 app.post("/api/xendit/webhook", async (req, res) => {
   const client = await pool.connect();
   try {
-    const s = await getXenditSettings(client).catch(()=>null);
-    if (s?.callback_token && req.headers["x-callback-token"] !== s.callback_token) return res.status(401).json({ error: "Invalid callback token" });
+    // B7: Validasi Xendit callback token — tolak jika token salah
+    const s = await getXenditSettings(client).catch(() => null);
+    const incomingToken = req.headers["x-callback-token"] as string | undefined;
+    if (s?.callback_token) {
+      if (incomingToken !== s.callback_token) {
+        console.warn("[xendit/webhook] Token tidak valid, request ditolak");
+        return res.status(401).json({ error: "Invalid callback token" });
+      }
+    } else {
+      console.warn("[xendit/webhook] callback_token belum dikonfigurasi — webhook diterima tanpa validasi. Konfigurasi segera di pengaturan admin.");
+    }
     const p = req.body as { external_id: string; status: string; paid_at?: string; payment_method?: string };
     if (!p.external_id) return res.status(400).json({ error: "Missing external_id" });
     const st = p.status === "PAID" ? "PAID" : p.status === "EXPIRED" ? "EXPIRED" : "PENDING";

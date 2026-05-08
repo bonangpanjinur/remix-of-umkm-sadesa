@@ -3,9 +3,18 @@
  * Endpoints: subscribe, unsubscribe, send push to user(s)
  * Uses web-push with VAPID keys.
  */
-import { Router } from "express";
+import { Router, Request } from "express";
 import webpush from "web-push";
 import { pool } from "../db";
+import { getSessionUser, getUserById } from "../auth";
+
+async function getAuthUser(req: Request) {
+  const token = req.headers.authorization?.replace("Bearer ", "");
+  if (!token) return null;
+  const userId = getSessionUser(token);
+  if (!userId) return null;
+  return getUserById(userId);
+}
 
 const router = Router();
 
@@ -26,14 +35,16 @@ router.get("/vapid-public-key", (req, res) => {
 });
 
 // POST /api/push/subscribe — save push subscription for a user
-router.post("/subscribe", async (req, res) => {
-  const { user_id, subscription } = req.body as {
-    user_id: string;
-    subscription: PushSubscriptionJSON;
-  };
+// S5: user_id diambil dari session yang terautentikasi, BUKAN dari req.body
+router.post("/subscribe", async (req: Request, res) => {
+  const authUser = await getAuthUser(req);
+  if (!authUser) {
+    return res.status(401).json({ error: "Unauthorized: login diperlukan" });
+  }
 
-  if (!user_id || !subscription?.endpoint) {
-    return res.status(400).json({ error: "user_id and subscription are required" });
+  const { subscription } = req.body as { subscription: PushSubscriptionJSON };
+  if (!subscription?.endpoint) {
+    return res.status(400).json({ error: "subscription endpoint diperlukan" });
   }
 
   const client = await pool.connect();
@@ -47,7 +58,7 @@ router.post("/subscribe", async (req, res) => {
              auth    = EXCLUDED.auth,
              updated_at = now()`,
       [
-        user_id,
+        authUser.id,
         subscription.endpoint,
         (subscription.keys as any)?.p256dh ?? null,
         (subscription.keys as any)?.auth ?? null,
@@ -63,15 +74,20 @@ router.post("/subscribe", async (req, res) => {
 });
 
 // POST /api/push/unsubscribe — remove push subscription
-router.post("/unsubscribe", async (req, res) => {
+// S5: Hanya bisa unsubscribe endpoint milik user sendiri
+router.post("/unsubscribe", async (req: Request, res) => {
+  const authUser = await getAuthUser(req);
+  if (!authUser) return res.status(401).json({ error: "Unauthorized" });
+
   const { endpoint } = req.body as { endpoint: string };
   if (!endpoint) return res.status(400).json({ error: "endpoint required" });
 
   const client = await pool.connect();
   try {
+    // S5: Filter by user_id agar user tidak bisa unsubscribe milik orang lain
     await client.query(
-      "DELETE FROM public.push_subscriptions WHERE endpoint = $1",
-      [endpoint]
+      "DELETE FROM public.push_subscriptions WHERE endpoint = $1 AND user_id = $2",
+      [endpoint, authUser.id]
     );
     return res.json({ success: true });
   } catch (err) {
