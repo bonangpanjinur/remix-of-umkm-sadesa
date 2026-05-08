@@ -149,7 +149,7 @@ export default function AdminBroadcastPage() {
           .from('user_roles')
           .select('user_id')
           .in('role', rolesFilter);
-        userIds = [...new Set((roles || []).map(r => r.user_id))];
+        userIds = [...new Set(((roles || []) as any[]).map((r: any) => r.user_id as string))];
       }
 
       // Create notifications for each user

@@ -8,8 +8,11 @@ const GS = 0x1d;
 const LF = 0x0a;
 const CR = 0x0d;
 
+declare const SerialPort: any;
+declare global { interface Navigator { serial: any; } }
+
 export class ThermalPrinter {
-  private port: SerialPort | null = null;
+  private port: any | null = null;
   private writer: WritableStreamDefaultWriter<Uint8Array> | null = null;
 
   static isSupported(): boolean {

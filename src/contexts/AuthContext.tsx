@@ -1,11 +1,21 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import type { AppRole } from '@/types/auth';
 
+interface AuthUser {
+  id: string;
+  email: string;
+  user_metadata?: { full_name?: string };
+}
+
+interface AuthSession {
+  user: AuthUser;
+  access_token: string;
+}
+
 interface AuthContextType {
-  user: User | null;
-  session: Session | null;
+  user: AuthUser | null;
+  session: AuthSession | null;
   roles: AppRole[];
   loading: boolean;
   rolesLoading: boolean;
@@ -25,8 +35,8 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [session, setSession] = useState<AuthSession | null>(null);
   const [roles, setRoles] = useState<AppRole[]>([]);
   const [loading, setLoading] = useState(true);
   const [rolesLoading, setRolesLoading] = useState(true);
@@ -45,7 +55,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setRoles(userRoles.length > 0 ? userRoles : ['buyer']);
     } catch (err) {
       console.error('Error fetching user roles:', err);
-      setRoles(['buyer']); // Default to buyer on error
+      setRoles(['buyer']);
     } finally {
       setRolesLoading(false);
     }
@@ -58,15 +68,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [user, fetchUserRoles]);
 
   useEffect(() => {
-    // Set up auth state listener first
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (_event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
+        setSession(session as AuthSession | null);
+        setUser(session?.user as AuthUser | null ?? null);
         setLoading(false);
 
         if (session?.user) {
-          // Defer role fetching to avoid blocking auth state update
           setTimeout(() => {
             fetchUserRoles(session.user.id);
           }, 0);
@@ -77,10 +85,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     );
 
-    // Then get the initial session
     supabase.auth.getSession().then(async ({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
+      setSession(session as AuthSession | null);
+      setUser(session?.user as AuthUser | null ?? null);
       setLoading(false);
 
       if (session?.user) {

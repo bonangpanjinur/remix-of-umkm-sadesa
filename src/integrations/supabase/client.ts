@@ -43,6 +43,7 @@ class QueryBuilder {
   private _table: string;
   private _columns: string = "*";
   private _filters: Array<{ column: string; op: string; value: any }> = [];
+  private _orFilters: string[] = [];
   private _order: { column: string; ascending: boolean } | null = null;
   private _limit: number | null = null;
   private _offset: number | null = null;
@@ -58,7 +59,7 @@ class QueryBuilder {
     this._table = table;
   }
 
-  select(columns: string = "*", opts?: { count?: string }) {
+  select(columns: string = "*", opts?: { count?: string; head?: boolean }) {
     this._columns = columns;
     if (opts?.count) this._count = opts.count;
     this._operation = "select";
@@ -104,6 +105,7 @@ class QueryBuilder {
   textSearch(column: string, value: string) { this._filters.push({ column, op: "fts", value }); return this; }
   filter(column: string, op: string, value: any) { this._filters.push({ column, op, value }); return this; }
   match(obj: Record<string, any>) { Object.entries(obj).forEach(([k,v]) => this._filters.push({ column: k, op: "=", value: v })); return this; }
+  or(filterStr: string) { this._orFilters.push(filterStr); return this; }
 
   order(column: string, opts?: { ascending?: boolean }) {
     this._order = { column, ascending: opts?.ascending !== false };
@@ -130,6 +132,7 @@ class QueryBuilder {
             table: this._table,
             columns: this._columns,
             filters: this._filters,
+            orFilters: this._orFilters,
             order: this._order,
             limit: this._limit,
             offset: this._offset,
@@ -199,6 +202,23 @@ const auth = {
       return { data: { session: null }, error: null };
     } catch (err) {
       return { data: { session: null }, error: err };
+    }
+  },
+
+  async getUser(): Promise<{ data: { user: any }; error: any }> {
+    try {
+      const token = _sessionToken;
+      if (!token) return { data: { user: null }, error: null };
+      const resp = await apiCall("/auth/me");
+      const json = await resp.json();
+      if (json.user) {
+        _currentUser = json.user;
+        const user = { id: json.user.id, email: json.user.email, user_metadata: { full_name: json.user.full_name } };
+        return { data: { user }, error: null };
+      }
+      return { data: { user: null }, error: null };
+    } catch (err) {
+      return { data: { user: null }, error: err };
     }
   },
 
@@ -276,6 +296,10 @@ const auth = {
     return { error: null };
   },
 
+  async resend(_opts: { type: string; email: string }) {
+    return { error: null };
+  },
+
   async exchangeCodeForSession(_code: string) {
     return { data: null, error: null };
   },
@@ -308,6 +332,11 @@ function storageFrom(bucket: string) {
       return { data: { publicUrl: `/storage/${bucket}/${filename}` } };
     },
 
+    async createSignedUrl(filePath: string, _expiresIn: number): Promise<{ data: { signedUrl: string } | null; error: any }> {
+      const filename = filePath.split("/").pop();
+      return { data: { signedUrl: `/storage/${bucket}/${filename}` }, error: null };
+    },
+
     async remove(_paths: string[]): Promise<{ data: any; error: any }> {
       return { data: {}, error: null };
     },
@@ -330,17 +359,35 @@ async function rpc(fn: string, args?: any): Promise<{ data: any; error: any }> {
   } catch (err) { return { data: null, error: err }; }
 }
 
+// ─── Realtime channel stub ────────────────────────────────────────────────────
+function makeChannel(_name: string) {
+  const ch: any = {
+    on: (_event: string, _filter: any, _callback?: any) => ch,
+    subscribe: (_cb?: any) => ch,
+    unsubscribe: () => Promise.resolve(),
+    // Required RealtimeChannel shape stubs
+    topic: _name,
+    params: {},
+    socket: null as any,
+    bindings: {},
+    state: "closed",
+    presence: null as any,
+    broadcastEndpointURL: "",
+    send: () => Promise.resolve(),
+    track: () => Promise.resolve(),
+    untrack: () => Promise.resolve(),
+  };
+  return ch;
+}
+
 // ─── Main supabase client ─────────────────────────────────────────────────────
 export const supabase = {
   from: (table: string) => new QueryBuilder(table),
   auth,
   storage,
   rpc,
-  channel: (_name: string) => ({
-    on: (_event: string, _filter: any, _callback: any) => ({ subscribe: (_cb?: any) => ({ unsubscribe: () => {} }) }),
-    subscribe: (_cb?: any) => ({ unsubscribe: () => {} }),
-  }),
-  removeChannel: (_channel: any) => Promise.resolve(),
+  channel: (name: string) => makeChannel(name),
+  removeChannel: (_channel: any) => Promise.resolve("ok" as const),
   realtime: { setAuth: () => {} },
 };
 

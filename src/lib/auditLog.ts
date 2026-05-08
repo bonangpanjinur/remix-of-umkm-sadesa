@@ -16,8 +16,8 @@ export async function logAdminAction(
       action,
       entity_type: entityType,
       entity_id: entityId,
-      old_value: oldValue as import('@/integrations/supabase/types').Json,
-      new_value: newValue as import('@/integrations/supabase/types').Json,
+      old_value: oldValue,
+      new_value: newValue,
     });
   } catch (error) {
     console.error('Failed to log admin action:', error);

@@ -104,9 +104,9 @@ export default function MerchantVisitorStatsPage() {
           .select('id, name')
           .in('id', topProductIds.map(([id]) => id));
 
-        const nameMap = new Map((products || []).map(p => [p.id, p.name]));
+        const nameMap = new Map(((products || []) as any[]).map((p: any) => [p.id, p.name]));
         topProductsData = topProductIds.map(([id, count]) => ({
-          name: nameMap.get(id) || 'Unknown',
+          name: (nameMap.get(id) || 'Unknown') as string,
           views: count,
         }));
       }

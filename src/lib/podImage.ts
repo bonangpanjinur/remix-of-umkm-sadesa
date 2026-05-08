@@ -1,9 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
 
-/**
- * Resolve a stored POD image URL into a fresh short-lived signed URL.
- * The bucket is now private; public URLs no longer work.
- */
 function extractPath(url: string): string | null {
   try {
     const marker = '/pod-images/';

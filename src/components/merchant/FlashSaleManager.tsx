@@ -80,8 +80,7 @@ export function FlashSaleManager({ merchantId }: FlashSaleManagerProps) {
     try {
       // Fetch flash sales from raw query due to new table not in types yet
       const { data: sales, error: salesError } = await supabase
-        .rpc('get_flash_sales_for_merchant' as any, { p_merchant_id: merchantId })
-        .select('*');
+        .rpc('get_flash_sales_for_merchant', { p_merchant_id: merchantId });
 
       // Alternative: direct query with type assertion
       const { data: salesData } = await supabase

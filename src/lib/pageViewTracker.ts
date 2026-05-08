@@ -9,7 +9,6 @@ export async function trackPageView(options: {
 }) {
   const key = `${options.pageType}-${options.merchantId || ''}-${options.productId || ''}`;
   
-  // Prevent duplicate tracking in same session
   if (trackedPages.has(key)) return;
   trackedPages.add(key);
 
@@ -23,7 +22,6 @@ export async function trackPageView(options: {
       page_type: options.pageType,
     });
   } catch (error) {
-    // Silent fail - don't interrupt user experience
     console.error('Page view tracking error:', error);
   }
 }

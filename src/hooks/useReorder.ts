@@ -45,7 +45,7 @@ export function useReorder() {
         return { added: 0, skipped: items.length };
       }
 
-      const productMap = new Map(productsData.map((p: any) => [p.id, p]));
+      const productMap = new Map(((productsData || []) as any[]).map((p: any) => [p.id, p]));
       let added = 0;
       let skipped = 0;
 

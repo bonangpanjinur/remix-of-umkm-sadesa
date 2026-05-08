@@ -110,7 +110,7 @@ export default function AdminWhatsAppPage() {
 
   if (loading) {
     return (
-      <AdminLayout>
+      <AdminLayout title="WhatsApp Notification">
         <div className="flex items-center justify-center h-64">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
@@ -119,7 +119,7 @@ export default function AdminWhatsAppPage() {
   }
 
   return (
-    <AdminLayout>
+    <AdminLayout title="WhatsApp Notification">
       <div className="p-6 max-w-3xl mx-auto space-y-6">
         <div className="flex items-center justify-between">
           <div>

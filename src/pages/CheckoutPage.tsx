@@ -447,7 +447,7 @@ export default function CheckoutPage() {
         throw new Error('Gagal memeriksa stok produk');
       }
 
-      const stockMap = new Map(currentStocks?.map(p => [p.id, p]) || []);
+      const stockMap = new Map(((currentStocks || []) as any[]).map((p: any) => [p.id, p]));
       const outOfStockItems: string[] = [];
 
       for (const item of items) {

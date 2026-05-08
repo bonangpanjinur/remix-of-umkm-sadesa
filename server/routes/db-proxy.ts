@@ -247,7 +247,7 @@ async function getUser(req: Request) {
 // Generic SELECT query proxy
 // POST /api/db/select
 router.post("/select", async (req: Request, res: Response) => {
-  const { table, columns, filters, order, limit: limitVal, offset: offsetVal, count, single, maybeSingle } = req.body;
+  const { table, columns, filters, orFilters, order, limit: limitVal, offset: offsetVal, count, single, maybeSingle } = req.body;
 
   if (!table) return res.status(400).json({ error: "table is required" });
 
@@ -296,36 +296,67 @@ router.post("/select", async (req: Request, res: Response) => {
       if (joinClauses) sql += " " + joinClauses;
       const params: any[] = [];
 
+      const buildCondition = (f: any, params: any[]): string => {
+        const op = f.op || "=";
+        if (op === "is" && f.value === null) return `"${tbl}".${f.column} IS NULL`;
+        if (op === "is" && f.value !== null) return `"${tbl}".${f.column} IS NOT NULL`;
+        if (op === "is_not") { params.push(f.value); return `"${tbl}".${f.column} IS DISTINCT FROM $${params.length}`; }
+        params.push(f.value);
+        const n = params.length;
+        if (op === "in") return `"${tbl}".${f.column} = ANY($${n})`;
+        if (op === "ilike" || op === "like") return `"${tbl}".${f.column} ILIKE $${n}`;
+        if (op === "gte") return `"${tbl}".${f.column} >= $${n}`;
+        if (op === "lte") return `"${tbl}".${f.column} <= $${n}`;
+        if (op === "gt") return `"${tbl}".${f.column} > $${n}`;
+        if (op === "lt") return `"${tbl}".${f.column} < $${n}`;
+        if (op === "neq") return `"${tbl}".${f.column} != $${n}`;
+        if (op === "contains") return `"${tbl}".${f.column} @> $${n}`;
+        if (op === "fts") return `to_tsvector("${tbl}".${f.column}) @@ plainto_tsquery($${n})`;
+        return `"${tbl}".${f.column} = $${n}`;
+      };
+
+      /**
+       * Parse Supabase .or() filter strings like:
+       * "sender_id.eq.UUID,receiver_id.eq.UUID"
+       * "start_date.is.null,start_date.lte.2024-01-01"
+       * "user_email.ilike.%foo%,table_name.ilike.%foo%"
+       */
+      const parseOrFilterString = (filterStr: string, params: any[]): string => {
+        const parts = filterStr.split(",").map(s => s.trim()).filter(Boolean);
+        const clauses = parts.map(part => {
+          // Format: column.op.value  (value can contain dots)
+          const dotIdx1 = part.indexOf(".");
+          const dotIdx2 = part.indexOf(".", dotIdx1 + 1);
+          if (dotIdx1 === -1 || dotIdx2 === -1) return "TRUE";
+          const col = part.substring(0, dotIdx1);
+          const op = part.substring(dotIdx1 + 1, dotIdx2);
+          const valRaw = part.substring(dotIdx2 + 1);
+          let value: any = valRaw;
+          if (valRaw === "null") value = null;
+          else if (valRaw === "true") value = true;
+          else if (valRaw === "false") value = false;
+          else if (!isNaN(Number(valRaw)) && valRaw !== "") value = Number(valRaw);
+          return buildCondition({ column: col, op, value }, params);
+        });
+        return clauses.length > 0 ? `(${clauses.join(" OR ")})` : "TRUE";
+      };
+
+      const allWhereConditions: string[] = [];
+
       if (filters && Array.isArray(filters) && filters.length > 0) {
-        const conditions: string[] = [];
         for (const f of filters) {
-          params.push(f.value);
-          const op = f.op || "=";
-          if (op === "is" && f.value === null) {
-            conditions.push(`${f.column} IS NULL`);
-            params.pop();
-          } else if (op === "is" && f.value !== null) {
-            conditions.push(`${f.column} IS NOT NULL`);
-            params.pop();
-          } else if (op === "in") {
-            conditions.push(`${f.column} = ANY($${params.length})`);
-          } else if (op === "ilike") {
-            conditions.push(`${f.column} ILIKE $${params.length}`);
-          } else if (op === "gte") {
-            conditions.push(`${f.column} >= $${params.length}`);
-          } else if (op === "lte") {
-            conditions.push(`${f.column} <= $${params.length}`);
-          } else if (op === "gt") {
-            conditions.push(`${f.column} > $${params.length}`);
-          } else if (op === "lt") {
-            conditions.push(`${f.column} < $${params.length}`);
-          } else if (op === "neq") {
-            conditions.push(`${f.column} != $${params.length}`);
-          } else {
-            conditions.push(`${f.column} = $${params.length}`);
-          }
+          allWhereConditions.push(buildCondition(f, params));
         }
-        sql += ` WHERE ${conditions.join(" AND ")}`;
+      }
+
+      if (orFilters && Array.isArray(orFilters) && orFilters.length > 0) {
+        for (const orStr of orFilters) {
+          allWhereConditions.push(parseOrFilterString(orStr, params));
+        }
+      }
+
+      if (allWhereConditions.length > 0) {
+        sql += ` WHERE ${allWhereConditions.join(" AND ")}`;
       }
 
       if (order) {
