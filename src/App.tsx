@@ -143,6 +143,10 @@ import POSLaporanLabaRugiPage from "./pages/pos/POSLaporanLabaRugiPage";
 import POSLaporanKasirPage from "./pages/pos/POSLaporanKasirPage";
 import POSLaporanStokPage from "./pages/pos/POSLaporanStokPage";
 import POSAnalitikPage from "./pages/pos/POSAnalitikPage";
+import POSTransferStokPage from "./pages/pos/POSTransferStokPage";
+import POSLaporanOutletPage from "./pages/pos/POSLaporanOutletPage";
+import POSAuditPage from "./pages/pos/POSAuditPage";
+import POSAksesPage from "./pages/pos/POSAksesPage";
 import { POSProvider } from "./contexts/POSContext";
 
 // Desa Pages
@@ -672,6 +676,10 @@ const App = () => (
               <Route path="/pos/laporan/kasir" element={<ProtectedRoute><POSLaporanKasirPage /></ProtectedRoute>} />
               <Route path="/pos/laporan/stok" element={<ProtectedRoute><POSLaporanStokPage /></ProtectedRoute>} />
               <Route path="/pos/analitik" element={<ProtectedRoute><POSAnalitikPage /></ProtectedRoute>} />
+              <Route path="/pos/transfer-stok" element={<ProtectedRoute><POSTransferStokPage /></ProtectedRoute>} />
+              <Route path="/pos/laporan/outlet" element={<ProtectedRoute><POSLaporanOutletPage /></ProtectedRoute>} />
+              <Route path="/pos/audit" element={<ProtectedRoute><POSAuditPage /></ProtectedRoute>} />
+              <Route path="/pos/akses" element={<ProtectedRoute><POSAksesPage /></ProtectedRoute>} />
 
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />

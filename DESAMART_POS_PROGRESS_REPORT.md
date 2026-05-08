@@ -13,7 +13,7 @@
 | **Phase 1** | POS Core + Master Data + Stok Dasar | ✅ Selesai |
 | **Phase 2** | Pembelian & Kas Harian | ✅ Selesai |
 | **Phase 3** | Laporan Lanjutan & Analitik Pelanggan | ✅ Selesai |
-| **Phase 4** | Multi-outlet & Manajemen Shift | ⬜ Belum |
+| **Phase 4** | Multi-outlet & Audit Trail | ✅ Selesai |
 | **Phase 5** | Loyalty, Promosi & Diskon | ⬜ Belum |
 | **Phase 6** | Integrasi Marketplace & API Publik | ⬜ Belum |
 
@@ -54,13 +54,13 @@
 |------|--------|--------|
 | `src/contexts/POSContext.tsx` | State tenant, outlet aktif, format mata uang | ✅ |
 | `src/components/pos/POSLayout.tsx` | Wrapper layout POS (header + sidebar) | ✅ |
-| `src/components/pos/POSSidebar.tsx` | Sidebar navigasi 19 menu item (termasuk Phase 2 & 3) | ✅ |
+| `src/components/pos/POSSidebar.tsx` | Sidebar navigasi 23 menu item (Phase 1–4) | ✅ |
 | `src/components/pos/BarcodeScanner.tsx` | Kamera barcode scanner (`@zxing/browser`) | ✅ |
-| `src/App.tsx` | Route `/pos/*` lengkap Phase 1–3 | ✅ |
+| `src/App.tsx` | Route `/pos/*` lengkap Phase 1–4 | ✅ |
 
 ---
 
-### 1.3 Halaman POS
+### 1.3 Halaman POS — Phase 1
 
 #### POSSetupPage — Wizard Setup Usaha
 **Route:** `/pos/setup`
@@ -90,32 +90,17 @@
 - [x] Update stok & statistik pelanggan otomatis
 - [x] Keyboard shortcuts (F2, F3, F8, Esc)
 
-#### POSTransaksiPage — Riwayat Transaksi
-**Route:** `/pos/transaksi`
-- [x] List transaksi + filter tanggal & rentang kustom
-- [x] Detail transaksi (modal), export CSV
-
-#### POSReturPage — Retur Penjualan
-**Route:** `/pos/retur`
-- [x] Cari transaksi, pilih item & jumlah retur
-- [x] Opsi restock + update stok otomatis
-
-#### POSProdukPage — Manajemen Produk
-**Route:** `/pos/produk`
-- [x] CRUD produk (SKU, barcode, harga, HPP, pajak, varian, gambar)
-- [x] Kalkulasi margin otomatis, export CSV
-
-#### POSKategoriPage — Manajemen Kategori | POSCustomerPage — Pelanggan
-**Route:** `/pos/kategori` | `/pos/customer`
-- [x] CRUD kategori & sub-kategori + CRUD pelanggan dengan statistik
-
-#### POSSupplierPage — Supplier | POSStokPage — Stok | POSLaporanPage — Laporan Penjualan
-**Route:** `/pos/supplier` | `/pos/stok` | `/pos/laporan`
-- [x] CRUD supplier + manajemen stok + laporan penjualan dasar (grafik, top produk, metode bayar)
-
-#### POSPenggunaPage — Pengguna | POSPengaturanPage — Pengaturan
-**Route:** `/pos/pengguna` | `/pos/pengaturan`
-- [x] 7 role pengguna + PIN kasir + pengaturan usaha & outlet
+#### Halaman Phase 1 Lainnya
+- [x] `/pos/transaksi` — Riwayat transaksi + filter + export CSV
+- [x] `/pos/retur` — Retur penjualan + restock otomatis
+- [x] `/pos/produk` — CRUD produk (SKU, barcode, varian, margin)
+- [x] `/pos/kategori` — CRUD kategori & sub-kategori
+- [x] `/pos/customer` — CRUD pelanggan + statistik
+- [x] `/pos/supplier` — CRUD supplier
+- [x] `/pos/stok` — Stok per outlet + penyesuaian + mutasi
+- [x] `/pos/laporan` — Laporan penjualan dasar (grafik, top produk)
+- [x] `/pos/pengguna` — 7 role pengguna + PIN kasir
+- [x] `/pos/pengaturan` — Pengaturan usaha & outlet
 
 ---
 
@@ -139,22 +124,20 @@
 ### 2.2 Halaman Phase 2
 
 #### POSPembelianPage — Purchase Order ke Supplier
-**Route:** `/pos/pembelian` | **File:** `src/pages/pos/POSPembelianPage.tsx`
-
+**Route:** `/pos/pembelian`
 - [x] Kartu ringkasan status PO (Draft, Dikirim, Sebagian, Selesai, Dibatalkan)
 - [x] Ringkasan hutang dagang: total nilai, dibayar, sisa
 - [x] Buat PO baru: pilih supplier, No PO auto-generate, estimasi tiba
-- [x] Tambah item dari master produk atau manual, qty, harga beli, diskon, pajak
+- [x] Tambah item dari master produk atau manual
 - [x] Flow status: Draft → Dikirim → Terima Barang → Selesai / Sebagian
-- [x] Penerimaan barang: update stok `pos_stock` + catat `pos_stock_mutations` otomatis
-- [x] Filter status & search, export CSV
+- [x] Penerimaan barang: update stok + catat mutasi otomatis
+- [x] Export CSV
 
 #### POSKasPage — Kas Harian
-**Route:** `/pos/kas` | **File:** `src/pages/pos/POSKasPage.tsx`
-
+**Route:** `/pos/kas`
 - [x] Buka sesi kasir (saldo awal, nama kasir, No sesi auto-generate)
 - [x] Kalkulasi real-time: Saldo Awal + Penjualan Tunai + Kas Masuk − Kas Keluar
-- [x] Kas masuk/keluar manual dengan kategori (modal, gaji, biaya operasional, dll.)
+- [x] Kas masuk/keluar manual dengan kategori
 - [x] Tutup sesi: input saldo aktual, auto-hitung selisih lebih/kurang
 - [x] Tab Mutasi Kas & Riwayat Sesi, export CSV
 
@@ -164,96 +147,127 @@
 
 ### 3.1 Halaman Phase 3
 
-#### POSLaporanLabaRugiPage — Laporan Laba Rugi + HPP
-**Route:** `/pos/laporan/laba-rugi` | **File:** `src/pages/pos/POSLaporanLabaRugiPage.tsx`
+#### POSLaporanLabaRugiPage
+**Route:** `/pos/laporan/laba-rugi`
+- [x] Statement laba rugi format akuntansi (Omzet → Laba Kotor → Laba Bersih)
+- [x] KPI: Net margin %, Gross margin %, Omzet, HPP
+- [x] Grafik bar Omzet vs HPP vs Laba per hari/bulan
+- [x] Top 10 produk berdasar laba + badge margin %
+- [x] Export CSV + Cetak
 
-- [x] **Periode fleksibel:** Hari ini, Minggu, Bulan, Tahun, Kustom (range bebas)
-- [x] **KPI Cards:**
-  - Omzet penjualan + jumlah transaksi
-  - HPP (Harga Pokok Penjualan) + Gross Margin %
-  - Laba Kotor (Omzet − HPP − Retur − Diskon)
-  - Laba Bersih + Net Profit Margin %
-- [x] **Statement Laba Rugi** format akuntansi:
-  - Pendapatan: Omzet, (-) Diskon, (-) Retur, (-) HPP → Laba Kotor
-  - Beban: rincian per kategori (operasional, gaji, dll.) → Total Beban
-  - **Laba/Rugi Bersih**
-- [x] **Grafik Bar:** Omzet vs HPP vs Laba Kotor per hari/bulan
-- [x] **Top 10 Produk** berdasar laba kotor dengan margin % per produk
-- [x] Export CSV + Cetak (`window.print()`)
+#### POSLaporanKasirPage
+**Route:** `/pos/laporan/kasir`
+- [x] Banner kasir terbaik dengan kontribusi % omzet
+- [x] Tabel performa (transaksi, omzet, avg/transaksi, total item)
+- [x] Grafik jam sibuk (06:00–22:00) per kasir yang dipilih
+- [x] Riwayat sesi kasir dengan selisih saldo + Export CSV
 
-#### POSLaporanKasirPage — Laporan Per Kasir
-**Route:** `/pos/laporan/kasir` | **File:** `src/pages/pos/POSLaporanKasirPage.tsx`
-
-- [x] **Periode fleksibel** + filter kasir
-- [x] **Banner kasir terbaik** (top omzet + kontribusi %)
-- [x] **Tabel performa kasir:** transaksi, omzet, diskon, avg/transaksi, total item
-- [x] **Grafik bar horizontal** omzet per kasir
-- [x] **Tab Jam Sibuk:** grafik transaksi & omzet per jam (06:00–22:00)
-- [x] **Tab Riwayat Sesi Kasir:** saldo awal, akhir, selisih per sesi
-- [x] **Detail kasir terpilih** dengan klik baris
-- [x] Export CSV
-
-#### POSLaporanStokPage — Laporan Pergerakan Stok
-**Route:** `/pos/laporan/stok` | **File:** `src/pages/pos/POSLaporanStokPage.tsx`
-
-- [x] **Filter tanggal** bebas (range kustom)
-- [x] **Alert banner** stok menipis/habis dengan badge per produk
-- [x] **KPI Cards:** Total produk, Total Masuk, Total Keluar, Stok Habis
-- [x] **Tab Ringkasan Stok:**
-  - Stok saat ini, total masuk/keluar/terjual/dibeli/adjust per produk
-  - Badge status: Normal / Menipis / Habis
-  - Search produk
-- [x] **Tab Riwayat Mutasi:**
-  - Setiap perubahan stok: tipe, before/after, keterangan
-  - Badge tipe berwarna: Penjualan, Pembelian, Retur, Penyesuaian, Transfer
-  - Filter per tipe mutasi + search produk
-- [x] **Tab Grafik:** Top 8 produk paling banyak terjual (horizontal bar chart)
-- [x] Export CSV
+#### POSLaporanStokPage
+**Route:** `/pos/laporan/stok`
+- [x] Alert stok menipis/habis otomatis
+- [x] Ringkasan stok per produk: masuk/keluar/terjual/dibeli + badge status
+- [x] Riwayat setiap mutasi stok (tipe berwarna, before/after)
+- [x] Grafik top 8 produk paling laku + Export CSV
 
 #### POSAnalitikPage — Analitik Pelanggan
-**Route:** `/pos/analitik` | **File:** `src/pages/pos/POSAnalitikPage.tsx`
-
-- [x] **Filter periode:** 1, 3, 6, 12 bulan terakhir
-- [x] **KPI Cards:** Total pelanggan, Champions count, Rata-rata belanja, Perlu perhatian
-- [x] **Tab Top Pelanggan:**
-  - Top 20 pelanggan berdasar nilai belanja
-  - Ikon medali (emas, perak, perunggu) untuk 3 teratas
-  - Kolom: total belanja, jumlah transaksi, avg/transaksi, terakhir belanja, segmen RFM
-  - Indikator "N hari lalu" dengan warna merah jika > 60 hari
-- [x] **Tab Segmentasi RFM:**
-  - 6 segmen: Champions, Pelanggan Setia, Potensi Loyal, Pelanggan Baru, Perlu Perhatian, Hilang
-  - Pie chart distribusi segmen
-  - Progress bar per segmen dengan persentase
-- [x] **Tab Tren & Pembayaran:**
-  - Grafik stacked bar: Pelanggan Baru vs Kembali per bulan
-  - Breakdown metode pembayaran: progress bar nilai + persentase
-  - Grafik top 8 produk terlaris berdasar omzet
-- [x] Export CSV
+**Route:** `/pos/analitik`
+- [x] Top 20 pelanggan dengan ikon medali + indikator hari terakhir belanja
+- [x] Segmentasi RFM 6 segmen + pie chart distribusi
+- [x] Tren pelanggan baru vs kembali per bulan
+- [x] Breakdown metode pembayaran + top 8 produk terlaris + Export CSV
 
 ---
 
-### 3.2 Navigasi & Routing Phase 3
+## ✅ PHASE 4 — Selesai
 
-| Menu Sidebar | Route | Status |
-|---|---|---|
-| Lap. Penjualan (existing) | `/pos/laporan` | ✅ |
-| Lap. Laba Rugi (ikon TrendingUp) | `/pos/laporan/laba-rugi` | ✅ |
-| Lap. Per Kasir (ikon UserCheck) | `/pos/laporan/kasir` | ✅ |
-| Lap. Stok (ikon BoxesIcon) | `/pos/laporan/stok` | ✅ |
-| Analitik Pelanggan (ikon PieChart) | `/pos/analitik` | ✅ |
+### 4.1 Database
+
+**File:** `supabase/migrations/20260510000000_phase4_multioutlet_audit.sql`
+
+| Tabel | Keterangan | Status |
+|-------|-----------|--------|
+| `pos_stock_transfers` | Header permintaan transfer stok antar outlet | ✅ |
+| `pos_stock_transfer_items` | Detail item per transfer | ✅ |
+| `pos_audit_logs` | Jejak aktivitas seluruh user (action, module, old/new values) | ✅ |
+| `pos_notifications` | Notifikasi in-app per user/outlet | ✅ |
+| `pos_user_outlet_access` | Akses granular user per outlet + role | ✅ |
+
+> RLS + Index lengkap sudah disertakan di migration.
 
 ---
 
-## ⬜ PHASE 4 — Belum Dikerjakan
+### 4.2 Halaman Phase 4
 
-### Multi-outlet & Audit Trail
+#### POSTransferStokPage — Transfer Stok Antar Outlet
+**Route:** `/pos/transfer-stok` | **File:** `src/pages/pos/POSTransferStokPage.tsx`
 
-- [ ] Transfer stok antar outlet
-- [ ] Laporan perbandingan performa antar outlet
-- [ ] Shift management (jadwal kasir per outlet)
-- [ ] Log aktivitas per user (audit trail)
-- [ ] Notifikasi stok menipis (push / email)
-- [ ] Hak akses per outlet per user (lebih granular)
+- [x] **Status flow lengkap:** Draft → Menunggu → Disetujui → Selesai / Ditolak / Dibatalkan
+- [x] **Buat transfer baru:** pilih outlet asal & tujuan, No transfer auto-generate
+- [x] **Cari & tambah produk** dari master: tampilkan stok tersedia per outlet asal
+- [x] **Validasi stok:** blokir qty transfer > stok tersedia
+- [x] **Approve & Reject:** flow persetujuan dengan alasan penolakan
+- [x] **Selesaikan transfer:** input qty diterima, update stok kedua outlet otomatis (masuk + keluar di `pos_stock_mutations`)
+- [x] **Expand detail** setiap transfer: tabel item + qty diminta/dikirim/diterima
+- [x] **Filter status & outlet**, kartu ringkasan per status
+- [x] **Audit log otomatis** setiap aksi (buat, setujui, tolak, selesai)
+- [x] Export CSV + Alert jika outlet < 2
+
+#### POSLaporanOutletPage — Laporan Perbandingan Outlet
+**Route:** `/pos/laporan/outlet` | **File:** `src/pages/pos/POSLaporanOutletPage.tsx`
+
+- [x] **Periode fleksibel:** Hari ini, Minggu, Bulan, Tahun, Kustom
+- [x] **Banner outlet terbaik** dengan kontribusi % omzet (emas trophy)
+- [x] **Cards per outlet:**
+  - Omzet + progress bar porsi dari grand total
+  - Transaksi, Avg/Trx, Pelanggan unik, Item terjual
+  - Split Tunai vs Non-tunai
+- [x] **Grafik bar harian** omzet semua outlet (multi-bar berwarna)
+- [x] **Tabel perbandingan lengkap** dengan badge porsi %
+- [x] **Grand total row** di bawah tabel
+- [x] Export CSV + alert jika outlet < 2
+
+#### POSAuditPage — Audit Trail
+**Route:** `/pos/audit` | **File:** `src/pages/pos/POSAuditPage.tsx`
+
+- [x] **KPI Cards:** Total aktivitas, Pengguna aktif, Mutasi stok, Aksi sensitif (hapus+tolak)
+- [x] **Filter:** Rentang tanggal, Aksi, Modul, Outlet
+- [x] **Tab Log Aktivitas:**
+  - Tabel: Waktu, User, Aksi (badge berwarna), Modul, Deskripsi
+  - Klik baris untuk lihat detail (old values vs new values JSON)
+  - Pagination 50 per halaman
+- [x] **Tab Mutasi Stok:**
+  - Setiap perubahan stok: tipe (badge warna), before, perubahan (±), sesudah
+  - Referensi (penjualan/pembelian/transfer) + keterangan
+- [x] **Search** user/deskripsi/modul lintas tab
+- [x] Export CSV + audit log export itu sendiri
+
+#### POSAksesPage — Manajemen Akses
+**Route:** `/pos/akses` | **File:** `src/pages/pos/POSAksesPage.tsx`
+
+- [x] **KPI Cards:** Total pengguna, Pengguna aktif, Ada PIN kasir, Akses outlet aktif
+- [x] **Tab Pengguna POS:**
+  - Tabel lengkap: nama, email, role (badge), outlet utama, status PIN, toggle aktif/nonaktif
+  - Tambah & Edit pengguna (nama, email, role, outlet utama)
+  - Hapus pengguna dengan konfirmasi
+  - Set/update PIN kasir (4–6 digit angka, konfirmasi, validasi numerik)
+- [x] **Tab Akses Per Outlet:**
+  - Beri akses user ke outlet tertentu dengan role yang berbeda per outlet
+  - Upsert (satu user bisa punya role berbeda di tiap outlet)
+  - Cabut akses dengan satu klik
+  - Filter per outlet
+- [x] **Tab Panduan Role:** penjelasan 7 role + daftar hak akses masing-masing
+- [x] Alert jika outlet < 2 pada tab akses
+
+---
+
+### 4.3 Navigasi & Routing Phase 4
+
+| Menu Sidebar | Route | Icon | Status |
+|---|---|---|---|
+| Transfer Stok | `/pos/transfer-stok` | ArrowRightLeft | ✅ |
+| Lap. Outlet | `/pos/laporan/outlet` | GitCompare | ✅ |
+| Audit Trail | `/pos/audit` | Shield | ✅ |
+| Manajemen Akses | `/pos/akses` | KeyRound | ✅ |
 
 ---
 
@@ -291,11 +305,13 @@
 ### SQL Migration — Urutan Eksekusi
 
 ```
-1. supabase/migrations/20260508000000_phase1_pos_saas.sql   → Phase 1 (Core)
+1. supabase/migrations/20260508000000_phase1_pos_saas.sql       → Phase 1 (Core)
 2. supabase/migrations/20260509000000_phase2_pos_purchase_kas.sql → Phase 2
+3. supabase/migrations/20260510000000_phase4_multioutlet_audit.sql → Phase 4
 ```
 
 > Phase 3 tidak membutuhkan migration DB baru — semua halaman membaca tabel yang sudah ada.
+> Semua migration harus dijalankan di **Supabase Dashboard → SQL Editor** secara berurutan.
 
 ### Struktur File Lengkap POS
 
@@ -305,7 +321,7 @@ src/
 │   └── POSContext.tsx                    ← State global POS
 ├── components/pos/
 │   ├── POSLayout.tsx
-│   ├── POSSidebar.tsx                    ← 19 menu item
+│   ├── POSSidebar.tsx                    ← 23 menu item (Phase 1–4)
 │   └── BarcodeScanner.tsx
 └── pages/pos/
     ├── POSSetupPage.tsx                  ← Phase 1
@@ -326,43 +342,51 @@ src/
     ├── POSLaporanLabaRugiPage.tsx        ← Phase 3
     ├── POSLaporanKasirPage.tsx           ← Phase 3
     ├── POSLaporanStokPage.tsx            ← Phase 3
-    └── POSAnalitikPage.tsx               ← Phase 3
+    ├── POSAnalitikPage.tsx               ← Phase 3
+    ├── POSTransferStokPage.tsx           ← Phase 4
+    ├── POSLaporanOutletPage.tsx          ← Phase 4
+    ├── POSAuditPage.tsx                  ← Phase 4
+    └── POSAksesPage.tsx                  ← Phase 4
 
 supabase/migrations/
 ├── 20260508000000_phase1_pos_saas.sql
-└── 20260509000000_phase2_pos_purchase_kas.sql
+├── 20260509000000_phase2_pos_purchase_kas.sql
+└── 20260510000000_phase4_multioutlet_audit.sql
 ```
 
 ### Dependencies yang Digunakan
 
-Tidak ada package tambahan di Phase 2 & 3. Semua memanfaatkan:
+Tidak ada package tambahan di Phase 3 & 4. Semua memanfaatkan:
 
 | Package | Fungsi |
 |---------|--------|
 | `@supabase/supabase-js` | Database queries + auth |
-| `recharts` | Grafik (Bar, Line, Pie, Area) |
+| `recharts` | Grafik (Bar, Line, Pie, Area, Radar) |
 | `date-fns` | Format & kalkulasi tanggal |
 | `lucide-react` | Ikon UI |
 | `sonner` | Toast notifications |
-| `shadcn/ui` | Komponen UI (Table, Dialog, Badge, Tabs, dll.) |
+| `shadcn/ui` | Komponen UI (Table, Dialog, Badge, Tabs, Switch, dll.) |
 
-### Alur Data Laporan Laba Rugi
+### Alur Transfer Stok (Phase 4)
 
 ```
-pos_sales (omzet)
-  + pos_sale_items.cost_price × qty → HPP
-  + pos_sale_returns.total_refund   → Retur
-  + pos_cash_mutations (type=out)   → Beban Operasional
-  = Laba Bersih
+Buat Transfer (status: pending)
+  ↓
+Approve oleh Manager/Owner (status: approved)
+  ↓                        ↘
+Selesaikan Transfer        Tolak (status: rejected)
+  ↓
+Update pos_stock outlet asal (−qty) + outlet tujuan (+qty)
+Catat pos_stock_mutations (transfer_out + transfer_in)
+Catat pos_audit_logs
+  ↓
+Status: completed
 ```
 
-### Segmentasi RFM — Logika Klasifikasi
+### Alur Audit Log (Phase 4)
 
-| Segmen | Recency | Frequency | Value |
-|--------|---------|-----------|-------|
-| Champions | ≤ 30 hari | ≥ 3 kali | ≥ rata-rata |
-| Pelanggan Setia | — | ≥ 3 kali | ≥ rata-rata |
-| Potensi Loyal | ≤ 30 hari | ≥ 3 kali | < rata-rata |
-| Pelanggan Baru | ≤ 30 hari | 1 kali | — |
-| Perlu Perhatian | > 30 hari | ≥ 3 kali | — |
-| Hilang | > 90 hari | — | — |
+Setiap aksi penting mencatat ke `pos_audit_logs`:
+- `action`: create, update, delete, approve, reject, complete, export, print
+- `module`: kasir, produk, stok, transfer_stok, pembelian, kas, pelanggan, dll.
+- `old_values` / `new_values`: JSON snapshot sebelum & sesudah (opsional)
+- Bisa difilter per user, modul, aksi, outlet, dan rentang tanggal

@@ -3,7 +3,8 @@ import {
   LayoutDashboard, ShoppingCart, ClipboardList, Package, Tag,
   Users, Truck, Archive, BarChart3, UserCog, Settings,
   ChevronLeft, Store, RotateCcw, ShoppingBag, Wallet,
-  TrendingUp, UserCheck, BoxesIcon, PieChart
+  TrendingUp, UserCheck, BoxesIcon, PieChart,
+  ArrowRightLeft, GitCompare, Shield, KeyRound
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { usePOS } from '@/contexts/POSContext';
@@ -37,6 +38,10 @@ export function POSSidebar() {
     { label: 'Lap. Per Kasir', href: '/pos/laporan/kasir', icon: <UserCheck className="h-4 w-4" /> },
     { label: 'Lap. Stok', href: '/pos/laporan/stok', icon: <BoxesIcon className="h-4 w-4" /> },
     { label: 'Analitik Pelanggan', href: '/pos/analitik', icon: <PieChart className="h-4 w-4" /> },
+    { label: 'Transfer Stok', href: '/pos/transfer-stok', icon: <ArrowRightLeft className="h-4 w-4" /> },
+    { label: 'Lap. Outlet', href: '/pos/laporan/outlet', icon: <GitCompare className="h-4 w-4" /> },
+    { label: 'Audit Trail', href: '/pos/audit', icon: <Shield className="h-4 w-4" /> },
+    { label: 'Manajemen Akses', href: '/pos/akses', icon: <KeyRound className="h-4 w-4" /> },
     { label: 'Pengguna', href: '/pos/pengguna', icon: <UserCog className="h-4 w-4" /> },
     { label: 'Pengaturan', href: '/pos/pengaturan', icon: <Settings className="h-4 w-4" /> },
   ];
