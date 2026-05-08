@@ -4,7 +4,8 @@ import {
   Users, Truck, Archive, BarChart3, UserCog, Settings,
   ChevronLeft, Store, RotateCcw, ShoppingBag, Wallet,
   TrendingUp, UserCheck, BoxesIcon, PieChart,
-  ArrowRightLeft, GitCompare, Shield, KeyRound
+  ArrowRightLeft, GitCompare, Shield, KeyRound,
+  Ticket, Star, Globe
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { usePOS } from '@/contexts/POSContext';
@@ -42,6 +43,9 @@ export function POSSidebar() {
     { label: 'Lap. Outlet', href: '/pos/laporan/outlet', icon: <GitCompare className="h-4 w-4" /> },
     { label: 'Audit Trail', href: '/pos/audit', icon: <Shield className="h-4 w-4" /> },
     { label: 'Manajemen Akses', href: '/pos/akses', icon: <KeyRound className="h-4 w-4" /> },
+    { label: 'Promosi & Voucher', href: '/pos/promosi', icon: <Ticket className="h-4 w-4" /> },
+    { label: 'Program Loyalty', href: '/pos/loyalty', icon: <Star className="h-4 w-4" /> },
+    { label: 'Integrasi Marketplace', href: '/pos/integrasi', icon: <Globe className="h-4 w-4" /> },
     { label: 'Pengguna', href: '/pos/pengguna', icon: <UserCog className="h-4 w-4" /> },
     { label: 'Pengaturan', href: '/pos/pengaturan', icon: <Settings className="h-4 w-4" /> },
   ];
