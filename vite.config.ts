@@ -7,8 +7,9 @@ import { componentTagger } from "lovable-tagger";
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
   server: {
-    host: "::",
-    port: 8080,
+    host: "0.0.0.0",
+    port: 5000,
+    allowedHosts: true,
   },
   plugins: [
     react(),
@@ -76,7 +77,6 @@ export default defineConfig(({ mode }) => ({
   ].filter(Boolean),
   resolve: {
     alias: {
-      // INI KUNCINYA: Memberitahu Vercel bahwa "@" adalah folder "./src"
       "@": path.resolve(__dirname, "./src"),
     },
   },
@@ -84,7 +84,6 @@ export default defineConfig(({ mode }) => ({
     rollupOptions: {
       output: {
         manualChunks(id) {
-          // Split vendor libraries into separate chunks
           if (id.includes('node_modules')) {
             if (id.includes('react') || id.includes('react-dom')) {
               return 'react-vendor';
@@ -97,7 +96,6 @@ export default defineConfig(({ mode }) => ({
             }
             return 'vendor';
           }
-          // Split workbox into its own chunk
           if (id.includes('workbox-window')) {
             return 'workbox';
           }
