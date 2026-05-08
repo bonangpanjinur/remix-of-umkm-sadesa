@@ -2,7 +2,7 @@ import { Link, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, ShoppingCart, ClipboardList, Package, Tag,
   Users, Truck, Archive, BarChart3, UserCog, Settings,
-  ChevronLeft, Store, RotateCcw
+  ChevronLeft, Store, RotateCcw, ShoppingBag, Wallet
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { usePOS } from '@/contexts/POSContext';
@@ -24,6 +24,8 @@ export function POSSidebar() {
     { label: 'Kasir (POS)', href: '/pos/kasir', icon: <ShoppingCart className="h-4 w-4" /> },
     { label: 'Transaksi', href: '/pos/transaksi', icon: <ClipboardList className="h-4 w-4" /> },
     { label: 'Retur', href: '/pos/retur', icon: <RotateCcw className="h-4 w-4" /> },
+    { label: 'Pembelian', href: '/pos/pembelian', icon: <ShoppingBag className="h-4 w-4" /> },
+    { label: 'Kas Harian', href: '/pos/kas', icon: <Wallet className="h-4 w-4" /> },
     { label: 'Produk', href: '/pos/produk', icon: <Package className="h-4 w-4" /> },
     { label: 'Kategori', href: '/pos/kategori', icon: <Tag className="h-4 w-4" /> },
     { label: 'Customer', href: '/pos/customer', icon: <Users className="h-4 w-4" /> },
