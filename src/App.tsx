@@ -123,6 +123,22 @@ import MerchantPOSSubscribePage from "./pages/merchant/MerchantPOSSubscribePage"
 import MerchantPOSSettingsPage from "./pages/merchant/MerchantPOSSettingsPage";
 import MerchantDuesPage from "./pages/merchant/MerchantDuesPage";
 
+// POS SaaS Pages
+import POSSetupPage from "./pages/pos/POSSetupPage";
+import POSDashboardPage from "./pages/pos/POSDashboardPage";
+import POSKasirPage from "./pages/pos/POSKasirPage";
+import POSTransaksiPage from "./pages/pos/POSTransaksiPage";
+import POSProdukPage from "./pages/pos/POSProdukPage";
+import POSKategoriPage from "./pages/pos/POSKategoriPage";
+import POSCustomerPage from "./pages/pos/POSCustomerPage";
+import POSSupplierPage from "./pages/pos/POSSupplierPage";
+import POSStokPage from "./pages/pos/POSStokPage";
+import POSLaporanPage from "./pages/pos/POSLaporanPage";
+import POSPenggunaPage from "./pages/pos/POSPenggunaPage";
+import POSPengaturanPage from "./pages/pos/POSPengaturanPage";
+import POSReturPage from "./pages/pos/POSReturPage";
+import { POSProvider } from "./contexts/POSContext";
+
 // Desa Pages
 import DesaDashboardPage from "./pages/desa/DesaDashboardPage";
 import DesaTourismPage from "./pages/desa/DesaTourismPage";
@@ -160,6 +176,7 @@ const App = () => (
       <TooltipProvider>
         <AuthProvider>
           <WhitelabelProvider>
+            <POSProvider>
             <CartProvider>
               <Toaster />
               <Sonner />
@@ -629,11 +646,27 @@ const App = () => (
               {/* Custom store link - must be before catch-all */}
               <Route path="/s/:slug" element={<MerchantSlugResolver />} />
 
+              {/* POS SaaS Routes */}
+              <Route path="/pos/setup" element={<ProtectedRoute><POSSetupPage /></ProtectedRoute>} />
+              <Route path="/pos" element={<ProtectedRoute><POSDashboardPage /></ProtectedRoute>} />
+              <Route path="/pos/kasir" element={<ProtectedRoute><POSKasirPage /></ProtectedRoute>} />
+              <Route path="/pos/transaksi" element={<ProtectedRoute><POSTransaksiPage /></ProtectedRoute>} />
+              <Route path="/pos/retur" element={<ProtectedRoute><POSReturPage /></ProtectedRoute>} />
+              <Route path="/pos/produk" element={<ProtectedRoute><POSProdukPage /></ProtectedRoute>} />
+              <Route path="/pos/kategori" element={<ProtectedRoute><POSKategoriPage /></ProtectedRoute>} />
+              <Route path="/pos/customer" element={<ProtectedRoute><POSCustomerPage /></ProtectedRoute>} />
+              <Route path="/pos/supplier" element={<ProtectedRoute><POSSupplierPage /></ProtectedRoute>} />
+              <Route path="/pos/stok" element={<ProtectedRoute><POSStokPage /></ProtectedRoute>} />
+              <Route path="/pos/laporan" element={<ProtectedRoute><POSLaporanPage /></ProtectedRoute>} />
+              <Route path="/pos/pengguna" element={<ProtectedRoute><POSPenggunaPage /></ProtectedRoute>} />
+              <Route path="/pos/pengaturan" element={<ProtectedRoute><POSPengaturanPage /></ProtectedRoute>} />
+
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>
         </CartProvider>
+            </POSProvider>
       </WhitelabelProvider>
     </AuthProvider>
   </TooltipProvider>

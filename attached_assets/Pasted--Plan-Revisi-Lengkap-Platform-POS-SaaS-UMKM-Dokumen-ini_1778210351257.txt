@@ -1,0 +1,1163 @@
+# Plan Revisi Lengkap Platform POS SaaS UMKM
+
+Dokumen ini menyusun ulang rencana produk menjadi platform operasional UMKM yang lengkap: POS, inventori, pembelian, HPP, stok opname, pembukuan periodik, CRM, promo, langganan pelanggan, kontrol super admin, audit, dan AI. Struktur ini disusun agar produk dapat dibangun bertahap, mudah dijual per paket langganan, dan selaras dengan arah plan sebelumnya yang menekankan merchant tools, loyalty, repeat order, subscribe mingguan/bulanan, product variants, stock threshold alert, bulk import/export, audit log, anomaly detection, broadcast, dan AI merchant tools. [ppl-ai-file-upload.s3.amazonaws](https://ppl-ai-file-upload.s3.amazonaws.com/web/direct-files/attachments/30095373/3bdb8db5-40ed-478d-9a6b-9c8bee078970/plan.md)
+
+## 1. Ringkasan Produk
+
+### 1.1 Posisi Produk
+Platform ini diposisikan sebagai **Operating System untuk UMKM**, bukan hanya aplikasi kasir. Sistem harus membantu pemilik usaha menjalankan transaksi, mengontrol stok, menghitung HPP, melakukan stok opname, membaca pembukuan mingguan/bulanan/tahunan, mengelola pelanggan, dan membayar langganan software ke super admin setiap bulan. [ppl-ai-file-upload.s3.amazonaws](https://ppl-ai-file-upload.s3.amazonaws.com/web/direct-files/attachments/30095373/3bdb8db5-40ed-478d-9a6b-9c8bee078970/plan.md)
+
+### 1.2 Target Pengguna
+- Toko retail harian.
+- Toko sembako.
+- Grosir kecil.
+- Apotek atau toko kebutuhan rumah tangga sederhana.
+- Usaha F&B sederhana.
+- Distributor mikro.
+- UMKM multi-outlet skala kecil sampai menengah.
+
+### 1.3 Nilai Jual Utama
+- Satu sistem untuk kasir, stok, pembelian, HPP, dan pembukuan.
+- Bisa dipakai outlet tunggal maupun multi-cabang.
+- Ada fitur growth seperti loyalty, bundling, repeat order, dan subscription customer yang sudah sejalan dengan plan lama. [ppl-ai-file-upload.s3.amazonaws](https://ppl-ai-file-upload.s3.amazonaws.com/web/direct-files/attachments/30095373/3bdb8db5-40ed-478d-9a6b-9c8bee078970/plan.md)
+- Ada fitur admin operasional seperti audit log, anomaly detection, dan AI merchant tools sebagai pembeda premium. [ppl-ai-file-upload.s3.amazonaws](https://ppl-ai-file-upload.s3.amazonaws.com/web/direct-files/attachments/30095373/3bdb8db5-40ed-478d-9a6b-9c8bee078970/plan.md)
+- Bisa dijual dengan paket bulanan ke tenant/pengusaha.
+
+## 2. Tujuan Bisnis
+
+### 2.1 Tujuan Super Admin Platform
+- Mendapat recurring revenue dari biaya langganan bulanan/tahunan.
+- Menjual add-on seperti user tambahan, outlet tambahan, AI usage, dan WhatsApp credits.
+- Memiliki kontrol penuh atas aktivasi tenant, limit paket, dan suspend layanan.
+- Memiliki dashboard global tenant untuk memantau performa dan churn, sejalan dengan ide anomaly detection dan admin operations pada plan awal. [ppl-ai-file-upload.s3.amazonaws](https://ppl-ai-file-upload.s3.amazonaws.com/web/direct-files/attachments/30095373/3bdb8db5-40ed-478d-9a6b-9c8bee078970/plan.md)
+
+### 2.2 Tujuan Merchant / Pengusaha
+- Mempermudah transaksi harian.
+- Mengurangi kehilangan stok.
+- Mengetahui margin dan laba per produk.
+- Mengetahui laporan usaha mingguan, bulanan, dan tahunan.
+- Menjalankan promo, loyalty, dan repeat order untuk meningkatkan penjualan, sesuai arah fitur growth pada plan sebelumnya. [ppl-ai-file-upload.s3.amazonaws](https://ppl-ai-file-upload.s3.amazonaws.com/web/direct-files/attachments/30095373/3bdb8db5-40ed-478d-9a6b-9c8bee078970/plan.md)
+
+## 3. Struktur Tenant dan Peran
+
+### 3.1 Hierarki Sistem
+- Super Admin Platform.
+- Tenant / Brand usaha.
+- Outlet / Cabang.
+- Gudang.
+- User internal tenant.
+
+### 3.2 Role Utama
+- Super Admin: mengelola semua tenant, paket, billing, limit fitur, suspend/unsuspend, audit global.
+- Owner: pemilik usaha, akses seluruh data tenant.
+- Manager: operasional outlet, laporan, approval tertentu.
+- Kasir: transaksi POS dan customer dasar.
+- Staff Gudang: stok, mutasi, opname, penerimaan barang.
+- Purchasing: purchase order, penerimaan, retur pembelian.
+- Finance / Akuntansi: pembukuan, biaya, hutang, piutang, closing period.
+- Auditor: akses baca ke audit log, perubahan stok, perubahan harga, tutup buku.
+
+### 3.3 Hak Akses Dasar
+- Akses per role.
+- Akses per outlet.
+- Akses per menu.
+- Akses per aksi: view, create, edit, delete, approve, export.
+- Approval bertingkat untuk diskon besar, retur besar, penyesuaian stok, dan tutup buku.
+
+## 4. Roadmap Per Fase
+
+Roadmap dibagi menjadi 6 fase supaya build bertahap, cashflow lebih realistis, dan fitur mudah dibundel ke paket berlangganan. Struktur ini sangat cocok dengan daftar prioritas plan lama yang bergerak dari merchant tools ke retention, lalu admin scale dan AI. [ppl-ai-file-upload.s3.amazonaws](https://ppl-ai-file-upload.s3.amazonaws.com/web/direct-files/attachments/30095373/3bdb8db5-40ed-478d-9a6b-9c8bee078970/plan.md)
+
+| Fase | Fokus | Hasil utama |
+|---|---|---|
+| Phase 1 | POS + master data + stok dasar | Merchant bisa transaksi harian |
+| Phase 2 | Pembelian + HPP + stok opname | Merchant bisa kontrol barang dan margin |
+| Phase 3 | Pembukuan + laporan periodik | Merchant bisa baca kesehatan usaha |
+| Phase 4 | CRM + promo + repeat order + subscribe | Merchant bisa tingkatkan penjualan dan retensi |
+| Phase 5 | SaaS billing + super admin control | Platform siap dijual langganan |
+| Phase 6 | Audit + AI + anomaly + automasi | Produk naik kelas jadi sistem operasional pintar |
+
+***
+
+## 5. Phase 1 — POS, Master Data, dan Stok Dasar
+
+### 5.1 Tujuan Fase
+Phase 1 fokus agar merchant bisa langsung memakai sistem untuk transaksi harian. Ini fase validasi produk dan paket paling mudah dijual. Fitur seperti product variants, inventory bulk import/export, dan stock threshold alert dari plan awal sangat relevan untuk dimasukkan di fase ini atau di ujung fase ini. [ppl-ai-file-upload.s3.amazonaws](https://ppl-ai-file-upload.s3.amazonaws.com/web/direct-files/attachments/30095373/3bdb8db5-40ed-478d-9a6b-9c8bee078970/plan.md)
+
+### 5.2 Modul Phase 1
+- Dashboard ringkas.
+- Master usaha.
+- Master outlet.
+- Master user.
+- Master kategori, brand, dan produk.
+- POS kasir.
+- Customer dasar.
+- Supplier dasar.
+- Stok dasar.
+- Laporan dasar.
+
+### 5.3 Fitur Detail Phase 1
+
+#### A. Setup Tenant
+- Buat tenant.
+- Buat outlet pertama.
+- Pilih paket awal.
+- Atur profil usaha.
+- Atur logo dan identitas struk.
+- Atur nomor telepon usaha.
+- Atur timezone, bahasa, dan mata uang.
+
+#### B. Master Outlet
+- Tambah outlet.
+- Edit outlet.
+- Nonaktifkan outlet.
+- Assign gudang default.
+- Assign printer default.
+- Assign user ke outlet.
+
+#### C. Master User
+- Tambah user.
+- Role owner, manager, kasir.
+- Assign outlet.
+- Status aktif/nonaktif.
+- Reset password.
+- Ganti PIN kasir.
+
+#### D. Master Produk
+- Kategori dan subkategori.
+- Brand.
+- Produk stok dan non-stok.
+- SKU otomatis/manual.
+- Barcode.
+- Satuan utama.
+- Foto produk.
+- Harga jual.
+- Harga modal awal.
+- Pajak.
+- Status aktif/nonaktif.
+- Produk varian: ukuran, warna, rasa, volume, kemasan; kebutuhan ini sudah tercatat sebagai fitur penting pada plan lama. [ppl-ai-file-upload.s3.amazonaws](https://ppl-ai-file-upload.s3.amazonaws.com/web/direct-files/attachments/30095373/3bdb8db5-40ed-478d-9a6b-9c8bee078970/plan.md)
+
+#### E. Bulk Import / Export
+- Import produk via CSV/Excel.
+- Template file import.
+- Validasi data wajib.
+- Log gagal/sukses import.
+- Export produk.
+- Export stok.
+- Fitur ini selaras langsung dengan inventory bulk import/export yang sudah direkomendasikan. [ppl-ai-file-upload.s3.amazonaws](https://ppl-ai-file-upload.s3.amazonaws.com/web/direct-files/attachments/30095373/3bdb8db5-40ed-478d-9a6b-9c8bee078970/plan.md)
+
+#### F. POS Kasir
+- Scan barcode.
+- Search produk cepat.
+- Tambah/edit qty.
+- Diskon per item.
+- Diskon per transaksi.
+- Pajak otomatis/manual.
+- Catatan item.
+- Catatan transaksi.
+- Pilih customer.
+- Pilih metode pembayaran.
+- Split payment.
+- Hold bill.
+- Resume bill.
+- Park transaction.
+- Void item.
+- Void transaksi dengan otorisasi.
+- Simpan draft transaksi.
+- Cetak struk.
+- Reprint struk.
+- Riwayat transaksi kasir.
+
+#### G. Customer Dasar
+- Tambah customer manual.
+- Data nama, no HP, email opsional.
+- Tag member/non-member.
+- Riwayat belanja.
+- Total belanja.
+- Last purchase date.
+
+#### H. Supplier Dasar
+- Nama supplier.
+- Kontak.
+- Alamat.
+- Catatan.
+
+#### I. Stok Dasar
+- Stok awal.
+- Stok masuk manual.
+- Stok keluar manual.
+- Penyesuaian stok.
+- Mutasi stok per produk.
+- Minimum stock.
+- Low stock threshold alert; fitur ini sudah menjadi salah satu merchant tools yang disarankan. [ppl-ai-file-upload.s3.amazonaws](https://ppl-ai-file-upload.s3.amazonaws.com/web/direct-files/attachments/30095373/3bdb8db5-40ed-478d-9a6b-9c8bee078970/plan.md)
+- Stok per outlet.
+
+#### J. Retur Penjualan Dasar
+- Retur penuh/sebagian.
+- Alasan retur.
+- Refund cash/non-cash.
+- Restock bila barang kembali layak jual.
+
+#### K. Dashboard & Laporan Dasar
+- Omzet hari ini.
+- Omzet minggu ini.
+- Omzet bulan ini.
+- Jumlah transaksi.
+- Produk terlaris.
+- Kasir teraktif.
+- Metode pembayaran terbanyak.
+- Stok menipis.
+- Penjualan per outlet.
+
+### 5.4 Menu Phase 1
+- Dashboard
+- POS
+- Transaksi
+- Produk
+- Kategori
+- Customer
+- Supplier
+- Stok
+- Laporan
+- Pengguna
+- Pengaturan
+
+### 5.5 Output Fase
+- Merchant sudah bisa transaksi harian.
+- Merchant sudah bisa kelola produk dan stok dasar.
+- Merchant sudah bisa lihat laporan penjualan dasar.
+- Produk sudah cukup untuk dijual sebagai paket Basic.
+
+***
+
+## 6. Phase 2 — Pembelian, HPP, dan Stok Opname
+
+### 6.1 Tujuan Fase
+Phase 2 mengubah sistem dari sekadar kasir menjadi alat kontrol bisnis. Pada fase ini merchant mulai tahu barang datang dari mana, harga modal berapa, margin berapa, dan selisih stok di lapangan berapa.
+
+### 6.2 Modul Phase 2
+- Purchasing.
+- Penerimaan barang.
+- Retur pembelian.
+- HPP.
+- Batch stok.
+- Stok opname.
+- Transfer antar gudang/outlet.
+- Approval operasional.
+
+### 6.3 Fitur Detail Phase 2
+
+#### A. Purchase Requisition / Purchase Order
+- Buat purchase order.
+- Pilih supplier.
+- Tanggal order.
+- ETA barang.
+- Catatan pembelian.
+- Draft / submitted / approved / canceled.
+- Approval PO oleh manager/owner.
+
+#### B. Goods Receipt / Penerimaan Barang
+- Terima barang dari PO.
+- Partial receive.
+- Receive penuh.
+- Input qty diterima.
+- Input harga modal aktual.
+- Input batch/expired date bila perlu.
+- Update stok otomatis.
+- Update hutang supplier bila pembelian kredit.
+
+#### C. Retur Pembelian
+- Retur ke supplier.
+- Alasan retur.
+- Qty retur.
+- Potong hutang atau buat nota retur.
+
+#### D. HPP / Cost of Goods Sold
+- Metode average cost untuk MVP.
+- Opsi FIFO untuk fase lanjutan.
+- Harga modal per batch pembelian.
+- HPP per produk.
+- HPP per varian.
+- HPP per transaksi.
+- Margin kotor per item.
+- Margin kotor per transaksi.
+- Histori perubahan harga modal.
+- Laporan margin rendah.
+
+#### E. Transfer Stok
+- Transfer antar outlet.
+- Transfer antar gudang.
+- Request transfer.
+- Approve transfer.
+- Receive transfer.
+- Status transfer: draft, sent, received, canceled.
+
+#### F. Stok Opname
+- Buat sesi opname.
+- Pilih outlet/gudang.
+- Pilih metode: full opname atau cycle count.
+- Scan barcode saat hitung fisik.
+- Input qty fisik.
+- Bandingkan sistem vs fisik.
+- Hitung selisih qty dan nominal.
+- Approval penyesuaian stok.
+- Finalisasi opname.
+- Berita acara opname.
+- Riwayat opname.
+
+#### G. Adjustment Stock Lanjutan
+- Rusak.
+- Hilang.
+- Kadaluarsa.
+- Sampling.
+- Pemakaian internal.
+- Koreksi sistem.
+
+#### H. Dashboard Operasional
+- Stok menipis.
+- Stok mati.
+- Produk margin rendah.
+- Selisih opname tertinggi.
+- Nilai persediaan per outlet.
+
+### 6.4 Output Fase
+- Merchant tahu harga modal dan margin.
+- Merchant bisa kontrol pembelian supplier.
+- Merchant bisa menjalankan stok opname formal.
+- Produk siap dijual sebagai paket Pro awal.
+
+***
+
+## 7. Phase 3 — Pembukuan dan Laporan Periodik
+
+### 7.1 Tujuan Fase
+Phase 3 memastikan sistem punya pembukuan yang bisa dibaca pengusaha, bukan hanya daftar transaksi. Modul ini wajib menyediakan laporan mingguan, bulanan, tahunan, dan custom range sehingga pemilik usaha bisa memahami kondisi bisnis secara periodik.
+
+### 7.2 Modul Phase 3
+- Pembukuan.
+- Laporan periodik.
+- Biaya operasional.
+- Kas dan bank.
+- Hutang dan piutang.
+- Tutup buku.
+- Export laporan.
+
+### 7.3 Prinsip Pembukuan
+- Sederhana, cocok untuk UMKM.
+- Otomatis menarik data dari POS, pembelian, retur, stok opname, dan biaya.
+- Bisa dipahami owner non-akuntan.
+- Tetap punya jejak audit untuk perubahan angka.
+- Mendukung ringkasan mingguan, bulanan, tahunan.
+
+### 7.4 Fitur Detail Phase 3
+
+#### A. Dashboard Keuangan
+- Omzet.
+- Laba kotor.
+- Estimasi laba bersih.
+- Total biaya.
+- Nilai stok.
+- Hutang supplier.
+- Piutang customer.
+- Grafik penjualan per periode.
+- Grafik laba per periode.
+
+#### B. Pembukuan Periodik
+- Laporan harian.
+- Laporan mingguan.
+- Laporan bulanan.
+- Laporan tahunan.
+- Filter custom date range.
+- Perbandingan minggu ini vs minggu lalu.
+- Perbandingan bulan ini vs bulan lalu.
+- Perbandingan tahun ini vs tahun lalu.
+
+#### C. Laporan Penjualan
+- Omzet per periode.
+- Jumlah transaksi.
+- Average basket size.
+- Penjualan per outlet.
+- Penjualan per kasir.
+- Penjualan per produk/kategori.
+
+#### D. Laporan Laba Rugi
+- Penjualan bersih.
+- HPP.
+- Laba kotor.
+- Biaya operasional.
+- Laba bersih estimasi.
+- Laporan mingguan, bulanan, tahunan.
+
+#### E. Biaya Operasional
+- Input biaya manual.
+- Kategori biaya: listrik, sewa, transport, gaji, ATK, marketing, lainnya.
+- Upload bukti biaya.
+- Approval biaya.
+- Edit/hapus dengan audit.
+
+#### F. Kas dan Bank
+- Kas masuk.
+- Kas keluar.
+- Setoran kas.
+- Penarikan kas.
+- Rekonsiliasi sederhana.
+- Saldo kas per outlet.
+
+#### G. Hutang Supplier
+- Hutang dari pembelian kredit.
+- Jatuh tempo.
+- Pembayaran cicilan/lunas.
+- Aging hutang.
+
+#### H. Piutang Customer
+- Piutang dari transaksi tempo.
+- Jatuh tempo.
+- Pembayaran cicilan/lunas.
+- Aging piutang.
+
+#### I. Nilai Persediaan
+- Nilai stok akhir per periode.
+- Nilai stok per outlet.
+- Nilai stok per kategori.
+- Dampak selisih opname ke nilai persediaan.
+
+#### J. Tutup Buku
+- Tutup buku mingguan.
+- Tutup buku bulanan.
+- Tutup buku tahunan.
+- Lock data setelah closing.
+- Reopen period dengan approval owner/super admin.
+
+#### K. Export dan Cetak
+- Export PDF.
+- Export Excel.
+- Print laporan.
+- Email laporan otomatis.
+
+### 7.5 Jenis Laporan Wajib
+| Laporan | Keterangan |
+|---|---|
+| Penjualan mingguan | Ringkasan omzet, transaksi, produk laris |
+| Penjualan bulanan | Perbandingan omzet antar bulan |
+| Penjualan tahunan | Ringkasan tahunan dan tren |
+| Laba rugi mingguan | Untuk kontrol cepat owner |
+| Laba rugi bulanan | Untuk evaluasi rutin usaha |
+| Laba rugi tahunan | Untuk evaluasi strategi tahunan |
+| Rekap pembelian | Pembelian per supplier dan periode |
+| Rekap stok | Stok masuk, keluar, sisa, nilai persediaan |
+| Rekap opname | Selisih fisik vs sistem |
+| Rekap biaya | Pengeluaran per kategori |
+| Hutang/piutang | Tagihan dan status pembayaran |
+
+### 7.6 Output Fase
+- Merchant bisa membaca kesehatan usaha secara periodik.
+- Sistem punya nilai kuat untuk langganan berbayar.
+- Produk siap diposisikan sebagai platform operasional, bukan sekadar POS.
+
+***
+
+## 8. Phase 4 — CRM, Promo, Loyalty, Repeat Order, dan Subscription Customer
+
+### 8.1 Tujuan Fase
+Phase 4 fokus pada pertumbuhan penjualan dan retensi customer. Ini sangat selaras dengan daftar fitur growth pada plan awal seperti loyalty, repeat order, subscribe & save, bundling, wishlist stock alert, dan referral. [ppl-ai-file-upload.s3.amazonaws](https://ppl-ai-file-upload.s3.amazonaws.com/web/direct-files/attachments/30095373/3bdb8db5-40ed-478d-9a6b-9c8bee078970/plan.md)
+
+### 8.2 Modul Phase 4
+- CRM customer.
+- Loyalty.
+- Voucher & promo.
+- Repeat order.
+- Subscription customer.
+- Referral.
+- Broadcast.
+
+### 8.3 Fitur Detail Phase 4
+
+#### A. CRM Customer
+- Segmentasi customer.
+- Customer baru.
+- Customer aktif.
+- Customer loyal.
+- Customer tidur.
+- Top spender.
+- Last purchase tracking.
+
+#### B. Loyalty / Point / Cashback
+- Poin per transaksi.
+- Redeem poin jadi diskon.
+- Cashback rules.
+- Expired point.
+- Tier member: silver, gold, platinum. Fitur loyalty ini sudah direkomendasikan sebagai pendorong repeat purchase. [ppl-ai-file-upload.s3.amazonaws](https://ppl-ai-file-upload.s3.amazonaws.com/web/direct-files/attachments/30095373/3bdb8db5-40ed-478d-9a6b-9c8bee078970/plan.md)
+
+#### C. Voucher & Promo
+- Diskon persen.
+- Diskon nominal.
+- Beli 2 hemat.
+- Bundling produk; fitur bundling juga sudah masuk rekomendasi merchant tools. [ppl-ai-file-upload.s3.amazonaws](https://ppl-ai-file-upload.s3.amazonaws.com/web/direct-files/attachments/30095373/3bdb8db5-40ed-478d-9a6b-9c8bee078970/plan.md)
+- Happy hour.
+- Promo per kategori.
+- Promo per outlet.
+- Promo minimal belanja.
+
+#### D. Repeat Order
+- Pesan lagi dari riwayat customer.
+- Reorder otomatis dari histori barang yang sama. Fitur repeat order termasuk top prioritas di plan lama. [ppl-ai-file-upload.s3.amazonaws](https://ppl-ai-file-upload.s3.amazonaws.com/web/direct-files/attachments/30095373/3bdb8db5-40ed-478d-9a6b-9c8bee078970/plan.md)
+
+#### E. Subscribe & Save
+- Langganan mingguan.
+- Langganan bulanan.
+- Auto-create order sesuai jadwal. Fitur ini sudah secara eksplisit tercantum di plan lama. [ppl-ai-file-upload.s3.amazonaws](https://ppl-ai-file-upload.s3.amazonaws.com/web/direct-files/attachments/30095373/3bdb8db5-40ed-478d-9a6b-9c8bee078970/plan.md)
+- Auto reminder sebelum order dibuat.
+- Skip / pause / cancel subscription.
+
+#### F. Wishlist Alert
+- Price drop alert.
+- Restock alert, sesuai usulan wishlist price drop & stock alert pada plan. [ppl-ai-file-upload.s3.amazonaws](https://ppl-ai-file-upload.s3.amazonaws.com/web/direct-files/attachments/30095373/3bdb8db5-40ed-478d-9a6b-9c8bee078970/plan.md)
+
+#### G. Referral Program
+- Kode referral unik.
+- Reward pengundang.
+- Reward user baru. Fitur referral juga sudah ada pada plan lama. [ppl-ai-file-upload.s3.amazonaws](https://ppl-ai-file-upload.s3.amazonaws.com/web/direct-files/attachments/30095373/3bdb8db5-40ed-478d-9a6b-9c8bee078970/plan.md)
+
+#### H. Broadcast Marketing
+- Broadcast WhatsApp.
+- Broadcast email.
+- Push notification. Plan lama sudah menyebut email marketing broadcast dan push-notification adjacencies. [ppl-ai-file-upload.s3.amazonaws](https://ppl-ai-file-upload.s3.amazonaws.com/web/direct-files/attachments/30095373/3bdb8db5-40ed-478d-9a6b-9c8bee078970/plan.md)
+- Template campaign.
+- Segmentasi target campaign.
+
+### 8.4 Output Fase
+- Merchant punya alat untuk meningkatkan repeat order.
+- Merchant punya alasan upgrade ke paket Premium.
+- Sistem tidak hanya hemat biaya, tapi juga bantu naikkan omzet.
+
+***
+
+## 9. Phase 5 — Billing SaaS, Paket, dan Kontrol Super Admin
+
+### 9.1 Tujuan Fase
+Phase 5 adalah fondasi monetisasi platform. Pada fase ini super admin bisa mengelola paket, fitur, billing, tagihan, grace period, dan status langganan tenant.
+
+### 9.2 Modul Phase 5
+- Paket langganan.
+- Billing engine.
+- Invoice.
+- Pembayaran subscription.
+- Limit fitur.
+- Feature toggle.
+- Dashboard tenant global.
+
+### 9.3 Fitur Detail Phase 5
+
+#### A. Paket Langganan
+- Basic.
+- Pro.
+- Premium.
+- Enterprise.
+- Paket bulanan.
+- Paket tahunan.
+- Trial plan.
+
+#### B. Rule Paket
+- Limit outlet.
+- Limit user.
+- Limit gudang.
+- Limit transaksi per bulan.
+- Limit AI usage.
+- Limit broadcast credits.
+- Akses modul sesuai paket.
+
+#### C. Billing Engine
+- Generate invoice otomatis.
+- Siklus bulanan/tahunan.
+- Prorate upgrade/downgrade.
+- Status invoice: draft, unpaid, paid, overdue, canceled.
+- Riwayat billing.
+
+#### D. Pembayaran Langganan
+- Upload bukti bayar.
+- Integrasi payment gateway opsional.
+- Verifikasi manual/otomatis.
+- Grace period.
+- Suspend otomatis jika overdue.
+- Reactivate setelah pembayaran.
+
+#### E. Feature Toggle Super Admin
+- Aktif/nonaktif modul per tenant.
+- Override paket manual.
+- Bonus trial fitur premium.
+- Promo diskon langganan.
+
+#### F. Dashboard Super Admin
+- Total tenant.
+- Tenant aktif.
+- Tenant trial.
+- Tenant overdue.
+- MRR sederhana.
+- Churn tenant.
+- Paket terlaris.
+
+#### G. Invoice & Dokumen
+- Invoice PDF.
+- Kwitansi pembayaran.
+- Riwayat download invoice.
+
+### 9.4 Output Fase
+- Platform siap dijual sebagai SaaS langganan.
+- Super admin punya kontrol penuh terhadap pendapatan dan aktivasi tenant.
+- Model bisnis recurring revenue mulai stabil.
+
+***
+
+## 10. Phase 6 — Audit, AI, Anomaly Detection, dan Automasi
+
+### 10.1 Tujuan Fase
+Phase 6 menjadikan produk lebih cerdas dan lebih sulit digantikan. Fase ini sangat selaras dengan daftar plan awal yang sudah memasukkan audit log searchable timeline, anomaly detection, AI product description generator, AI smart search, AI image auto-tagging, dan AI CS bot. [ppl-ai-file-upload.s3.amazonaws](https://ppl-ai-file-upload.s3.amazonaws.com/web/direct-files/attachments/30095373/3bdb8db5-40ed-478d-9a6b-9c8bee078970/plan.md)
+
+### 10.2 Modul Phase 6
+- Audit log.
+- Approval center.
+- Anomaly dashboard.
+- AI merchant tools.
+- Auto-reply / chatbot.
+- Alert engine.
+
+### 10.3 Fitur Detail Phase 6
+
+#### A. Audit Log
+- Log semua perubahan transaksi penting.
+- Log perubahan harga.
+- Log perubahan stok.
+- Log perubahan user permission.
+- Log tutup buku.
+- Searchable timeline per entitas, sesuai rekomendasi plan lama. [ppl-ai-file-upload.s3.amazonaws](https://ppl-ai-file-upload.s3.amazonaws.com/web/direct-files/attachments/30095373/3bdb8db5-40ed-478d-9a6b-9c8bee078970/plan.md)
+
+#### B. Approval Center
+- Approval diskon besar.
+- Approval void transaksi.
+- Approval adjustment stok.
+- Approval biaya besar.
+- Approval reopen period.
+
+#### C. Anomaly Detection
+- Lonjakan retur.
+- Lonjakan cancel.
+- Margin anomali.
+- Stok hilang tinggi.
+- Penjualan turun tajam.
+- Churn merchant / churn customer; ini sejalan dengan usulan dashboard anomaly detection pada plan lama. [ppl-ai-file-upload.s3.amazonaws](https://ppl-ai-file-upload.s3.amazonaws.com/web/direct-files/attachments/30095373/3bdb8db5-40ed-478d-9a6b-9c8bee078970/plan.md)
+
+#### D. AI Product Tools
+- AI product description generator; fitur ini sudah direkomendasikan langsung dalam plan. [ppl-ai-file-upload.s3.amazonaws](https://ppl-ai-file-upload.s3.amazonaws.com/web/direct-files/attachments/30095373/3bdb8db5-40ed-478d-9a6b-9c8bee078970/plan.md)
+- AI image auto-tagging kategori/tag, juga sudah ada pada plan. [ppl-ai-file-upload.s3.amazonaws](https://ppl-ai-file-upload.s3.amazonaws.com/web/direct-files/attachments/30095373/3bdb8db5-40ed-478d-9a6b-9c8bee078970/plan.md)
+- AI smart search semantic, juga sudah tercatat pada plan. [ppl-ai-file-upload.s3.amazonaws](https://ppl-ai-file-upload.s3.amazonaws.com/web/direct-files/attachments/30095373/3bdb8db5-40ed-478d-9a6b-9c8bee078970/plan.md)
+- AI rekomendasi kategori produk.
+- AI saran harga promo sederhana.
+
+#### E. AI Customer Service Layer 1
+- Jawab FAQ umum.
+- Rekomendasi produk dasar.
+- Eskalasi ke admin toko; arah ini juga selaras dengan AI customer service bot pada plan. [ppl-ai-file-upload.s3.amazonaws](https://ppl-ai-file-upload.s3.amazonaws.com/web/direct-files/attachments/30095373/3bdb8db5-40ed-478d-9a6b-9c8bee078970/plan.md)
+
+#### F. Alert & Notification Engine
+- Email alert.
+- Push notif.
+- WA alert opsional.
+- Sound notification per event; kebutuhan notifikasi berbeda per event sudah pernah muncul di plan merchant tools. [ppl-ai-file-upload.s3.amazonaws](https://ppl-ai-file-upload.s3.amazonaws.com/web/direct-files/attachments/30095373/3bdb8db5-40ed-478d-9a6b-9c8bee078970/plan.md)
+
+### 10.4 Output Fase
+- Sistem punya pembeda premium kuat.
+- Merchant merasa sistem proaktif, bukan pasif.
+- Retensi tenant meningkat karena switching cost lebih tinggi.
+
+***
+
+## 11. Modul Fitur Lengkap Berdasarkan Domain
+
+### 11.1 POS & Sales
+- POS transaksi.
+- Barcode scanning.
+- Draft/hold bill.
+- Void dan retur.
+- Multi payment.
+- Reprint struk.
+- Sales history.
+- Refund management.
+
+### 11.2 Produk & Katalog
+- Produk tunggal.
+- Variants.
+- Bundling.
+- Kategori.
+- Brand.
+- Barcode.
+- Harga jual.
+- Harga modal.
+- Pajak.
+- Foto produk.
+- AI deskripsi produk. [ppl-ai-file-upload.s3.amazonaws](https://ppl-ai-file-upload.s3.amazonaws.com/web/direct-files/attachments/30095373/3bdb8db5-40ed-478d-9a6b-9c8bee078970/plan.md)
+
+### 11.3 Inventori
+- Stok awal.
+- Mutasi stok.
+- Transfer stok.
+- Low stock alert. [ppl-ai-file-upload.s3.amazonaws](https://ppl-ai-file-upload.s3.amazonaws.com/web/direct-files/attachments/30095373/3bdb8db5-40ed-478d-9a6b-9c8bee078970/plan.md)
+- Expired tracking.
+- Batch tracking.
+- Cycle count.
+- Full stock opname.
+
+### 11.4 Purchasing
+- Supplier.
+- Purchase order.
+- Goods receipt.
+- Retur pembelian.
+- Hutang supplier.
+
+### 11.5 Keuangan & Pembukuan
+- Penjualan periodik.
+- Laba rugi periodik.
+- Biaya operasional.
+- Hutang/piutang.
+- Kas/bank.
+- Tutup buku.
+- Export laporan.
+
+### 11.6 CRM & Growth
+- Customer segmentation.
+- Loyalty point. [ppl-ai-file-upload.s3.amazonaws](https://ppl-ai-file-upload.s3.amazonaws.com/web/direct-files/attachments/30095373/3bdb8db5-40ed-478d-9a6b-9c8bee078970/plan.md)
+- Cashback. [ppl-ai-file-upload.s3.amazonaws](https://ppl-ai-file-upload.s3.amazonaws.com/web/direct-files/attachments/30095373/3bdb8db5-40ed-478d-9a6b-9c8bee078970/plan.md)
+- Voucher.
+- Bundling promo. [ppl-ai-file-upload.s3.amazonaws](https://ppl-ai-file-upload.s3.amazonaws.com/web/direct-files/attachments/30095373/3bdb8db5-40ed-478d-9a6b-9c8bee078970/plan.md)
+- Repeat order. [ppl-ai-file-upload.s3.amazonaws](https://ppl-ai-file-upload.s3.amazonaws.com/web/direct-files/attachments/30095373/3bdb8db5-40ed-478d-9a6b-9c8bee078970/plan.md)
+- Subscription customer mingguan/bulanan. [ppl-ai-file-upload.s3.amazonaws](https://ppl-ai-file-upload.s3.amazonaws.com/web/direct-files/attachments/30095373/3bdb8db5-40ed-478d-9a6b-9c8bee078970/plan.md)
+- Referral. [ppl-ai-file-upload.s3.amazonaws](https://ppl-ai-file-upload.s3.amazonaws.com/web/direct-files/attachments/30095373/3bdb8db5-40ed-478d-9a6b-9c8bee078970/plan.md)
+- Broadcast marketing. [ppl-ai-file-upload.s3.amazonaws](https://ppl-ai-file-upload.s3.amazonaws.com/web/direct-files/attachments/30095373/3bdb8db5-40ed-478d-9a6b-9c8bee078970/plan.md)
+
+### 11.7 Platform Control
+- Tenant management.
+- Paket subscription.
+- Invoice.
+- Feature gating.
+- Overdue handling.
+- Suspend/reactivate.
+
+### 11.8 Governance & Intelligence
+- Audit log. [ppl-ai-file-upload.s3.amazonaws](https://ppl-ai-file-upload.s3.amazonaws.com/web/direct-files/attachments/30095373/3bdb8db5-40ed-478d-9a6b-9c8bee078970/plan.md)
+- Anomaly detection. [ppl-ai-file-upload.s3.amazonaws](https://ppl-ai-file-upload.s3.amazonaws.com/web/direct-files/attachments/30095373/3bdb8db5-40ed-478d-9a6b-9c8bee078970/plan.md)
+- AI tools. [ppl-ai-file-upload.s3.amazonaws](https://ppl-ai-file-upload.s3.amazonaws.com/web/direct-files/attachments/30095373/3bdb8db5-40ed-478d-9a6b-9c8bee078970/plan.md)
+- Approval center.
+- 2FA untuk admin/merchant; fitur ini juga sudah disarankan dalam plan awal. [ppl-ai-file-upload.s3.amazonaws](https://ppl-ai-file-upload.s3.amazonaws.com/web/direct-files/attachments/30095373/3bdb8db5-40ed-478d-9a6b-9c8bee078970/plan.md)
+
+***
+
+## 12. Pembukuan Mingguan, Bulanan, dan Tahunan
+
+Karena pengguna Anda secara eksplisit menginginkan pembukuan periodik, modul ini harus menjadi salah satu penopang utama plan.
+
+### 12.1 Tampilan Dashboard Pembukuan
+- Ringkasan omzet.
+- Laba kotor.
+- Laba bersih estimasi.
+- Biaya terbesar.
+- Hutang jatuh tempo.
+- Piutang jatuh tempo.
+- Nilai stok akhir.
+- Grafik tren.
+
+### 12.2 Filter Periode
+- Hari ini.
+- Minggu ini.
+- Bulan ini.
+- Tahun ini.
+- Custom range.
+
+### 12.3 Laporan Mingguan
+- Penjualan minggu berjalan.
+- Jumlah transaksi.
+- Produk terlaris.
+- Stok menipis.
+- HPP minggu berjalan.
+- Laba kotor minggu berjalan.
+- Biaya minggu berjalan.
+- Estimasi laba bersih mingguan.
+
+### 12.4 Laporan Bulanan
+- Omzet bulanan.
+- Penjualan per outlet.
+- Kategori terlaris.
+- Pembelian per supplier.
+- Nilai persediaan akhir bulan.
+- Biaya operasional bulanan.
+- Laba rugi bulanan.
+- Hutang/piutang bulanan.
+
+### 12.5 Laporan Tahunan
+- Total omzet tahunan.
+- Perbandingan omzet per bulan.
+- Total pembelian tahunan.
+- Total biaya tahunan.
+- Laba rugi tahunan.
+- Tren pertumbuhan.
+- Ringkasan stok dan shrinkage tahunan.
+
+### 12.6 Fitur Pendukung
+- Export PDF/Excel.
+- Email otomatis laporan periodik.
+- Tutup buku berkala.
+- Komparasi antar periode.
+- Catatan owner per periode.
+
+***
+
+## 13. Paket Langganan yang Disarankan
+
+### 13.1 Paket Basic
+Cocok untuk toko kecil dan satu outlet.
+
+Fitur:
+- POS.
+- Produk & kategori.
+- Customer dasar.
+- Stok dasar.
+- Laporan penjualan dasar.
+- 1 outlet.
+- 3 user.
+- Import produk sederhana.
+
+### 13.2 Paket Pro
+Cocok untuk usaha yang mulai serius mengontrol persediaan.
+
+Fitur:
+- Semua Basic.
+- Product variants. [ppl-ai-file-upload.s3.amazonaws](https://ppl-ai-file-upload.s3.amazonaws.com/web/direct-files/attachments/30095373/3bdb8db5-40ed-478d-9a6b-9c8bee078970/plan.md)
+- Bulk import/export. [ppl-ai-file-upload.s3.amazonaws](https://ppl-ai-file-upload.s3.amazonaws.com/web/direct-files/attachments/30095373/3bdb8db5-40ed-478d-9a6b-9c8bee078970/plan.md)
+- Stock threshold alert. [ppl-ai-file-upload.s3.amazonaws](https://ppl-ai-file-upload.s3.amazonaws.com/web/direct-files/attachments/30095373/3bdb8db5-40ed-478d-9a6b-9c8bee078970/plan.md)
+- Purchasing.
+- HPP.
+- Stok opname.
+- Transfer stok.
+- Laporan pembelian.
+- Laporan laba kotor.
+- Multi outlet terbatas.
+
+### 13.3 Paket Premium
+Cocok untuk usaha yang ingin tumbuh dan mengelola pelanggan.
+
+Fitur:
+- Semua Pro.
+- Pembukuan lengkap.
+- Laporan mingguan/bulanan/tahunan.
+- Loyalty & cashback. [ppl-ai-file-upload.s3.amazonaws](https://ppl-ai-file-upload.s3.amazonaws.com/web/direct-files/attachments/30095373/3bdb8db5-40ed-478d-9a6b-9c8bee078970/plan.md)
+- Bundling promo. [ppl-ai-file-upload.s3.amazonaws](https://ppl-ai-file-upload.s3.amazonaws.com/web/direct-files/attachments/30095373/3bdb8db5-40ed-478d-9a6b-9c8bee078970/plan.md)
+- Repeat order. [ppl-ai-file-upload.s3.amazonaws](https://ppl-ai-file-upload.s3.amazonaws.com/web/direct-files/attachments/30095373/3bdb8db5-40ed-478d-9a6b-9c8bee078970/plan.md)
+- Subscription customer. [ppl-ai-file-upload.s3.amazonaws](https://ppl-ai-file-upload.s3.amazonaws.com/web/direct-files/attachments/30095373/3bdb8db5-40ed-478d-9a6b-9c8bee078970/plan.md)
+- Broadcast email/push. [ppl-ai-file-upload.s3.amazonaws](https://ppl-ai-file-upload.s3.amazonaws.com/web/direct-files/attachments/30095373/3bdb8db5-40ed-478d-9a6b-9c8bee078970/plan.md)
+- Audit log dasar. [ppl-ai-file-upload.s3.amazonaws](https://ppl-ai-file-upload.s3.amazonaws.com/web/direct-files/attachments/30095373/3bdb8db5-40ed-478d-9a6b-9c8bee078970/plan.md)
+
+### 13.4 Paket Enterprise / Custom
+Cocok untuk tenant besar atau franchise kecil.
+
+Fitur:
+- Semua Premium.
+- Approval berlapis.
+- AI tools. [ppl-ai-file-upload.s3.amazonaws](https://ppl-ai-file-upload.s3.amazonaws.com/web/direct-files/attachments/30095373/3bdb8db5-40ed-478d-9a6b-9c8bee078970/plan.md)
+- Anomaly dashboard. [ppl-ai-file-upload.s3.amazonaws](https://ppl-ai-file-upload.s3.amazonaws.com/web/direct-files/attachments/30095373/3bdb8db5-40ed-478d-9a6b-9c8bee078970/plan.md)
+- API/integrasi custom.
+- SLA support.
+- White-label opsional.
+- Multi perusahaan / multi brand.
+
+### 13.5 Add-On Monetisasi
+- User tambahan.
+- Outlet tambahan.
+- Gudang tambahan.
+- WhatsApp message credits.
+- AI credits / AI usage package.
+- Training onboarding.
+- Setup data awal.
+- Printer / hardware bundle.
+
+***
+
+## 14. Prioritas Build yang Paling Realistis
+
+Agar cepat jadi, cepat diuji, dan cepat menghasilkan, urutan implementasi yang disarankan adalah:
+
+1. POS + produk + stok dasar + laporan dasar.
+2. Product variants + import/export + stock alert. [ppl-ai-file-upload.s3.amazonaws](https://ppl-ai-file-upload.s3.amazonaws.com/web/direct-files/attachments/30095373/3bdb8db5-40ed-478d-9a6b-9c8bee078970/plan.md)
+3. Purchasing + HPP + stok opname.
+4. Pembukuan periodik mingguan/bulanan/tahunan.
+5. Paket langganan, billing, dan super admin control.
+6. Loyalty + promo + repeat order + subscribe. [ppl-ai-file-upload.s3.amazonaws](https://ppl-ai-file-upload.s3.amazonaws.com/web/direct-files/attachments/30095373/3bdb8db5-40ed-478d-9a6b-9c8bee078970/plan.md)
+7. Audit log + anomaly dashboard + AI tools. [ppl-ai-file-upload.s3.amazonaws](https://ppl-ai-file-upload.s3.amazonaws.com/web/direct-files/attachments/30095373/3bdb8db5-40ed-478d-9a6b-9c8bee078970/plan.md)
+
+Urutan ini menjaga agar Anda membangun fitur yang paling cepat dipakai dulu, lalu fitur yang menciptakan switching cost lebih tinggi, kemudian fitur growth dan premium. Pola ini juga sejalan dengan prioritas plan lama yang menonjolkan repeat order, loyalty, variants, admin operations, dan AI merchant tools. [ppl-ai-file-upload.s3.amazonaws](https://ppl-ai-file-upload.s3.amazonaws.com/web/direct-files/attachments/30095373/3bdb8db5-40ed-478d-9a6b-9c8bee078970/plan.md)
+
+***
+
+## 15. Struktur Menu Final yang Disarankan
+
+### 15.1 Menu Tenant / Merchant
+- Dashboard
+- POS
+- Penjualan
+- Retur Penjualan
+- Produk
+- Kategori
+- Variants
+- Customer
+- Supplier
+- Pembelian
+- Penerimaan Barang
+- Retur Pembelian
+- Inventori
+- Transfer Stok
+- Stok Opname
+- HPP
+- Pembukuan
+- Biaya
+- Hutang Piutang
+- Laporan
+- Promo
+- Loyalty
+- Broadcast
+- Subscription Customer
+- Pengguna
+- Approval Center
+- Audit Log
+- Pengaturan
+
+### 15.2 Menu Super Admin
+- Dashboard Global
+- Tenant
+- Paket Langganan
+- Invoice
+- Pembayaran
+- Feature Toggles
+- Promo Langganan
+- Audit Global
+- Anomaly Dashboard
+- Broadcast Platform
+- Pengaturan Sistem
+
+***
+
+## 16. Entitas Data Utama yang Harus Ada
+
+Berikut entitas inti agar sistem bisa berkembang tanpa bongkar total di tengah jalan.
+
+### 16.1 Entitas Organisasi
+- tenants
+- tenant_settings
+- outlets
+- warehouses
+- users
+- user_roles
+- role_permissions
+
+### 16.2 Entitas Produk
+- categories
+- brands
+- products
+- product_variants
+- product_barcodes
+- product_prices
+- product_costs
+- product_images
+
+### 16.3 Entitas Inventori
+- stock_balances
+- stock_movements
+- stock_transfer_headers
+- stock_transfer_items
+- stock_opname_headers
+- stock_opname_items
+- stock_adjustments
+- stock_batches
+
+### 16.4 Entitas Penjualan
+- sales_headers
+- sales_items
+- payment_records
+- sales_returns
+- sales_return_items
+- receipts
+
+### 16.5 Entitas Pembelian
+- suppliers
+- purchase_orders
+- purchase_order_items
+- goods_receipts
+- goods_receipt_items
+- purchase_returns
+- purchase_return_items
+- supplier_payments
+
+### 16.6 Entitas Keuangan
+- expense_categories
+- expenses
+- cash_accounts
+- cash_movements
+- receivables
+- receivable_payments
+- payables
+- payable_payments
+- accounting_periods
+
+### 16.7 Entitas CRM dan Growth
+- customers
+- customer_segments
+- loyalty_wallets
+- loyalty_transactions
+- promotions
+- promotion_rules
+- referrals
+- customer_subscriptions
+- marketing_campaigns
+
+### 16.8 Entitas SaaS Platform
+- subscription_plans
+- tenant_subscriptions
+- invoices
+- invoice_items
+- subscription_payments
+- feature_flags
+- tenant_feature_overrides
+
+### 16.9 Entitas Audit & AI
+- audit_logs
+- approval_requests
+- anomaly_alerts
+- ai_usage_logs
+- ai_generated_contents
+
+***
+
+## 17. Aturan Bisnis Penting
+
+### 17.1 Aturan Penjualan
+- Transaksi selesai hanya jika pembayaran valid.
+- Void transaksi harus punya alasan.
+- Retur harus referensi transaksi asal.
+- Refund besar bisa butuh approval.
+
+### 17.2 Aturan Stok
+- Semua perubahan stok harus tercatat di stock_movements.
+- Tidak boleh ada update stok diam-diam tanpa jejak mutasi.
+- Opname final mengubah stok sistem hanya setelah approval.
+
+### 17.3 Aturan HPP
+- HPP diambil dari metode costing aktif.
+- Perubahan harga modal tidak boleh mengubah histori transaksi lama.
+- Margin dihitung dari harga jual bersih minus HPP.
+
+### 17.4 Aturan Pembukuan
+- Period closing mengunci perubahan data transaksi periode tersebut.
+- Reopen period harus tercatat di audit.
+- Biaya besar butuh approval.
+
+### 17.5 Aturan Billing SaaS
+- Tenant overdue masuk grace period.
+- Setelah grace period selesai, modul tertentu dapat dibatasi.
+- Setelah suspend, data tidak hilang, hanya akses dibatasi.
+
+### 17.6 Aturan Loyalty dan Subscription Customer
+- Poin punya masa berlaku.
+- Redeem poin harus tercatat sebagai pengurang transaksi.
+- Langganan customer bisa pause, skip, atau cancel.
+
+***
+
+## 18. Dashboard yang Harus Ada
+
+### 18.1 Dashboard Merchant
+- Omzet hari ini.
+- Omzet minggu ini.
+- Omzet bulan ini.
+- Laba kotor.
+- Stok menipis.
+- Produk terlaris.
+- Outlet terbaik.
+- Customer repeat.
+
+### 18.2 Dashboard Gudang
+- Barang masuk hari ini.
+- Barang keluar hari ini.
+- Transfer pending.
+- Opname pending.
+- Selisih stok tertinggi.
+
+### 18.3 Dashboard Finance
+- Omzet periodik.
+- Laba rugi.
+- Biaya terbesar.
+- Hutang jatuh tempo.
+- Piutang jatuh tempo.
+- Closing period status.
+
+### 18.4 Dashboard Super Admin
+- Total tenant aktif.
+- Trial tenant.
+- Overdue tenant.
+- MRR sederhana.
+- Churn rate sederhana.
+- Paket terlaris.
+- AI usage tenant.
+
+***
+
+## 19. Fitur yang Wajib Ada Sejak Awal vs Bisa Menyusul
+
+### 19.1 Wajib Ada Sejak Awal
+- POS.
+- Produk.
+- Variants minimum bila banyak jenis produk. [ppl-ai-file-upload.s3.amazonaws](https://ppl-ai-file-upload.s3.amazonaws.com/web/direct-files/attachments/30095373/3bdb8db5-40ed-478d-9a6b-9c8bee078970/plan.md)
+- Stok dasar.
+- Laporan penjualan.
+- User role dasar.
+- Billing tenant dasar jika langsung dijual SaaS.
+
+### 19.2 Wajib Ada di Tahap Menengah
+- Purchasing.
+- HPP.
+- Stok opname.
+- Pembukuan periodik.
+- Export laporan.
+- Multi outlet.
+
+### 19.3 Bisa Menyusul sebagai Premium
+- Loyalty. [ppl-ai-file-upload.s3.amazonaws](https://ppl-ai-file-upload.s3.amazonaws.com/web/direct-files/attachments/30095373/3bdb8db5-40ed-478d-9a6b-9c8bee078970/plan.md)
+- Repeat order. [ppl-ai-file-upload.s3.amazonaws](https://ppl-ai-file-upload.s3.amazonaws.com/web/direct-files/attachments/30095373/3bdb8db5-40ed-478d-9a6b-9c8bee078970/plan.md)
+- Subscribe & save. [ppl-ai-file-upload.s3.amazonaws](https://ppl-ai-file-upload.s3.amazonaws.com/web/direct-files/attachments/30095373/3bdb8db5-40ed-478d-9a6b-9c8bee078970/plan.md)
+- AI tools. [ppl-ai-file-upload.s3.amazonaws](https://ppl-ai-file-upload.s3.amazonaws.com/web/direct-files/attachments/30095373/3bdb8db5-40ed-478d-9a6b-9c8bee078970/plan.md)
+- Anomaly detection. [ppl-ai-file-upload.s3.amazonaws](https://ppl-ai-file-upload.s3.amazonaws.com/web/direct-files/attachments/30095373/3bdb8db5-40ed-478d-9a6b-9c8bee078970/plan.md)
+- Auto-reply / AI chatbot. [ppl-ai-file-upload.s3.amazonaws](https://ppl-ai-file-upload.s3.amazonaws.com/web/direct-files/attachments/30095373/3bdb8db5-40ed-478d-9a6b-9c8bee078970/plan.md)
+
+***
+
+## 20. Rekomendasi Implementasi Praktis
+
+### 20.1 MVP yang Paling Masuk Akal
+Bangun dulu kombinasi berikut:
+- POS.
+- Produk + variants.
+- Stok dasar + low stock alert. [ppl-ai-file-upload.s3.amazonaws](https://ppl-ai-file-upload.s3.amazonaws.com/web/direct-files/attachments/30095373/3bdb8db5-40ed-478d-9a6b-9c8bee078970/plan.md)
+- Purchasing sederhana.
+- HPP average.
+- Stok opname.
+- Pembukuan mingguan/bulanan.
+- Billing plan sederhana.
+
+Dengan kombinasi itu, produk sudah punya nilai jual kuat karena pengusaha langsung merasakan manfaat transaksi, kontrol stok, kontrol margin, dan pembukuan berkala.
+
+### 20.2 Versi Jualan Pertama
+- Paket Basic: transaksi dan stok.
+- Paket Pro: HPP, pembelian, opname.
+- Paket Premium: pembukuan, loyalty, repeat order, subscription customer. [ppl-ai-file-upload.s3.amazonaws](https://ppl-ai-file-upload.s3.amazonaws.com/web/direct-files/attachments/30095373/3bdb8db5-40ed-478d-9a6b-9c8bee078970/plan.md)
+
+### 20.3 Diferensiasi Produk
+Pembeda utama produk ini dibanding POS biasa adalah gabungan antara operasional inti, pembukuan periodik, kontrol SaaS tenant, dan fitur premium seperti loyalty, audit, anomaly, dan AI merchant tools yang memang sudah menjadi arah penting dalam file plan Anda. [ppl-ai-file-upload.s3.amazonaws](https://ppl-ai-file-upload.s3.amazonaws.com/web/direct-files/attachments/30095373/3bdb8db5-40ed-478d-9a6b-9c8bee078970/plan.md)
+
+## 21. Penutup Operasional
+
+Jika plan ini dieksekusi bertahap sesuai urutan fase, produk akan berkembang dari aplikasi kasir menjadi platform SaaS operasional UMKM yang punya recurring revenue jelas dan switching cost tinggi. Struktur ini tidak hanya sesuai dengan kebutuhan POS, HPP, stok opname, dan pembukuan periodik yang diminta, tetapi juga memperluas fondasi yang sudah ada pada plan awal: merchant tools, loyalty, repeat order, subscription, audit, anomaly detection, broadcast, dan AI features. [ppl-ai-file-upload.s3.amazonaws](https://ppl-ai-file-upload.s3.amazonaws.com/web/direct-files/attachments/30095373/3bdb8db5-40ed-478d-9a6b-9c8bee078970/plan.md)
