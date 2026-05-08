@@ -12,3 +12,9 @@ id = "iOQiO96Lo8Fjl-y6pxXyL"
 uri = "file://docs/PROGRESS.md"
 type = "text"
 title = "Progress Fitur DesaMart"
+
+[[outputs]]
+id = "Azbwlf7NgJwXyYUW8FDNa"
+uri = "file://docs/RENCANA_PERBAIKAN.md"
+type = "text"
+title = "Rencana Perbaikan & Prioritas Sprint"
