@@ -26,7 +26,7 @@ export function CourierLocationUpdater({ courierId, onLocationUpdate }: CourierL
   const [error, setError] = useState<string | null>(null);
   const watchIdRef = useRef<number | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
-  const channelRef = useRef<RealtimeChannel | null>(null);
+  const channelRef = useRef<any>(null);
   const locationRef = useRef<{ lat: number; lng: number } | null>(null);
   const isInitialMount = useRef(true);
 
@@ -84,8 +84,8 @@ export function CourierLocationUpdater({ courierId, onLocationUpdate }: CourierL
     );
 
     // Initialize broadcast channel
-    const channel = supabase.channel(`courier-tracking-${courierId}`);
-    channel.subscribe((status) => {
+    const channel = supabase.channel(`courier-tracking-${courierId}`) as any;
+    channel.subscribe((status: string) => {
       if (status === 'SUBSCRIBED') {
         channelRef.current = channel;
       }

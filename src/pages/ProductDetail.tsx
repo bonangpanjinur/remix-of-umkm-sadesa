@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import { useQuery } from '@tanstack/react-query';
 import { 
   ArrowLeft, 
   Minus, 
@@ -52,92 +53,68 @@ export default function ProductDetail() {
   const navigate = useNavigate();
   const { addToCart } = useCart();
   const [quantity, setQuantity] = useState(1);
-  const [product, setProduct] = useState<Product | null>(null);
-  const [merchant, setMerchant] = useState<MerchantInfo | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [hasActiveQuota, setHasActiveQuota] = useState(true);
 
-  useEffect(() => {
-    async function loadData() {
-      if (!id) return;
-      try {
-        const productData = await fetchProduct(id);
-        setProduct(productData);
-        
-        if (productData) {
-          // Track recently viewed
-          addToRecentlyViewed({
-            id: productData.id,
-            name: productData.name,
-            price: productData.price,
-            image: productData.image,
-            merchantName: productData.merchantName,
-          });
-          // Increment product view count
-          supabase.rpc('increment_product_view', { product_id: id }).then(({ error }) => {
-            if (error) console.error('Error incrementing view count:', error);
-          });
-
-          // Track page view for analytics
-          trackPageView({ 
-            merchantId: productData.merchantId, 
-            productId: id, 
-            pageType: 'product' 
-          });
-          
-          // Fetch merchant with operating hours
-          const { data: merchantData } = await supabase
-            .from('merchants')
-            .select(`
-              id,
-              name,
-              phone,
-              address,
-              rating_avg,
-              rating_count,
-              badge,
-              is_open,
-              open_time,
-              close_time,
-              is_verified,
-              halal_status,
-              slug,
-              villages (name)
-            `)
-            .eq('id', productData.merchantId)
-            .maybeSingle();
-          
-          if (merchantData) {
-            setMerchant({
-              id: merchantData.id,
-              name: merchantData.name,
-              phone: merchantData.phone,
-              address: merchantData.address,
-              ratingAvg: Number(merchantData.rating_avg) || 0,
-              ratingCount: merchantData.rating_count || 0,
-              badge: merchantData.badge,
-              isOpen: merchantData.is_open,
-              openTime: merchantData.open_time,
-              closeTime: merchantData.close_time,
-              villageName: merchantData.villages?.name || null,
-              isVerified: merchantData.is_verified || false,
-              halalStatus: merchantData.halal_status || null,
-              slug: merchantData.slug || null,
-            });
-            
-            // Check if merchant has active quota
-            const quotaActive = await checkMerchantHasActiveQuota(merchantData.id);
-            setHasActiveQuota(quotaActive);
-          }
-        }
-      } catch (error) {
-        console.error('Error loading product:', error);
-      } finally {
-        setLoading(false);
+  // React Query: product data with caching (P3-01)
+  const { data: product = null, isLoading: productLoading } = useQuery<Product | null>({
+    queryKey: ['product', id],
+    queryFn: async () => {
+      if (!id) return null;
+      const productData = await fetchProduct(id);
+      if (productData) {
+        // Side effects on product load
+        addToRecentlyViewed({
+          id: productData.id,
+          name: productData.name,
+          price: productData.price,
+          image: productData.image,
+          merchantName: productData.merchantName,
+        });
+        supabase.rpc('increment_product_view', { product_id: id }).catch(() => {});
+        trackPageView({ merchantId: productData.merchantId, productId: id, pageType: 'product' });
       }
-    }
-    loadData();
-  }, [id]);
+      return productData;
+    },
+    enabled: !!id,
+    staleTime: 30_000,
+  });
+
+  // React Query: merchant data depends on product
+  const { data: merchantResult } = useQuery({
+    queryKey: ['product-merchant', product?.merchantId],
+    queryFn: async () => {
+      if (!product?.merchantId) return { merchant: null, hasActiveQuota: true };
+      const { data: merchantData } = await supabase
+        .from('merchants')
+        .select(`id, name, phone, address, rating_avg, rating_count, badge, is_open, open_time, close_time, is_verified, halal_status, slug, villages (name)`)
+        .eq('id', product.merchantId)
+        .maybeSingle();
+      if (!merchantData) return { merchant: null, hasActiveQuota: true };
+      const merchant: MerchantInfo = {
+        id: merchantData.id,
+        name: merchantData.name,
+        phone: merchantData.phone,
+        address: merchantData.address,
+        ratingAvg: Number(merchantData.rating_avg) || 0,
+        ratingCount: merchantData.rating_count || 0,
+        badge: merchantData.badge,
+        isOpen: merchantData.is_open,
+        openTime: merchantData.open_time,
+        closeTime: merchantData.close_time,
+        villageName: merchantData.villages?.name || null,
+        isVerified: merchantData.is_verified || false,
+        halalStatus: merchantData.halal_status || null,
+        slug: merchantData.slug || null,
+      };
+      const hasActiveQuota = await checkMerchantHasActiveQuota(merchantData.id);
+      return { merchant, hasActiveQuota };
+    },
+    enabled: !!product?.merchantId,
+    staleTime: 30_000,
+  });
+
+  const merchant = merchantResult?.merchant ?? null;
+  const hasActiveQuota = merchantResult?.hasActiveQuota ?? true;
+  const loading = productLoading;
 
   // Get merchant operating status
   const merchantStatus = merchant 

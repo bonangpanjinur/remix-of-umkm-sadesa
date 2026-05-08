@@ -25,7 +25,7 @@ export function MerchantDeliveryTracker({ orderId, merchantId, onLocationUpdate 
   const [error, setError] = useState<string | null>(null);
   const watchIdRef = useRef<number | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
-  const channelRef = useRef<RealtimeChannel | null>(null);
+  const channelRef = useRef<any>(null);
   const locationRef = useRef<{ lat: number; lng: number } | null>(null);
   const isInitialMount = useRef(true);
 
@@ -70,8 +70,8 @@ export function MerchantDeliveryTracker({ orderId, merchantId, onLocationUpdate 
     );
 
     // Broadcast channel per order
-    const channel = supabase.channel(`merchant-delivery-${orderId}`);
-    channel.subscribe((status) => {
+    const channel = supabase.channel(`merchant-delivery-${orderId}`) as any;
+    channel.subscribe((status: string) => {
       if (status === 'SUBSCRIBED') {
         channelRef.current = channel;
       }

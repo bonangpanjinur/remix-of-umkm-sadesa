@@ -1,6 +1,7 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ChevronRight, Sparkles, Flame, TrendingUp, MapPin, ShoppingBag, Store, Map, Bike } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
 import { Header } from '@/components/layout/Header';
 import { BottomNav } from '@/components/layout/BottomNav';
 import { FloatingCartButton } from '@/components/layout/FloatingCartButton';
@@ -23,11 +24,6 @@ import type { Product, Village, Tourism } from '@/types';
 
 const Index = () => {
   const navigate = useNavigate();
-  const [products, setProducts] = useState<Product[]>([]);
-  const [villages, setVillages] = useState<Village[]>([]);
-  const [tourismSpots, setTourismSpots] = useState<Tourism[]>([]);
-  const [bannerSlides, setBannerSlides] = useState<BannerSlide[]>([]);
-  const [loading, setLoading] = useState(true);
   const [visibleProductCount, setVisibleProductCount] = useState(12);
   
   const { 
@@ -37,39 +33,44 @@ const Index = () => {
     loading: layoutLoading 
   } = useHomepageLayout();
 
-  const { location: userLocation, loading: locationLoading } = useUserLocation();
+  const { location: userLocation } = useUserLocation();
   const { getHomepageCategories } = useCategories();
 
-  useEffect(() => {
-    async function loadData() {
-      try {
-        const [productsData, villagesData, tourismData, promotionsData] = await Promise.all([
-          fetchProducts(),
-          fetchVillages(),
-          fetchTourism(),
-          fetchBannerPromotions(),
-        ]);
-        setProducts(productsData);
-        setVillages(villagesData);
-        setTourismSpots(tourismData);
-        
-        // Transform promotions to banner slides
-        const slides: BannerSlide[] = promotionsData.map(p => ({
-          id: p.id,
-          title: p.title,
-          subtitle: p.subtitle,
-          image: p.imageUrl,
-          linkUrl: p.linkUrl,
-        }));
-        setBannerSlides(slides);
-      } catch (error) {
-        console.error('Error loading data:', error);
-      } finally {
-        setLoading(false);
-      }
-    }
-    loadData();
-  }, []);
+  // React Query: parallel data fetching with caching (P3-01)
+  const { data: products = [], isLoading: productsLoading } = useQuery<Product[]>({
+    queryKey: ['homepage-products'],
+    queryFn: () => fetchProducts(),
+    staleTime: 60_000,
+  });
+
+  const { data: villages = [], isLoading: villagesLoading } = useQuery<Village[]>({
+    queryKey: ['homepage-villages'],
+    queryFn: () => fetchVillages(),
+    staleTime: 60_000,
+  });
+
+  const { data: tourismSpots = [], isLoading: tourismLoading } = useQuery<Tourism[]>({
+    queryKey: ['homepage-tourism'],
+    queryFn: () => fetchTourism(),
+    staleTime: 60_000,
+  });
+
+  const { data: bannerSlides = [] } = useQuery<BannerSlide[]>({
+    queryKey: ['homepage-banners'],
+    queryFn: async () => {
+      const promotionsData = await fetchBannerPromotions();
+      return promotionsData.map(p => ({
+        id: p.id,
+        title: p.title,
+        subtitle: p.subtitle,
+        image: p.imageUrl,
+        linkUrl: p.linkUrl,
+      }));
+    },
+    staleTime: 120_000,
+  });
+
+  const loading = productsLoading || villagesLoading || tourismLoading;
 
   // Sort data by proximity to user location
   const sortedProducts = useMemo(() => {

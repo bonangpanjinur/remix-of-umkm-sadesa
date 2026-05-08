@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
@@ -102,15 +103,100 @@ function getOrderProgress(status: string): number {
   return ((idx + 1) / ORDER_STEPS.length) * 100;
 }
 
+async function loadBuyerOrders(userId: string): Promise<BuyerOrder[]> {
+  let data: any[] | null = null;
+
+  // Level 1: Full query with all relations including nested products
+  const r1 = await supabase
+    .from("orders")
+    .select("id, status, total, created_at, merchant_id, is_self_delivery, has_review, payment_method, merchants(name, phone, user_id), order_items(id, quantity, product_name, product_price, product_id, products(name, image_url))")
+    .eq("buyer_id", userId)
+    .order("created_at", { ascending: false });
+
+  if (!r1.error) {
+    data = r1.data;
+  } else {
+    console.warn("L1 failed:", r1.error.message);
+    const r2 = await supabase
+      .from("orders")
+      .select("id, status, total, created_at, merchant_id, is_self_delivery, has_review, merchants(name, phone), order_items(id, quantity, product_name, product_price, product_id)")
+      .eq("buyer_id", userId)
+      .order("created_at", { ascending: false });
+    if (!r2.error) {
+      data = r2.data;
+    } else {
+      console.warn("L2 failed:", r2.error.message);
+      const r3 = await supabase
+        .from("orders")
+        .select("id, status, total, created_at, merchant_id, merchants(name, phone), order_items(id, quantity, product_name, product_price, product_id)")
+        .eq("buyer_id", userId)
+        .order("created_at", { ascending: false });
+      if (!r3.error) {
+        data = r3.data;
+      } else {
+        console.warn("L3 failed:", r3.error.message);
+        const r4 = await supabase
+          .from("orders")
+          .select("id, status, total, created_at, merchant_id, order_items(id, quantity, product_name, product_price, product_id)")
+          .eq("buyer_id", userId)
+          .order("created_at", { ascending: false });
+        if (!r4.error) {
+          data = r4.data;
+        } else {
+          throw new Error("All query levels failed: " + r4.error.message);
+        }
+      }
+    }
+  }
+
+  // Fill missing product images
+  if (data && data.length > 0) {
+    const needsImages = data.some((o: any) => o.order_items?.some((i: any) => i.product_id && !i.products));
+    if (needsImages) {
+      const productIds = [...new Set(data.flatMap((o: any) => (o.order_items || []).filter((i: any) => i.product_id && !i.products).map((i: any) => i.product_id)))] as string[];
+      if (productIds.length > 0) {
+        const { data: productsData } = await supabase.from('products').select('id, name, image_url').in('id', productIds);
+        if (productsData) {
+          const productMap = Object.fromEntries(productsData.map(p => [p.id, p]));
+          data = data.map((o: any) => ({
+            ...o,
+            order_items: (o.order_items || []).map((i: any) => ({
+              ...i,
+              products: i.products || (i.product_id && productMap[i.product_id] ? { name: productMap[i.product_id].name, image_url: productMap[i.product_id].image_url } : null),
+            })),
+          }));
+        }
+      }
+    }
+  }
+
+  // Fill missing merchant user_id
+  if (data && data.length > 0) {
+    const merchantIdsNeedingUserId = [...new Set(data.filter((o: any) => o.merchant_id && (!o.merchants || !o.merchants.user_id)).map((o: any) => o.merchant_id))] as string[];
+    if (merchantIdsNeedingUserId.length > 0) {
+      const { data: merchantsData } = await supabase.from('merchants').select('id, user_id, name, phone').in('id', merchantIdsNeedingUserId);
+      if (merchantsData) {
+        const merchantMap = Object.fromEntries(merchantsData.map(m => [m.id, m]));
+        data = data.map((o: any) => {
+          if (o.merchant_id && merchantMap[o.merchant_id]) {
+            const m = merchantMap[o.merchant_id];
+            return { ...o, merchants: { name: o.merchants?.name || m.name, phone: o.merchants?.phone || m.phone, user_id: o.merchants?.user_id || m.user_id } };
+          }
+          return o;
+        });
+      }
+    }
+  }
+
+  return (data as unknown as BuyerOrder[]) || [];
+}
+
 const OrdersPage = () => {
   const { user } = useAuth();
-  const [orders, setOrders] = useState<BuyerOrder[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
+  const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState("all");
   const [chatOrder, setChatOrder] = useState<{ orderId: string; merchantUserId: string; merchantName: string } | null>(null);
   const [cancelOrderId, setCancelOrderId] = useState<string | null>(null);
-  const [fetchError, setFetchError] = useState(false);
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [isDetailSheetOpen, setIsDetailSheetOpen] = useState(false);
   const [ratingOrder, setRatingOrder] = useState<{ id: string; orderNumber: string; courierId: string; courierName: string } | null>(null);
@@ -118,9 +204,7 @@ const OrdersPage = () => {
   const reorder = useReorder();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  useEffect(() => {
-    window.scrollTo(0, 0);
-  }, []);
+  useEffect(() => { window.scrollTo(0, 0); }, []);
 
   // Handle orderId query parameter from notification click
   useEffect(() => {
@@ -128,155 +212,30 @@ const OrdersPage = () => {
     if (orderIdFromUrl) {
       setSelectedOrderId(orderIdFromUrl);
       setIsDetailSheetOpen(true);
-      // Clean up URL after opening sheet
       searchParams.delete('orderId');
       setSearchParams(searchParams, { replace: true });
     }
   }, [searchParams, setSearchParams]);
 
+  // React Query: orders data with caching (P3-01)
+  const {
+    data: orders = [],
+    isLoading: loading,
+    isFetching: refreshing,
+    isError: fetchError,
+    refetch,
+  } = useQuery<BuyerOrder[]>({
+    queryKey: ['buyer-orders', user?.id],
+    queryFn: () => loadBuyerOrders(user!.id),
+    enabled: !!user,
+    staleTime: 30_000,
+  });
+
   const fetchOrders = useCallback(async (isRefresh = false) => {
-    if (!user) { setLoading(false); return; }
-    try {
-      if (isRefresh) setRefreshing(true); else setLoading(true);
-      setFetchError(false);
-      
-      let data: any[] | null = null;
+    if (isRefresh) await refetch();
+  }, [refetch]);
 
-      // Level 1: Full query with all relations including nested products
-      const r1 = await supabase
-        .from("orders")
-        .select("id, status, total, created_at, merchant_id, is_self_delivery, has_review, payment_method, merchants(name, phone, user_id), order_items(id, quantity, product_name, product_price, product_id, products(name, image_url))")
-        .eq("buyer_id", user.id)
-        .order("created_at", { ascending: false });
-      
-      if (!r1.error) {
-        data = r1.data;
-      } else {
-        console.warn("L1 failed:", r1.error.message);
-        
-        // Level 2: Without nested products, without user_id
-        const r2 = await supabase
-          .from("orders")
-          .select("id, status, total, created_at, merchant_id, is_self_delivery, has_review, merchants(name, phone), order_items(id, quantity, product_name, product_price, product_id)")
-          .eq("buyer_id", user.id)
-          .order("created_at", { ascending: false });
-        
-        if (!r2.error) {
-          data = r2.data;
-        } else {
-          console.warn("L2 failed:", r2.error.message);
-          
-          // Level 3: Orders + merchants only, no order_items
-          const r3 = await supabase
-            .from("orders")
-            .select("id, status, total, created_at, merchant_id, merchants(name, phone), order_items(id, quantity, product_name, product_price, product_id)")
-            .eq("buyer_id", user.id)
-            .order("created_at", { ascending: false });
-          
-          if (!r3.error) {
-            data = r3.data;
-          } else {
-            console.warn("L3 failed:", r3.error.message);
-            
-            // Level 4: Absolute minimum - only core order columns
-            const r4 = await supabase
-              .from("orders")
-              .select("id, status, total, created_at, merchant_id, order_items(id, quantity, product_name, product_price, product_id)")
-              .eq("buyer_id", user.id)
-              .order("created_at", { ascending: false });
-            
-            if (!r4.error) {
-              data = r4.data;
-            } else {
-              console.error("All query levels failed:", r4.error.message);
-              setFetchError(true);
-              return;
-            }
-          }
-        }
-      }
-
-      // If order_items exist but products info is missing, fetch images separately
-      if (data && data.length > 0) {
-        const needsImages = data.some((o: any) => 
-          o.order_items?.some((i: any) => i.product_id && !i.products)
-        );
-        if (needsImages) {
-          const productIds = [...new Set(
-            data.flatMap((o: any) => (o.order_items || [])
-              .filter((i: any) => i.product_id && !i.products)
-              .map((i: any) => i.product_id)
-            )
-          )] as string[];
-          
-          if (productIds.length > 0) {
-            const { data: productsData } = await supabase
-              .from('products')
-              .select('id, name, image_url')
-              .in('id', productIds);
-            
-            if (productsData) {
-              const productMap = Object.fromEntries(productsData.map(p => [p.id, p]));
-              data = data.map((o: any) => ({
-                ...o,
-                order_items: (o.order_items || []).map((i: any) => ({
-                  ...i,
-                  products: i.products || (i.product_id && productMap[i.product_id] 
-                    ? { name: productMap[i.product_id].name, image_url: productMap[i.product_id].image_url }
-                    : null),
-                })),
-              }));
-            }
-          }
-        }
-      }
-
-      // Recover merchant user_id if missing (fallback levels 2-4)
-      if (data && data.length > 0) {
-        const merchantIdsNeedingUserId = [...new Set(
-          data.filter((o: any) => o.merchant_id && (!o.merchants || !o.merchants.user_id))
-            .map((o: any) => o.merchant_id)
-        )] as string[];
-
-        if (merchantIdsNeedingUserId.length > 0) {
-          const { data: merchantsData } = await supabase
-            .from('merchants')
-            .select('id, user_id, name, phone')
-            .in('id', merchantIdsNeedingUserId);
-
-          if (merchantsData) {
-            const merchantMap = Object.fromEntries(merchantsData.map(m => [m.id, m]));
-            data = data.map((o: any) => {
-              if (o.merchant_id && merchantMap[o.merchant_id]) {
-                const m = merchantMap[o.merchant_id];
-                return {
-                  ...o,
-                  merchants: {
-                    name: o.merchants?.name || m.name,
-                    phone: o.merchants?.phone || m.phone,
-                    user_id: o.merchants?.user_id || m.user_id,
-                  },
-                };
-              }
-              return o;
-            });
-          }
-        }
-      }
-
-      setOrders((data as unknown as BuyerOrder[]) || []);
-    } catch (e) {
-      console.error("Error fetching buyer orders:", e);
-      setFetchError(true);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, [user]);
-
-  useEffect(() => { fetchOrders(); }, [fetchOrders]);
-
-  // Realtime subscription for order status updates
+  // Realtime subscription for order status updates — updates React Query cache directly
   useEffect(() => {
     if (!user) return;
     const channel = supabase
@@ -286,23 +245,21 @@ const OrdersPage = () => {
         { event: 'UPDATE', schema: 'public', table: 'orders', filter: `buyer_id=eq.${user.id}` },
         (payload) => {
           const newStatus = (payload.new as any).status;
-          setOrders(prev => {
+          queryClient.setQueryData<BuyerOrder[]>(['buyer-orders', user.id], (prev = []) => {
             const oldOrder = prev.find(o => o.id === payload.new.id);
             if (oldOrder && oldOrder.status !== newStatus) {
               const statusLabel = STATUS_CONFIG[newStatus]?.label || newStatus;
               toast({ title: `Pesanan #${(payload.new.id as string).substring(0, 8).toUpperCase()}`, description: `Status berubah: ${statusLabel}` });
             }
-            return prev.map(order => 
-              order.id === payload.new.id 
-                ? { ...order, status: newStatus } 
-                : order
+            return prev.map(order =>
+              order.id === payload.new.id ? { ...order, status: newStatus } : order
             );
           });
         }
       )
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [user]);
+  }, [user, queryClient]);
 
   // Reorder handler - delegated to shared hook (validates stock, merchant status, etc.)
   const handleReorder = useCallback(
