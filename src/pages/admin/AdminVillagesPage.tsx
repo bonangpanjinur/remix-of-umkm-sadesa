@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { MapPin, Eye, Check, X, MoreHorizontal, Plus, Edit, Trash2, Image as ImageIcon, UserCheck } from 'lucide-react';
 import { AdminLayout } from '@/components/admin/AdminLayout';
@@ -51,65 +52,43 @@ interface VillageRow {
 
 export default function AdminVillagesPage() {
   const navigate = useNavigate();
-  const [villages, setVillages] = useState<VillageRow[]>([]);
-  const [loading, setLoading] = useState(true);
-  
+  const queryClient = useQueryClient();
+
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedVillage, setSelectedVillage] = useState<VillageRow | null>(null);
 
-  const fetchVillagesData = async () => {
-    try {
-      setLoading(true);
-      // Fetch villages including user_id
-      const { data: villagesData, error } = await supabase
-        .from('villages')
-        .select('id, name, regency, district, subdistrict, description, image_url, location_lat, location_lng, contact_name, contact_phone, contact_email, registration_status, is_active, registered_at, user_id')
-        .order('registered_at', { ascending: false });
-
-      if (error) throw error;
-
-      // Fetch profiles for all user_ids in villages
-      const userIds = (villagesData || [])
-        .map(v => v.user_id)
-        .filter((id): id is string => id !== null);
-      
-      let profileMap = new Map<string, { full_name: string | null; phone: string | null }>();
-      
-      if (userIds.length > 0) {
-        const { data: profiles } = await supabase
-          .from('profiles')
-          .select('user_id, full_name, phone')
-          .in('user_id', userIds);
-        
-        if (profiles) {
-          profiles.forEach(p => profileMap.set(p.user_id, { full_name: p.full_name, phone: p.phone }));
-        }
-      }
-
-      const enriched: VillageRow[] = (villagesData || []).map(v => ({
-        ...v,
-        owner_name: v.user_id ? profileMap.get(v.user_id)?.full_name || null : null,
-        owner_phone: v.user_id ? profileMap.get(v.user_id)?.phone || null : null,
-      }));
-      
-      setVillages(enriched);
-    } catch (error) {
-      console.error('Error fetching villages:', error);
-      toast.error('Gagal memuat data desa');
-    } finally {
-      setLoading(false);
+  const fetchVillagesData = async (): Promise<VillageRow[]> => {
+    const { data: villagesData, error } = await supabase
+      .from('villages')
+      .select('id, name, regency, district, subdistrict, description, image_url, location_lat, location_lng, contact_name, contact_phone, contact_email, registration_status, is_active, registered_at, user_id')
+      .order('registered_at', { ascending: false });
+    if (error) throw error;
+    const userIds = (villagesData || []).map(v => v.user_id).filter((id): id is string => id !== null);
+    const profileMap = new Map<string, { full_name: string | null; phone: string | null }>();
+    if (userIds.length > 0) {
+      const { data: profiles } = await supabase.from('profiles').select('user_id, full_name, phone').in('user_id', userIds);
+      profiles?.forEach(p => profileMap.set(p.user_id, { full_name: p.full_name, phone: p.phone }));
     }
+    return (villagesData || []).map(v => ({
+      ...v,
+      owner_name: v.user_id ? profileMap.get(v.user_id)?.full_name || null : null,
+      owner_phone: v.user_id ? profileMap.get(v.user_id)?.phone || null : null,
+    }));
   };
 
-  useEffect(() => {
-    fetchVillagesData();
-  }, []);
+  const { data: villages = [], isLoading: loading } = useQuery<VillageRow[]>({
+    queryKey: ['admin-villages-list'],
+    queryFn: fetchVillagesData,
+    staleTime: 30_000,
+  });
+
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['admin-villages-list'] });
 
   const handleApprove = async (id: string) => {
     const success = await approveVillage(id);
-    if (success) { toast.success('Desa wisata berhasil disetujui'); fetchVillagesData(); }
+    if (success) { toast.success('Desa wisata berhasil disetujui'); invalidate(); }
     else toast.error('Gagal menyetujui desa wisata');
   };
 
@@ -117,14 +96,14 @@ export default function AdminVillagesPage() {
     const reason = prompt('Alasan penolakan:');
     if (!reason) return;
     const success = await rejectVillage(id, reason);
-    if (success) { toast.success('Desa wisata ditolak'); fetchVillagesData(); }
+    if (success) { toast.success('Desa wisata ditolak'); invalidate(); }
     else toast.error('Gagal menolak desa wisata');
   };
 
   const handleDelete = async () => {
     if (!selectedVillage) return;
     const success = await deleteVillage(selectedVillage.id);
-    if (success) { toast.success('Desa wisata berhasil dihapus'); fetchVillagesData(); setDeleteDialogOpen(false); }
+    if (success) { toast.success('Desa wisata berhasil dihapus'); invalidate(); setDeleteDialogOpen(false); }
     else toast.error('Gagal menghapus desa wisata');
   };
 

@@ -1,4 +1,5 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { 
   DollarSign, TrendingUp, Truck, Store, PieChart, Download, Calendar,
   ArrowUpRight, ArrowDownRight, FileText
@@ -46,38 +47,27 @@ interface OrderFinance {
 }
 
 export default function AdminFinancePage() {
-  const [orders, setOrders] = useState<OrderFinance[]>([]);
-  const [loading, setLoading] = useState(true);
   const [dateRange, setDateRange] = useState('30days');
-  const [platformFeePercent, setPlatformFeePercent] = useState(5);
-  const [courierFeePercent, setCourierFeePercent] = useState(80);
   const [customStart, setCustomStart] = useState<Date | undefined>(undefined);
   const [customEnd, setCustomEnd] = useState<Date | undefined>(undefined);
 
-  // Load fee settings from app_settings
-  useEffect(() => {
-    const loadFeeSettings = async () => {
-      try {
-        const { data } = await supabase
-          .from('app_settings')
-          .select('key, value')
-          .in('key', ['platform_fee', 'courier_commission']);
-        
-        data?.forEach(setting => {
-          const val = setting.value as Record<string, any>;
-          if (setting.key === 'platform_fee' && val?.percent != null) {
-            setPlatformFeePercent(val.percent);
-          }
-          if (setting.key === 'courier_commission' && val?.percent != null) {
-            setCourierFeePercent(val.percent);
-          }
-        });
-      } catch (e) {
-        console.error('Error loading fee settings:', e);
-      }
-    };
-    loadFeeSettings();
-  }, []);
+  // Query: fee settings
+  const { data: feeSettings } = useQuery({
+    queryKey: ['admin-fee-settings'],
+    queryFn: async () => {
+      const { data } = await supabase.from('app_settings').select('key, value').in('key', ['platform_fee', 'courier_commission']);
+      let platform = 5, courier = 80;
+      data?.forEach(s => {
+        const val = s.value as Record<string, any>;
+        if (s.key === 'platform_fee' && val?.percent != null) platform = val.percent;
+        if (s.key === 'courier_commission' && val?.percent != null) courier = val.percent;
+      });
+      return { platformFeePercent: platform, courierFeePercent: courier };
+    },
+    staleTime: 300_000,
+  });
+  const platformFeePercent = feeSettings?.platformFeePercent ?? 5;
+  const courierFeePercent = feeSettings?.courierFeePercent ?? 80;
 
   const getDateRange = () => {
     const now = new Date();
@@ -101,21 +91,18 @@ export default function AdminFinancePage() {
     }
   };
 
-  const loadData = async () => {
-    try {
-      setLoading(true);
+  const { data: orders = [], isLoading: loading } = useQuery<OrderFinance[]>({
+    queryKey: ['admin-finance-orders', dateRange, customStart?.toISOString(), customEnd?.toISOString()],
+    queryFn: async () => {
       const { start, end } = getDateRange();
-
       const { data, error } = await supabase
         .from('orders')
         .select('id, total, subtotal, shipping_cost, status, payment_status, payment_method, created_at, merchants(name)')
         .gte('created_at', start.toISOString())
         .lte('created_at', end.toISOString())
         .order('created_at', { ascending: false });
-
       if (error) throw error;
-
-      const mapped = (data || []).map(o => ({
+      return (data || []).map(o => ({
         id: o.id,
         total: o.total,
         subtotal: o.subtotal,
@@ -126,18 +113,9 @@ export default function AdminFinancePage() {
         created_at: o.created_at,
         merchant_name: (o.merchants as { name: string } | null)?.name || '-',
       }));
-
-      setOrders(mapped);
-    } catch (error) {
-      console.error('Error loading financial data:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    loadData();
-  }, [dateRange, customStart, customEnd]);
+    },
+    staleTime: 60_000,
+  });
 
   const financials = useMemo<FinancialData>(() => {
     const completed = orders.filter(o => o.status === 'DONE' || o.status === 'DELIVERED');

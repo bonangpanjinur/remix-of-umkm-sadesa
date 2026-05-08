@@ -151,6 +151,23 @@ router.post("/send", async (req, res) => {
   }
 });
 
+// POST /api/push/order-status — auto-trigger push ke pembeli saat status order berubah
+router.post("/order-status", async (req, res) => {
+  const { orderId, newStatus } = req.body as { orderId: string; newStatus: string };
+  if (!orderId || !newStatus) {
+    return res.status(400).json({ error: "orderId and newStatus are required" });
+  }
+  // Import lazy agar tidak gagal jika helper belum siap
+  try {
+    const { sendOrderStatusPush } = await import("../lib/pushHelper");
+    await sendOrderStatusPush(orderId, newStatus);
+    return res.json({ success: true });
+  } catch (err) {
+    console.error("[push/order-status] error:", err);
+    return res.status(500).json({ error: "Failed to send order status push" });
+  }
+});
+
 // POST /api/push/broadcast — send push notification to all users (admin use)
 router.post("/broadcast", async (req, res) => {
   const { title, body, url } = req.body as {

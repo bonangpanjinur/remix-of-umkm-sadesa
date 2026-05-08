@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { safeGoBack } from '@/lib/utils';
 import { Header } from '@/components/layout/Header';
@@ -45,50 +46,39 @@ const TABS: { id: NotifTab; label: string }[] = [
 export default function NotificationsPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<NotifTab>('all');
 
-  useEffect(() => {
-    if (!user) return;
-
-    const fetchNotifications = async () => {
+  const { data: notifications = [], isLoading: loading } = useQuery<Notification[]>({
+    queryKey: ['notifications', user?.id],
+    queryFn: async () => {
+      if (!user) return [];
       const { data } = await supabase
         .from('notifications')
         .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
         .limit(100);
+      return (data || []) as Notification[];
+    },
+    enabled: !!user,
+    staleTime: 30_000,
+  });
 
-      if (data) {
-        setNotifications(data);
-      }
-      setLoading(false);
-    };
-
-    fetchNotifications();
-
-    // Subscribe to realtime
+  // Realtime subscription untuk notifikasi baru
+  useEffect(() => {
+    if (!user) return;
     const channel = supabase
       .channel('all-notifications')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'notifications',
-          filter: `user_id=eq.${user.id}`,
-        },
-        () => {
-          fetchNotifications();
-        }
-      )
+      .on('postgres_changes', {
+        event: '*', schema: 'public', table: 'notifications',
+        filter: `user_id=eq.${user.id}`,
+      }, () => {
+        queryClient.invalidateQueries({ queryKey: ['notifications', user.id] });
+      })
       .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [user]);
+    return () => { supabase.removeChannel(channel); };
+  }, [user, queryClient]);
 
   const markAsRead = async (id: string) => {
     await supabase

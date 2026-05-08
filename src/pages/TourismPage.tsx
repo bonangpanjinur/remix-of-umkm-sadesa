@@ -1,4 +1,5 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import { MapPin, Search, SlidersHorizontal, ArrowUpDown, X } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
@@ -21,33 +22,25 @@ import type { Tourism, Village } from '@/types';
 type SortMode = 'nearest' | 'popular' | 'newest';
 
 export default function TourismPage() {
-  const [tourismSpots, setTourismSpots] = useState<Tourism[]>([]);
-  const [villages, setVillages] = useState<Village[]>([]);
-  const [loading, setLoading] = useState(true);
   const { location: userLocation } = useUserLocation();
-
   const [search, setSearch] = useState('');
   const [selectedVillage, setSelectedVillage] = useState<string>('all');
   const [selectedFacilities, setSelectedFacilities] = useState<string[]>([]);
   const [sortMode, setSortMode] = useState<SortMode>(userLocation ? 'nearest' : 'popular');
 
-  useEffect(() => {
-    async function loadData() {
-      try {
-        const [tourismData, villagesData] = await Promise.all([
-          fetchTourism(),
-          fetchVillages(),
-        ]);
-        setTourismSpots(tourismData);
-        setVillages(villagesData);
-      } catch (error) {
-        console.error('Error loading tourism:', error);
-      } finally {
-        setLoading(false);
-      }
-    }
-    loadData();
-  }, []);
+  const { data: tourismSpots = [], isLoading: tourismLoading } = useQuery<Tourism[]>({
+    queryKey: ['tourism-spots'],
+    queryFn: fetchTourism,
+    staleTime: 120_000,
+  });
+
+  const { data: villages = [], isLoading: villagesLoading } = useQuery<Village[]>({
+    queryKey: ['tourism-villages'],
+    queryFn: fetchVillages,
+    staleTime: 120_000,
+  });
+
+  const loading = tourismLoading || villagesLoading;
 
   // Extract all unique facilities
   const allFacilities = useMemo(() => {

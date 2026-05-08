@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { 
@@ -63,20 +64,58 @@ interface AssignedOrder {
 export default function CourierDashboardPage() {
   const navigate = useNavigate();
   const { user, signOut, loading: authLoading } = useAuth();
-  const [courier, setCourier] = useState<CourierData | null>(null);
-  const [courierStatus, setCourierStatus] = useState<{ registration_status: string; rejection_reason?: string | null } | null>(null);
-  const [orders, setOrders] = useState<AssignedOrder[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [fetchError, setFetchError] = useState(false);
+  const queryClient = useQueryClient();
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [podOrderId, setPodOrderId] = useState<string | null>(null);
-  const [rideRequestCount, setRideRequestCount] = useState(0);
 
-  useEffect(() => {
-    if (!authLoading && user) {
-      fetchCourierData();
-    }
-  }, [user, authLoading]);
+  // Query: profil kurir + status registrasi
+  const { data: courierQueryData, isLoading: courierLoading, isError: fetchError } = useQuery({
+    queryKey: ['courier-profile', user?.id],
+    queryFn: async () => {
+      if (!user) return null;
+      const { data, error } = await supabase
+        .from('couriers')
+        .select('id, name, phone, is_available, vehicle_type, current_lat, current_lng, registration_status, rejection_reason, available_balance')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user && !authLoading,
+    staleTime: 60_000,
+  });
+
+  const courier = (courierQueryData?.registration_status === 'APPROVED' ? courierQueryData : null) as CourierData | null;
+  const courierStatus = courierQueryData ? { registration_status: courierQueryData.registration_status, rejection_reason: (courierQueryData as any).rejection_reason } : null;
+  const loading = courierLoading;
+
+  // Query: ride request count + assigned orders (hanya jika approved)
+  const { data: rideRequestCount = 0 } = useQuery({
+    queryKey: ['courier-ride-count'],
+    queryFn: async () => {
+      const { count } = await supabase.from('ride_requests').select('*', { count: 'exact', head: true }).eq('status', 'SEARCHING');
+      return count || 0;
+    },
+    enabled: !!courier,
+    staleTime: 30_000,
+    refetchInterval: 30_000,
+  });
+
+  const { data: orders = [], isLoading: ordersLoading } = useQuery<AssignedOrder[]>({
+    queryKey: ['courier-assigned-orders', courier?.id],
+    queryFn: async () => {
+      if (!courier) return [];
+      const { data } = await supabase
+        .from('orders')
+        .select('*')
+        .eq('courier_id', courier.id)
+        .in('status', ['ASSIGNED', 'PICKED_UP', 'SENT', 'DELIVERING'])
+        .order('created_at', { ascending: false });
+      return (data || []) as AssignedOrder[];
+    },
+    enabled: !!courier,
+    staleTime: 30_000,
+  });
 
   // Real-time notification for new assigned orders
   useEffect(() => {
@@ -104,76 +143,12 @@ export default function CourierDashboardPage() {
             setTimeout(() => { osc.stop(); ctx.close(); }, 400);
           } catch {}
           toast({ title: '🚀 Pesanan Baru!', description: 'Anda mendapat tugas pengiriman baru' });
-          fetchCourierData();
+          queryClient.invalidateQueries({ queryKey: ['courier-assigned-orders', courier.id] });
         }
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [courier?.id]);
-
-  const fetchCourierData = async () => {
-    if (!user) return;
-    setFetchError(false);
-
-    try {
-      // Fetch courier profile
-      const { data: courierData, error: courierError } = await supabase
-        .from('couriers')
-        .select('id, name, phone, is_available, vehicle_type, current_lat, current_lng, registration_status, rejection_reason, available_balance')
-        .eq('user_id', user.id)
-        .maybeSingle();
-
-      if (courierError) throw courierError;
-
-      if (!courierData) {
-        setCourierStatus(null);
-        setLoading(false);
-        return;
-      }
-
-      // Always store status for UI rendering
-      setCourierStatus({ 
-        registration_status: courierData.registration_status,
-        rejection_reason: (courierData as any).rejection_reason 
-      });
-
-      if (courierData.registration_status !== 'APPROVED') {
-        setLoading(false);
-        return;
-      }
-
-      setCourier(courierData);
-
-      // Fetch ride count & orders separately - don't let failures break the dashboard
-      try {
-        const { count: rideCount } = await supabase
-          .from('ride_requests')
-          .select('*', { count: 'exact', head: true })
-          .eq('status', 'SEARCHING');
-        setRideRequestCount(rideCount || 0);
-      } catch { /* ignore ride count errors */ }
-
-      try {
-        const { data: ordersData } = await supabase
-          .from('orders')
-          .select('*')
-          .eq('courier_id', courierData.id)
-          .in('status', ['ASSIGNED', 'PICKED_UP', 'SENT', 'DELIVERING'])
-          .order('created_at', { ascending: false });
-        setOrders(ordersData || []);
-      } catch { /* ignore orders fetch errors */ }
-    } catch (error) {
-      console.error('Error fetching courier data:', error);
-      setFetchError(true);
-      toast({
-        title: 'Gagal memuat data',
-        description: 'Terjadi kesalahan saat mengambil data kurir. Coba lagi.',
-        variant: 'destructive',
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const toggleAvailability = async (checked: boolean) => {
     if (!courier) return;
@@ -187,7 +162,7 @@ export default function CourierDashboardPage() {
 
       if (error) throw error;
 
-      setCourier({ ...courier, is_available: checked });
+      queryClient.setQueryData(['courier-profile', user?.id], { ...courierQueryData, is_available: checked });
       toast({
         title: checked ? 'Anda sekarang online' : 'Anda sekarang offline',
       });
@@ -219,14 +194,8 @@ export default function CourierDashboardPage() {
 
       if (error) throw error;
 
-      // Update local state
-      if (newStatus === 'DELIVERED') {
-        setOrders(orders.filter(o => o.id !== orderId));
-      } else {
-        setOrders(orders.map(o => 
-          o.id === orderId ? { ...o, status: newStatus } : o
-        ));
-      }
+      // Refresh orders dari query cache
+      queryClient.invalidateQueries({ queryKey: ['courier-assigned-orders', courier?.id] });
 
       toast({ title: 'Status pesanan diperbarui' });
     } catch (error) {

@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Bike, Check, X, MoreHorizontal, Edit, Trash2, RefreshCw, UserCheck } from 'lucide-react';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { DataTable } from '@/components/admin/DataTable';
@@ -43,65 +44,45 @@ interface CourierRow {
 }
 
 export default function AdminCouriersPage() {
-  const [couriers, setCouriers] = useState<CourierRow[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [selectedCourier, setSelectedCourier] = useState<CourierRow | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
 
-  const fetchCouriers = async () => {
-    setLoading(true);
-    try {
-      const { data, error } = await supabase
-        .from('couriers')
-        .select(`
-          id, name, phone, email, city, district, subdistrict, province, address,
-          ktp_number, vehicle_type, vehicle_plate, registration_status, 
-          status, is_available, registered_at, last_location_update, village_id, user_id,
-          villages(name)
-        `)
-        .order('registered_at', { ascending: false });
-
-      if (error) throw error;
-      
-      // Enrich with profile info for linked users
-      const rawCouriers = data || [];
-      const userIds = rawCouriers.filter(c => c.user_id).map(c => c.user_id!);
-      
-      let profileMap = new Map<string, { full_name: string | null; phone: string | null }>();
-      if (userIds.length > 0) {
-        const { data: profiles } = await supabase
-          .from('profiles')
-          .select('user_id, full_name, phone')
-          .in('user_id', userIds);
-        
-        for (const p of (profiles || [])) {
-          profileMap.set(p.user_id, { full_name: p.full_name, phone: p.phone });
-        }
-      }
-
-      const enriched: CourierRow[] = rawCouriers.map(c => ({
-        ...c,
-        owner_name: c.user_id ? (profileMap.get(c.user_id)?.full_name || null) : null,
-        owner_phone: c.user_id ? (profileMap.get(c.user_id)?.phone || null) : null,
-      }));
-      
-      setCouriers(enriched);
-    } catch (error: any) {
-      console.error('Error fetching couriers:', error);
-      toast.error('Gagal memuat data kurir: ' + (error.message || 'Terjadi kesalahan'));
-    } finally {
-      setLoading(false);
+  const fetchCouriersData = async (): Promise<CourierRow[]> => {
+    const { data, error } = await supabase
+      .from('couriers')
+      .select(`id, name, phone, email, city, district, subdistrict, province, address,
+        ktp_number, vehicle_type, vehicle_plate, registration_status,
+        status, is_available, registered_at, last_location_update, village_id, user_id,
+        villages(name)`)
+      .order('registered_at', { ascending: false });
+    if (error) throw error;
+    const rawCouriers = data || [];
+    const userIds = rawCouriers.filter(c => c.user_id).map(c => c.user_id!);
+    const profileMap = new Map<string, { full_name: string | null; phone: string | null }>();
+    if (userIds.length > 0) {
+      const { data: profiles } = await supabase.from('profiles').select('user_id, full_name, phone').in('user_id', userIds);
+      for (const p of (profiles || [])) profileMap.set(p.user_id, { full_name: p.full_name, phone: p.phone });
     }
+    return rawCouriers.map(c => ({
+      ...c,
+      owner_name: c.user_id ? (profileMap.get(c.user_id)?.full_name || null) : null,
+      owner_phone: c.user_id ? (profileMap.get(c.user_id)?.phone || null) : null,
+    }));
   };
 
-  useEffect(() => {
-    fetchCouriers();
-  }, []);
+  const { data: couriers = [], isLoading: loading } = useQuery<CourierRow[]>({
+    queryKey: ['admin-couriers-list'],
+    queryFn: fetchCouriersData,
+    staleTime: 30_000,
+  });
+
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['admin-couriers-list'] });
 
   const handleApprove = async (id: string) => {
     try {
       const success = await approveCourier(id);
-      if (success) { toast.success('Kurir berhasil disetujui'); fetchCouriers(); }
+      if (success) { toast.success('Kurir berhasil disetujui'); invalidate(); }
       else toast.error('Gagal menyetujui kurir');
     } catch { toast.error('Terjadi kesalahan saat menyetujui kurir'); }
   };
@@ -112,7 +93,7 @@ export default function AdminCouriersPage() {
     if (!reason.trim()) { toast.error('Alasan penolakan wajib diisi'); return; }
     try {
       const success = await rejectCourier(id, reason);
-      if (success) { toast.success('Kurir ditolak'); fetchCouriers(); }
+      if (success) { toast.success('Kurir ditolak'); invalidate(); }
       else toast.error('Gagal menolak kurir');
     } catch { toast.error('Terjadi kesalahan saat menolak kurir'); }
   };
@@ -139,7 +120,7 @@ export default function AdminCouriersPage() {
         if (error) throw error;
         toast.success('Kurir berhasil dihapus');
       }
-      fetchCouriers();
+      invalidate();
     } catch (error: any) {
       toast.error('Gagal menghapus kurir: ' + (error.message || 'Terjadi kesalahan'));
     }

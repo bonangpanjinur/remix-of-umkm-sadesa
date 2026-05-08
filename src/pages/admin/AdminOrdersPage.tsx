@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { 
   Receipt, 
   Eye, 
@@ -60,48 +61,36 @@ interface OrderRow {
 }
 
 export default function AdminOrdersPage() {
-  const [orders, setOrders] = useState<OrderRow[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [selectedOrder, setSelectedOrder] = useState<OrderRow | null>(null);
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
   const [courierAssignDialogOpen, setCourierAssignDialogOpen] = useState(false);
 
-  const fetchOrders = async () => {
-    try {
+  const { data: orders = [], isLoading: loading } = useQuery<OrderRow[]>({
+    queryKey: ['admin-orders-list'],
+    queryFn: async () => {
       const { data, error } = await supabase
         .from('orders')
         .select('*, merchants(name, location_lat, location_lng)')
         .order('created_at', { ascending: false });
-
       if (error) throw error;
-      setOrders(data || []);
-    } catch (error) {
-      console.error('Error:', error);
-      toast.error('Gagal memuat pesanan');
-    } finally {
-      setLoading(false);
-    }
-  };
+      return data || [];
+    },
+    staleTime: 30_000,
+  });
 
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['admin-orders-list'] });
+
+  // Realtime subscription — invalidate query saat ada perubahan order
   useEffect(() => {
-    fetchOrders();
-
-    // Real-time subscription
     const channel = supabase
       .channel('admin-orders-changes')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'orders' },
-        () => {
-          fetchOrders();
-        }
-      )
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => {
+        invalidate();
+      })
       .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    return () => { supabase.removeChannel(channel); };
   }, []);
 
   const viewOrderDetail = async (order: OrderRow) => {

@@ -143,10 +143,17 @@ export function useRealtimeOrders({
 
       if (error) throw error;
       
-      // Optimistic update
+      // Optimistic update local state
       setOrders(orders.map(o => 
         o.id === orderId ? { ...o, status: newStatus } : o
       ));
+
+      // Kirim push notification ke pembeli secara background (fire-and-forget)
+      fetch('/api/push/order-status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderId, newStatus }),
+      }).catch(() => { /* push gagal tidak memblokir UX */ });
       
       toast.success('Status pesanan diperbarui');
       return true;

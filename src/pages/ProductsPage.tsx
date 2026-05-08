@@ -1,4 +1,5 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { MapPin, ArrowUpDown } from 'lucide-react';
@@ -39,24 +40,14 @@ export default function ProductsPage() {
   const categoryParam = searchParams.get('category') || 'all';
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState(categoryParam);
-  const [products, setProducts] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(true);
   const [sortMode, setSortMode] = useState<SortMode>('nearest');
   const { location: userLocation } = useUserLocation();
 
-  useEffect(() => {
-    async function loadData() {
-      try {
-        const data = await fetchProducts();
-        setProducts(data);
-      } catch (error) {
-        console.error('Error loading products:', error);
-      } finally {
-        setLoading(false);
-      }
-    }
-    loadData();
-  }, []);
+  const { data: products = [], isLoading: loading } = useQuery<Product[]>({
+    queryKey: ['all-products'],
+    queryFn: fetchProducts,
+    staleTime: 120_000,
+  });
 
   const filteredAndSortedProducts = useMemo(() => {
     let result = products.filter(product => {

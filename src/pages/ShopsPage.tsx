@@ -1,4 +1,5 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { useSearchParams, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Search as SearchIcon, Store as StoreIcon, Star as StarIcon, MapPin as MapPinIcon, ChevronRight as ChevronRightIcon } from 'lucide-react';
@@ -35,8 +36,6 @@ interface ShopData {
 export default function ShopsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState(searchParams.get('q') || '');
-  const [shops, setShops] = useState<ShopData[]>([]);
-  const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState<ShopFilters>({
     minRating: 0,
     villages: [],
@@ -45,74 +44,45 @@ export default function ShopsPage() {
   });
   const { location: userLocation } = useUserLocation();
 
-  useEffect(() => {
-    async function fetchShops() {
-      try {
-        // Fetch shops
-        // Fetch merchants with their products and location
-        // Note: villages table has location_lat and location_lng (not lat/lng)
-        const { data: merchantsData, error } = await supabase
-          .from('merchants')
-          .select(`
-            id, name, address, phone, rating_avg, rating_count, is_open, badge, image_url,
-            village_id, location_lat, location_lng, slug, business_category,
-            villages(name, location_lat, location_lng),
-            products(id, category)
-          `)
-          .eq('status', 'ACTIVE')
-          .eq('registration_status', 'APPROVED');
+  const { data: shops = [], isLoading: loading } = useQuery<ShopData[]>({
+    queryKey: ['shops-list'],
+    queryFn: async () => {
+      const { data: merchantsData, error } = await supabase
+        .from('merchants')
+        .select(`
+          id, name, address, phone, rating_avg, rating_count, is_open, badge, image_url,
+          village_id, location_lat, location_lng, slug, business_category,
+          villages(name, location_lat, location_lng),
+          products(id, category)
+        `)
+        .eq('status', 'ACTIVE')
+        .eq('registration_status', 'APPROVED');
 
-        
-        if (error) {
-          console.error('Supabase error fetching shops:', error);
-          throw error;
-        }
+      if (error) throw error;
 
-        const mappedShops: ShopData[] = (merchantsData || []).map((m) => {
-          const products = m.products || [];
-          const categories = [...new Set(products.map((p: any) => p.category))];
-          const village = m.villages as any;
-          
-          // Get location - prefer merchant, fallback to village
-          const locationLat = m.location_lat 
-            ? Number(m.location_lat) 
-            : (village?.location_lat ? Number(village.location_lat) : null);
-          const locationLng = m.location_lng 
-            ? Number(m.location_lng) 
-            : (village?.location_lng ? Number(village.location_lng) : null);
-          
-          return {
-            id: m.id,
-            name: m.name,
-            address: m.address,
-            phone: m.phone,
-            ratingAvg: Number(m.rating_avg) || 0,
-            ratingCount: m.rating_count || 0,
-            isOpen: m.is_open,
-            badge: m.badge,
-            imageUrl: m.image_url,
-            villageId: m.village_id,
-            villageName: village?.name || null,
-            productCount: products.length,
-            categories,
-            locationLat,
-            locationLng,
-            slug: m.slug || null,
-            businessCategory: m.business_category || null,
-          };
-        });
-
-        
-        setShops(mappedShops);
-      } catch (error) {
-        console.error('Error fetching shops:', error);
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    fetchShops();
-  }, []);
+      return (merchantsData || []).map((m) => {
+        const prods = m.products || [];
+        const cats = [...new Set(prods.map((p: any) => p.category))];
+        const village = m.villages as any;
+        const locationLat = m.location_lat
+          ? Number(m.location_lat)
+          : (village?.location_lat ? Number(village.location_lat) : null);
+        const locationLng = m.location_lng
+          ? Number(m.location_lng)
+          : (village?.location_lng ? Number(village.location_lng) : null);
+        return {
+          id: m.id, name: m.name, address: m.address, phone: m.phone,
+          ratingAvg: Number(m.rating_avg) || 0, ratingCount: m.rating_count || 0,
+          isOpen: m.is_open, badge: m.badge, imageUrl: m.image_url,
+          villageId: m.village_id, villageName: village?.name || null,
+          productCount: prods.length, categories: cats,
+          locationLat, locationLng, slug: m.slug || null,
+          businessCategory: m.business_category || null,
+        };
+      });
+    },
+    staleTime: 120_000,
+  });
 
   const handleSearchChange = (value: string) => {
     setSearchQuery(value);

@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { 
   Package, Receipt, TrendingUp, DollarSign, AlertCircle, Settings,
-  BarChart3, Star, Wallet, Percent, CreditCard, QrCode, CheckCircle, XCircle, Bell, Eye
+  BarChart3, Star, Wallet, Percent, CreditCard, QrCode, CheckCircle, XCircle, Bell, Eye, Clock
 } from 'lucide-react';
 import { MerchantLayout } from '@/components/merchant/MerchantLayout';
 import { StatsCard } from '@/components/admin/StatsCard';
@@ -18,6 +18,7 @@ import { MerchantGroupCard } from '@/components/merchant/MerchantGroupCard';
 import { MerchantKasCard } from '@/components/merchant/MerchantKasCard';
 import { DailySummaryCard } from '@/components/merchant/DailySummaryCard';
 import { StoreQRCode } from '@/components/merchant/StoreQRCode';
+import { MerchantOperatingHoursCard } from '@/components/merchant/MerchantOperatingHoursCard';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
@@ -415,7 +416,10 @@ export default function MerchantDashboardPage() {
           </div>
         </TabsContent>
 
-        <TabsContent value="more" className="mt-0">
+        <TabsContent value="more" className="mt-0 space-y-4">
+          {/* Jam Operasional — P3-04 */}
+          <MerchantOperatingHoursCard merchantId={merchant.id} />
+
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
             <Button 
               variant="outline" 

@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { Store, Eye, Check, X, MoreHorizontal, Plus, Trash2, User } from 'lucide-react';
 import { AdminLayout } from '@/components/admin/AdminLayout';
@@ -36,61 +37,40 @@ interface MerchantRow {
 
 export default function AdminMerchantsPage() {
   const navigate = useNavigate();
-  const [merchants, setMerchants] = useState<MerchantRow[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [addDialogOpen, setAddDialogOpen] = useState(false);
 
-  const fetchMerchants = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('merchants')
-        .select('id, name, phone, city, district, business_category, registration_status, status, registered_at, user_id, villages(name)')
-        .order('registered_at', { ascending: false });
-
-      if (error) throw error;
-
-      // Fetch linked user profiles for merchants that have user_id
-      const userIds = (data || []).map(m => m.user_id).filter(Boolean) as string[];
-      let profilesMap: Record<string, { full_name: string | null; phone: string | null }> = {};
-
-      if (userIds.length > 0) {
-        const { data: profiles } = await supabase
-          .from('profiles')
-          .select('user_id, full_name, phone')
-          .in('user_id', userIds);
-
-        if (profiles) {
-          profilesMap = Object.fromEntries(
-            profiles.map(p => [p.user_id, { full_name: p.full_name, phone: p.phone }])
-          );
-        }
-      }
-
-      setMerchants((data || []).map(m => ({
-        ...m,
-        ownerName: m.user_id ? profilesMap[m.user_id]?.full_name || null : null,
-        ownerPhone: m.user_id ? profilesMap[m.user_id]?.phone || null : null,
-      })));
-    } catch (error) {
-      console.error('Error fetching merchants:', error);
-      toast.error('Gagal memuat data merchant');
-    } finally {
-      setLoading(false);
+  const fetchMerchantsData = async (): Promise<MerchantRow[]> => {
+    const { data, error } = await supabase
+      .from('merchants')
+      .select('id, name, phone, city, district, business_category, registration_status, status, registered_at, user_id, villages(name)')
+      .order('registered_at', { ascending: false });
+    if (error) throw error;
+    const userIds = (data || []).map(m => m.user_id).filter(Boolean) as string[];
+    let profilesMap: Record<string, { full_name: string | null; phone: string | null }> = {};
+    if (userIds.length > 0) {
+      const { data: profiles } = await supabase.from('profiles').select('user_id, full_name, phone').in('user_id', userIds);
+      if (profiles) profilesMap = Object.fromEntries(profiles.map(p => [p.user_id, { full_name: p.full_name, phone: p.phone }]));
     }
+    return (data || []).map(m => ({
+      ...m,
+      ownerName: m.user_id ? profilesMap[m.user_id]?.full_name || null : null,
+      ownerPhone: m.user_id ? profilesMap[m.user_id]?.phone || null : null,
+    }));
   };
 
-  useEffect(() => {
-    fetchMerchants();
-  }, []);
+  const { data: merchants = [], isLoading: loading } = useQuery<MerchantRow[]>({
+    queryKey: ['admin-merchants-list'],
+    queryFn: fetchMerchantsData,
+    staleTime: 30_000,
+  });
+
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['admin-merchants-list'] });
 
   const handleApprove = async (id: string) => {
     const success = await approveMerchant(id);
-    if (success) {
-      toast.success('Merchant berhasil disetujui');
-      fetchMerchants();
-    } else {
-      toast.error('Gagal menyetujui merchant');
-    }
+    if (success) { toast.success('Merchant berhasil disetujui'); invalidate(); }
+    else toast.error('Gagal menyetujui merchant');
   };
 
   const handleReject = async (id: string) => {
@@ -98,24 +78,15 @@ export default function AdminMerchantsPage() {
     if (!reason) return;
     
     const success = await rejectMerchant(id, reason);
-    if (success) {
-      toast.success('Merchant ditolak');
-      fetchMerchants();
-    } else {
-      toast.error('Gagal menolak merchant');
-    }
+    if (success) { toast.success('Merchant ditolak'); invalidate(); }
+    else toast.error('Gagal menolak merchant');
   };
 
   const handleDelete = async (id: string) => {
     if (!confirm('Apakah Anda yakin ingin menghapus merchant ini? Semua data terkait akan ikut terhapus.')) return;
-    
     const success = await deleteMerchant(id);
-    if (success) {
-      toast.success('Merchant berhasil dihapus');
-      fetchMerchants();
-    } else {
-      toast.error('Gagal menghapus merchant');
-    }
+    if (success) { toast.success('Merchant berhasil dihapus'); invalidate(); }
+    else toast.error('Gagal menghapus merchant');
   };
 
   const getStatusBadge = (status: string, regStatus: string) => {

@@ -1,4 +1,5 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { useSearchParams, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Search } from 'lucide-react';
@@ -21,11 +22,6 @@ export default function SearchResultsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const initialQuery = searchParams.get('q') || '';
   
-  const [villages, setVillages] = useState<Village[]>([]);
-  const [tourismSpots, setTourismSpots] = useState<Tourism[]>([]);
-  const [products, setProducts] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(true);
-  
   const [searchQuery, setSearchQuery] = useState(initialQuery);
   const [activeCategory, setActiveCategory] = useState<ExploreCategory>('all');
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
@@ -37,52 +33,45 @@ export default function SearchResultsPage() {
     minRating: null,
   });
 
-  useEffect(() => {
-    async function loadData() {
-      if (!initialQuery || initialQuery.length < 2) {
-        setLoading(false);
-        return;
-      }
-      try {
-        const searchTerm = `%${initialQuery}%`;
-        const [productsRes, villagesRes, tourismRes] = await Promise.all([
-          supabase.from('products').select('id, name, description, price, image_url, stock, category, is_active, is_promo, original_price, merchant_id, merchants(name, village_id, villages(name), location_lat, location_lng, is_open, halal_status)').ilike('name', searchTerm).eq('is_active', true).limit(50),
-          supabase.from('villages').select('id, name, district, regency, description, image_url, is_active').ilike('name', searchTerm).eq('is_active', true).limit(20),
-          supabase.from('tourism').select('id, name, description, image_url, village_id, villages(name), location_lat, location_lng, wa_link, facilities, is_active, view_count').ilike('name', searchTerm).eq('is_active', true).limit(20),
-        ]);
-        
-        // Map to app types
-        const mappedProducts: Product[] = (productsRes.data || []).map((p: any) => ({
-          id: p.id, name: p.name, description: p.description || '', price: p.price, image: p.image_url || '/placeholder.svg',
-          stock: p.stock || 0, category: p.category || '', isActive: p.is_active, isPromo: p.is_promo,
-          originalPrice: p.original_price, merchantId: p.merchant_id, merchantName: p.merchants?.name || '',
-          merchantVillage: p.merchants?.villages?.name || '',
-          locationLat: p.merchants?.location_lat, locationLng: p.merchants?.location_lng,
-          isMerchantOpen: p.merchants?.is_open, isAvailable: p.is_active && p.stock > 0,
-          halal_status: p.merchants?.halal_status,
-        }));
-        const mappedVillages: Village[] = (villagesRes.data || []).map((v: any) => ({
-          id: v.id, name: v.name, district: v.district || '', regency: v.regency || '',
-          description: v.description || '', image: v.image_url || '/placeholder.svg', isActive: v.is_active,
-        }));
-        const mappedTourism: Tourism[] = (tourismRes.data || []).map((t: any) => ({
-          id: t.id, name: t.name, description: t.description || '', image: t.image_url || '/placeholder.svg',
-          villageId: t.village_id || '', villageName: t.villages?.name || '',
-          locationLat: t.location_lat || 0, locationLng: t.location_lng || 0,
-          waLink: t.wa_link || '', facilities: t.facilities || [], isActive: t.is_active,
-          viewCount: t.view_count,
-        }));
-        setProducts(mappedProducts);
-        setVillages(mappedVillages);
-        setTourismSpots(mappedTourism);
-      } catch (error) {
-        console.error('Error loading data:', error);
-      } finally {
-        setLoading(false);
-      }
-    }
-    loadData();
-  }, [initialQuery]);
+  const { data: searchResults, isLoading: loading } = useQuery({
+    queryKey: ['search-results', initialQuery],
+    queryFn: async () => {
+      if (!initialQuery || initialQuery.length < 2) return { products: [], villages: [], tourismSpots: [] };
+      const searchTerm = `%${initialQuery}%`;
+      const [productsRes, villagesRes, tourismRes] = await Promise.all([
+        supabase.from('products').select('id, name, description, price, image_url, stock, category, is_active, is_promo, original_price, merchant_id, merchants(name, village_id, villages(name), location_lat, location_lng, is_open, halal_status)').ilike('name', searchTerm).eq('is_active', true).limit(50),
+        supabase.from('villages').select('id, name, district, regency, description, image_url, is_active').ilike('name', searchTerm).eq('is_active', true).limit(20),
+        supabase.from('tourism').select('id, name, description, image_url, village_id, villages(name), location_lat, location_lng, wa_link, facilities, is_active, view_count').ilike('name', searchTerm).eq('is_active', true).limit(20),
+      ]);
+      const products: Product[] = (productsRes.data || []).map((p: any) => ({
+        id: p.id, name: p.name, description: p.description || '', price: p.price, image: p.image_url || '/placeholder.svg',
+        stock: p.stock || 0, category: p.category || '', isActive: p.is_active, isPromo: p.is_promo,
+        originalPrice: p.original_price, merchantId: p.merchant_id, merchantName: p.merchants?.name || '',
+        merchantVillage: p.merchants?.villages?.name || '',
+        locationLat: p.merchants?.location_lat, locationLng: p.merchants?.location_lng,
+        isMerchantOpen: p.merchants?.is_open, isAvailable: p.is_active && p.stock > 0,
+        halal_status: p.merchants?.halal_status,
+      }));
+      const villages: Village[] = (villagesRes.data || []).map((v: any) => ({
+        id: v.id, name: v.name, district: v.district || '', regency: v.regency || '',
+        description: v.description || '', image: v.image_url || '/placeholder.svg', isActive: v.is_active,
+      }));
+      const tourismSpots: Tourism[] = (tourismRes.data || []).map((t: any) => ({
+        id: t.id, name: t.name, description: t.description || '', image: t.image_url || '/placeholder.svg',
+        villageId: t.village_id || '', villageName: t.villages?.name || '',
+        locationLat: t.location_lat || 0, locationLng: t.location_lng || 0,
+        waLink: t.wa_link || '', facilities: t.facilities || [], isActive: t.is_active,
+        viewCount: t.view_count,
+      }));
+      return { products, villages, tourismSpots };
+    },
+    staleTime: 60_000,
+    enabled: !!initialQuery && initialQuery.length >= 2,
+  });
+
+  const products = searchResults?.products ?? [];
+  const villages = searchResults?.villages ?? [];
+  const tourismSpots = searchResults?.tourismSpots ?? [];
 
   // Update URL when search changes
   useEffect(() => {
