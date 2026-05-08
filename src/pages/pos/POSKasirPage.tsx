@@ -1,24 +1,22 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { usePOS } from '@/contexts/POSContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import {
   Search, Plus, Minus, Trash2, ShoppingCart, User, Banknote, QrCode,
-  CreditCard, SplitSquareVertical, Printer, PauseCircle, PlayCircle,
+  CreditCard, Printer, PauseCircle, PlayCircle, Barcode,
   X, CheckCircle2, Package, ChevronLeft, Tag, Receipt
 } from 'lucide-react';
 import { POSSidebar } from '@/components/pos/POSSidebar';
+import { BarcodeScanner } from '@/components/pos/BarcodeScanner';
 import { cn } from '@/lib/utils';
 
 interface Product {
@@ -93,6 +91,7 @@ export default function POSKasirPage() {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [customerDialog, setCustomerDialog] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [scannerOpen, setScannerOpen] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -102,6 +101,19 @@ export default function POSKasirPage() {
       fetchHeldBills();
     }
   }, [tenant, activeOutlet]);
+
+  // Keyboard shortcuts: F2=bayar, F3=tahan, F8=fokus cari, Escape=bersihkan cari
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      if (e.key === 'F2') { e.preventDefault(); openPayment(); }
+      if (e.key === 'F3') { e.preventDefault(); holdBill(); }
+      if (e.key === 'F8') { e.preventDefault(); searchRef.current?.focus(); }
+      if (e.key === 'Escape') { setSearch(''); searchRef.current?.blur(); }
+    };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [cart, discount, notes, selectedCustomer, customerName, paymentMethod, paymentAmount]);
 
   const fetchProducts = async () => {
     if (!tenant || !activeOutlet) return;
@@ -243,11 +255,18 @@ export default function POSKasirPage() {
 
       // Update customer stats
       if (selectedCustomer) {
-        await supabase.from('pos_customers' as any).update({
-          total_purchase: supabase.rpc as any,
-          transaction_count: supabase.rpc as any,
-          last_purchase_at: new Date().toISOString(),
-        }).eq('id', selectedCustomer.id);
+        const { data: cust } = await supabase
+          .from('pos_customers' as any)
+          .select('total_purchase, transaction_count')
+          .eq('id', selectedCustomer.id)
+          .single();
+        if (cust) {
+          await supabase.from('pos_customers' as any).update({
+            total_purchase: ((cust as any).total_purchase || 0) + total,
+            transaction_count: ((cust as any).transaction_count || 0) + 1,
+            last_purchase_at: new Date().toISOString(),
+          }).eq('id', selectedCustomer.id);
+        }
       }
 
       setLastSale({ saleNumber, total, change, paymentMethod, customerName: selectedCustomer?.name || customerName || 'Umum', items: [...cart] });
@@ -296,6 +315,18 @@ export default function POSKasirPage() {
 
   const printReceipt = () => window.print();
 
+  const onBarcodeDetect = useCallback((barcode: string) => {
+    const match = products.find(p => p.barcode === barcode || p.sku === barcode);
+    if (match) {
+      addToCart(match);
+      toast.success(`✓ ${match.name} ditambahkan`);
+    } else {
+      setSearch(barcode);
+      setScannerOpen(false);
+      toast.info(`Barcode "${barcode}" — pilih produk secara manual`);
+    }
+  }, [products]);
+
   if (!tenant) {
     return (
       <div className="flex items-center justify-center h-screen">
@@ -324,10 +355,26 @@ export default function POSKasirPage() {
               </Button>
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input ref={searchRef} className="pl-9 h-9" placeholder="Cari produk / scan barcode..." value={search} onChange={e => setSearch(e.target.value)} autoFocus />
+                <Input
+                  ref={searchRef}
+                  className="pl-9 pr-9 h-9"
+                  placeholder="Cari produk / scan barcode... (F8)"
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  autoFocus
+                />
               </div>
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-9 w-9 flex-shrink-0"
+                onClick={() => setScannerOpen(true)}
+                title="Scan Barcode Kamera"
+              >
+                <Barcode className="h-4 w-4 text-emerald-600" />
+              </Button>
               {heldBills.length > 0 && (
-                <Button variant="outline" size="sm" className="h-9 gap-1.5" onClick={() => setHeldBillsDialog(true)}>
+                <Button variant="outline" size="sm" className="h-9 gap-1.5 flex-shrink-0" onClick={() => setHeldBillsDialog(true)}>
                   <PauseCircle className="h-4 w-4 text-amber-500" />
                   <span className="text-xs">{heldBills.length}</span>
                 </Button>
@@ -476,11 +523,11 @@ export default function POSKasirPage() {
             </div>
 
             <div className="flex gap-2">
-              <Button variant="outline" className="flex-1 h-9 text-sm" onClick={holdBill} disabled={cart.length === 0}>
-                <PauseCircle className="h-4 w-4 mr-1.5" />Tahan
+              <Button variant="outline" className="flex-1 h-9 text-sm" onClick={holdBill} disabled={cart.length === 0} title="Tahan transaksi (F3)">
+                <PauseCircle className="h-4 w-4 mr-1.5" />Tahan <span className="ml-1 text-[10px] text-muted-foreground hidden sm:inline">F3</span>
               </Button>
-              <Button className="flex-1 h-9 text-sm bg-emerald-600 hover:bg-emerald-700" onClick={openPayment} disabled={cart.length === 0}>
-                <Receipt className="h-4 w-4 mr-1.5" />Bayar
+              <Button className="flex-1 h-9 text-sm bg-emerald-600 hover:bg-emerald-700" onClick={openPayment} disabled={cart.length === 0} title="Proses pembayaran (F2)">
+                <Receipt className="h-4 w-4 mr-1.5" />Bayar <span className="ml-1 text-[10px] text-emerald-200 hidden sm:inline">F2</span>
               </Button>
             </div>
 
@@ -640,6 +687,13 @@ export default function POSKasirPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Barcode Scanner Dialog */}
+      <BarcodeScanner
+        open={scannerOpen}
+        onClose={() => setScannerOpen(false)}
+        onDetect={onBarcodeDetect}
+      />
     </div>
   );
 }

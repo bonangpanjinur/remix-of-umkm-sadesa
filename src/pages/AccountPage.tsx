@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { 
   User, Settings, HelpCircle, LogIn, LogOut, Store, ChevronRight, Edit, Heart, 
   Bell, LayoutDashboard, Shield, CheckCircle, Bike, Building2, MapPin, Star, Clock,
-  MessageCircle, Package
+  MessageCircle, Package, ShoppingBag
 } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
 import { BottomNav } from '@/components/layout/BottomNav';
@@ -118,6 +118,14 @@ export default function AccountPage() {
         color: 'bg-warning/10 text-warning border-warning/20',
       });
     }
+
+    // POS access for all logged-in users
+    buttons.push({
+      label: 'Kasir POS',
+      path: '/pos',
+      icon: <ShoppingBag className="h-5 w-5" />,
+      color: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+    });
 
     if (isCourier) {
       buttons.push({
