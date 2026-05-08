@@ -1,12 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { 
-  LayoutDashboard, 
-  Store, 
-  ChevronLeft,
-  ClipboardCheck,
-  Wallet,
-  BarChart3
+  LayoutDashboard, Store, ChevronLeft, ClipboardCheck,
+  Wallet, BarChart3, TrendingUp, Calendar
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
@@ -27,8 +23,6 @@ export function VerifikatorSidebar() {
   useEffect(() => {
     const fetchPending = async () => {
       if (!user) return;
-      
-      // Get code created by this verifikator
       const { data: codes } = await supabase
         .from('verifikator_codes')
         .select('code')
@@ -36,13 +30,11 @@ export function VerifikatorSidebar() {
         .limit(1);
 
       if (codes && codes.length > 0) {
-        // Count pending merchants using this code
         const { count } = await supabase
           .from('merchants')
           .select('*', { count: 'exact', head: true })
           .eq('verifikator_code', codes[0].code)
           .eq('registration_status', 'PENDING');
-        
         setPendingMerchants(count || 0);
       }
     };
@@ -50,10 +42,12 @@ export function VerifikatorSidebar() {
   }, [user]);
 
   const menuItems: SidebarItem[] = [
-    { label: 'Dashboard', href: '/verifikator', icon: <LayoutDashboard className="h-4 w-4" /> },
-    { label: 'Merchant', href: '/verifikator/merchants', icon: <Store className="h-4 w-4" />, badge: pendingMerchants },
-    { label: 'Laporan Kas', href: '/verifikator/kas-report', icon: <BarChart3 className="h-4 w-4" /> },
-    { label: 'Pendapatan', href: '/verifikator/earnings', icon: <Wallet className="h-4 w-4" /> },
+    { label: 'Dashboard',       href: '/verifikator',               icon: <LayoutDashboard className="h-4 w-4" /> },
+    { label: 'Merchant',        href: '/verifikator/merchants',     icon: <Store className="h-4 w-4" />, badge: pendingMerchants },
+    { label: 'Laporan Kas',     href: '/verifikator/kas-report',    icon: <BarChart3 className="h-4 w-4" /> },
+    { label: 'Pendapatan',      href: '/verifikator/earnings',      icon: <Wallet className="h-4 w-4" /> },
+    { label: 'Laporan Ekonomi', href: '/verifikator/ekonomi',       icon: <TrendingUp className="h-4 w-4" /> },
+    { label: 'Event Desa',      href: '/verifikator/event-desa',    icon: <Calendar className="h-4 w-4" /> },
   ];
 
   return (
@@ -68,15 +62,14 @@ export function VerifikatorSidebar() {
       <nav className="flex-1 p-3 space-y-1 overflow-y-auto scrollbar-thin scrollbar-thumb-border">
         {menuItems.map((item) => {
           const isActive = location.pathname === item.href;
-          
           return (
             <Link
               key={item.href}
               to={item.href}
               className={cn(
                 "flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
-                isActive 
-                  ? "bg-primary text-primary-foreground" 
+                isActive
+                  ? "bg-primary text-primary-foreground"
                   : "text-muted-foreground hover:bg-secondary hover:text-foreground"
               )}
             >
@@ -87,8 +80,8 @@ export function VerifikatorSidebar() {
               {item.badge !== undefined && item.badge > 0 && (
                 <span className={cn(
                   "text-xs px-2 py-0.5 rounded-full",
-                  isActive 
-                    ? "bg-primary-foreground/20 text-primary-foreground" 
+                  isActive
+                    ? "bg-primary-foreground/20 text-primary-foreground"
                     : "bg-destructive text-destructive-foreground"
                 )}>
                   {item.badge}

@@ -9,7 +9,7 @@ import { useAuth } from '@/contexts/AuthContext';
 
 interface POSLayoutProps {
   children: ReactNode;
-  title: string;
+  title?: string;
   subtitle?: string;
   actions?: ReactNode;
   fullWidth?: boolean;

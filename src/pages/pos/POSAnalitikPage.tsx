@@ -98,12 +98,12 @@ export default function POSAnalitikPage() {
           .eq('status', 'completed')
           .gte('created_at', startDate.toISOString())
           .order('created_at'),
-        supabase.from('pos_sale_items' as any)
+        (supabase as any).from('pos_sale_items')
           .select('product_name, qty, subtotal, pos_sales(created_at, outlet_id, status, tenant_id)')
-          .eq('pos_sales.tenant_id' as any, tenant.id)
-          .eq('pos_sales.outlet_id' as any, activeOutlet.id)
-          .eq('pos_sales.status' as any, 'completed')
-          .gte('pos_sales.created_at' as any, startDate.toISOString())
+          .eq('pos_sales.tenant_id', tenant.id)
+          .eq('pos_sales.outlet_id', activeOutlet.id)
+          .eq('pos_sales.status', 'completed')
+          .gte('pos_sales.created_at', startDate.toISOString())
           .limit(2000),
       ]);
 

@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
@@ -63,6 +64,7 @@ interface Promotion {
   discount_percent: number; discount_amount: number;
   min_purchase: number; max_discount: number | null;
   buy_qty: number; get_qty: number;
+  bundle_price: number | null;
   happy_hour_start: string | null; happy_hour_end: string | null;
   happy_hour_days: number[];
   applies_to: string;
@@ -136,6 +138,10 @@ export default function POSKasirPage() {
   // — Pembayaran —
   const [paymentMethod, setPaymentMethod] = useState('cash');
   const [paymentAmount, setPaymentAmount] = useState('');
+  const [isSplitPayment, setIsSplitPayment] = useState(false);
+  const [splitMethod2, setSplitMethod2] = useState('transfer');
+  const [splitAmount1, setSplitAmount1] = useState('');
+  const [splitAmount2, setSplitAmount2] = useState('');
   const [paymentDialog, setPaymentDialog] = useState(false);
   const [successDialog, setSuccessDialog] = useState(false);
   const [lastSale, setLastSale] = useState<any>(null);
@@ -501,7 +507,11 @@ export default function POSKasirPage() {
 
   const processPayment = async () => {
     if (!tenant || !activeOutlet || !user) return;
-    if (paymentMethod === 'cash' && (Number(paymentAmount) || 0) < total) {
+    if (isSplitPayment) {
+      const a1 = Number(splitAmount1) || 0;
+      const a2 = Number(splitAmount2) || 0;
+      if (a1 + a2 < total) { toast.error('Total bayar kurang dari total transaksi'); return; }
+    } else if (paymentMethod === 'cash' && (Number(paymentAmount) || 0) < total) {
       toast.error('Jumlah bayar kurang dari total'); return;
     }
     // Validasi poin minimum
@@ -522,9 +532,9 @@ export default function POSKasirPage() {
         discount_amount: discount,
         tax_amount: taxAmount,
         total,
-        payment_method: paymentMethod,
-        payment_amount: Number(paymentAmount) || total,
-        change_amount: change,
+        payment_method: isSplitPayment ? `split:${paymentMethod}+${splitMethod2}` : paymentMethod,
+        payment_amount: isSplitPayment ? (Number(splitAmount1) + Number(splitAmount2)) : (Number(paymentAmount) || total),
+        change_amount: isSplitPayment ? Math.max(0, (Number(splitAmount1) + Number(splitAmount2)) - total) : change,
         status: 'completed',
         notes: notes || null,
         // Kolom loyalty & promo (Phase 5)
@@ -1154,7 +1164,18 @@ export default function POSKasirPage() {
               </div>
             </div>
 
-            {paymentMethod === 'cash' && (
+            {/* Toggle Split Payment */}
+            <div className="flex items-center justify-between py-1 border-t">
+              <Label className="text-xs text-muted-foreground">Bayar dengan 2 metode (split)</Label>
+              <button
+                className={cn('relative inline-flex h-5 w-9 items-center rounded-full transition-colors', isSplitPayment ? 'bg-emerald-500' : 'bg-gray-300')}
+                onClick={() => setIsSplitPayment(v => !v)}
+              >
+                <span className={cn('inline-block h-3.5 w-3.5 rounded-full bg-white shadow transform transition-transform', isSplitPayment ? 'translate-x-4' : 'translate-x-1')} />
+              </button>
+            </div>
+
+            {!isSplitPayment && paymentMethod === 'cash' && (
               <div>
                 <Label>Jumlah Bayar</Label>
                 <Input className="mt-1 text-lg font-bold h-12" type="number"
@@ -1173,6 +1194,40 @@ export default function POSKasirPage() {
                 {Number(paymentAmount) >= total && (
                   <div className="mt-3 bg-blue-50 border border-blue-200 rounded-lg p-3">
                     <p className="text-sm text-blue-800">Kembalian: <strong>{formatCurrency(change)}</strong></p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {isSplitPayment && (
+              <div className="space-y-3 border rounded-lg p-3 bg-muted/30">
+                <p className="text-xs font-medium text-muted-foreground">Pembayaran Split</p>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <Label className="text-xs">Metode 1</Label>
+                    <Select value={paymentMethod} onValueChange={setPaymentMethod}>
+                      <SelectTrigger className="mt-1 h-8 text-xs"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {paymentMethods.map(pm => <SelectItem key={pm.value} value={pm.value}>{pm.label}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                    <Input className="mt-1 h-8 text-xs" type="number" value={splitAmount1} onChange={e => setSplitAmount1(e.target.value)} placeholder="Jumlah" />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Metode 2</Label>
+                    <Select value={splitMethod2} onValueChange={setSplitMethod2}>
+                      <SelectTrigger className="mt-1 h-8 text-xs"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {paymentMethods.map(pm => <SelectItem key={pm.value} value={pm.value}>{pm.label}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                    <Input className="mt-1 h-8 text-xs" type="number" value={splitAmount2} onChange={e => setSplitAmount2(e.target.value)} placeholder="Jumlah" />
+                  </div>
+                </div>
+                {(Number(splitAmount1) + Number(splitAmount2)) > 0 && (
+                  <div className={cn('text-xs rounded p-2', (Number(splitAmount1) + Number(splitAmount2)) >= total ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700')}>
+                    Total dibayar: {formatCurrency(Number(splitAmount1) + Number(splitAmount2))} / {formatCurrency(total)}
+                    {(Number(splitAmount1) + Number(splitAmount2)) >= total && ` · Kembalian: ${formatCurrency((Number(splitAmount1) + Number(splitAmount2)) - total)}`}
                   </div>
                 )}
               </div>

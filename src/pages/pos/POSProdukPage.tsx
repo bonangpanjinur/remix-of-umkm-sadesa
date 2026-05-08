@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { POSLayout } from '@/components/pos/POSLayout';
 import { usePOS } from '@/contexts/POSContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { Plus, Search, Pencil, Package, AlertTriangle, X, Download } from 'lucide-react';
+import { Plus, Search, Pencil, Package, AlertTriangle, X, Download, Printer } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 
 interface Product {
@@ -60,6 +60,7 @@ export default function POSProdukPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [editing, setEditing] = useState<Product | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
   const [variants, setVariants] = useState<Variant[]>([]);
   const [form, setForm] = useState({
     name: '', sku: '', barcode: '', category_id: '', brand_id: '', unit: 'pcs',
@@ -108,6 +109,26 @@ export default function POSProdukPage() {
     setVariants([]);
     setForm({ name: '', sku: '', barcode: '', category_id: '', brand_id: '', unit: 'pcs', price: '', cost_price: '', tax_rate: '0', description: '', is_stock_tracked: true, has_variants: false, is_active: true });
     setDialogOpen(true);
+  };
+
+  const printLabel = async (p: Product) => {
+    try {
+      const JsBarcode = (await import('jsbarcode')).default;
+      const { jsPDF } = await import('jspdf');
+      const barcodeValue = p.barcode || p.sku || p.id.slice(0, 12);
+      const canvas = document.createElement('canvas');
+      JsBarcode(canvas, barcodeValue, { format: 'CODE128', width: 2, height: 40, displayValue: true, fontSize: 10 });
+      const doc = new jsPDF({ unit: 'mm', format: [60, 30] });
+      doc.setFontSize(7);
+      doc.text(p.name.slice(0, 30), 3, 5);
+      doc.text(`Rp ${p.price.toLocaleString('id-ID')}`, 3, 10);
+      const imgData = canvas.toDataURL('image/png');
+      doc.addImage(imgData, 'PNG', 3, 12, 54, 15);
+      doc.save(`label-${p.sku || p.id.slice(0, 8)}.pdf`);
+      toast.success(`Label ${p.name} berhasil dicetak`);
+    } catch {
+      toast.error('Gagal mencetak label');
+    }
   };
 
   const openEdit = async (p: Product) => {
@@ -285,9 +306,14 @@ export default function POSProdukPage() {
                         {!p.is_active && <Badge variant="destructive" className="text-xs">Nonaktif</Badge>}
                       </div>
                     </div>
-                    <Button variant="ghost" size="icon" className="h-7 w-7 flex-shrink-0" onClick={() => openEdit(p)}>
-                      <Pencil className="h-3.5 w-3.5" />
-                    </Button>
+                    <div className="flex gap-1 flex-shrink-0">
+                      <Button variant="ghost" size="icon" className="h-7 w-7" title="Cetak Label" onClick={() => printLabel(p)}>
+                        <Printer className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(p)}>
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
                   </div>
                   <div className="flex items-center justify-between mt-3">
                     <div>

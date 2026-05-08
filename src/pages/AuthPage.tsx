@@ -309,7 +309,7 @@ export default function AuthPage() {
                   variant: 'destructive',
                 });
               }
-              if (result.redirected) return;
+              if ((result as any).redirected) return;
             } catch {
               toast({ title: 'Gagal masuk dengan Google', variant: 'destructive' });
             } finally {

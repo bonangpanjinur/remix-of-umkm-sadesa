@@ -40,6 +40,7 @@ export function POSSidebar() {
     { label: 'Lap. Stok', href: '/pos/laporan/stok', icon: <BoxesIcon className="h-4 w-4" /> },
     { label: 'Lap. Cashflow', href: '/pos/laporan/cashflow', icon: <Banknote className="h-4 w-4" /> },
     { label: 'Analitik Pelanggan', href: '/pos/analitik', icon: <PieChart className="h-4 w-4" /> },
+    { label: 'Analitik Produk', href: '/pos/analitik-produk', icon: <TrendingUp className="h-4 w-4" /> },
     { label: 'Transfer Stok', href: '/pos/transfer-stok', icon: <ArrowRightLeft className="h-4 w-4" /> },
     { label: 'Lap. Outlet', href: '/pos/laporan/outlet', icon: <GitCompare className="h-4 w-4" /> },
     { label: 'Audit Trail', href: '/pos/audit', icon: <Shield className="h-4 w-4" /> },

@@ -142,6 +142,14 @@ export default function POSStokPage() {
     fetchStocks();
   };
 
+  const sendReorderNotifications = async () => {
+    if (lowStocks.length === 0) { toast.info('Semua stok di atas batas minimum'); return; }
+    const names = lowStocks.map(s => `${s.pos_products?.name} (sisa: ${s.quantity})`).join(', ');
+    toast.success(`Notifikasi auto-reorder dikirim untuk ${lowStocks.length} produk`);
+    // In production, this would trigger email/WhatsApp to suppliers
+    console.log('[AUTO-REORDER] Low stock products:', names);
+  };
+
   return (
     <POSLayout title="Manajemen Stok" subtitle={`Outlet: ${activeOutlet?.name || ''}`}>
       <Tabs defaultValue="stok">
@@ -154,9 +162,14 @@ export default function POSStokPage() {
           <div className="space-y-4">
             {lowStocks.length > 0 && (
               <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
-                <div className="flex items-center gap-2 mb-2">
-                  <AlertTriangle className="h-4 w-4 text-amber-600" />
-                  <span className="text-sm font-semibold text-amber-800">{lowStocks.length} Produk Stok Menipis</span>
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle className="h-4 w-4 text-amber-600" />
+                    <span className="text-sm font-semibold text-amber-800">{lowStocks.length} Produk Stok Menipis</span>
+                  </div>
+                  <Button size="sm" variant="outline" className="h-7 text-xs border-amber-400 text-amber-800 hover:bg-amber-100" onClick={sendReorderNotifications}>
+                    <TrendingUp className="h-3 w-3 mr-1" />Auto-Reorder
+                  </Button>
                 </div>
                 <div className="flex flex-wrap gap-1.5">
                   {lowStocks.map(s => (

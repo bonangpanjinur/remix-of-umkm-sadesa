@@ -85,10 +85,13 @@ import AdminCategoriesPage from "./pages/admin/AdminCategoriesPage";
 import AdminVerifikatorWithdrawalsPage from "./pages/admin/AdminVerifikatorWithdrawalsPage";
 import AdminPOSPage from "./pages/admin/AdminPOSPage";
 import AdminRidesPage from "./pages/admin/AdminRidesPage";
+import AdminKomisiPage from "./pages/admin/AdminKomisiPage";
+import AdminAuditLogPage from "./pages/admin/AdminAuditLogPage";
 import CourierHistoryPage from "./pages/courier/CourierHistoryPage";
 import CourierWithdrawalPage from "./pages/courier/CourierWithdrawalPage";
 import CourierChatPage from "./pages/courier/CourierChatPage";
 import CourierRidesPage from "./pages/courier/CourierRidesPage";
+import CourierPerformaPage from "./pages/courier/CourierPerformaPage";
 
 // Ride Pages
 import RideBookingPage from "./pages/ride/RideBookingPage";
@@ -100,6 +103,8 @@ import VerifikatorDashboardPage from "./pages/verifikator/VerifikatorDashboardPa
 import VerifikatorMerchantsPage from "./pages/verifikator/VerifikatorMerchantsPage";
 import VerifikatorEarningsPage from "./pages/verifikator/VerifikatorEarningsPage";
 import VerifikatorKasReportPage from "./pages/verifikator/VerifikatorKasReportPage";
+import VerifikatorEkonomiPage from "./pages/verifikator/VerifikatorEkonomiPage";
+import VerifikatorEventPage from "./pages/verifikator/VerifikatorEventPage";
 
 // Merchant Pages
 import MerchantDashboardPage from "./pages/merchant/MerchantDashboardPage";
@@ -144,6 +149,7 @@ import POSLaporanKasirPage from "./pages/pos/POSLaporanKasirPage";
 import POSLaporanStokPage from "./pages/pos/POSLaporanStokPage";
 import POSLaporanCashflowPage from "./pages/pos/POSLaporanCashflowPage";
 import POSAnalitikPage from "./pages/pos/POSAnalitikPage";
+import POSAnalitikProdukPage from "./pages/pos/POSAnalitikProdukPage";
 import POSTransferStokPage from "./pages/pos/POSTransferStokPage";
 import POSLaporanOutletPage from "./pages/pos/POSLaporanOutletPage";
 import POSAuditPage from "./pages/pos/POSAuditPage";
@@ -156,12 +162,23 @@ import { POSProvider } from "./contexts/POSContext";
 // Desa Pages
 import DesaDashboardPage from "./pages/desa/DesaDashboardPage";
 import DesaTourismPage from "./pages/desa/DesaTourismPage";
+import DesaEkonomiPage from "./pages/desa/DesaEkonomiPage";
+import DesaEventPage from "./pages/desa/DesaEventPage";
+import DesaKeanggotaanPage from "./pages/desa/DesaKeanggotaanPage";
+import DesaBroadcastPage from "./pages/desa/DesaBroadcastPage";
+import DesaPetaPage from "./pages/desa/DesaPetaPage";
+import DesaLaporanWisataPage from "./pages/desa/DesaLaporanWisataPage";
 
 // Buyer Pages
 import ReviewsPage from "./pages/buyer/ReviewsPage";
 import WishlistPage from "./pages/buyer/WishlistPage";
 import MyReviewsPage from "./pages/buyer/MyReviewsPage";
 import BuyerChatPage from "./pages/buyer/BuyerChatPage";
+import FlashSalePage from "./pages/buyer/FlashSalePage";
+import ProductComparePage from "./pages/buyer/ProductComparePage";
+import LoyaltyPage from "./pages/buyer/LoyaltyPage";
+import VoucherPage from "./pages/buyer/VoucherPage";
+import RekomendasisPage from "./pages/buyer/RekomendasisPage";
 
 // Notifications
 import NotificationsPage from "./pages/NotificationsPage";
@@ -305,6 +322,11 @@ const App = () => (
                   <CourierWithdrawalPage />
                 </ProtectedRoute>
               } />
+              <Route path="/courier/performa" element={
+                <ProtectedRoute>
+                  <CourierPerformaPage />
+                </ProtectedRoute>
+              } />
               <Route path="/courier/deposit" element={
                 <ProtectedRoute>
                   <CourierDepositPage />
@@ -362,6 +384,11 @@ const App = () => (
                   <BuyerChatPage />
                 </ProtectedRoute>
               } />
+              <Route path="/flash-sale" element={<FlashSalePage />} />
+              <Route path="/compare" element={<ProductComparePage />} />
+              <Route path="/loyalty" element={<ProtectedRoute><LoyaltyPage /></ProtectedRoute>} />
+              <Route path="/vouchers" element={<VoucherPage />} />
+              <Route path="/rekomendasi" element={<RekomendasisPage />} />
               {/* Admin routes */}
               <Route path="/admin" element={
                 <ProtectedRoute allowedRoles={['admin']}>
@@ -504,6 +531,16 @@ const App = () => (
                   <AdminPOSPage />
                 </ProtectedRoute>
               } />
+              <Route path="/admin/komisi" element={
+                <ProtectedRoute allowedRoles={['admin']}>
+                  <AdminKomisiPage />
+                </ProtectedRoute>
+              } />
+              <Route path="/admin/audit-log" element={
+                <ProtectedRoute allowedRoles={['admin']}>
+                  <AdminAuditLogPage />
+                </ProtectedRoute>
+              } />
               <Route path="/admin/rides" element={
                 <ProtectedRoute allowedRoles={['admin']}>
                   <AdminRidesPage />
@@ -524,6 +561,16 @@ const App = () => (
               <Route path="/verifikator/merchants" element={
                 <ProtectedRoute allowedRoles={['verifikator', 'admin']}>
                   <VerifikatorMerchantsPage />
+                </ProtectedRoute>
+              } />
+              <Route path="/verifikator/ekonomi" element={
+                <ProtectedRoute allowedRoles={['verifikator', 'admin']}>
+                  <VerifikatorEkonomiPage />
+                </ProtectedRoute>
+              } />
+              <Route path="/verifikator/event-desa" element={
+                <ProtectedRoute allowedRoles={['verifikator', 'admin']}>
+                  <VerifikatorEventPage />
                 </ProtectedRoute>
               } />
               <Route path="/verifikator/kas-report" element={
@@ -649,6 +696,36 @@ const App = () => (
                   <DesaTourismPage />
                 </ProtectedRoute>
               } />
+              <Route path="/desa/ekonomi" element={
+                <ProtectedRoute allowedRoles={['admin_desa', 'admin']}>
+                  <DesaEkonomiPage />
+                </ProtectedRoute>
+              } />
+              <Route path="/desa/event" element={
+                <ProtectedRoute allowedRoles={['admin_desa', 'admin']}>
+                  <DesaEventPage />
+                </ProtectedRoute>
+              } />
+              <Route path="/desa/keanggotaan" element={
+                <ProtectedRoute allowedRoles={['admin_desa', 'admin']}>
+                  <DesaKeanggotaanPage />
+                </ProtectedRoute>
+              } />
+              <Route path="/desa/broadcast" element={
+                <ProtectedRoute allowedRoles={['admin_desa', 'admin']}>
+                  <DesaBroadcastPage />
+                </ProtectedRoute>
+              } />
+              <Route path="/desa/peta" element={
+                <ProtectedRoute allowedRoles={['admin_desa', 'admin']}>
+                  <DesaPetaPage />
+                </ProtectedRoute>
+              } />
+              <Route path="/desa/laporan-wisata" element={
+                <ProtectedRoute allowedRoles={['admin_desa', 'admin']}>
+                  <DesaLaporanWisataPage />
+                </ProtectedRoute>
+              } />
 
               {/* Notifications */}
               <Route path="/notifications" element={
@@ -688,6 +765,7 @@ const App = () => (
               <Route path="/pos/promosi" element={<ProtectedRoute><POSPromosiPage /></ProtectedRoute>} />
               <Route path="/pos/loyalty" element={<ProtectedRoute><POSLoyaltyPage /></ProtectedRoute>} />
               <Route path="/pos/integrasi" element={<ProtectedRoute><POSIntegrasiPage /></ProtectedRoute>} />
+              <Route path="/pos/analitik-produk" element={<ProtectedRoute><POSAnalitikProdukPage /></ProtectedRoute>} />
 
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />

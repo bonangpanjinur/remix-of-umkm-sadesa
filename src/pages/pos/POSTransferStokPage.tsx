@@ -54,6 +54,7 @@ interface Transfer {
 
 interface TransferItemDB {
   id: string;
+  product_id?: string;
   product_name: string;
   sku: string | null;
   unit: string;
