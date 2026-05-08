@@ -13,24 +13,20 @@ import { useNavigate } from 'react-router-dom';
 import {
   Search, Plus, Minus, Trash2, ShoppingCart, User, Banknote, QrCode,
   CreditCard, Printer, PauseCircle, PlayCircle, Barcode,
-  X, CheckCircle2, Package, ChevronLeft, Tag, Receipt
+  X, CheckCircle2, Package, ChevronLeft, Tag, Receipt,
+  Star, Ticket, Gift, Crown, Award, Percent, ChevronDown
 } from 'lucide-react';
 import { POSSidebar } from '@/components/pos/POSSidebar';
 import { BarcodeScanner } from '@/components/pos/BarcodeScanner';
 import { cn } from '@/lib/utils';
 
+// ============================================================
+// INTERFACES
+// ============================================================
 interface Product {
-  id: string;
-  name: string;
-  sku: string | null;
-  barcode: string | null;
-  price: number;
-  cost_price: number;
-  unit: string;
-  tax_rate: number;
-  is_stock_tracked: boolean;
-  has_variants: boolean;
-  image_url: string | null;
+  id: string; name: string; sku: string | null; barcode: string | null;
+  price: number; cost_price: number; unit: string; tax_rate: number;
+  is_stock_tracked: boolean; has_variants: boolean; image_url: string | null;
   is_active: boolean;
   pos_categories?: { name: string } | null;
   pos_stock?: { quantity: number }[];
@@ -39,61 +35,123 @@ interface Product {
 interface Variant { id: string; name: string; price: number | null; cost_price: number | null; is_active: boolean; }
 
 interface CartItem {
-  productId: string;
-  variantId?: string;
-  name: string;
-  variantName?: string;
-  price: number;
-  costPrice: number;
-  unit: string;
-  qty: number;
-  discount: number;
-  taxRate: number;
-  notes: string;
+  productId: string; variantId?: string; name: string; variantName?: string;
+  price: number; costPrice: number; unit: string; qty: number;
+  discount: number; taxRate: number; notes: string;
 }
 
-interface HeldBill { id: string; label: string; customer_name: string | null; items: CartItem[]; discount_amount: number; notes: string; }
-interface Customer { id: string; name: string; phone: string | null; is_member: boolean; }
+interface HeldBill {
+  id: string; label: string; customer_name: string | null;
+  items: CartItem[]; discount_amount: number; notes: string;
+  customer_id?: string | null;
+}
+
+interface Customer {
+  id: string; name: string; phone: string | null; is_member: boolean;
+  loyalty_points?: number; loyalty_tier?: string;
+}
+
+interface LoyaltyProgram {
+  id: string; is_active: boolean;
+  earn_per_rupiah: number; redeem_rate: number;
+  min_redeem_points: number; max_redeem_percent: number;
+  tiers: { name: string; min_points: number; discount_percent: number; color: string }[];
+}
+
+interface Promotion {
+  id: string; name: string; type: string;
+  discount_percent: number; discount_amount: number;
+  min_purchase: number; max_discount: number | null;
+  buy_qty: number; get_qty: number;
+  happy_hour_start: string | null; happy_hour_end: string | null;
+  happy_hour_days: number[];
+  applies_to: string;
+}
+
+interface Voucher {
+  id: string; code: string; name: string; type: string;
+  discount_percent: number; discount_amount: number;
+  min_purchase: number; max_discount: number | null;
+  per_customer_limit: number; used_count: number; usage_limit: number | null;
+}
+
+const TIER_COLORS: Record<string, string> = {
+  Bronze: '#92400e', Silver: '#6b7280', Gold: '#d97706', Platinum: '#7c3aed',
+};
 
 const paymentMethods = [
-  { value: 'cash', label: 'Tunai', icon: <Banknote className="h-4 w-4" /> },
-  { value: 'qris', label: 'QRIS', icon: <QrCode className="h-4 w-4" /> },
+  { value: 'cash',     label: 'Tunai',    icon: <Banknote  className="h-4 w-4" /> },
+  { value: 'qris',     label: 'QRIS',     icon: <QrCode    className="h-4 w-4" /> },
   { value: 'transfer', label: 'Transfer', icon: <CreditCard className="h-4 w-4" /> },
-  { value: 'debit', label: 'Debit', icon: <CreditCard className="h-4 w-4" /> },
+  { value: 'debit',    label: 'Debit',    icon: <CreditCard className="h-4 w-4" /> },
 ];
 
+// ============================================================
+// KOMPONEN UTAMA
+// ============================================================
 export default function POSKasirPage() {
   const { tenant, activeOutlet, formatCurrency } = usePOS();
   const { user } = useAuth();
   const navigate = useNavigate();
 
+  // — Produk & UI —
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<{ id: string; name: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [filterCat, setFilterCat] = useState('all');
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [scannerOpen, setScannerOpen] = useState(false);
+  const searchRef = useRef<HTMLInputElement>(null);
+
+  // — Cart —
   const [cart, setCart] = useState<CartItem[]>([]);
-  const [discount, setDiscount] = useState(0);
+  const [discount, setDiscount] = useState(0); // diskon manual (global)
   const [notes, setNotes] = useState('');
+
+  // — Customer —
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [customerName, setCustomerName] = useState('');
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [customerDialog, setCustomerDialog] = useState(false);
+  const [customerSearch, setCustomerSearch] = useState('');
+
+  // — Loyalty —
+  const [loyaltyProgram, setLoyaltyProgram] = useState<LoyaltyProgram | null>(null);
+  const [customerPoints, setCustomerPoints] = useState(0);
+  const [customerTier, setCustomerTier] = useState('Bronze');
+  const [usePoints, setUsePoints] = useState(false);
+  const [pointsToRedeem, setPointsToRedeem] = useState(0);
+
+  // — Promosi & Voucher —
+  const [activePromos, setActivePromos] = useState<Promotion[]>([]);
+  const [appliedPromo, setAppliedPromo] = useState<Promotion | null>(null);
+  const [promoDiscount, setPromoDiscount] = useState(0);
+  const [voucherCode, setVoucherCode] = useState('');
+  const [appliedVoucher, setAppliedVoucher] = useState<Voucher | null>(null);
+  const [voucherDiscount, setVoucherDiscount] = useState(0);
+  const [voucherError, setVoucherError] = useState('');
+  const [promoVoucherOpen, setPromoVoucherOpen] = useState(false);
+
+  // — Pembayaran —
   const [paymentMethod, setPaymentMethod] = useState('cash');
   const [paymentAmount, setPaymentAmount] = useState('');
   const [paymentDialog, setPaymentDialog] = useState(false);
   const [successDialog, setSuccessDialog] = useState(false);
   const [lastSale, setLastSale] = useState<any>(null);
+
+  // — Hold Bill —
   const [heldBills, setHeldBills] = useState<HeldBill[]>([]);
   const [heldBillsDialog, setHeldBillsDialog] = useState(false);
+
+  // — Varian —
   const [variantDialog, setVariantDialog] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [variants, setVariants] = useState<Variant[]>([]);
-  const [customerSearch, setCustomerSearch] = useState('');
-  const [customers, setCustomers] = useState<Customer[]>([]);
-  const [customerDialog, setCustomerDialog] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [scannerOpen, setScannerOpen] = useState(false);
-  const searchRef = useRef<HTMLInputElement>(null);
 
+  // ============================================================
+  // FETCH DATA
+  // ============================================================
   useEffect(() => {
     if (tenant && activeOutlet) {
       fetchProducts();
@@ -102,18 +160,39 @@ export default function POSKasirPage() {
     }
   }, [tenant, activeOutlet]);
 
-  // Keyboard shortcuts: F2=bayar, F3=tahan, F8=fokus cari, Escape=bersihkan cari
   useEffect(() => {
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
-      if (e.key === 'F2') { e.preventDefault(); openPayment(); }
-      if (e.key === 'F3') { e.preventDefault(); holdBill(); }
-      if (e.key === 'F8') { e.preventDefault(); searchRef.current?.focus(); }
-      if (e.key === 'Escape') { setSearch(''); searchRef.current?.blur(); }
-    };
-    window.addEventListener('keydown', handleKey);
-    return () => window.removeEventListener('keydown', handleKey);
-  }, [cart, discount, notes, selectedCustomer, customerName, paymentMethod, paymentAmount]);
+    if (tenant) {
+      fetchLoyaltyProgram();
+      fetchActivePromos();
+    }
+  }, [tenant]);
+
+  // Ambil poin pelanggan ketika customer dipilih
+  useEffect(() => {
+    if (selectedCustomer && tenant) {
+      fetchCustomerPoints(selectedCustomer.id);
+    } else {
+      setCustomerPoints(0);
+      setCustomerTier('Bronze');
+      setUsePoints(false);
+      setPointsToRedeem(0);
+    }
+    // Reset voucher saat ganti customer
+    setAppliedVoucher(null);
+    setVoucherDiscount(0);
+    setVoucherCode('');
+    setVoucherError('');
+  }, [selectedCustomer]);
+
+  // Hitung ulang diskon promosi saat cart berubah
+  useEffect(() => {
+    if (appliedPromo) {
+      const pd = calcPromoDiscount(appliedPromo);
+      setPromoDiscount(pd);
+    } else {
+      autoApplyBestPromo();
+    }
+  }, [cart, appliedPromo]);
 
   const fetchProducts = async () => {
     if (!tenant || !activeOutlet) return;
@@ -129,39 +208,216 @@ export default function POSKasirPage() {
 
   const fetchCategories = async () => {
     if (!tenant) return;
-    const { data } = await supabase.from('pos_categories' as any).select('id, name').eq('tenant_id', tenant.id).order('name');
+    const { data } = await supabase
+      .from('pos_categories' as any).select('id, name')
+      .eq('tenant_id', tenant.id).order('name');
     setCategories((data || []) as unknown as { id: string; name: string }[]);
   };
 
   const fetchHeldBills = async () => {
     if (!tenant || !activeOutlet || !user) return;
-    const { data } = await supabase.from('pos_held_bills' as any).select('*').eq('tenant_id', tenant.id).eq('outlet_id', activeOutlet.id).eq('cashier_id', user.id).order('created_at');
+    const { data } = await supabase
+      .from('pos_held_bills' as any).select('*')
+      .eq('tenant_id', tenant.id).eq('outlet_id', activeOutlet.id)
+      .eq('cashier_id', user.id).order('created_at');
     setHeldBills((data || []).map((h: any) => ({ ...h, items: h.items || [] })));
   };
 
-  const searchCustomers = async (q: string) => {
-    if (!tenant || !q) return;
-    const { data } = await supabase.from('pos_customers' as any).select('id, name, phone, is_member').eq('tenant_id', tenant.id).ilike('name', `%${q}%`).limit(5);
-    setCustomers((data || []) as unknown as Customer[]);
+  const fetchLoyaltyProgram = async () => {
+    if (!tenant) return;
+    const { data } = await supabase
+      .from('pos_loyalty_programs' as any).select('*')
+      .eq('tenant_id', tenant.id).eq('is_active', true).maybeSingle();
+    setLoyaltyProgram(data as unknown as LoyaltyProgram | null);
   };
 
-  const filteredProducts = products.filter(p => {
-    const matchSearch = p.name.toLowerCase().includes(search.toLowerCase()) ||
-      (p.sku && p.sku.toLowerCase().includes(search.toLowerCase())) ||
-      (p.barcode && p.barcode.includes(search));
-    const matchCat = filterCat === 'all' || (p.pos_categories as any)?.id === filterCat || (p as any).category_id === filterCat;
-    return matchSearch && matchCat;
-  });
+  const fetchActivePromos = async () => {
+    if (!tenant) return;
+    const now = new Date().toISOString();
+    const { data } = await supabase
+      .from('pos_promotions' as any).select('*')
+      .eq('tenant_id', tenant.id)
+      .eq('is_active', true)
+      .or(`start_date.is.null,start_date.lte.${now}`)
+      .or(`end_date.is.null,end_date.gte.${now}`);
+    setActivePromos((data || []) as unknown as Promotion[]);
+  };
 
+  const fetchCustomerPoints = async (customerId: string) => {
+    if (!tenant) return;
+    const { data } = await supabase
+      .from('pos_customers' as any).select('loyalty_points, loyalty_tier')
+      .eq('id', customerId).eq('tenant_id', tenant.id).maybeSingle();
+    if (data) {
+      setCustomerPoints((data as any).loyalty_points || 0);
+      setCustomerTier((data as any).loyalty_tier || 'Bronze');
+    }
+  };
+
+  // ============================================================
+  // KALKULASI HARGA
+  // ============================================================
+  const subtotal = cart.reduce((s, i) => s + (i.price * i.qty - i.discount), 0);
+  const taxAmount = cart.reduce((s, i) => s + ((i.price * i.qty - i.discount) * i.taxRate / 100), 0);
+
+  // Hitung diskon poin yang bisa digunakan
+  const maxPointsDiscount = loyaltyProgram && selectedCustomer
+    ? Math.min(
+        Math.floor(customerPoints / loyaltyProgram.redeem_rate),                    // nilai maks dari saldo poin
+        Math.floor((subtotal + taxAmount) * loyaltyProgram.max_redeem_percent / 100) // maks % dari subtotal
+      )
+    : 0;
+
+  const pointsDiscount = usePoints && loyaltyProgram
+    ? Math.min(
+        Math.floor(pointsToRedeem / loyaltyProgram.redeem_rate),
+        maxPointsDiscount
+      )
+    : 0;
+
+  const totalBeforePoints = Math.max(0, subtotal + taxAmount - discount - promoDiscount - voucherDiscount);
+  const total = Math.max(0, totalBeforePoints - pointsDiscount);
+
+  // Poin yang akan diperoleh dari transaksi ini
+  const pointsEarned = loyaltyProgram && selectedCustomer
+    ? Math.floor(total / loyaltyProgram.earn_per_rupiah)
+    : 0;
+
+  const change = paymentMethod === 'cash' ? Math.max(0, (Number(paymentAmount) || 0) - total) : 0;
+
+  // ============================================================
+  // KALKULASI PROMOSI
+  // ============================================================
+  function calcPromoDiscount(promo: Promotion): number {
+    if (subtotal < promo.min_purchase) return 0;
+
+    const now = new Date();
+    if (promo.type === 'happy_hour') {
+      if (!promo.happy_hour_start || !promo.happy_hour_end) return 0;
+      const day = now.getDay();
+      if (!(promo.happy_hour_days || []).includes(day)) return 0;
+      const [sh, sm] = promo.happy_hour_start.split(':').map(Number);
+      const [eh, em] = promo.happy_hour_end.split(':').map(Number);
+      const nowMin = now.getHours() * 60 + now.getMinutes();
+      const startMin = sh * 60 + sm;
+      const endMin = eh * 60 + em;
+      if (nowMin < startMin || nowMin > endMin) return 0;
+      const disc = subtotal * promo.discount_percent / 100;
+      return promo.max_discount ? Math.min(disc, promo.max_discount) : disc;
+    }
+    if (promo.type === 'discount_percent') {
+      const disc = subtotal * promo.discount_percent / 100;
+      return promo.max_discount ? Math.min(disc, promo.max_discount) : disc;
+    }
+    if (promo.type === 'discount_amount') {
+      return Math.min(promo.discount_amount, subtotal);
+    }
+    if (promo.type === 'bundle' && promo.bundle_price !== null) {
+      return Math.max(0, subtotal - promo.bundle_price);
+    }
+    return 0;
+  }
+
+  // Auto-apply promosi terbaik (discount terbesar yang berlaku)
+  function autoApplyBestPromo() {
+    if (activePromos.length === 0 || subtotal === 0) {
+      setPromoDiscount(0);
+      setAppliedPromo(null);
+      return;
+    }
+    let best: Promotion | null = null;
+    let bestDisc = 0;
+    for (const p of activePromos) {
+      const d = calcPromoDiscount(p);
+      if (d > bestDisc) { bestDisc = d; best = p; }
+    }
+    setAppliedPromo(best);
+    setPromoDiscount(bestDisc);
+  }
+
+  // ============================================================
+  // VOUCHER
+  // ============================================================
+  const applyVoucher = async () => {
+    const code = voucherCode.trim().toUpperCase();
+    if (!code || !tenant) return;
+    setVoucherError('');
+    const { data } = await supabase
+      .from('pos_vouchers' as any).select('*')
+      .eq('tenant_id', tenant.id).eq('code', code).eq('is_active', true).maybeSingle();
+
+    if (!data) { setVoucherError('Kode voucher tidak valid atau tidak aktif'); return; }
+    const v = data as unknown as Voucher;
+
+    const now = new Date();
+    if ((v as any).start_date && now < new Date((v as any).start_date)) {
+      setVoucherError('Voucher belum berlaku'); return;
+    }
+    if ((v as any).end_date && now > new Date((v as any).end_date)) {
+      setVoucherError('Voucher sudah kedaluwarsa'); return;
+    }
+    if (v.usage_limit && v.used_count >= v.usage_limit) {
+      setVoucherError('Voucher sudah habis'); return;
+    }
+    if (subtotal < v.min_purchase) {
+      setVoucherError(`Min. pembelian ${formatCurrency(v.min_purchase)}`); return;
+    }
+
+    let disc = 0;
+    if (v.type === 'discount_percent') {
+      disc = subtotal * v.discount_percent / 100;
+      if (v.max_discount) disc = Math.min(disc, v.max_discount);
+    } else {
+      disc = Math.min(v.discount_amount, subtotal);
+    }
+    setAppliedVoucher(v);
+    setVoucherDiscount(disc);
+    toast.success(`Voucher "${v.name}" berhasil diterapkan! Diskon ${formatCurrency(disc)}`);
+  };
+
+  const removeVoucher = () => {
+    setAppliedVoucher(null);
+    setVoucherDiscount(0);
+    setVoucherCode('');
+    setVoucherError('');
+  };
+
+  // ============================================================
+  // LOYALTY — POIN
+  // ============================================================
+  const handleTogglePoints = (checked: boolean) => {
+    setUsePoints(checked);
+    if (checked && loyaltyProgram) {
+      // Default: tukarkan semua poin sampai batas maksimum
+      const maxPtsUsable = Math.min(
+        customerPoints,
+        loyaltyProgram.min_redeem_points <= customerPoints ? customerPoints : 0
+      );
+      setPointsToRedeem(maxPtsUsable);
+    } else {
+      setPointsToRedeem(0);
+    }
+  };
+
+  const handlePointsInput = (val: string) => {
+    if (!loyaltyProgram) return;
+    let pts = parseInt(val) || 0;
+    pts = Math.max(loyaltyProgram.min_redeem_points, Math.min(pts, customerPoints));
+    setPointsToRedeem(pts);
+  };
+
+  // ============================================================
+  // CART ACTIONS
+  // ============================================================
   const addToCart = async (product: Product, variantId?: string, variantName?: string, variantPrice?: number) => {
     if (product.has_variants && !variantId) {
-      const { data } = await supabase.from('pos_product_variants' as any).select('*').eq('product_id', product.id).eq('is_active', true);
+      const { data } = await supabase.from('pos_product_variants' as any)
+        .select('*').eq('product_id', product.id).eq('is_active', true);
       setVariants((data || []) as unknown as Variant[]);
       setSelectedProduct(product);
       setVariantDialog(true);
       return;
     }
-
     const price = variantPrice ?? product.price;
     const existingIdx = cart.findIndex(c => c.productId === product.id && c.variantId === variantId);
     if (existingIdx >= 0) {
@@ -187,17 +443,56 @@ export default function POSKasirPage() {
 
   const removeItem = (idx: number) => setCart(prev => prev.filter((_, i) => i !== idx));
 
-  const updateDiscount = (idx: number, val: number) => {
+  const updateItemDiscount = (idx: number, val: number) => {
     const newCart = [...cart];
     newCart[idx].discount = Math.min(val, newCart[idx].price * newCart[idx].qty);
     setCart(newCart);
   };
 
-  const subtotal = cart.reduce((s, i) => s + (i.price * i.qty - i.discount), 0);
-  const taxAmount = cart.reduce((s, i) => s + ((i.price * i.qty - i.discount) * i.taxRate / 100), 0);
-  const total = Math.max(0, subtotal + taxAmount - discount);
-  const change = paymentMethod === 'cash' ? Math.max(0, (Number(paymentAmount) || 0) - total) : 0;
+  const clearCart = () => {
+    setCart([]);
+    setDiscount(0);
+    setAppliedPromo(null);
+    setPromoDiscount(0);
+    setAppliedVoucher(null);
+    setVoucherDiscount(0);
+    setVoucherCode('');
+    setUsePoints(false);
+    setPointsToRedeem(0);
+  };
 
+  // ============================================================
+  // KEYBOARD SHORTCUTS
+  // ============================================================
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      if (e.key === 'F2') { e.preventDefault(); openPayment(); }
+      if (e.key === 'F3') { e.preventDefault(); holdBill(); }
+      if (e.key === 'F8') { e.preventDefault(); searchRef.current?.focus(); }
+      if (e.key === 'Escape') { setSearch(''); searchRef.current?.blur(); }
+    };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [cart, discount, notes, selectedCustomer, customerName, paymentMethod, paymentAmount]);
+
+  // ============================================================
+  // CUSTOMER SEARCH
+  // ============================================================
+  const searchCustomers = async (q: string) => {
+    if (!tenant || !q) { setCustomers([]); return; }
+    const { data } = await supabase
+      .from('pos_customers' as any)
+      .select('id, name, phone, is_member, loyalty_points, loyalty_tier')
+      .eq('tenant_id', tenant.id)
+      .ilike('name', `%${q}%`)
+      .limit(6);
+    setCustomers((data || []) as unknown as Customer[]);
+  };
+
+  // ============================================================
+  // PROSES PEMBAYARAN
+  // ============================================================
   const openPayment = () => {
     if (cart.length === 0) { toast.error('Keranjang kosong'); return; }
     setPaymentAmount(String(total));
@@ -209,69 +504,159 @@ export default function POSKasirPage() {
     if (paymentMethod === 'cash' && (Number(paymentAmount) || 0) < total) {
       toast.error('Jumlah bayar kurang dari total'); return;
     }
+    // Validasi poin minimum
+    if (usePoints && loyaltyProgram && pointsToRedeem < loyaltyProgram.min_redeem_points) {
+      toast.error(`Min. tukar ${loyaltyProgram.min_redeem_points} poin`); return;
+    }
 
     try {
       const saleNumber = `TRX-${Date.now()}`;
+
+      // Simpan transaksi
       const { data: sale, error } = await supabase.from('pos_sales' as any).insert({
         tenant_id: tenant.id, outlet_id: activeOutlet.id, sale_number: saleNumber,
         cashier_id: user.id, cashier_name: user.email,
         customer_id: selectedCustomer?.id || null,
         customer_name: selectedCustomer?.name || customerName || null,
-        subtotal, discount_amount: discount, tax_amount: taxAmount, total,
-        payment_method: paymentMethod, payment_amount: Number(paymentAmount) || total,
-        change_amount: change, status: 'completed', notes: notes || null,
+        subtotal,
+        discount_amount: discount,
+        tax_amount: taxAmount,
+        total,
+        payment_method: paymentMethod,
+        payment_amount: Number(paymentAmount) || total,
+        change_amount: change,
+        status: 'completed',
+        notes: notes || null,
+        // Kolom loyalty & promo (Phase 5)
+        promotion_id: appliedPromo?.id || null,
+        promotion_discount: promoDiscount,
+        voucher_id: appliedVoucher?.id || null,
+        voucher_code: appliedVoucher?.code || null,
+        voucher_discount: voucherDiscount,
+        loyalty_points_earned: pointsEarned,
+        loyalty_points_redeemed: usePoints ? pointsToRedeem : 0,
+        loyalty_discount: pointsDiscount,
       }).select().single();
       if (error) throw error;
 
       const saleId = (sale as any).id;
+
+      // Simpan item
       await supabase.from('pos_sale_items' as any).insert(
         cart.map(item => ({
-          sale_id: saleId, product_id: item.productId, variant_id: item.variantId || null,
-          product_name: item.name, variant_name: item.variantName || null,
-          qty: item.qty, price: item.price, cost_price: item.costPrice,
-          discount: item.discount, tax_amount: (item.price * item.qty - item.discount) * item.taxRate / 100,
+          sale_id: saleId,
+          product_id: item.productId,
+          variant_id: item.variantId || null,
+          product_name: item.name,
+          variant_name: item.variantName || null,
+          qty: item.qty,
+          price: item.price,
+          cost_price: item.costPrice,
+          discount: item.discount,
+          tax_amount: (item.price * item.qty - item.discount) * item.taxRate / 100,
           subtotal: item.price * item.qty - item.discount,
         }))
       );
 
-      // Update stock
+      // Update stok
       for (const item of cart) {
         if (item.variantId) {
-          const { data: stockD } = await supabase.from('pos_stock' as any).select('id, quantity').eq('product_id', item.productId).eq('variant_id', item.variantId).eq('outlet_id', activeOutlet.id).single();
-          if (stockD) await supabase.from('pos_stock' as any).update({ quantity: Math.max(0, (stockD as any).quantity - item.qty) }).eq('id', (stockD as any).id);
+          const { data: stockD } = await supabase.from('pos_stock' as any).select('id, quantity')
+            .eq('product_id', item.productId).eq('variant_id', item.variantId)
+            .eq('outlet_id', activeOutlet.id).single();
+          if (stockD) {
+            await supabase.from('pos_stock' as any)
+              .update({ quantity: Math.max(0, (stockD as any).quantity - item.qty) })
+              .eq('id', (stockD as any).id);
+          }
         } else {
-          const { data: stockD } = await supabase.from('pos_stock' as any).select('id, quantity').eq('product_id', item.productId).eq('outlet_id', activeOutlet.id).is('variant_id', null).single();
+          const { data: stockD } = await supabase.from('pos_stock' as any).select('id, quantity')
+            .eq('product_id', item.productId).eq('outlet_id', activeOutlet.id)
+            .is('variant_id', null).single();
           if (stockD) {
             const newQty = Math.max(0, (stockD as any).quantity - item.qty);
             await supabase.from('pos_stock' as any).update({ quantity: newQty }).eq('id', (stockD as any).id);
             await supabase.from('pos_stock_mutations' as any).insert({
               tenant_id: tenant.id, product_id: item.productId, outlet_id: activeOutlet.id,
-              type: 'sale', quantity: -item.qty, quantity_before: (stockD as any).quantity,
-              quantity_after: newQty, reference_id: saleId, reference_type: 'pos_sale', created_by: user.id,
+              type: 'sale', quantity: -item.qty,
+              quantity_before: (stockD as any).quantity, quantity_after: newQty,
+              reference_id: saleId, reference_type: 'pos_sale', created_by: user.id,
             });
           }
         }
       }
 
-      // Update customer stats
+      // Update statistik & poin pelanggan
       if (selectedCustomer) {
         const { data: cust } = await supabase
           .from('pos_customers' as any)
-          .select('total_purchase, transaction_count')
-          .eq('id', selectedCustomer.id)
-          .single();
+          .select('total_purchase, transaction_count, loyalty_points')
+          .eq('id', selectedCustomer.id).single();
+
         if (cust) {
+          const currentPts = (cust as any).loyalty_points || 0;
+          const newPts = Math.max(0, currentPts - (usePoints ? pointsToRedeem : 0) + pointsEarned);
+
+          // Tentukan tier baru berdasarkan total poin kumulatif
+          let newTier = 'Bronze';
+          if (loyaltyProgram) {
+            const allTimePoints = newPts;
+            const tiers = [...loyaltyProgram.tiers].sort((a, b) => b.min_points - a.min_points);
+            for (const t of tiers) {
+              if (allTimePoints >= t.min_points) { newTier = t.name; break; }
+            }
+          }
+
           await supabase.from('pos_customers' as any).update({
             total_purchase: ((cust as any).total_purchase || 0) + total,
             transaction_count: ((cust as any).transaction_count || 0) + 1,
             last_purchase_at: new Date().toISOString(),
+            loyalty_points: newPts,
+            loyalty_tier: newTier,
           }).eq('id', selectedCustomer.id);
         }
       }
 
-      setLastSale({ saleNumber, total, change, paymentMethod, customerName: selectedCustomer?.name || customerName || 'Umum', items: [...cart] });
-      setCart([]);
-      setDiscount(0);
+      // Update voucher used_count
+      if (appliedVoucher) {
+        await supabase.from('pos_vouchers' as any)
+          .update({ used_count: (appliedVoucher.used_count || 0) + 1 })
+          .eq('id', appliedVoucher.id);
+        await supabase.from('pos_voucher_usages' as any).insert({
+          voucher_id: appliedVoucher.id,
+          sale_id: saleId,
+          customer_id: selectedCustomer?.id || null,
+          customer_name: selectedCustomer?.name || customerName || null,
+          discount_given: voucherDiscount,
+        });
+      }
+
+      // Update promosi used_count
+      if (appliedPromo && promoDiscount > 0) {
+        await supabase.from('pos_promotions' as any)
+          .update({ used_count: (appliedPromo as any).used_count + 1 })
+          .eq('id', appliedPromo.id);
+      }
+
+      // Simpan di lastSale untuk success dialog
+      setLastSale({
+        saleNumber, total, change, paymentMethod,
+        customerName: selectedCustomer?.name || customerName || 'Umum',
+        items: [...cart],
+        pointsEarned,
+        pointsRedeemed: usePoints ? pointsToRedeem : 0,
+        pointsDiscount,
+        promoDiscount,
+        voucherDiscount,
+        appliedPromoName: appliedPromo?.name || null,
+        appliedVoucherCode: appliedVoucher?.code || null,
+        newPointsBalance: selectedCustomer
+          ? Math.max(0, customerPoints - (usePoints ? pointsToRedeem : 0) + pointsEarned)
+          : null,
+      });
+
+      // Reset state
+      clearCart();
       setNotes('');
       setSelectedCustomer(null);
       setCustomerName('');
@@ -279,11 +664,15 @@ export default function POSKasirPage() {
       setPaymentDialog(false);
       setSuccessDialog(true);
       fetchProducts();
+
     } catch (err: any) {
       toast.error('Gagal memproses transaksi: ' + err.message);
     }
   };
 
+  // ============================================================
+  // HOLD BILL
+  // ============================================================
   const holdBill = async () => {
     if (!tenant || !activeOutlet || !user || cart.length === 0) return;
     await supabase.from('pos_held_bills' as any).insert({
@@ -293,8 +682,7 @@ export default function POSKasirPage() {
       customer_id: selectedCustomer?.id || null,
       items: cart, discount_amount: discount, notes,
     });
-    setCart([]);
-    setDiscount(0);
+    clearCart();
     setNotes('');
     setSelectedCustomer(null);
     setCustomerName('');
@@ -313,7 +701,17 @@ export default function POSKasirPage() {
     toast.success('Transaksi dilanjutkan');
   };
 
-  const printReceipt = () => window.print();
+  // ============================================================
+  // FILTER PRODUK
+  // ============================================================
+  const filteredProducts = products.filter(p => {
+    const matchSearch = p.name.toLowerCase().includes(search.toLowerCase()) ||
+      (p.sku && p.sku.toLowerCase().includes(search.toLowerCase())) ||
+      (p.barcode && p.barcode.includes(search));
+    const matchCat = filterCat === 'all' ||
+      (p as any).category_id === filterCat;
+    return matchSearch && matchCat;
+  });
 
   const onBarcodeDetect = useCallback((barcode: string) => {
     const match = products.find(p => p.barcode === barcode || p.sku === barcode);
@@ -327,6 +725,15 @@ export default function POSKasirPage() {
     }
   }, [products]);
 
+  const printReceipt = () => window.print();
+
+  // Tier icon
+  const tierIcon = (tier: string) => {
+    if (tier === 'Platinum') return <Crown className="h-3 w-3" />;
+    if (tier === 'Gold') return <Award className="h-3 w-3" />;
+    return <Star className="h-3 w-3" />;
+  };
+
   if (!tenant) {
     return (
       <div className="flex items-center justify-center h-screen">
@@ -338,15 +745,23 @@ export default function POSKasirPage() {
     );
   }
 
+  // ============================================================
+  // RENDER
+  // ============================================================
   return (
     <div className="flex h-screen bg-background overflow-hidden">
+      {/* Sidebar overlay mobile */}
       {sidebarOpen && <div className="fixed inset-0 bg-black/50 z-40 lg:hidden" onClick={() => setSidebarOpen(false)} />}
-      <div className={cn('fixed inset-y-0 left-0 z-50 lg:relative lg:z-0 transform transition-transform duration-200', sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0')}>
+      <div className={cn(
+        'fixed inset-y-0 left-0 z-50 lg:relative lg:z-0 transform transition-transform duration-200',
+        sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
+      )}>
         <POSSidebar />
       </div>
 
       <div className="flex flex-1 min-w-0 overflow-hidden">
-        {/* Product Panel */}
+
+        {/* ═══════════════ PANEL PRODUK ═══════════════ */}
         <div className="flex-1 flex flex-col min-w-0 border-r">
           <div className="p-3 border-b bg-background space-y-2">
             <div className="flex items-center gap-2">
@@ -364,13 +779,8 @@ export default function POSKasirPage() {
                   autoFocus
                 />
               </div>
-              <Button
-                variant="outline"
-                size="icon"
-                className="h-9 w-9 flex-shrink-0"
-                onClick={() => setScannerOpen(true)}
-                title="Scan Barcode Kamera"
-              >
+              <Button variant="outline" size="icon" className="h-9 w-9 flex-shrink-0"
+                onClick={() => setScannerOpen(true)} title="Scan Barcode Kamera">
                 <Barcode className="h-4 w-4 text-emerald-600" />
               </Button>
               {heldBills.length > 0 && (
@@ -381,9 +791,13 @@ export default function POSKasirPage() {
               )}
             </div>
             <div className="flex gap-1.5 overflow-x-auto pb-1">
-              <Button size="sm" variant={filterCat === 'all' ? 'default' : 'outline'} className={cn('h-7 text-xs flex-shrink-0', filterCat === 'all' ? 'bg-emerald-600 hover:bg-emerald-700' : '')} onClick={() => setFilterCat('all')}>Semua</Button>
+              <Button size="sm" variant={filterCat === 'all' ? 'default' : 'outline'}
+                className={cn('h-7 text-xs flex-shrink-0', filterCat === 'all' ? 'bg-emerald-600 hover:bg-emerald-700' : '')}
+                onClick={() => setFilterCat('all')}>Semua</Button>
               {categories.map(c => (
-                <Button key={c.id} size="sm" variant={filterCat === c.id ? 'default' : 'outline'} className={cn('h-7 text-xs flex-shrink-0', filterCat === c.id ? 'bg-emerald-600 hover:bg-emerald-700' : '')} onClick={() => setFilterCat(c.id)}>{c.name}</Button>
+                <Button key={c.id} size="sm" variant={filterCat === c.id ? 'default' : 'outline'}
+                  className={cn('h-7 text-xs flex-shrink-0', filterCat === c.id ? 'bg-emerald-600 hover:bg-emerald-700' : '')}
+                  onClick={() => setFilterCat(c.id)}>{c.name}</Button>
               ))}
             </div>
           </div>
@@ -415,7 +829,9 @@ export default function POSKasirPage() {
                       )}
                     >
                       <div className="w-full aspect-square bg-muted rounded-lg flex items-center justify-center mb-2">
-                        {p.image_url ? <img src={p.image_url} className="w-full h-full object-cover rounded-lg" /> : <Package className="h-6 w-6 text-muted-foreground" />}
+                        {p.image_url
+                          ? <img src={p.image_url} className="w-full h-full object-cover rounded-lg" />
+                          : <Package className="h-6 w-6 text-muted-foreground" />}
                       </div>
                       <p className="text-xs font-medium line-clamp-2 mb-1">{p.name}</p>
                       <p className="text-sm font-bold text-emerald-600">{formatCurrency(p.price)}</p>
@@ -432,27 +848,85 @@ export default function POSKasirPage() {
           </div>
         </div>
 
-        {/* Cart Panel */}
+        {/* ═══════════════ PANEL CART ═══════════════ */}
         <div className="w-80 xl:w-96 flex flex-col bg-card">
-          <div className="p-3 border-b">
-            <div className="flex items-center justify-between mb-2">
+
+          {/* Header cart */}
+          <div className="p-3 border-b space-y-2">
+            <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <ShoppingCart className="h-4 w-4 text-emerald-600" />
                 <span className="font-semibold text-sm">Pesanan</span>
                 {cart.length > 0 && <Badge className="bg-emerald-600 text-white text-xs">{cart.length}</Badge>}
               </div>
               {cart.length > 0 && (
-                <Button variant="ghost" size="sm" className="h-7 text-xs text-destructive hover:text-destructive" onClick={() => { setCart([]); setDiscount(0); }}>
+                <Button variant="ghost" size="sm" className="h-7 text-xs text-destructive hover:text-destructive" onClick={clearCart}>
                   <Trash2 className="h-3.5 w-3.5 mr-1" />Bersihkan
                 </Button>
               )}
             </div>
-            <button className="w-full flex items-center gap-2 px-3 py-2 rounded-lg border border-dashed text-sm text-muted-foreground hover:border-emerald-400 hover:text-emerald-600 transition-colors" onClick={() => setCustomerDialog(true)}>
-              <User className="h-4 w-4" />
-              {selectedCustomer ? selectedCustomer.name : customerName || 'Pilih customer (opsional)'}
+
+            {/* Pilih customer */}
+            <button
+              className="w-full flex items-center gap-2 px-3 py-2 rounded-lg border border-dashed text-sm text-muted-foreground hover:border-emerald-400 hover:text-emerald-600 transition-colors"
+              onClick={() => setCustomerDialog(true)}
+            >
+              <User className="h-4 w-4 flex-shrink-0" />
+              <span className="truncate flex-1 text-left">
+                {selectedCustomer ? selectedCustomer.name : customerName || 'Pilih customer (opsional)'}
+              </span>
+              {selectedCustomer && loyaltyProgram && (
+                <Badge
+                  className="text-[10px] px-1.5 py-0 ml-auto flex-shrink-0"
+                  style={{ backgroundColor: TIER_COLORS[customerTier] || '#6b7280', color: 'white' }}
+                >
+                  {tierIcon(customerTier)} {customerTier}
+                </Badge>
+              )}
             </button>
+
+            {/* Info poin pelanggan */}
+            {selectedCustomer && loyaltyProgram && (
+              <div className="bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="flex items-center gap-1 text-emerald-700">
+                    <Star className="h-3 w-3" />
+                    <span className="font-medium">{customerPoints.toLocaleString('id-ID')} poin</span>
+                    <span className="text-emerald-500">tersedia</span>
+                  </span>
+                  {customerPoints >= loyaltyProgram.min_redeem_points && cart.length > 0 && (
+                    <button
+                      className={cn(
+                        'text-xs font-medium px-2 py-0.5 rounded-full transition-colors',
+                        usePoints
+                          ? 'bg-emerald-600 text-white'
+                          : 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
+                      )}
+                      onClick={() => handleTogglePoints(!usePoints)}
+                    >
+                      {usePoints ? '✓ Pakai Poin' : 'Tukar Poin'}
+                    </button>
+                  )}
+                </div>
+                {usePoints && (
+                  <div className="mt-2 flex items-center gap-2">
+                    <span className="text-xs text-emerald-600">Tukar:</span>
+                    <Input
+                      type="number"
+                      className="h-6 text-xs flex-1"
+                      min={loyaltyProgram.min_redeem_points}
+                      max={customerPoints}
+                      value={pointsToRedeem}
+                      onChange={e => handlePointsInput(e.target.value)}
+                    />
+                    <span className="text-xs text-emerald-600">poin = {formatCurrency(pointsDiscount)}</span>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
+          {/* Item list */}
           <div className="flex-1 overflow-y-auto">
             {cart.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full text-center p-6">
@@ -485,13 +959,9 @@ export default function POSKasirPage() {
                       </div>
                       <div className="flex items-center gap-1">
                         <Tag className="h-3 w-3 text-muted-foreground" />
-                        <Input
-                          type="number"
-                          className="h-6 w-20 text-xs"
-                          placeholder="Diskon"
+                        <Input type="number" className="h-6 w-20 text-xs" placeholder="Diskon"
                           value={item.discount || ''}
-                          onChange={e => updateDiscount(idx, Number(e.target.value))}
-                        />
+                          onChange={e => updateItemDiscount(idx, Number(e.target.value))} />
                       </div>
                       <p className="text-sm font-bold">{formatCurrency(item.price * item.qty - item.discount)}</p>
                     </div>
@@ -501,27 +971,112 @@ export default function POSKasirPage() {
             )}
           </div>
 
-          {/* Summary & Actions */}
-          <div className="border-t p-3 space-y-3">
-            <div className="space-y-1.5 text-sm">
+          {/* Summary + Actions */}
+          <div className="border-t p-3 space-y-2">
+
+            {/* Ringkasan harga */}
+            <div className="space-y-1 text-sm">
               <div className="flex justify-between text-muted-foreground">
                 <span>Subtotal ({cart.reduce((s, i) => s + i.qty, 0)} item)</span>
                 <span>{formatCurrency(subtotal)}</span>
               </div>
-              {taxAmount > 0 && <div className="flex justify-between text-muted-foreground"><span>Pajak</span><span>{formatCurrency(taxAmount)}</span></div>}
+              {taxAmount > 0 && (
+                <div className="flex justify-between text-muted-foreground">
+                  <span>Pajak</span><span>{formatCurrency(taxAmount)}</span>
+                </div>
+              )}
+              {/* Diskon manual */}
               <div className="flex justify-between items-center">
-                <span className="text-muted-foreground flex items-center gap-1"><Tag className="h-3 w-3" />Diskon</span>
+                <span className="text-muted-foreground flex items-center gap-1">
+                  <Tag className="h-3 w-3" />Diskon
+                </span>
                 <div className="flex items-center gap-1">
                   <span className="text-xs text-muted-foreground">Rp</span>
-                  <Input type="number" className="h-7 w-24 text-xs" value={discount || ''} onChange={e => setDiscount(Number(e.target.value))} placeholder="0" />
+                  <Input type="number" className="h-7 w-24 text-xs"
+                    value={discount || ''} onChange={e => setDiscount(Number(e.target.value))} placeholder="0" />
                 </div>
               </div>
+              {/* Promosi */}
+              {promoDiscount > 0 && appliedPromo && (
+                <div className="flex justify-between text-orange-600 text-xs">
+                  <span className="flex items-center gap-1">
+                    <Percent className="h-3 w-3" />{appliedPromo.name}
+                  </span>
+                  <span>-{formatCurrency(promoDiscount)}</span>
+                </div>
+              )}
+              {/* Voucher */}
+              {voucherDiscount > 0 && appliedVoucher && (
+                <div className="flex justify-between text-purple-600 text-xs">
+                  <span className="flex items-center gap-1">
+                    <Ticket className="h-3 w-3" />{appliedVoucher.code}
+                    <button onClick={removeVoucher} className="ml-1 hover:text-red-500"><X className="h-2.5 w-2.5" /></button>
+                  </span>
+                  <span>-{formatCurrency(voucherDiscount)}</span>
+                </div>
+              )}
+              {/* Poin */}
+              {pointsDiscount > 0 && (
+                <div className="flex justify-between text-emerald-600 text-xs">
+                  <span className="flex items-center gap-1">
+                    <Star className="h-3 w-3" />{pointsToRedeem.toLocaleString('id-ID')} poin
+                  </span>
+                  <span>-{formatCurrency(pointsDiscount)}</span>
+                </div>
+              )}
               <div className="flex justify-between font-bold text-base border-t pt-2">
                 <span>Total</span>
                 <span className="text-emerald-600">{formatCurrency(total)}</span>
               </div>
+              {/* Estimasi poin yang akan diperoleh */}
+              {selectedCustomer && loyaltyProgram && pointsEarned > 0 && (
+                <div className="flex justify-between text-xs text-emerald-500 bg-emerald-50 rounded px-2 py-1">
+                  <span className="flex items-center gap-1"><Gift className="h-3 w-3" />Poin diperoleh</span>
+                  <span className="font-medium">+{pointsEarned.toLocaleString('id-ID')} poin</span>
+                </div>
+              )}
             </div>
 
+            {/* Toggle promo & voucher */}
+            <button
+              onClick={() => setPromoVoucherOpen(p => !p)}
+              className="w-full flex items-center justify-between px-2 py-1.5 rounded-lg text-xs text-muted-foreground hover:bg-muted transition-colors"
+            >
+              <span className="flex items-center gap-1">
+                <Ticket className="h-3.5 w-3.5" />
+                {appliedVoucher ? `Voucher: ${appliedVoucher.code}` : 'Masukkan kode voucher'}
+              </span>
+              <ChevronDown className={cn('h-3.5 w-3.5 transition-transform', promoVoucherOpen && 'rotate-180')} />
+            </button>
+            {promoVoucherOpen && (
+              <div className="space-y-1.5 px-1">
+                <div className="flex gap-1.5">
+                  <Input
+                    className="h-8 text-xs font-mono uppercase"
+                    placeholder="KODE VOUCHER"
+                    value={voucherCode}
+                    onChange={e => { setVoucherCode(e.target.value.toUpperCase()); setVoucherError(''); }}
+                    onKeyDown={e => e.key === 'Enter' && applyVoucher()}
+                  />
+                  <Button size="sm" variant="outline" className="h-8 text-xs px-2" onClick={applyVoucher}>
+                    Pakai
+                  </Button>
+                  {appliedVoucher && (
+                    <Button size="sm" variant="ghost" className="h-8 text-xs text-destructive px-2" onClick={removeVoucher}>
+                      <X className="h-3 w-3" />
+                    </Button>
+                  )}
+                </div>
+                {voucherError && <p className="text-xs text-destructive">{voucherError}</p>}
+                {appliedPromo && promoDiscount > 0 && (
+                  <div className="text-xs text-orange-600 bg-orange-50 rounded px-2 py-1 flex items-center gap-1">
+                    <Percent className="h-3 w-3" />Promo aktif: {appliedPromo.name}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Tombol tahan & bayar */}
             <div className="flex gap-2">
               <Button variant="outline" className="flex-1 h-9 text-sm" onClick={holdBill} disabled={cart.length === 0} title="Tahan transaksi (F3)">
                 <PauseCircle className="h-4 w-4 mr-1.5" />Tahan <span className="ml-1 text-[10px] text-muted-foreground hidden sm:inline">F3</span>
@@ -531,32 +1086,68 @@ export default function POSKasirPage() {
               </Button>
             </div>
 
-            <div>
-              <Textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Catatan transaksi..." rows={1} className="text-xs resize-none" />
-            </div>
+            <Textarea value={notes} onChange={e => setNotes(e.target.value)}
+              placeholder="Catatan transaksi..." rows={1} className="text-xs resize-none" />
           </div>
         </div>
       </div>
 
-      {/* Payment Dialog */}
+      {/* ════════ DIALOG PEMBAYARAN ════════ */}
       <Dialog open={paymentDialog} onOpenChange={setPaymentDialog}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle>Proses Pembayaran</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <div className="bg-muted rounded-xl p-4 text-center">
-              <p className="text-sm text-muted-foreground mb-1">Total Tagihan</p>
-              <p className="text-3xl font-bold text-emerald-600">{formatCurrency(total)}</p>
+            {/* Ringkasan tagihan */}
+            <div className="bg-muted rounded-xl p-4 space-y-2 text-sm">
+              <div className="flex justify-between text-muted-foreground">
+                <span>Subtotal</span><span>{formatCurrency(subtotal)}</span>
+              </div>
+              {taxAmount > 0 && <div className="flex justify-between text-muted-foreground"><span>Pajak</span><span>{formatCurrency(taxAmount)}</span></div>}
+              {discount > 0 && <div className="flex justify-between text-muted-foreground"><span>Diskon manual</span><span>-{formatCurrency(discount)}</span></div>}
+              {promoDiscount > 0 && (
+                <div className="flex justify-between text-orange-600">
+                  <span className="flex items-center gap-1"><Percent className="h-3 w-3" />{appliedPromo?.name}</span>
+                  <span>-{formatCurrency(promoDiscount)}</span>
+                </div>
+              )}
+              {voucherDiscount > 0 && (
+                <div className="flex justify-between text-purple-600">
+                  <span className="flex items-center gap-1"><Ticket className="h-3 w-3" />{appliedVoucher?.code}</span>
+                  <span>-{formatCurrency(voucherDiscount)}</span>
+                </div>
+              )}
+              {pointsDiscount > 0 && (
+                <div className="flex justify-between text-emerald-600">
+                  <span className="flex items-center gap-1"><Star className="h-3 w-3" />{pointsToRedeem.toLocaleString('id-ID')} poin</span>
+                  <span>-{formatCurrency(pointsDiscount)}</span>
+                </div>
+              )}
+              <div className="border-t pt-2 flex justify-between font-bold text-base">
+                <span>Total Tagihan</span>
+                <span className="text-emerald-600">{formatCurrency(total)}</span>
+              </div>
+              {selectedCustomer && loyaltyProgram && pointsEarned > 0 && (
+                <div className="flex justify-between text-xs text-emerald-500 bg-emerald-50 rounded px-2 py-1">
+                  <span className="flex items-center gap-1"><Gift className="h-3 w-3" />Poin yang akan diperoleh</span>
+                  <span className="font-medium">+{pointsEarned.toLocaleString('id-ID')}</span>
+                </div>
+              )}
             </div>
 
+            {/* Metode pembayaran */}
             <div>
               <Label className="text-xs text-muted-foreground mb-2 block">Metode Pembayaran</Label>
               <div className="grid grid-cols-2 gap-2">
                 {paymentMethods.map(pm => (
                   <button key={pm.value} onClick={() => setPaymentMethod(pm.value)}
-                    className={cn('flex items-center gap-2 px-3 py-2.5 rounded-lg border text-sm font-medium transition-colors',
-                      paymentMethod === pm.value ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'hover:border-muted-foreground/40')}>
+                    className={cn(
+                      'flex items-center gap-2 px-3 py-2.5 rounded-lg border text-sm font-medium transition-colors',
+                      paymentMethod === pm.value
+                        ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
+                        : 'hover:border-muted-foreground/40'
+                    )}>
                     {pm.icon}{pm.label}
                   </button>
                 ))}
@@ -566,11 +1157,18 @@ export default function POSKasirPage() {
             {paymentMethod === 'cash' && (
               <div>
                 <Label>Jumlah Bayar</Label>
-                <Input className="mt-1 text-lg font-bold h-12" type="number" value={paymentAmount} onChange={e => setPaymentAmount(e.target.value)} placeholder="0" />
+                <Input className="mt-1 text-lg font-bold h-12" type="number"
+                  value={paymentAmount} onChange={e => setPaymentAmount(e.target.value)} placeholder="0" autoFocus />
                 <div className="flex gap-1.5 mt-2 flex-wrap">
-                  {[total, Math.ceil(total / 5000) * 5000, Math.ceil(total / 10000) * 10000, Math.ceil(total / 50000) * 50000].filter((v, i, arr) => arr.indexOf(v) === i).map(v => (
-                    <Button key={v} variant="outline" size="sm" className="text-xs h-7" onClick={() => setPaymentAmount(String(v))}>{formatCurrency(v)}</Button>
-                  ))}
+                  {[total, Math.ceil(total / 5000) * 5000, Math.ceil(total / 10000) * 10000, Math.ceil(total / 50000) * 50000]
+                    .filter((v, i, arr) => arr.indexOf(v) === i && v >= total)
+                    .slice(0, 4)
+                    .map(v => (
+                      <Button key={v} variant="outline" size="sm" className="text-xs h-7"
+                        onClick={() => setPaymentAmount(String(v))}>
+                        {formatCurrency(v)}
+                      </Button>
+                    ))}
                 </div>
                 {Number(paymentAmount) >= total && (
                   <div className="mt-3 bg-blue-50 border border-blue-200 rounded-lg p-3">
@@ -589,31 +1187,89 @@ export default function POSKasirPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Success Dialog */}
+      {/* ════════ DIALOG SUKSES ════════ */}
       <Dialog open={successDialog} onOpenChange={setSuccessDialog}>
         <DialogContent className="max-w-sm">
-          <div className="text-center py-4">
-            <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
+          <div className="text-center py-2">
+            <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-3">
               <CheckCircle2 className="h-8 w-8 text-emerald-600" />
             </div>
             <h2 className="text-xl font-bold mb-1">Transaksi Berhasil!</h2>
             {lastSale && (
-              <div className="bg-muted rounded-xl p-4 mt-4 text-left space-y-2 text-sm">
-                <div className="flex justify-between"><span className="text-muted-foreground">No. Transaksi</span><span className="font-mono font-bold">{lastSale.saleNumber}</span></div>
-                <div className="flex justify-between"><span className="text-muted-foreground">Customer</span><span>{lastSale.customerName}</span></div>
-                <div className="flex justify-between"><span className="text-muted-foreground">Total</span><span className="font-bold text-emerald-600">{formatCurrency(lastSale.total)}</span></div>
-                {lastSale.paymentMethod === 'cash' && <div className="flex justify-between"><span className="text-muted-foreground">Kembalian</span><span className="font-bold">{formatCurrency(lastSale.change)}</span></div>}
+              <div className="bg-muted rounded-xl p-4 mt-3 text-left space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">No. Transaksi</span>
+                  <span className="font-mono font-bold text-xs">{lastSale.saleNumber}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Customer</span>
+                  <span className="font-medium">{lastSale.customerName}</span>
+                </div>
+                {lastSale.promoDiscount > 0 && (
+                  <div className="flex justify-between text-orange-600 text-xs">
+                    <span className="flex items-center gap-1"><Percent className="h-3 w-3" />Promo</span>
+                    <span>-{formatCurrency(lastSale.promoDiscount)}</span>
+                  </div>
+                )}
+                {lastSale.voucherDiscount > 0 && (
+                  <div className="flex justify-between text-purple-600 text-xs">
+                    <span className="flex items-center gap-1"><Ticket className="h-3 w-3" />{lastSale.appliedVoucherCode}</span>
+                    <span>-{formatCurrency(lastSale.voucherDiscount)}</span>
+                  </div>
+                )}
+                {lastSale.pointsDiscount > 0 && (
+                  <div className="flex justify-between text-emerald-600 text-xs">
+                    <span className="flex items-center gap-1"><Star className="h-3 w-3" />Poin ditukar</span>
+                    <span>-{formatCurrency(lastSale.pointsDiscount)}</span>
+                  </div>
+                )}
+                <div className="flex justify-between font-bold border-t pt-2">
+                  <span>Total Dibayar</span>
+                  <span className="text-emerald-600">{formatCurrency(lastSale.total)}</span>
+                </div>
+                {lastSale.paymentMethod === 'cash' && lastSale.change > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Kembalian</span>
+                    <span className="font-bold">{formatCurrency(lastSale.change)}</span>
+                  </div>
+                )}
+                {/* Ringkasan poin */}
+                {lastSale.pointsEarned > 0 && (
+                  <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3 mt-2 space-y-1">
+                    <p className="text-xs font-semibold text-emerald-700 flex items-center gap-1">
+                      <Star className="h-3.5 w-3.5" />Ringkasan Poin
+                    </p>
+                    {lastSale.pointsRedeemed > 0 && (
+                      <div className="flex justify-between text-xs text-red-600">
+                        <span>Ditukar</span><span>-{lastSale.pointsRedeemed.toLocaleString('id-ID')} poin</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between text-xs text-emerald-600">
+                      <span>Diperoleh</span><span>+{lastSale.pointsEarned.toLocaleString('id-ID')} poin</span>
+                    </div>
+                    {lastSale.newPointsBalance !== null && (
+                      <div className="flex justify-between text-xs font-bold text-emerald-700 border-t pt-1">
+                        <span>Saldo Poin</span><span>{lastSale.newPointsBalance.toLocaleString('id-ID')} poin</span>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
             <div className="flex gap-2 mt-4">
-              <Button variant="outline" className="flex-1" onClick={printReceipt}><Printer className="h-4 w-4 mr-2" />Cetak Struk</Button>
-              <Button className="flex-1 bg-emerald-600 hover:bg-emerald-700" onClick={() => { setSuccessDialog(false); searchRef.current?.focus(); }}>Transaksi Baru</Button>
+              <Button variant="outline" className="flex-1" onClick={printReceipt}>
+                <Printer className="h-4 w-4 mr-2" />Cetak Struk
+              </Button>
+              <Button className="flex-1 bg-emerald-600 hover:bg-emerald-700"
+                onClick={() => { setSuccessDialog(false); searchRef.current?.focus(); }}>
+                Transaksi Baru
+              </Button>
             </div>
           </div>
         </DialogContent>
       </Dialog>
 
-      {/* Held Bills Dialog */}
+      {/* ════════ DIALOG HELD BILLS ════════ */}
       <Dialog open={heldBillsDialog} onOpenChange={setHeldBillsDialog}>
         <DialogContent>
           <DialogHeader><DialogTitle>Transaksi Tertahan ({heldBills.length})</DialogTitle></DialogHeader>
@@ -634,7 +1290,7 @@ export default function POSKasirPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Variant Dialog */}
+      {/* ════════ DIALOG VARIAN ════════ */}
       <Dialog open={variantDialog} onOpenChange={setVariantDialog}>
         <DialogContent>
           <DialogHeader><DialogTitle>Pilih Varian — {selectedProduct?.name}</DialogTitle></DialogHeader>
@@ -650,34 +1306,71 @@ export default function POSKasirPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Customer Dialog */}
+      {/* ════════ DIALOG CUSTOMER ════════ */}
       <Dialog open={customerDialog} onOpenChange={setCustomerDialog}>
         <DialogContent>
           <DialogHeader><DialogTitle>Pilih Customer</DialogTitle></DialogHeader>
           <div className="space-y-3">
-            <Input placeholder="Nama customer baru atau cari..." value={customerName}
-              onChange={e => { setCustomerName(e.target.value); searchCustomers(e.target.value); }} />
+            <Input
+              placeholder="Cari nama customer..."
+              value={customerSearch || customerName}
+              onChange={e => {
+                const v = e.target.value;
+                setCustomerName(v);
+                setCustomerSearch(v);
+                searchCustomers(v);
+              }}
+              autoFocus
+            />
             {customers.length > 0 && (
-              <div className="space-y-1">
+              <div className="space-y-1 max-h-60 overflow-y-auto">
                 {customers.map(c => (
-                  <button key={c.id} className="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-muted text-left"
-                    onClick={() => { setSelectedCustomer(c); setCustomerName(''); setCustomerDialog(false); }}>
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${c.is_member ? 'bg-amber-100 text-amber-700' : 'bg-muted'}`}>
-                      {c.name[0]}
+                  <button key={c.id}
+                    className="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-muted text-left"
+                    onClick={() => {
+                      setSelectedCustomer(c);
+                      setCustomerName('');
+                      setCustomerSearch('');
+                      setCustomerDialog(false);
+                    }}>
+                    <div className={cn(
+                      'w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0',
+                      c.is_member ? 'bg-amber-100 text-amber-700' : 'bg-muted text-muted-foreground'
+                    )}>
+                      {c.name[0].toUpperCase()}
                     </div>
-                    <div>
+                    <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium">{c.name}</p>
                       {c.phone && <p className="text-xs text-muted-foreground">{c.phone}</p>}
                     </div>
-                    {c.is_member && <Badge className="ml-auto bg-amber-100 text-amber-700 border-0 text-xs">Member</Badge>}
+                    <div className="flex flex-col items-end gap-1">
+                      {c.is_member && (
+                        <Badge className="bg-amber-100 text-amber-700 border-0 text-xs">Member</Badge>
+                      )}
+                      {loyaltyProgram && (c.loyalty_points || 0) > 0 && (
+                        <span className="text-xs text-emerald-600 flex items-center gap-0.5">
+                          <Star className="h-2.5 w-2.5" />{(c.loyalty_points || 0).toLocaleString('id-ID')}
+                        </span>
+                      )}
+                    </div>
                   </button>
                 ))}
               </div>
             )}
             {selectedCustomer && (
-              <div className="flex items-center justify-between bg-muted p-2 rounded-lg">
-                <span className="text-sm">Terpilih: <strong>{selectedCustomer.name}</strong></span>
-                <Button variant="ghost" size="sm" className="h-7 text-xs text-destructive" onClick={() => { setSelectedCustomer(null); }}>Hapus</Button>
+              <div className="flex items-center justify-between bg-emerald-50 border border-emerald-200 p-2 rounded-lg">
+                <div>
+                  <span className="text-sm font-medium">{selectedCustomer.name}</span>
+                  {loyaltyProgram && (
+                    <span className="ml-2 text-xs text-emerald-600">
+                      {customerPoints.toLocaleString('id-ID')} poin
+                    </span>
+                  )}
+                </div>
+                <Button variant="ghost" size="sm" className="h-7 text-xs text-destructive"
+                  onClick={() => { setSelectedCustomer(null); setCustomerName(''); }}>
+                  Hapus
+                </Button>
               </div>
             )}
           </div>
@@ -688,7 +1381,7 @@ export default function POSKasirPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Barcode Scanner Dialog */}
+      {/* ════════ BARCODE SCANNER ════════ */}
       <BarcodeScanner
         open={scannerOpen}
         onClose={() => setScannerOpen(false)}
