@@ -2,10 +2,9 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import { VitePWA } from "vite-plugin-pwa";
 import path from "path";
-import { componentTagger } from "lovable-tagger";
 
 // https://vitejs.dev/config/
-export default defineConfig(({ mode }) => ({
+export default defineConfig(() => ({
   server: {
     host: "0.0.0.0",
     port: 5000,
@@ -41,7 +40,7 @@ export default defineConfig(({ mode }) => ({
       },
       workbox: {
         navigateFallbackDenylist: [/^\/~oauth/],
-        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024, // 5 MB instead of default 2 MB
+        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
         runtimeCaching: [
           {
@@ -51,7 +50,7 @@ export default defineConfig(({ mode }) => ({
               cacheName: 'supabase-storage-cache',
               expiration: {
                 maxEntries: 100,
-                maxAgeSeconds: 60 * 60 * 24 * 30 // 30 days
+                maxAgeSeconds: 60 * 60 * 24 * 30
               },
               cacheableResponse: {
                 statuses: [0, 200]
@@ -65,16 +64,14 @@ export default defineConfig(({ mode }) => ({
               cacheName: 'supabase-api-cache',
               expiration: {
                 maxEntries: 50,
-                maxAgeSeconds: 60 * 60 * 24 // 24 hours
+                maxAgeSeconds: 60 * 60 * 24
               }
             }
           }
         ]
       }
     }),
-    mode === 'development' &&
-    componentTagger(),
-  ].filter(Boolean),
+  ],
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),

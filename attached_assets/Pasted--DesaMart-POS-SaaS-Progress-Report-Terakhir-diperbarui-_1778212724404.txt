@@ -1,0 +1,395 @@
+# DesaMart POS SaaS — Progress Report
+
+> Terakhir diperbarui: 8 Mei 2026  
+> Platform: React 18 + TypeScript + Vite + Supabase  
+> Jalur: `/pos/*` (terpisah dari marketplace DesaMart)
+
+---
+
+## Ringkasan Fase
+
+| Fase | Nama | Status |
+|------|------|--------|
+| **Phase 1** | POS + Master Data + Stok Dasar | ✅ Selesai |
+| **Phase 2** | Pembelian & Kas Harian | ⬜ Belum |
+| **Phase 3** | Laporan Lanjutan & Analitik | ⬜ Belum |
+| **Phase 4** | Multi-outlet & Manajemen Shift | ⬜ Belum |
+| **Phase 5** | Loyalty, Promosi & Diskon | ⬜ Belum |
+| **Phase 6** | Integrasi Marketplace & API Publik | ⬜ Belum |
+
+---
+
+## ✅ PHASE 1 — Selesai
+
+### 1.1 Database (Supabase Migration)
+
+**File:** `supabase/migrations/20260508000000_phase1_pos_saas.sql`
+
+| Tabel | Keterangan | Status |
+|-------|-----------|--------|
+| `pos_tenants` | Data usaha (nama, logo, mata uang, pajak) | ✅ |
+| `pos_outlets` | Outlet/cabang per tenant | ✅ |
+| `pos_users` | Pengguna POS dengan 7 role + PIN | ✅ |
+| `pos_categories` | Kategori produk (mendukung sub-kategori) | ✅ |
+| `pos_brands` | Brand/merek produk | ✅ |
+| `pos_products` | Produk utama (harga, HPP, barcode, SKU, pajak) | ✅ |
+| `pos_product_variants` | Varian produk (warna, ukuran, dll.) | ✅ |
+| `pos_stock` | Stok per produk per outlet | ✅ |
+| `pos_stock_mutations` | Riwayat perubahan stok | ✅ |
+| `pos_customers` | Data pelanggan + statistik pembelian | ✅ |
+| `pos_suppliers` | Data supplier/pemasok | ✅ |
+| `pos_sales` | Header transaksi penjualan | ✅ |
+| `pos_sale_items` | Detail item per transaksi | ✅ |
+| `pos_held_bills` | Transaksi yang ditahan (hold) | ✅ |
+| `pos_sale_returns` | Header retur penjualan | ✅ |
+| `pos_sale_return_items` | Detail item retur | ✅ |
+
+> **Catatan:** Migration SQL belum dijalankan otomatis. Harus di-paste ke **Supabase Dashboard → SQL Editor** dan dijalankan secara manual.
+
+Semua tabel sudah dilengkapi:
+- Row Level Security (RLS) policies
+- Index untuk query performa tinggi
+- Foreign key constraints
+- `created_at` / `updated_at` timestamps
+
+---
+
+### 1.2 Core Infrastructure
+
+| File | Fungsi | Status |
+|------|--------|--------|
+| `src/contexts/POSContext.tsx` | State tenant, outlet aktif, format mata uang, outlet switcher | ✅ |
+| `src/components/pos/POSLayout.tsx` | Wrapper layout POS (header + sidebar) | ✅ |
+| `src/components/pos/POSSidebar.tsx` | Sidebar navigasi lengkap dengan outlet selector | ✅ |
+| `src/components/pos/BarcodeScanner.tsx` | Kamera barcode scanner menggunakan `@zxing/browser` | ✅ |
+| `src/App.tsx` | Route `/pos/*` + `POSProvider` wrapper | ✅ |
+
+---
+
+### 1.3 Halaman POS (`src/pages/pos/`)
+
+#### POSSetupPage — Wizard Setup Usaha
+**Route:** `/pos/setup`
+
+- [x] Step 1: Nama usaha, jenis usaha, mata uang, format pajak
+- [x] Step 2: Setup outlet pertama (nama, alamat, telepon)
+- [x] Redirect otomatis ke dashboard setelah setup selesai
+
+---
+
+#### POSDashboardPage — Dashboard Utama
+**Route:** `/pos`
+
+- [x] Kartu statistik: Penjualan hari ini, jumlah transaksi, produk terjual, pelanggan baru
+- [x] Grafik penjualan 7 hari terakhir (Recharts BarChart)
+- [x] Alert stok menipis (produk dengan stok ≤ minimum)
+- [x] Shortcut navigasi cepat ke Kasir, Produk, Stok, Laporan
+
+---
+
+#### POSKasirPage — Kasir / Point of Sale
+**Route:** `/pos/kasir`
+
+- [x] Grid produk dengan gambar, harga, stok real-time
+- [x] Filter kategori horizontal
+- [x] Search produk (nama, SKU, barcode)
+- [x] **Barcode scanner kamera** (tombol ikon barcode, powered by `@zxing/browser`)
+- [x] Dialog pilih varian produk (untuk produk dengan varian)
+- [x] Keranjang belanja dengan qty +/- dan hapus item
+- [x] Diskon per item dan diskon global transaksi
+- [x] Pilih/cari pelanggan (dengan badge Member)
+- [x] Input nama pelanggan bebas (tanpa register)
+- [x] Catatan per transaksi
+- [x] **Hold bill** — tahan transaksi, bisa dilanjutkan nanti
+- [x] **Resume bill** — lanjutkan transaksi yang ditahan
+- [x] Dialog pembayaran: Tunai, QRIS, Transfer, Debit
+- [x] Hitung kembalian otomatis (mode Tunai)
+- [x] Tombol nominal cepat (bulat ke 5rb/10rb/50rb)
+- [x] Cetak struk (`window.print()`)
+- [x] Dialog sukses setelah transaksi
+- [x] Update stok otomatis setelah transaksi berhasil
+- [x] Update statistik pelanggan (`total_purchase`, `transaction_count`, `last_purchase_at`)
+- [x] Simpan mutasi stok ke `pos_stock_mutations`
+- [x] **Keyboard shortcuts:** F2=Bayar, F3=Tahan, F8=Fokus Search, Esc=Clear Search
+- [x] Tampil hint shortcut keyboard di tombol aksi
+
+---
+
+#### POSTransaksiPage — Riwayat Transaksi
+**Route:** `/pos/transaksi`
+
+- [x] List transaksi dengan filter tanggal (hari ini, kemarin, minggu ini, bulan ini, custom)
+- [x] Filter rentang tanggal kustom
+- [x] Ringkasan: total omset, jumlah transaksi, rata-rata per transaksi
+- [x] Detail transaksi (modal) — item, harga, diskon, total, kembalian
+- [x] Export CSV (download file)
+- [x] Badge status transaksi (completed, void, refunded)
+
+---
+
+#### POSReturPage — Retur Penjualan
+**Route:** `/pos/retur`
+
+- [x] Cari transaksi berdasarkan nomor transaksi
+- [x] Pilih item yang ingin diretur
+- [x] Input jumlah retur per item
+- [x] Pilihan: restock barang atau tidak
+- [x] Simpan retur ke `pos_sale_returns` dan `pos_sale_return_items`
+- [x] Update stok otomatis jika opsi restock dipilih
+- [x] List retur yang sudah diproses
+
+---
+
+#### POSProdukPage — Manajemen Produk
+**Route:** `/pos/produk`
+
+- [x] List produk dengan filter kategori, brand, status aktif
+- [x] Search nama/SKU/barcode
+- [x] Form tambah/edit produk (nama, SKU, barcode, harga jual, HPP, unit, pajak)
+- [x] Upload gambar produk (Supabase Storage)
+- [x] Toggle pelacakan stok
+- [x] Manajemen varian produk (nama varian, harga, HPP)
+- [x] Kalkulasi margin otomatis (HPP vs harga jual)
+- [x] Soft delete (nonaktifkan produk)
+- [x] Export daftar produk ke CSV
+- [x] Pagination / tampilan per halaman
+
+---
+
+#### POSKategoriPage — Manajemen Kategori
+**Route:** `/pos/kategori`
+
+- [x] List kategori + jumlah produk per kategori
+- [x] Tambah/edit/hapus kategori
+- [x] Urutan tampil (sort order)
+- [x] Status aktif/nonaktif
+- [x] Sub-kategori (parent_id)
+
+---
+
+#### POSCustomerPage — Manajemen Pelanggan
+**Route:** `/pos/customer`
+
+- [x] List pelanggan dengan search
+- [x] Tambah/edit pelanggan (nama, telepon, email, alamat, catatan)
+- [x] Toggle status Member
+- [x] Statistik: total belanja, jumlah transaksi, terakhir belanja
+- [x] Export CSV
+
+---
+
+#### POSSupplierPage — Manajemen Supplier
+**Route:** `/pos/supplier`
+
+- [x] List supplier dengan search
+- [x] Tambah/edit/hapus supplier (nama, kontak, telepon, email, alamat, catatan)
+- [x] Status aktif/nonaktif
+
+---
+
+#### POSStokPage — Manajemen Stok
+**Route:** `/pos/stok`
+
+- [x] Stok per produk per outlet
+- [x] Filter outlet dan status stok (semua, menipis, habis)
+- [x] Adjustment stok manual (tambah/kurang)
+- [x] Input alasan penyesuaian dan referensi
+- [x] Riwayat mutasi stok per produk
+- [x] Indikator visual stok menipis / habis
+- [x] Export stok ke CSV
+
+---
+
+#### POSLaporanPage — Laporan Penjualan
+**Route:** `/pos/laporan`
+
+- [x] Periode: Harian, Mingguan, Bulanan, Tahunan
+- [x] Grafik penjualan (LineChart Recharts)
+- [x] Ringkasan: omset, jumlah transaksi, rata-rata transaksi, total item terjual
+- [x] Breakdown metode pembayaran (Tunai, QRIS, Transfer, Debit)
+- [x] Top 5 produk terlaris
+- [x] Export laporan ke CSV
+
+---
+
+#### POSPenggunaPage — Manajemen Pengguna POS
+**Route:** `/pos/pengguna`
+
+- [x] List pengguna POS per tenant
+- [x] Tambah/edit/nonaktifkan pengguna
+- [x] 7 role: owner, manager, kasir, gudang, supervisor, admin, viewer
+- [x] Set PIN kasir (4–6 digit)
+- [x] Outlet assignment
+
+---
+
+#### POSPengaturanPage — Pengaturan Usaha
+**Route:** `/pos/pengaturan`
+
+- [x] Edit profil usaha (nama, jenis, telepon, alamat, pajak default)
+- [x] Manajemen outlet (tambah, edit, aktif/nonaktif)
+- [x] Manajemen brand produk (tambah, edit, hapus)
+- [x] Header dan footer struk (untuk cetak)
+- [x] Format mata uang dan format nomor
+
+---
+
+### 1.4 Integrasi & Navigasi
+
+| Item | Status |
+|------|--------|
+| Tombol **Kasir POS** di halaman Akun (`/account`) untuk semua user login | ✅ |
+| `POSProvider` membungkus seluruh app tree di `App.tsx` | ✅ |
+| Semua route `/pos/*` dilindungi `ProtectedRoute` | ✅ |
+| Guard "Buat Usaha" jika tenant belum ada | ✅ |
+| Paket `@zxing/browser` & `@zxing/library` di-install | ✅ |
+
+---
+
+## ⬜ PHASE 2 — Belum Dikerjakan
+
+### Pembelian (Purchase Order)
+
+- [ ] Tabel DB: `pos_purchase_orders`, `pos_purchase_order_items`
+- [ ] Halaman `/pos/pembelian` — buat PO ke supplier
+- [ ] Penerimaan barang (receiving) → update stok otomatis
+- [ ] Status PO: draft, dikirim, diterima sebagian, selesai, dibatalkan
+- [ ] Retur ke supplier
+- [ ] Laporan utang dagang (hutang ke supplier)
+
+### Kas Harian (Cash Management)
+
+- [ ] Tabel DB: `pos_cash_sessions`, `pos_cash_mutations`
+- [ ] Buka shift kasir (input saldo awal)
+- [ ] Tutup shift kasir (hitung saldo akhir vs ekspektasi)
+- [ ] Input kas masuk / kas keluar manual (non-transaksi)
+- [ ] Laporan rekap kas per shift
+- [ ] Halaman `/pos/kas`
+
+---
+
+## ⬜ PHASE 3 — Belum Dikerjakan
+
+### Laporan Lanjutan & Analitik
+
+- [ ] Laporan Laba Rugi (Omset − HPP − Pengeluaran)
+- [ ] Laporan HPP (Harga Pokok Penjualan) per periode
+- [ ] Laporan per kasir / per user
+- [ ] Laporan pergerakan stok (stock movement report)
+- [ ] Analitik pelanggan (cohort, RFM sederhana)
+- [ ] Dashboard grafik interaktif (drill-down)
+- [ ] Export laporan ke PDF
+- [ ] Pengiriman laporan otomatis via email
+
+---
+
+## ⬜ PHASE 4 — Belum Dikerjakan
+
+### Multi-outlet & Manajemen Shift
+
+- [ ] Transfer stok antar outlet
+- [ ] Laporan perbandingan performa antar outlet
+- [ ] Shift management (jadwal kasir per outlet)
+- [ ] Log aktivitas per user (audit trail)
+- [ ] Notifikasi stok menipis (push / email)
+- [ ] Hak akses per outlet per user (lebih granular)
+
+---
+
+## ⬜ PHASE 5 — Belum Dikerjakan
+
+### Loyalty, Promosi & Diskon
+
+- [ ] Tabel DB: `pos_loyalty_points`, `pos_promotions`, `pos_vouchers`
+- [ ] Program poin pelanggan (earn & redeem)
+- [ ] Diskon otomatis berbasis kondisi (beli X dapat diskon Y)
+- [ ] Voucher & kode kupon
+- [ ] Promosi bundling (beli A+B harga spesial)
+- [ ] Happy hour / diskon waktu tertentu
+- [ ] Kartu member digital
+- [ ] Halaman `/pos/promosi`
+
+---
+
+## ⬜ PHASE 6 — Belum Dikerjakan
+
+### Integrasi Marketplace & API Publik
+
+- [ ] Sinkronisasi produk POS ↔ Marketplace DesaMart
+- [ ] Stok terpusat (marketplace & offline POS berbagi stok)
+- [ ] Order dari marketplace masuk ke POS sebagai transaksi
+- [ ] API publik (REST) untuk integrasi third-party
+- [ ] Webhook event (transaksi baru, stok habis, dll.)
+- [ ] Integrasi printer thermal (ESC/POS via browser serial API)
+- [ ] Integrasi timbangan digital
+- [ ] Mode offline (PWA + IndexedDB sync)
+
+---
+
+## Catatan Teknis Penting
+
+### Yang Harus Dilakukan Sebelum Menggunakan
+
+1. **Jalankan SQL Migration** di Supabase Dashboard:
+   - Buka: `supabase/migrations/20260508000000_phase1_pos_saas.sql`
+   - Copy semua isi file
+   - Paste ke **Supabase → SQL Editor → New Query**
+   - Klik **Run**
+
+2. **Akses POS:**
+   - Login ke aplikasi
+   - Buka halaman **Akun** → klik **Kasir POS**
+   - Atau langsung ke URL `/pos`
+   - Ikuti wizard setup usaha (nama usaha + outlet pertama)
+
+### Dependencies yang Ditambahkan
+
+| Package | Versi | Kegunaan |
+|---------|-------|---------|
+| `@zxing/browser` | latest | Barcode scanner via kamera |
+| `@zxing/library` | latest | Core decode library (dependency @zxing/browser) |
+| `recharts` | ^2.15.4 | Grafik laporan (sudah ada sebelumnya) |
+| `date-fns` | ^3.6.0 | Format tanggal (sudah ada sebelumnya) |
+
+### Struktur File POS
+
+```
+src/
+├── contexts/
+│   └── POSContext.tsx              ← State tenant & outlet
+├── components/pos/
+│   ├── POSLayout.tsx               ← Layout wrapper
+│   ├── POSSidebar.tsx              ← Navigasi sidebar
+│   └── BarcodeScanner.tsx          ← Kamera barcode scanner
+└── pages/pos/
+    ├── POSSetupPage.tsx            ← Wizard setup usaha baru
+    ├── POSDashboardPage.tsx        ← Dashboard & statistik
+    ├── POSKasirPage.tsx            ← Kasir / POS utama
+    ├── POSTransaksiPage.tsx        ← Riwayat transaksi
+    ├── POSReturPage.tsx            ← Retur penjualan
+    ├── POSProdukPage.tsx           ← Manajemen produk & varian
+    ├── POSKategoriPage.tsx         ← Manajemen kategori
+    ├── POSCustomerPage.tsx         ← Manajemen pelanggan
+    ├── POSSupplierPage.tsx         ← Manajemen supplier
+    ├── POSStokPage.tsx             ← Manajemen & mutasi stok
+    ├── POSLaporanPage.tsx          ← Laporan penjualan
+    ├── POSPenggunaPage.tsx         ← Manajemen pengguna POS
+    └── POSPengaturanPage.tsx       ← Pengaturan usaha & outlet
+
+supabase/migrations/
+└── 20260508000000_phase1_pos_saas.sql  ← 16 tabel Phase 1
+```
+
+### Keyboard Shortcuts (Halaman Kasir)
+
+| Tombol | Aksi |
+|--------|------|
+| `F2` | Buka dialog pembayaran |
+| `F3` | Tahan transaksi (hold bill) |
+| `F8` | Fokus ke search produk |
+| `Escape` | Bersihkan pencarian |
+| USB Barcode Scanner | Langsung ketik ke search box (otomatis bekerja) |
+
+---
+
+*Total file dibuat/dimodifikasi: 18 file baru + 3 file dimodifikasi*
