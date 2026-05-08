@@ -67,9 +67,6 @@ publicDir = "dist"
 [userenv]
 
 [userenv.shared]
-VITE_SUPABASE_URL = "https://ygozkcyazayubjicagej.supabase.co"
-VITE_SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlnb3prY3lhemF5dWJqaWNhZ2VqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE1Njk2NDQsImV4cCI6MjA4NzE0NTY0NH0.h2QCC58X8lMIhemNYwudjGFBddSnQBKn77SYUjAp_dE"
-VITE_SUPABASE_PROJECT_ID = "ygozkcyazayubjicagej"
 VAPID_PUBLIC_KEY = "BBQAF5PSov1CegFK_XLJYcqiE1z7vrmq0rJva5akTpbuOP5Bmq9zCWQVb6ps8Qv35OTQW5O9Jpx5Z39Ffh8jLLA"
 VAPID_EMAIL = "mailto:admin@desamart.id"
 VITE_VAPID_PUBLIC_KEY = "BBQAF5PSov1CegFK_XLJYcqiE1z7vrmq0rJva5akTpbuOP5Bmq9zCWQVb6ps8Qv35OTQW5O9Jpx5Z39Ffh8jLLA"

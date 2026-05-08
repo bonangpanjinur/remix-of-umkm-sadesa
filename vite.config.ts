@@ -111,9 +111,6 @@ export default defineConfig(() => ({
             if (id.includes('react') || id.includes('react-dom')) {
               return 'react-vendor';
             }
-            if (id.includes('supabase')) {
-              return 'supabase-vendor';
-            }
             if (id.includes('recharts')) {
               return 'recharts-vendor';
             }
