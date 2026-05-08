@@ -133,6 +133,9 @@ const MerchantPOSPage = lazy(() => import("./pages/merchant/MerchantPOSPage"));
 const MerchantPOSSubscribePage = lazy(() => import("./pages/merchant/MerchantPOSSubscribePage"));
 const MerchantPOSSettingsPage = lazy(() => import("./pages/merchant/MerchantPOSSettingsPage"));
 const MerchantDuesPage = lazy(() => import("./pages/merchant/MerchantDuesPage"));
+const MerchantNotifikasiWAPage = lazy(() => import("./pages/merchant/MerchantNotifikasiWAPage"));
+const MerchantImportExportPage = lazy(() => import("./pages/merchant/MerchantImportExportPage"));
+const MerchantInsightPage = lazy(() => import("./pages/merchant/MerchantInsightPage"));
 
 // POS SaaS Pages
 const POSSetupPage = lazy(() => import("./pages/pos/POSSetupPage"));
@@ -754,6 +757,21 @@ const App = () => (
               <Route path="/merchant/dues" element={
                 <ProtectedRoute>
                   <MerchantDuesPage />
+                </ProtectedRoute>
+              } />
+              <Route path="/merchant/notifikasi-wa" element={
+                <ProtectedRoute>
+                  <MerchantNotifikasiWAPage />
+                </ProtectedRoute>
+              } />
+              <Route path="/merchant/import-export" element={
+                <ProtectedRoute>
+                  <MerchantImportExportPage />
+                </ProtectedRoute>
+              } />
+              <Route path="/merchant/insight" element={
+                <ProtectedRoute>
+                  <MerchantInsightPage />
                 </ProtectedRoute>
               } />
 

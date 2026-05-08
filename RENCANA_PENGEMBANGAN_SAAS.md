@@ -21,6 +21,9 @@
 | 🟢 P4 | Target Omzet & Tracking Pencapaian | `src/pages/pos/POSTargetOmzetPage.tsx` | ✅ Selesai |
 | 🔵 P5 | Landing Page Paket Berlangganan (poles) | `src/pages/pos/POSHargaPage.tsx` | ✅ Selesai |
 | 🔵 P5 | Export PDF Laporan Kasir & Stok | `src/pages/pos/POSLaporanKasirPage.tsx` `src/pages/pos/POSLaporanStokPage.tsx` | ✅ Selesai |
+| 🟣 P6 | Notifikasi WA untuk Merchant | `src/pages/merchant/MerchantNotifikasiWAPage.tsx` | ✅ Selesai |
+| 🟣 P6 | Import / Export Produk CSV (Massal) | `src/pages/merchant/MerchantImportExportPage.tsx` | ✅ Selesai |
+| 🟣 P6 | Insight Bisnis Mendalam | `src/pages/merchant/MerchantInsightPage.tsx` | ✅ Selesai |
 
 ### Migration SQL yang perlu dijalankan di Supabase / Database
 
@@ -120,6 +123,54 @@ pos_debt_payments (id, debt_id, amount, payment_date, notes, created_by)
 ```sql
 pos_omzet_targets (id, tenant_id, outlet_id, month, year, daily_target, monthly_target)
 ```
+
+---
+
+## 🟣 PRIORITAS 6 — Fitur Merchant Marketplace (SELESAI ✅)
+
+### [P6-A] Notifikasi WhatsApp untuk Merchant ✅
+
+**File dibuat:**
+- `src/pages/merchant/MerchantNotifikasiWAPage.tsx`
+- Route: `/merchant/notifikasi-wa`
+
+**Fitur yang ada:**
+- Simpan nomor WA merchant (localStorage + kolom phone di DB)
+- Tab **Notifikasi**: daftar pesanan pending + tombol "Notif ke Saya" (buka WA ke HP sendiri), daftar stok menipis, tombol alert stok bulk
+- Tab **Laporan**: preview rekap hari ini (omzet, order, avg/order, pending, stok) + tombol kirim ke WA sendiri
+- Tab **Broadcast**: template pesan dengan variabel `{nama_pembeli}`, kirim satu-satu atau ke semua pelanggan sekaligus, daftar pelanggan unik 90 hari terakhir dengan jumlah order
+- Tab **Pengaturan**: atur nomor WA, toggle preferensi notif, test kirim WA
+- Semua menggunakan `wa.me` link — tanpa API berbayar
+
+---
+
+### [P6-B] Import & Export Produk CSV (Massal) ✅
+
+**File dibuat:**
+- `src/pages/merchant/MerchantImportExportPage.tsx`
+- Route: `/merchant/import-export`
+
+**Fitur yang ada:**
+- **Import Tab**: download template CSV, upload file CSV, parse & validasi per baris (nama wajib, harga > 0, kategori valid), preview tabel dengan status valid/error per baris, import massal dengan progress bar, laporan hasil (berhasil/gagal)
+- **Export Tab**: export semua produk ke CSV (nama, deskripsi, harga, stok, kategori, aktif, promo, dilihat, terjual, tanggal dibuat), preview tabel produk di halaman
+- Mendukung encoding UTF-8 dengan BOM (agar Excel Indonesia tidak error)
+
+---
+
+### [P6-C] Insight Bisnis Mendalam ✅
+
+**File dibuat:**
+- `src/pages/merchant/MerchantInsightPage.tsx`
+- Route: `/merchant/insight`
+
+**Fitur yang ada:**
+- Pilih periode 7 hari / 30 hari
+- **KPI Cards**: omzet, total order, rata-rata/order, pelanggan unik — semua dengan delta % vs periode sebelumnya
+- **Highlight**: jam paling ramai, hari terbaik, tingkat repeat buyer, jumlah produk aktif
+- **Tab Tren Omzet**: grafik area omzet harian, bar chart omzet per hari dalam seminggu, pie chart kategori
+- **Tab Jam Ramai**: bar chart per jam (hijau = jam paling ramai), bar chart per hari (dengan highlight puncak), rekomendasi otomatis kapan aktifkan promo
+- **Tab Produk**: top 5 terlaris dengan progress bar & konversi, produk perlu perhatian (views tinggi tapi konversi rendah), stok menipis
+- **Tab Pelanggan**: statistik total + repeat buyer, interpretasi otomatis + rekomendasi aksi (broadcast WA, voucher, dll)
 
 ---
 
