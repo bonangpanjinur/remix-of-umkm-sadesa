@@ -2,7 +2,8 @@ import { Link, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, ShoppingCart, ClipboardList, Package, Tag,
   Users, Truck, Archive, BarChart3, UserCog, Settings,
-  ChevronLeft, Store, RotateCcw, ShoppingBag, Wallet
+  ChevronLeft, Store, RotateCcw, ShoppingBag, Wallet,
+  TrendingUp, UserCheck, BoxesIcon, PieChart
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { usePOS } from '@/contexts/POSContext';
@@ -31,7 +32,11 @@ export function POSSidebar() {
     { label: 'Customer', href: '/pos/customer', icon: <Users className="h-4 w-4" /> },
     { label: 'Supplier', href: '/pos/supplier', icon: <Truck className="h-4 w-4" /> },
     { label: 'Stok', href: '/pos/stok', icon: <Archive className="h-4 w-4" /> },
-    { label: 'Laporan', href: '/pos/laporan', icon: <BarChart3 className="h-4 w-4" /> },
+    { label: 'Lap. Penjualan', href: '/pos/laporan', icon: <BarChart3 className="h-4 w-4" /> },
+    { label: 'Lap. Laba Rugi', href: '/pos/laporan/laba-rugi', icon: <TrendingUp className="h-4 w-4" /> },
+    { label: 'Lap. Per Kasir', href: '/pos/laporan/kasir', icon: <UserCheck className="h-4 w-4" /> },
+    { label: 'Lap. Stok', href: '/pos/laporan/stok', icon: <BoxesIcon className="h-4 w-4" /> },
+    { label: 'Analitik Pelanggan', href: '/pos/analitik', icon: <PieChart className="h-4 w-4" /> },
     { label: 'Pengguna', href: '/pos/pengguna', icon: <UserCog className="h-4 w-4" /> },
     { label: 'Pengaturan', href: '/pos/pengaturan', icon: <Settings className="h-4 w-4" /> },
   ];
