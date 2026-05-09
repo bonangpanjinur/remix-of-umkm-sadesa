@@ -183,6 +183,7 @@ const POSHargaPage = lazy(() => import("./pages/pos/POSHargaPage"));
 
 // Desa Pages
 const DesaDashboardPage = lazy(() => import("./pages/desa/DesaDashboardPage"));
+const DesaMerchantPage = lazy(() => import("./pages/desa/DesaMerchantPage"));
 const DesaTourismPage = lazy(() => import("./pages/desa/DesaTourismPage"));
 const DesaEkonomiPage = lazy(() => import("./pages/desa/DesaEkonomiPage"));
 const DesaEventPage = lazy(() => import("./pages/desa/DesaEventPage"));
@@ -826,6 +827,12 @@ const App = () => (
               <Route path="/desa/laporan-wisata" element={
                 <ProtectedRoute allowedRoles={['admin_desa', 'admin']}>
                   <DesaLaporanWisataPage />
+                </ProtectedRoute>
+              } />
+              {/* P1.4: Verifikasi merchant oleh admin desa */}
+              <Route path="/desa/merchants" element={
+                <ProtectedRoute allowedRoles={['admin_desa', 'admin']}>
+                  <DesaMerchantPage />
                 </ProtectedRoute>
               } />
 

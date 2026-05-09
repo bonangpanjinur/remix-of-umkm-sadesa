@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Home, Compass, Receipt, User, Store } from 'lucide-react';
 import { useCart } from '@/contexts/CartContext';
@@ -23,33 +23,88 @@ export const BottomNav = React.forwardRef<HTMLElement, React.HTMLAttributes<HTML
   const chatUnread = useChatUnread();
   const [unreadCount, setUnreadCount] = useState(0);
   const [activeOrders, setActiveOrders] = useState(0);
+  const channelRef = useRef<any>(null);
 
   useEffect(() => {
-    if (!user) return;
-    
-    const fetchBadges = async () => {
-      // Unread notifications
-      const { count: notifCount } = await supabase
-        .from('notifications')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', user.id)
-        .eq('is_read', false);
-      setUnreadCount(notifCount || 0);
+    if (!user) {
+      setUnreadCount(0);
+      setActiveOrders(0);
+      return;
+    }
 
-      // Active orders
-      const { count: ordersCount } = await supabase
-        .from('orders')
-        .select('*', { count: 'exact', head: true })
-        .eq('buyer_id', user.id)
-        .in('status', ['NEW', 'PENDING_PAYMENT', 'PENDING_CONFIRMATION', 'PROCESSED', 'ASSIGNED', 'PICKED_UP', 'DELIVERING', 'SENT', 'DELIVERED']);
-      setActiveOrders(ordersCount || 0);
+    const fetchBadges = async () => {
+      const [notifRes, ordersRes] = await Promise.all([
+        supabase
+          .from('notifications')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', user.id)
+          .eq('is_read', false),
+        supabase
+          .from('orders')
+          .select('*', { count: 'exact', head: true })
+          .eq('buyer_id', user.id)
+          .in('status', ['NEW', 'PENDING_PAYMENT', 'PENDING_CONFIRMATION', 'PROCESSED', 'ASSIGNED', 'PICKED_UP', 'DELIVERING', 'SENT', 'DELIVERED']),
+      ]);
+      setUnreadCount(notifRes.count || 0);
+      setActiveOrders(ordersRes.count || 0);
     };
 
     fetchBadges();
 
-    // Refresh every 30s
-    const interval = setInterval(fetchBadges, 30000);
-    return () => clearInterval(interval);
+    // P1.2: Real-time badge via SSE — subscribe ke notifications table
+    // Tidak perlu polling 30s lagi — update instan saat notif masuk
+    const channel = supabase
+      .channel(`bottomnav-notif-${user.id}`)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${user.id}` },
+        () => {
+          setUnreadCount((prev) => prev + 1);
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'notifications', filter: `user_id=eq.${user.id}` },
+        () => {
+          // Tandai baca → refresh counter
+          supabase
+            .from('notifications')
+            .select('*', { count: 'exact', head: true })
+            .eq('user_id', user.id)
+            .eq('is_read', false)
+            .then(({ count }) => setUnreadCount(count || 0));
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'orders', filter: `buyer_id=eq.${user.id}` },
+        (payload) => {
+          const updatedOrder = payload.new as any;
+          const activeStatuses = ['NEW', 'PENDING_PAYMENT', 'PENDING_CONFIRMATION', 'PROCESSED', 'ASSIGNED', 'PICKED_UP', 'DELIVERING', 'SENT', 'DELIVERED'];
+          if (activeStatuses.includes(updatedOrder.status)) {
+            fetchBadges();
+          } else {
+            setActiveOrders((prev) => Math.max(0, prev - 1));
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'orders', filter: `buyer_id=eq.${user.id}` },
+        () => {
+          setActiveOrders((prev) => prev + 1);
+        }
+      )
+      .subscribe();
+
+    channelRef.current = channel;
+
+    return () => {
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
+      }
+    };
   }, [user]);
 
   const getBadgeCount = (path: string) => {
@@ -63,7 +118,7 @@ export const BottomNav = React.forwardRef<HTMLElement, React.HTMLAttributes<HTML
       {navItems.map(({ path, icon: Icon, label }) => {
         const isActive = location.pathname === path;
         const badgeCount = getBadgeCount(path);
-        
+
         return (
           <Link
             key={path}
@@ -74,7 +129,6 @@ export const BottomNav = React.forwardRef<HTMLElement, React.HTMLAttributes<HTML
               isActive ? 'text-primary' : 'text-muted-foreground hover:text-primary'
             )}
           >
-            {/* Active indicator bar */}
             <div className={cn(
               'absolute -top-0 left-1/2 -translate-x-1/2 h-[3px] rounded-full transition-all duration-300',
               isActive ? 'w-6 bg-primary' : 'w-0 bg-transparent'

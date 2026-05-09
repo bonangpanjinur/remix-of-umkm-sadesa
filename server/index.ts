@@ -2,6 +2,7 @@ import express from "express";
 import { pool } from "./db";
 import apiRoutes from "./routes/index";
 import { createOrUpdateReplitUser, initSessionsTable, cleanupExpiredSessions } from "./auth";
+import { notifyMerchantVerificationResult } from "./lib/notify";
 import * as path from "path";
 import * as fs from "fs";
 
@@ -236,10 +237,151 @@ app.post("/api/webhook/marketplace-order", async (req, res) => {
   finally { client.release(); }
 });
 
-// S-01: sync-stock — TODO Sprint 4: implementasi logika sync stok POS ↔ marketplace
+// P1.1: Sync stok dari POS ke Marketplace
 app.post("/api/pos/sync-stock", async (req, res) => {
-  console.warn("[pos/sync-stock] Endpoint belum diimplementasi — Sprint 4");
-  return res.status(501).json({ success: false, message: "Belum diimplementasi — Sprint 4" });
+  const client = await pool.connect();
+  try {
+    const { tenant_id } = req.body;
+    if (!tenant_id) return res.status(400).json({ error: "tenant_id wajib diisi" });
+
+    const syncItems = await client.query(
+      `SELECT pms.id, pms.pos_product_id, pms.marketplace_product_id
+       FROM public.pos_marketplace_sync pms
+       WHERE pms.tenant_id = $1
+         AND pms.sync_stock = true
+         AND pms.sync_status = 'synced'
+         AND pms.marketplace_product_id IS NOT NULL`,
+      [tenant_id]
+    );
+
+    let processed = 0, success = 0, failed = 0;
+    const errors: string[] = [];
+    const logStart = new Date().toISOString();
+
+    for (const item of syncItems.rows) {
+      processed++;
+      try {
+        const stockRes = await client.query(
+          "SELECT COALESCE(SUM(quantity), 0)::int AS qty FROM public.pos_stock WHERE product_id = $1",
+          [item.pos_product_id]
+        );
+        const qty = stockRes.rows[0]?.qty ?? 0;
+        await client.query(
+          "UPDATE public.products SET stock = $1, updated_at = now() WHERE id = $2",
+          [qty, item.marketplace_product_id]
+        );
+        await client.query(
+          "UPDATE public.pos_marketplace_sync SET last_synced_at = now(), error_message = NULL WHERE id = $1",
+          [item.id]
+        );
+        success++;
+      } catch (err: any) {
+        failed++;
+        errors.push(`product ${item.pos_product_id}: ${err.message}`);
+        await client.query(
+          "UPDATE public.pos_marketplace_sync SET error_message = $1 WHERE id = $2",
+          [err.message, item.id]
+        ).catch(() => {});
+      }
+    }
+
+    await client.query(
+      `INSERT INTO public.pos_sync_logs
+         (tenant_id, sync_type, status, items_processed, items_success, items_failed, started_at, finished_at)
+       VALUES ($1, 'stock_sync', $2, $3, $4, $5, $6, now())`,
+      [tenant_id, failed === 0 ? "success" : success > 0 ? "partial" : "failed", processed, success, failed, logStart]
+    ).catch(() => {});
+
+    return res.json({ success: true, processed, success_count: success, failed_count: failed, errors });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  } finally {
+    client.release();
+  }
+});
+
+// P1.1: Sync produk POS → Marketplace (nama, harga, deskripsi)
+app.post("/api/pos/sync-product", async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const { tenant_id } = req.body;
+    if (!tenant_id) return res.status(400).json({ error: "tenant_id wajib diisi" });
+
+    const syncItems = await client.query(
+      `SELECT pms.id, pms.pos_product_id, pms.marketplace_product_id, pms.sync_price,
+              pp.name, pp.price, pp.description
+       FROM public.pos_marketplace_sync pms
+       JOIN public.pos_products pp ON pp.id = pms.pos_product_id
+       WHERE pms.tenant_id = $1 AND pms.sync_status = 'synced' AND pms.marketplace_product_id IS NOT NULL`,
+      [tenant_id]
+    );
+
+    let processed = 0, success = 0, failed = 0;
+    const logStart = new Date().toISOString();
+
+    for (const item of syncItems.rows) {
+      processed++;
+      try {
+        const updates: Record<string, any> = { name: item.name, updated_at: new Date().toISOString() };
+        if (item.sync_price) updates.price = Number(item.price);
+        if (item.description) updates.description = item.description;
+
+        const setClauses = Object.keys(updates).map((k, i) => `${k} = $${i + 2}`).join(", ");
+        const values = [item.marketplace_product_id, ...Object.values(updates)];
+        await client.query(`UPDATE public.products SET ${setClauses} WHERE id = $1`, values);
+
+        await client.query(
+          "UPDATE public.pos_marketplace_sync SET last_synced_at = now(), error_message = NULL WHERE id = $1",
+          [item.id]
+        );
+        success++;
+      } catch (err: any) {
+        failed++;
+        await client.query(
+          "UPDATE public.pos_marketplace_sync SET error_message = $1 WHERE id = $2",
+          [err.message, item.id]
+        ).catch(() => {});
+      }
+    }
+
+    await client.query(
+      `INSERT INTO public.pos_sync_logs
+         (tenant_id, sync_type, status, items_processed, items_success, items_failed, started_at, finished_at)
+       VALUES ($1, 'product_sync', $2, $3, $4, $5, $6, now())`,
+      [tenant_id, failed === 0 ? "success" : success > 0 ? "partial" : "failed", processed, success, failed, logStart]
+    ).catch(() => {});
+
+    return res.json({ success: true, processed, success_count: success, failed_count: failed });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  } finally {
+    client.release();
+  }
+});
+
+// P1.4: Endpoint verifikasi merchant oleh admin desa — kirim notif ke merchant
+app.post("/api/merchant/verify", async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const { merchant_id, merchant_user_id, merchant_name, approved, notes } = req.body;
+    if (!merchant_id || !merchant_user_id) {
+      return res.status(400).json({ error: "merchant_id dan merchant_user_id wajib diisi" });
+    }
+    await notifyMerchantVerificationResult(merchant_user_id, merchant_name || "Toko Anda", approved === true, notes);
+
+    // Log ke audit
+    await client.query(
+      `INSERT INTO public.admin_audit_logs (admin_id, action, entity_type, entity_id, new_value, created_at)
+       VALUES (gen_random_uuid(), $1, 'merchant', $2::uuid, $3, now())`,
+      [approved ? "merchant_approved" : "merchant_rejected", merchant_id, JSON.stringify({ approved, notes })]
+    ).catch(() => {});
+
+    return res.json({ success: true });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  } finally {
+    client.release();
+  }
 });
 
 // ─── S6-08: WhatsApp Notification API ─────────────────────────────────────────

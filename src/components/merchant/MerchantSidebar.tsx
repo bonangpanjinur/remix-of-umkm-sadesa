@@ -45,64 +45,77 @@ export function MerchantSidebar() {
   const [lowStockCount, setLowStockCount] = useState(0);
 
   useEffect(() => {
+    if (!user) return;
+
     const fetchBadges = async () => {
       if (!user) return;
       
-      // Get merchant for this user
       const { data: merchant } = await supabase
         .from('merchants')
         .select('id')
         .eq('user_id', user.id)
         .maybeSingle();
 
-      if (merchant) {
-        // Pending orders
-        const { count: ordersCount } = await supabase
+      if (!merchant) return;
+
+      const [ordersRes, reviewsRes, lowStockRes] = await Promise.all([
+        supabase
           .from('orders')
           .select('*', { count: 'exact', head: true })
           .eq('merchant_id', merchant.id)
-          .in('status', ['NEW', 'PENDING_CONFIRMATION']);
-        
-        setPendingOrders(ordersCount || 0);
-
-        // Unreplied reviews
-        const { count: reviewsCount } = await supabase
+          .in('status', ['NEW', 'PENDING_CONFIRMATION']),
+        supabase
           .from('reviews')
           .select('*', { count: 'exact', head: true })
           .eq('merchant_id', merchant.id)
-          .is('merchant_reply', null);
-        
-        setUnrepliedReviews(reviewsCount || 0);
-
-        // Pending refunds - get via order_id that belongs to this merchant
-        const { data: merchantOrders } = await supabase
-          .from('orders')
-          .select('id')
-          .eq('merchant_id', merchant.id);
-        
-        if (merchantOrders && merchantOrders.length > 0) {
-          const orderIds = merchantOrders.map(o => o.id);
-          const { count: refundsCount } = await supabase
-            .from('refund_requests')
-            .select('*', { count: 'exact', head: true })
-            .in('order_id', orderIds)
-            .eq('status', 'PENDING');
-          
-          setPendingRefunds(refundsCount || 0);
-        }
-
-        // Low stock products
-        const { data: lowStockProducts } = await supabase
+          .is('merchant_reply', null),
+        supabase
           .from('products')
           .select('id, stock, low_stock_threshold')
           .eq('merchant_id', merchant.id)
-          .eq('is_active', true);
+          .eq('is_active', true),
+      ]);
 
-        const lowCount = lowStockProducts?.filter(p => p.stock <= (p.low_stock_threshold || 5)).length || 0;
-        setLowStockCount(lowCount);
+      setPendingOrders(ordersRes.count || 0);
+      setUnrepliedReviews(reviewsRes.count || 0);
+      const lowCount = lowStockRes.data?.filter(p => p.stock <= (p.low_stock_threshold || 5)).length || 0;
+      setLowStockCount(lowCount);
+
+      // Refund via merchant orders
+      const { data: mOrders } = await supabase
+        .from('orders')
+        .select('id')
+        .eq('merchant_id', merchant.id);
+      if (mOrders && mOrders.length > 0) {
+        const { count: refCount } = await supabase
+          .from('refund_requests')
+          .select('*', { count: 'exact', head: true })
+          .in('order_id', mOrders.map(o => o.id))
+          .eq('status', 'PENDING');
+        setPendingRefunds(refCount || 0);
       }
     };
+
     fetchBadges();
+
+    // P1.2: Real-time badge via SSE — pesanan baru langsung muncul di sidebar
+    const channel = supabase
+      .channel(`merchant-sidebar-${user.id}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'orders' }, () => {
+        fetchBadges();
+      })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'orders' }, () => {
+        fetchBadges();
+      })
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'reviews' }, () => {
+        setUnrepliedReviews((prev) => prev + 1);
+      })
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'refund_requests' }, () => {
+        setPendingRefunds((prev) => prev + 1);
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
   }, [user]);
 
   const menuItems: SidebarItem[] = [

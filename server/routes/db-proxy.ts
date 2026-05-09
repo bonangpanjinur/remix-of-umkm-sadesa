@@ -7,6 +7,7 @@ import { Router, Request, Response } from "express";
 import { pool } from "../db";
 import { getSessionUser, getUserById } from "../auth";
 import { broadcastDbEvent } from "../sse-manager";
+import { notifyNewOrder, notifyOrderStatusChange, notifyNewMerchantToAdminDesa } from "../lib/notify";
 
 const router = Router();
 
@@ -445,6 +446,16 @@ router.post("/insert", async (req: Request, res: Response) => {
           broadcastDbEvent({ type: "postgres_changes", table: tbl, event: "INSERT", record: result.rows[0], schema: "public" });
         }
       }
+
+      // P1.2: Notifikasi otomatis saat order baru dibuat
+      if (tbl === "orders" && results[0]) {
+        notifyNewOrder(results[0]).catch((e) => console.error("[notify] order INSERT:", e));
+      }
+      // P1.2: Notifikasi ke admin desa saat merchant baru daftar
+      if (tbl === "merchants" && results[0]) {
+        notifyNewMerchantToAdminDesa(results[0]).catch((e) => console.error("[notify] merchant INSERT:", e));
+      }
+
       return res.json({ data: results });
     } finally {
       client.release();
@@ -493,6 +504,14 @@ router.post("/update", async (req: Request, res: Response) => {
       for (const row of result.rows) {
         broadcastDbEvent({ type: "postgres_changes", table: tbl, event: "UPDATE", record: row, schema: "public" });
       }
+
+      // P1.2: Notifikasi buyer saat status pesanan berubah
+      if (tbl === "orders") {
+        for (const row of result.rows) {
+          notifyOrderStatusChange(row).catch((e) => console.error("[notify] order UPDATE:", e));
+        }
+      }
+
       return res.json({ data: result.rows });
     } finally {
       client.release();

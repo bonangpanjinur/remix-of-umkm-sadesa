@@ -1,22 +1,62 @@
+import { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { 
-  LayoutDashboard, Mountain, Store, ChevronLeft, Home,
-  TrendingUp, Calendar, Award, Megaphone, Map, BarChart3
+  LayoutDashboard, Mountain, ChevronLeft, Home,
+  TrendingUp, Calendar, Award, Megaphone, Map, BarChart3,
+  ShieldCheck
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface SidebarItem {
   label: string;
   href: string;
   icon: React.ReactNode;
+  badge?: number;
 }
 
 export function DesaSidebar() {
   const location = useLocation();
+  const { user } = useAuth();
+  const [pendingMerchants, setPendingMerchants] = useState(0);
+
+  useEffect(() => {
+    if (!user) return;
+
+    const fetchPending = async () => {
+      const { data: uv } = await supabase
+        .from('user_villages')
+        .select('village_id')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      if (!uv?.village_id) return;
+
+      const { count } = await supabase
+        .from('merchants')
+        .select('*', { count: 'exact', head: true })
+        .eq('village_id', uv.village_id)
+        .eq('registration_status', 'PENDING');
+      setPendingMerchants(count || 0);
+    };
+
+    fetchPending();
+
+    // P1.2: Real-time badge — update saat ada merchant baru daftar atau diapprove
+    const channel = supabase
+      .channel('desa-sidebar-merchants')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'merchants' }, () => {
+        fetchPending();
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [user]);
 
   const menuItems: SidebarItem[] = [
     { label: 'Dashboard',          href: '/desa',                    icon: <LayoutDashboard className="h-4 w-4" /> },
     { label: 'Wisata',             href: '/desa/tourism',            icon: <Mountain className="h-4 w-4" /> },
+    { label: 'Verifikasi Merchant',href: '/desa/merchants',          icon: <ShieldCheck className="h-4 w-4" />, badge: pendingMerchants },
     { label: 'Laporan Ekonomi',    href: '/desa/ekonomi',            icon: <TrendingUp className="h-4 w-4" /> },
     { label: 'Event Desa',         href: '/desa/event',              icon: <Calendar className="h-4 w-4" /> },
     { label: 'Keanggotaan UMKM',   href: '/desa/keanggotaan',        icon: <Award className="h-4 w-4" /> },
@@ -42,14 +82,19 @@ export function DesaSidebar() {
               key={item.href}
               to={item.href}
               className={cn(
-                "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
+                "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors relative",
                 isActive
                   ? "bg-primary text-primary-foreground"
                   : "text-muted-foreground hover:bg-secondary hover:text-foreground"
               )}
             >
               {item.icon}
-              {item.label}
+              <span className="flex-1">{item.label}</span>
+              {item.badge && item.badge > 0 ? (
+                <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-bold bg-destructive text-destructive-foreground rounded-full">
+                  {item.badge > 9 ? '9+' : item.badge}
+                </span>
+              ) : null}
             </Link>
           );
         })}
