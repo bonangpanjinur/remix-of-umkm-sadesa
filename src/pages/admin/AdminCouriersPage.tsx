@@ -78,6 +78,7 @@ export default function AdminCouriersPage() {
   });
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['admin-couriers-list'] });
+  const fetchCouriers = invalidate;
 
   const handleApprove = async (id: string) => {
     try {

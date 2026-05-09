@@ -66,6 +66,7 @@ export default function AdminMerchantsPage() {
   });
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['admin-merchants-list'] });
+  const fetchMerchants = invalidate;
 
   const handleApprove = async (id: string) => {
     const success = await approveMerchant(id);

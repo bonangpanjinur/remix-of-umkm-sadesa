@@ -81,6 +81,7 @@ export default function AdminOrdersPage() {
   });
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['admin-orders-list'] });
+  const fetchOrders = invalidate;
 
   // Realtime subscription — invalidate query saat ada perubahan order
   useEffect(() => {
