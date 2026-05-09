@@ -15,8 +15,8 @@
 | **P2** | Pengalaman Pembeli & Toko | ✅ Selesai |
 | **P3** | Admin Desa & Ekosistem Wisata | ✅ Selesai |
 | **P4** | Super Admin & Keuangan Platform | ✅ Selesai |
-| **P5** | POS Lanjutan & Kurir | ✅ Selesai (incl. Batch Delivery & Slip PDF) |
-| **P6** | Diferensiasi & Monetisasi | ✅ Sebagian Selesai |
+| **P5** | POS Lanjutan & Kurir | ✅ Selesai (Batch Delivery + Slip PDF + Printer WiFi/BT/USB) |
+| **P6** | Diferensiasi & Monetisasi | ⚡ Sebagian Selesai (fitur inti ada, QR Pay & Menu Digital belum) |
 
 ---
 

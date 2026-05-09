@@ -8,6 +8,7 @@ import publicApiRouter from "./public-api";
 import posRouter from "./pos";
 import adminStatsRouter from "./admin-stats";
 import courierRouter from "./courier";
+import printerRouter from "./printer";
 
 const router = Router();
 
@@ -20,5 +21,6 @@ router.use("/v1", publicApiRouter);
 router.use("/pos", posRouter);
 router.use("/admin", adminStatsRouter);
 router.use("/courier", courierRouter);
+router.use("/printer", printerRouter);
 
 export default router;

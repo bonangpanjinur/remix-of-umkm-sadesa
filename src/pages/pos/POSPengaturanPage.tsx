@@ -13,8 +13,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { Building2, Store, Plus, Pencil, Phone, MapPin } from 'lucide-react';
+import { Building2, Store, Plus, Pencil, Phone, MapPin, Printer, Wifi, Bluetooth, Usb, CheckCircle2, XCircle, TestTube2, Copy } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import {
+  getPrinterSettings, savePrinterSettings, DEFAULT_SETTINGS,
+  USBPrinter, BluetoothPrinter, WiFiPrinter, getUniversalPrinter,
+} from '@/lib/thermalPrinter';
+import type { PrinterSettings, ConnectionType } from '@/lib/thermalPrinter';
 
 interface Outlet {
   id: string;
@@ -38,6 +43,109 @@ export default function POSPengaturanPage() {
   const [brands, setBrands] = useState<{ id: string; name: string }[]>([]);
   const [saving, setSaving] = useState(false);
   const [isNewTenant, setIsNewTenant] = useState(false);
+
+  // ── Printer Settings ──────────────────────────────────────
+  const [printerSettings, setPrinterSettings] = useState<PrinterSettings>(() => getPrinterSettings());
+  const [printerStatus, setPrinterStatus] = useState<'idle' | 'connecting' | 'connected' | 'error'>('idle');
+  const [printerMsg, setPrinterMsg] = useState('');
+  const [testingPrint, setTestingPrint] = useState(false);
+
+  const uniPrinter = getUniversalPrinter();
+
+  const updatePrinter = (patch: Partial<PrinterSettings>) => {
+    setPrinterSettings(prev => ({ ...prev, ...patch }));
+  };
+
+  const savePrinter = () => {
+    savePrinterSettings(printerSettings);
+    toast.success('Pengaturan printer tersimpan');
+  };
+
+  const connectUSB = async () => {
+    if (!USBPrinter.isSupported()) {
+      toast.error('Web Serial tidak didukung. Gunakan Chrome/Edge versi terbaru.');
+      return;
+    }
+    setPrinterStatus('connecting');
+    setPrinterMsg('Menghubungkan ke printer USB...');
+    try {
+      const ok = await uniPrinter.usb.connect(printerSettings.baudRate);
+      if (ok) {
+        setPrinterStatus('connected');
+        setPrinterMsg(`Printer USB terhubung! Baud: ${printerSettings.baudRate}`);
+        toast.success('Printer USB terhubung!');
+      } else {
+        setPrinterStatus('idle');
+        setPrinterMsg('Tidak ada printer dipilih');
+      }
+    } catch (err: any) {
+      setPrinterStatus('error');
+      setPrinterMsg(err.message);
+      toast.error(err.message);
+    }
+  };
+
+  const connectBluetooth = async () => {
+    if (!BluetoothPrinter.isSupported()) {
+      toast.error('Web Bluetooth tidak didukung. Gunakan Chrome/Edge terbaru di HTTPS.');
+      return;
+    }
+    setPrinterStatus('connecting');
+    setPrinterMsg('Mencari printer Bluetooth...');
+    try {
+      const ok = await uniPrinter.bluetooth.connect();
+      if (ok) {
+        setPrinterStatus('connected');
+        setPrinterMsg(`Terhubung ke: ${uniPrinter.bluetooth.deviceName}`);
+        toast.success(`Printer Bluetooth terhubung: ${uniPrinter.bluetooth.deviceName}`);
+      } else {
+        setPrinterStatus('idle');
+        setPrinterMsg('Tidak ada perangkat dipilih');
+      }
+    } catch (err: any) {
+      setPrinterStatus('error');
+      setPrinterMsg(err.message);
+      toast.error(err.message);
+    }
+  };
+
+  const testWifiConnection = async () => {
+    if (!printerSettings.wifiIp) { toast.error('Masukkan IP printer dulu'); return; }
+    setPrinterStatus('connecting');
+    setPrinterMsg(`Mengecek ${printerSettings.wifiIp}:${printerSettings.wifiPort}...`);
+    try {
+      const wifi = new WiFiPrinter(printerSettings.wifiIp, printerSettings.wifiPort);
+      await wifi.testConnection();
+      setPrinterStatus('connected');
+      setPrinterMsg(`Printer WiFi aktif: ${printerSettings.wifiIp}:${printerSettings.wifiPort}`);
+      toast.success('Printer WiFi terhubung!');
+    } catch (err: any) {
+      setPrinterStatus('error');
+      setPrinterMsg(err.message);
+      toast.error(err.message);
+    }
+  };
+
+  const doTestPrint = async () => {
+    savePrinterSettings(printerSettings);
+    setTestingPrint(true);
+    try {
+      await uniPrinter.testPrint();
+      toast.success('Test print berhasil dikirim!');
+    } catch (err: any) {
+      toast.error(`Test print gagal: ${err.message}`);
+    } finally {
+      setTestingPrint(false);
+    }
+  };
+
+  const disconnectPrinter = async () => {
+    if (printerSettings.connectionType === 'usb') await uniPrinter.usb.disconnect();
+    if (printerSettings.connectionType === 'bluetooth') await uniPrinter.bluetooth.disconnect();
+    setPrinterStatus('idle');
+    setPrinterMsg('');
+    toast.info('Printer diputuskan');
+  };
 
   useEffect(() => {
     if (tenant) {
@@ -140,11 +248,14 @@ export default function POSPengaturanPage() {
   return (
     <POSLayout title="Pengaturan" subtitle="Konfigurasi usaha, outlet, dan profil sistem">
       <Tabs defaultValue="usaha">
-        <TabsList className="mb-4">
+        <TabsList className="mb-4 flex-wrap h-auto">
           <TabsTrigger value="usaha">Profil Usaha</TabsTrigger>
           <TabsTrigger value="outlet">Outlet</TabsTrigger>
           <TabsTrigger value="master">Master Data</TabsTrigger>
           <TabsTrigger value="struk">Pengaturan Struk</TabsTrigger>
+          <TabsTrigger value="printer" className="flex items-center gap-1.5">
+            <Printer className="h-3.5 w-3.5" />Printer
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="usaha">
@@ -322,6 +433,297 @@ export default function POSPengaturanPage() {
               </Button>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* ── TAB PRINTER ─────────────────────────────────────── */}
+        <TabsContent value="printer">
+          <div className="space-y-4">
+            {/* Status bar */}
+            <div className={`flex items-center gap-2.5 px-4 py-3 rounded-lg border text-sm font-medium
+              ${printerStatus === 'connected' ? 'bg-emerald-50 border-emerald-300 text-emerald-800'
+              : printerStatus === 'error' ? 'bg-red-50 border-red-300 text-red-800'
+              : printerStatus === 'connecting' ? 'bg-amber-50 border-amber-300 text-amber-800'
+              : 'bg-muted border-border text-muted-foreground'}`}>
+              {printerStatus === 'connected' ? <CheckCircle2 className="h-4 w-4 flex-shrink-0" />
+                : printerStatus === 'error' ? <XCircle className="h-4 w-4 flex-shrink-0" />
+                : <Printer className="h-4 w-4 flex-shrink-0" />}
+              <span className="flex-1">{printerMsg || 'Belum ada printer terhubung'}</span>
+              {(printerStatus === 'connected') && (
+                <Button variant="ghost" size="sm" className="h-6 text-xs px-2" onClick={disconnectPrinter}>Putuskan</Button>
+              )}
+            </div>
+
+            {/* Jenis Koneksi */}
+            <Card className="border-0 shadow-sm">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Printer className="h-4 w-4 text-emerald-600" />
+                  Jenis Koneksi Printer
+                </CardTitle>
+                <CardDescription>Pilih cara menghubungkan printer thermal ESC/POS ke sistem kasir.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {/* USB */}
+                <button
+                  onClick={() => updatePrinter({ connectionType: 'usb' })}
+                  className={`w-full flex items-start gap-3 p-4 rounded-xl border-2 transition-all text-left
+                    ${printerSettings.connectionType === 'usb' ? 'border-emerald-500 bg-emerald-50' : 'border-border hover:border-emerald-300'}`}>
+                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0
+                    ${printerSettings.connectionType === 'usb' ? 'bg-emerald-500 text-white' : 'bg-muted text-muted-foreground'}`}>
+                    <Usb className="h-5 w-5" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="font-semibold text-sm">USB (Web Serial)</p>
+                      {printerSettings.connectionType === 'usb' && <Badge className="bg-emerald-100 text-emerald-700 border-0 text-xs">Dipilih</Badge>}
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-0.5">Hubungkan langsung via kabel USB. Dukungan Chrome/Edge terbaru. Cocok untuk printer counter kasir tetap.</p>
+                    <p className="text-xs text-amber-600 mt-1">⚠ Butuh izin browser pertama kali. Tidak bisa di Firefox/Safari.</p>
+                  </div>
+                </button>
+
+                {/* WiFi */}
+                <button
+                  onClick={() => updatePrinter({ connectionType: 'wifi' })}
+                  className={`w-full flex items-start gap-3 p-4 rounded-xl border-2 transition-all text-left
+                    ${printerSettings.connectionType === 'wifi' ? 'border-emerald-500 bg-emerald-50' : 'border-border hover:border-emerald-300'}`}>
+                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0
+                    ${printerSettings.connectionType === 'wifi' ? 'bg-emerald-500 text-white' : 'bg-muted text-muted-foreground'}`}>
+                    <Wifi className="h-5 w-5" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="font-semibold text-sm">WiFi / LAN (TCP Port 9100)</p>
+                      {printerSettings.connectionType === 'wifi' && <Badge className="bg-emerald-100 text-emerald-700 border-0 text-xs">Dipilih</Badge>}
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-0.5">Printer terhubung ke jaringan WiFi/LAN yang sama. Cocok untuk kasir multi-perangkat di satu jaringan.</p>
+                    <p className="text-xs text-blue-600 mt-1">✓ Bekerja di semua browser. Printer harus satu jaringan dengan server.</p>
+                  </div>
+                </button>
+
+                {/* Bluetooth */}
+                <button
+                  onClick={() => updatePrinter({ connectionType: 'bluetooth' })}
+                  className={`w-full flex items-start gap-3 p-4 rounded-xl border-2 transition-all text-left
+                    ${printerSettings.connectionType === 'bluetooth' ? 'border-emerald-500 bg-emerald-50' : 'border-border hover:border-emerald-300'}`}>
+                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0
+                    ${printerSettings.connectionType === 'bluetooth' ? 'bg-emerald-500 text-white' : 'bg-muted text-muted-foreground'}`}>
+                    <Bluetooth className="h-5 w-5" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="font-semibold text-sm">Bluetooth (Web Bluetooth)</p>
+                      {printerSettings.connectionType === 'bluetooth' && <Badge className="bg-emerald-100 text-emerald-700 border-0 text-xs">Dipilih</Badge>}
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-0.5">Printer Bluetooth portabel. Cocok untuk kasir bergerak, SPG, atau lapangan. Nordic UART / Generic Printer.</p>
+                    <p className="text-xs text-amber-600 mt-1">⚠ Butuh Chrome/Edge di HTTPS. Tidak tersedia di iOS.</p>
+                  </div>
+                </button>
+              </CardContent>
+            </Card>
+
+            {/* Pengaturan spesifik per koneksi */}
+            {printerSettings.connectionType === 'wifi' && (
+              <Card className="border-0 shadow-sm">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm flex items-center gap-2"><Wifi className="h-4 w-4 text-blue-500" />Konfigurasi WiFi/LAN</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="col-span-2">
+                      <Label>IP Address Printer</Label>
+                      <Input className="mt-1 font-mono" value={printerSettings.wifiIp}
+                        onChange={e => updatePrinter({ wifiIp: e.target.value })}
+                        placeholder="192.168.1.100" />
+                      <p className="text-xs text-muted-foreground mt-1">Cek di pengaturan printer atau router Anda</p>
+                    </div>
+                    <div>
+                      <Label>Port TCP</Label>
+                      <Input className="mt-1 font-mono" type="number" value={printerSettings.wifiPort}
+                        onChange={e => updatePrinter({ wifiPort: Number(e.target.value) })}
+                        placeholder="9100" />
+                      <p className="text-xs text-muted-foreground mt-1">Default: 9100</p>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm" onClick={testWifiConnection} disabled={printerStatus === 'connecting'}>
+                      <Wifi className="h-3.5 w-3.5 mr-1.5" />
+                      {printerStatus === 'connecting' ? 'Mengecek...' : 'Test Koneksi'}
+                    </Button>
+                  </div>
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-xs text-blue-800 space-y-1">
+                    <p className="font-semibold">Cara cari IP printer:</p>
+                    <p>1. Tekan tombol Feed di printer saat pertama hidup → akan cetak konfigurasi termasuk IP</p>
+                    <p>2. Atau cek di router: Devices / DHCP Clients, cari nama printer</p>
+                    <p>3. Pastikan printer dan server DesaMart berada di jaringan WiFi yang SAMA</p>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {printerSettings.connectionType === 'usb' && (
+              <Card className="border-0 shadow-sm">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm flex items-center gap-2"><Usb className="h-4 w-4 text-gray-600" />Konfigurasi USB</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="max-w-xs">
+                    <Label>Baud Rate</Label>
+                    <Select value={String(printerSettings.baudRate)} onValueChange={v => updatePrinter({ baudRate: Number(v) })}>
+                      <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="9600">9600 bps (default thermal)</SelectItem>
+                        <SelectItem value="19200">19200 bps</SelectItem>
+                        <SelectItem value="38400">38400 bps</SelectItem>
+                        <SelectItem value="57600">57600 bps</SelectItem>
+                        <SelectItem value="115200">115200 bps (high speed)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground mt-1">Kebanyakan printer thermal: 9600 atau 115200</p>
+                  </div>
+                  <Button onClick={connectUSB} disabled={printerStatus === 'connecting'} className="bg-gray-800 hover:bg-gray-900 text-white">
+                    <Usb className="h-4 w-4 mr-1.5" />
+                    {uniPrinter.usb.connected ? 'Printer USB Terhubung ✓' : printerStatus === 'connecting' ? 'Menghubungkan...' : 'Hubungkan Printer USB'}
+                  </Button>
+                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-800 space-y-1">
+                    <p className="font-semibold">Catatan USB:</p>
+                    <p>• Browser akan meminta izin memilih port pertama kali</p>
+                    <p>• Jika printer tidak muncul: coba cabut lalu pasang ulang kabel USB</p>
+                    <p>• Driver printer USB harus sudah terpasang di komputer</p>
+                    <p>• Koneksi hilang jika refresh halaman — hubungkan ulang</p>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {printerSettings.connectionType === 'bluetooth' && (
+              <Card className="border-0 shadow-sm">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm flex items-center gap-2"><Bluetooth className="h-4 w-4 text-blue-600" />Konfigurasi Bluetooth</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="p-4 border rounded-xl space-y-3">
+                    {uniPrinter.bluetooth.connected ? (
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-emerald-100 rounded-full flex items-center justify-center">
+                          <Bluetooth className="h-5 w-5 text-emerald-600" />
+                        </div>
+                        <div>
+                          <p className="font-medium text-sm">{uniPrinter.bluetooth.deviceName}</p>
+                          <p className="text-xs text-emerald-600">Terhubung via Bluetooth</p>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-center py-2">
+                        <Bluetooth className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+                        <p className="text-sm text-muted-foreground">Belum ada printer dipasangkan</p>
+                        <p className="text-xs text-muted-foreground mt-1">Pastikan printer Bluetooth sudah menyala dan dalam jangkauan</p>
+                      </div>
+                    )}
+                    <Button
+                      onClick={uniPrinter.bluetooth.connected ? disconnectPrinter : connectBluetooth}
+                      disabled={printerStatus === 'connecting'}
+                      className={uniPrinter.bluetooth.connected ? '' : 'bg-blue-600 hover:bg-blue-700 text-white w-full'}>
+                      <Bluetooth className="h-4 w-4 mr-1.5" />
+                      {uniPrinter.bluetooth.connected ? 'Putuskan Bluetooth' : printerStatus === 'connecting' ? 'Mencari printer...' : 'Cari & Hubungkan Printer Bluetooth'}
+                    </Button>
+                  </div>
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-xs text-blue-800 space-y-1">
+                    <p className="font-semibold">Printer Bluetooth yang didukung:</p>
+                    <p>• Nordic UART Service (GATT) — paling umum</p>
+                    <p>• Generic Printer Profile (Zicox, Xprinter, HPRT, Sewoo, Bixolon)</p>
+                    <p>• Merek: MTP-II, RPP300, PTP-II, Bluetherm, Rongta, iDPRT</p>
+                    <p className="mt-1 text-amber-700">⚠ Tidak didukung di iOS Safari / Firefox</p>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Pengaturan umum */}
+            <Card className="border-0 shadow-sm">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm">Pengaturan Cetak</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label>Lebar Kertas</Label>
+                    <Select value={String(printerSettings.paperWidth)} onValueChange={v => updatePrinter({ paperWidth: Number(v) as any })}>
+                      <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="58">58mm (mini thermal)</SelectItem>
+                        <SelectItem value="80">80mm (standard)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label>Jumlah Salinan</Label>
+                    <Select value={String(printerSettings.printCopies)} onValueChange={v => updatePrinter({ printCopies: Number(v) })}>
+                      <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="1">1 lembar</SelectItem>
+                        <SelectItem value="2">2 lembar</SelectItem>
+                        <SelectItem value="3">3 lembar</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between py-2 border-t">
+                  <div>
+                    <p className="text-sm font-medium">Cetak Otomatis Setelah Transaksi</p>
+                    <p className="text-xs text-muted-foreground">Langsung cetak struk tanpa konfirmasi</p>
+                  </div>
+                  <Switch checked={printerSettings.autoPrint} onCheckedChange={v => updatePrinter({ autoPrint: v })} />
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Tombol Aksi */}
+            <div className="flex gap-3 flex-wrap">
+              <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={savePrinter}>
+                Simpan Pengaturan Printer
+              </Button>
+              <Button variant="outline" onClick={doTestPrint} disabled={testingPrint}>
+                <TestTube2 className="h-4 w-4 mr-1.5" />
+                {testingPrint ? 'Mengirim test print...' : 'Test Print'}
+              </Button>
+            </div>
+
+            {/* Daftar printer yang diketahui kompatibel */}
+            <Card className="border-0 shadow-sm bg-muted/30">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm text-muted-foreground">Printer yang Direkomendasikan</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+                  <div className="space-y-1">
+                    <p className="font-semibold flex items-center gap-1"><Usb className="h-3 w-3" />USB</p>
+                    <p className="text-muted-foreground">Epson TM-T82X</p>
+                    <p className="text-muted-foreground">Epson TM-T88VI</p>
+                    <p className="text-muted-foreground">Xprinter XP-58 / XP-80</p>
+                    <p className="text-muted-foreground">Zicox ZCP-58</p>
+                    <p className="text-muted-foreground">HPRT TP809</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="font-semibold flex items-center gap-1"><Wifi className="h-3 w-3" />WiFi/LAN</p>
+                    <p className="text-muted-foreground">Epson TM-T82X (Ethernet)</p>
+                    <p className="text-muted-foreground">Xprinter XP-N160II</p>
+                    <p className="text-muted-foreground">Rongta RP76III (LAN)</p>
+                    <p className="text-muted-foreground">HPRT TP80A (WiFi)</p>
+                    <p className="text-muted-foreground">Sewoo LK-TL212 (LAN)</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="font-semibold flex items-center gap-1"><Bluetooth className="h-3 w-3" />Bluetooth</p>
+                    <p className="text-muted-foreground">Rongta RPP300</p>
+                    <p className="text-muted-foreground">Xprinter XP-P300E</p>
+                    <p className="text-muted-foreground">HPRT MPT-II</p>
+                    <p className="text-muted-foreground">iDPRT SP410BT</p>
+                    <p className="text-muted-foreground">Zicox ZCP-58BT</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
       </Tabs>
 

@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { usePOS } from '@/contexts/POSContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { getPrinter, printReceiptBrowser, ThermalPrinter } from '@/lib/thermalPrinter';
+import { getUniversalPrinter, printReceiptBrowser, getPrinterSettings } from '@/lib/thermalPrinter';
 import type { ReceiptData } from '@/lib/thermalPrinter';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -482,35 +482,55 @@ export default function POSKasirPage() {
     else { setSearch(barcode); setScannerOpen(false); toast.info(`Barcode "${barcode}" — pilih produk secara manual`); }
   }, [products]);
 
-  // ── Thermal printer ──────────────────────────────────────
+  // ── Universal Printer ─────────────────────────────────────
+  const uniPrinter = getUniversalPrinter();
+
   const connectThermalPrinter = async () => {
-    if (!ThermalPrinter.isSupported()) { toast.error('Browser tidak mendukung Web Serial API.'); return; }
+    const settings = getPrinterSettings();
     setThermalConnecting(true);
     try {
-      const ok = await getPrinter().connect();
-      if (ok) { setThermalConnected(true); toast.success('Printer thermal terhubung!'); }
+      if (settings.connectionType === 'usb') {
+        const { USBPrinter } = await import('@/lib/thermalPrinter');
+        if (!USBPrinter.isSupported()) { toast.error('Browser tidak mendukung Web Serial API.'); return; }
+        const ok = await uniPrinter.usb.connect(settings.baudRate);
+        if (ok) { setThermalConnected(true); toast.success('Printer USB terhubung!'); }
+      } else if (settings.connectionType === 'bluetooth') {
+        const ok = await uniPrinter.bluetooth.connect();
+        if (ok) { setThermalConnected(true); toast.success(`Printer Bluetooth: ${uniPrinter.bluetooth.deviceName}`); }
+      } else {
+        if (!settings.wifiIp) { toast.error('IP printer WiFi belum diatur. Buka Pengaturan → Printer.'); return; }
+        setThermalConnected(true);
+        toast.success(`Printer WiFi: ${settings.wifiIp}:${settings.wifiPort}`);
+      }
     } catch (err: any) { toast.error('Gagal menghubungkan printer: ' + (err.message || 'Coba lagi')); }
     finally { setThermalConnecting(false); }
   };
 
+  const buildReceiptData = (): ReceiptData => ({
+    storeName: (tenant as any)?.name || 'Toko', storeAddress: (tenant as any)?.address,
+    storePhone: (tenant as any)?.phone, receiptHeader: (tenant as any)?.receipt_header,
+    receiptFooter: (tenant as any)?.receipt_footer, invoiceNo: lastSale.saleNumber,
+    date: new Date(), cashierName: user?.email,
+    customerName: lastSale.customerName !== 'Umum' ? lastSale.customerName : undefined,
+    items: lastSale.items.map((i: any) => ({ name: i.variantName ? `${i.name} (${i.variantName})` : i.name, qty: i.qty, price: i.price, discount: i.discount || 0 })),
+    subtotal: lastSale.subtotal ?? lastSale.total,
+    discountAmount: lastSale.promoDiscount + lastSale.voucherDiscount + lastSale.pointsDiscount,
+    taxAmount: lastSale.taxAmount ?? 0, total: lastSale.total,
+    paidAmount: lastSale.paidAmount ?? lastSale.total, changeAmount: lastSale.change ?? 0,
+    paymentMethod: lastSale.paymentMethod,
+  });
+
   const printReceipt = async () => {
     if (!lastSale) return;
-    const receiptData: ReceiptData = {
-      storeName: (tenant as any)?.name || 'Toko', storeAddress: (tenant as any)?.address,
-      storePhone: (tenant as any)?.phone, receiptHeader: (tenant as any)?.receipt_header,
-      receiptFooter: (tenant as any)?.receipt_footer, invoiceNo: lastSale.saleNumber,
-      date: new Date(), cashierName: user?.email,
-      customerName: lastSale.customerName !== 'Umum' ? lastSale.customerName : undefined,
-      items: lastSale.items.map((i: any) => ({ name: i.variantName ? `${i.name} (${i.variantName})` : i.name, qty: i.qty, price: i.price, discount: i.discount || 0 })),
-      subtotal: lastSale.subtotal ?? lastSale.total,
-      discountAmount: lastSale.promoDiscount + lastSale.voucherDiscount + lastSale.pointsDiscount,
-      taxAmount: lastSale.taxAmount ?? 0, total: lastSale.total,
-      paidAmount: lastSale.paidAmount ?? lastSale.total, changeAmount: lastSale.change ?? 0,
-      paymentMethod: lastSale.paymentMethod,
-    };
+    const receiptData = buildReceiptData();
     if (thermalConnected) {
-      try { await getPrinter().printReceipt(receiptData); return; }
-      catch { toast.error('Printer thermal gagal. Beralih ke cetak browser.'); setThermalConnected(false); }
+      try {
+        await uniPrinter.printReceipt(receiptData);
+        return;
+      } catch (err: any) {
+        toast.error('Printer gagal: ' + err.message + '. Beralih ke cetak browser.');
+        setThermalConnected(false);
+      }
     }
     await printReceiptBrowser(receiptData);
   };
@@ -816,13 +836,17 @@ export default function POSKasirPage() {
                 <FileDown className="h-4 w-4 mr-1.5" />Simpan PDF
               </Button>
             </div>
-            {ThermalPrinter.isSupported() && (
-              <Button variant="ghost" size="sm" className={`w-full mt-1 text-xs ${thermalConnected ? 'text-emerald-600' : 'text-muted-foreground'}`}
-                onClick={connectThermalPrinter} disabled={thermalConnecting}>
-                <Printer className="h-3 w-3 mr-1.5" />
-                {thermalConnected ? '● Printer Thermal Terhubung' : thermalConnecting ? 'Menghubungkan...' : 'Hubungkan Printer Thermal (ESC/POS)'}
-              </Button>
-            )}
+            {(() => {
+              const ps = getPrinterSettings();
+              const typeLabel = ps.connectionType === 'wifi' ? `WiFi (${ps.wifiIp || 'belum diatur'})` : ps.connectionType === 'bluetooth' ? 'Bluetooth' : 'USB';
+              return (
+                <Button variant="ghost" size="sm" className={`w-full mt-1 text-xs ${thermalConnected ? 'text-emerald-600' : 'text-muted-foreground'}`}
+                  onClick={connectThermalPrinter} disabled={thermalConnecting}>
+                  <Printer className="h-3 w-3 mr-1.5" />
+                  {thermalConnected ? `● Printer ${typeLabel} Terhubung` : thermalConnecting ? 'Menghubungkan...' : `Hubungkan Printer ${typeLabel} (ESC/POS)`}
+                </Button>
+              );
+            })()}
           </div>
         </DialogContent>
       </Dialog>
