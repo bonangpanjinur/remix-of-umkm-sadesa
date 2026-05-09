@@ -26,7 +26,9 @@ import {
   Activity,
   X,
   Key,
-  Gift
+  Gift,
+  HeadphonesIcon,
+  Search
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -94,6 +96,8 @@ export function AdminSidebar({
     { label: 'Kesehatan Sistem', href: '/admin/system-health', icon: <Activity className="h-4 w-4" /> },
     { label: 'API Keys', href: '/admin/api-keys', icon: <Key className="h-4 w-4" /> },
     { label: 'Program Cashback', href: '/admin/cashback', icon: <Gift className="h-4 w-4" /> },
+    { label: 'Tiket Support', href: '/admin/support-tickets', icon: <HeadphonesIcon className="h-4 w-4" /> },
+    { label: 'SEO & Konten', href: '/admin/seo', icon: <Search className="h-4 w-4" /> },
     { label: 'Pengaturan', href: '/admin/settings', icon: <Settings className="h-4 w-4" /> },
   ];
 

@@ -93,6 +93,9 @@ const AdminPushNotificationPage = lazy(() => import("./pages/admin/AdminPushNoti
 const AdminCashbackPage = lazy(() => import("./pages/admin/AdminCashbackPage"));
 const AdminIklanPage = lazy(() => import("./pages/admin/AdminIklanPage"));
 const AdminRealtimeDashboardPage = lazy(() => import("./pages/admin/AdminRealtimeDashboardPage"));
+const AdminSupportTicketsPage = lazy(() => import("./pages/admin/AdminSupportTicketsPage"));
+const AdminSEOPage = lazy(() => import("./pages/admin/AdminSEOPage"));
+const BuyerSupportPage = lazy(() => import("./pages/buyer/BuyerSupportPage"));
 
 // Courier Pages
 const CourierHistoryPage = lazy(() => import("./pages/courier/CourierHistoryPage"));
@@ -465,6 +468,7 @@ const App = () => (
               <Route path="/rekomendasi" element={<RekomendasisPage />} />
               <Route path="/cashback" element={<ProtectedRoute><CashbackPage /></ProtectedRoute>} />
               <Route path="/referral" element={<ProtectedRoute><ReferralPage /></ProtectedRoute>} />
+              <Route path="/support" element={<ProtectedRoute><BuyerSupportPage /></ProtectedRoute>} />
               <Route path="/langganan" element={<ProtectedRoute><SubscriptionPage /></ProtectedRoute>} />
               <Route path="/orders/:orderId/dispute" element={
                 <ProtectedRoute>
@@ -666,6 +670,16 @@ const App = () => (
               <Route path="/admin/iklan" element={
                 <ProtectedRoute allowedRoles={['admin']}>
                   <AdminIklanPage />
+                </ProtectedRoute>
+              } />
+              <Route path="/admin/support-tickets" element={
+                <ProtectedRoute allowedRoles={['admin']}>
+                  <AdminSupportTicketsPage />
+                </ProtectedRoute>
+              } />
+              <Route path="/admin/seo" element={
+                <ProtectedRoute allowedRoles={['admin']}>
+                  <AdminSEOPage />
                 </ProtectedRoute>
               } />
 

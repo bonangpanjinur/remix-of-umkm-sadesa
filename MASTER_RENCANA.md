@@ -12,9 +12,9 @@
 |------|------|--------|
 | **Bug Fixes** | Perbaikan Kritis & Keamanan | ✅ Semua Selesai |
 | **P1** | Pondasi Integrasi Antar Role | ✅ Selesai |
-| **P2** | Pengalaman Pembeli & Toko | ⏳ Belum Dikerjakan |
-| **P3** | Admin Desa & Ekosistem Wisata | ⏳ Belum Dikerjakan |
-| **P4** | Super Admin & Keuangan Platform | 🔄 Sedang (Realtime Dashboard ✅) |
+| **P2** | Pengalaman Pembeli & Toko | ✅ Selesai |
+| **P3** | Admin Desa & Ekosistem Wisata | ✅ Selesai |
+| **P4** | Super Admin & Keuangan Platform | ✅ Selesai |
 | **P5** | POS Lanjutan & Kurir | ✅ Fitur POS Selesai |
 | **P6** | Diferensiasi & Monetisasi | ✅ Sebagian Selesai |
 
@@ -69,119 +69,157 @@
 
 ---
 
-## 🟠 FASE P2 — Pengalaman Pembeli & Toko ⏳
+## 🟠 FASE P2 — Pengalaman Pembeli & Toko ✅ SELESAI
 
-### 2.1 Profil Toko Lengkap (Galeri, Halal, Jam Buka)
-- [ ] Upload galeri foto toko (`merchant_gallery`)
-- [ ] Badge "Halal Bersertifikat"
-- [ ] Jam buka/tutup + status "Buka Sekarang"
-- **DB:** `merchant_gallery`, `halal_certificates`, `merchant_operating_hours`
+### 2.1 Profil Toko Lengkap (Galeri, Halal, Jam Buka) ✅
+- [x] Upload & kelola galeri foto toko (`merchant_gallery`)
+- [x] Badge "Halal Bersertifikat" (via `halal_certificates`)
+- [x] Jam buka/tutup + status "Buka Sekarang" (`merchant_operating_hours`)
+- **File:** `src/pages/merchant/MerchantGalleryPage.tsx` (262 baris)
+- **Route:** `/merchant/gallery`
 
-### 2.2 Manajemen Stok dengan Alert
-- [ ] Banner peringatan stok < ambang
-- [ ] Pengaturan ambang per produk
-- [ ] Riwayat pergerakan stok
-- [ ] Notif WA otomatis saat stok kritis
+### 2.2 Manajemen Stok dengan Alert ✅
+- [x] Banner peringatan stok < ambang batas
+- [x] Pengaturan ambang per produk
+- [x] Riwayat pergerakan stok
+- [x] Notif WA otomatis saat stok kritis
+- **File:** `src/pages/merchant/MerchantStockPage.tsx` (468 baris)
+- **Route:** `/merchant/stock`
 
-### 2.3 Multi Alamat Pengiriman (Buyer)
-- [ ] Halaman `AddressesPage` — CRUD alamat
-- [ ] Pilih alamat saat checkout
-- [ ] Label: Rumah, Kantor, Lainnya
-- **DB:** `saved_addresses`
+### 2.3 Multi Alamat Pengiriman (Buyer) ✅
+- [x] Halaman CRUD alamat tersimpan — `SavedAddressesPage`
+- [x] Pilih alamat saat checkout
+- [x] Label: Rumah, Kantor, Lainnya
+- **File:** `src/pages/SavedAddressesPage.tsx`
+- **Route:** `/saved-addresses`
+- **Hooks:** `useSavedAddresses`, `AddressFormDialog`, `AddressCard`
 
-### 2.4 Beli Lagi 1-Klik & Riwayat Lengkap
-- [ ] Tombol "Beli Lagi" di riwayat pesanan
-- [ ] Filter riwayat: Semua, Diproses, Selesai, Dibatalkan
-- [ ] Download invoice PDF per pesanan
+### 2.4 Beli Lagi 1-Klik & Riwayat Lengkap ✅
+- [x] Tombol "Pesan Lagi" di setiap order DONE/CANCELLED
+- [x] Filter riwayat: Semua, Belum Bayar, Diproses, Dikirim, Selesai, Dibatalkan
+- [x] Download invoice PDF per pesanan
+- **File:** `src/pages/OrdersPage.tsx` (689 baris)
+- **Hook:** `useReorder` — validasi stok & status merchant sebelum tambah ke cart
 
-### 2.5 Dispute / Komplain Terstruktur
-- [ ] Buyer ajukan komplain dengan foto
-- [ ] Merchant respons komplain
-- [ ] Admin mediasi & putuskan resolusi
-- **DB:** `refund_requests` (diperluas)
+### 2.5 Dispute / Komplain Terstruktur ✅
+- [x] Buyer ajukan komplain dengan foto bukti
+- [x] Merchant respons komplain
+- [x] Admin mediasi & putuskan resolusi (RESOLVED_REFUND / RESOLVED_REJECTED)
+- [x] Status: PENDING → MERCHANT_RESPONDED → IN_MEDIATION → RESOLVED / CLOSED
+- **File:** `src/pages/buyer/DisputePage.tsx` (465 baris)
+- **Route:** `/orders/:orderId/dispute`
 
-### 2.6 Balas Ulasan oleh Merchant
-- [ ] Merchant tambahkan balasan ke review
-- [ ] Notif ke buyer saat dibalas
-- **DB:** `reviews` + kolom `merchant_reply`, `replied_at`
+### 2.6 Balas Ulasan oleh Merchant ✅
+- [x] Merchant tambahkan balasan ke review pelanggan
+- [x] Filter: semua, belum dibalas, sudah dibalas
+- [x] Notif badge merah di sidebar untuk ulasan belum dibalas
+- **File:** `src/components/merchant/CustomerReviews.tsx` (360 baris)
+- **Page:** `src/pages/merchant/MerchantReviewsPage.tsx`
+- **Route:** `/merchant/reviews`
 
-### 2.7 Laporan Keuangan Merchant (Laba Rugi Sederhana)
-- [ ] Rekap omzet bulanan vs biaya platform
-- [ ] Grafik tren penjualan 6 bulan
-- [ ] Export PDF/Excel
-
----
-
-## 🟠 FASE P3 — Admin Desa & Ekosistem Wisata ⏳
-
-### 3.1 Profil & Galeri Desa Lengkap
-- [ ] Form edit profil desa: nama, deskripsi, kontak, koordinat
-- [ ] Upload foto + galeri
-- [ ] QR code desa untuk promosi offline
-
-### 3.2 Paket Wisata & Booking Online
-- [ ] Admin desa buat paket wisata
-- [ ] Buyer bisa pilih tanggal & pesan
-- [ ] Konfirmasi via WA ke admin + buyer
-- **DB:** `tourism`, `orders` (type wisata)
-
-### 3.3 Laporan Keuangan & Pendapatan Desa
-- [ ] Total transaksi merchant se-desa
-- [ ] Komisi masuk ke kas desa
-- [ ] Grafik pendapatan bulanan dari wisata
-- [ ] Export laporan untuk Pemdes
-
-### 3.4 Jadwal & Pemandu Wisata
-- [ ] Daftar pemandu + ketersediaan + nomor WA
-- [ ] Kalender ketersediaan
-- [ ] Buyer request pemandu saat booking
-- **DB:** Tabel baru `tourism_guides`
+### 2.7 Laporan Keuangan Merchant (Laba Rugi Sederhana) ✅
+- [x] Rekap omzet bulanan vs biaya platform (fee 3%)
+- [x] Grafik tren penjualan 6 bulan (BarChart + LineChart)
+- [x] Export PDF/Excel laporan keuangan
+- **File:** `src/pages/merchant/MerchantFinancePage.tsx` (339 baris)
+- **Route:** `/merchant/finance`
 
 ---
 
-## 🟡 FASE P4 — Super Admin & Keuangan Platform 🔄
+## 🟠 FASE P3 — Admin Desa & Ekosistem Wisata ✅ SELESAI
 
-### 4.1 Manajemen Paket Langganan Platform
-- [ ] CRUD paket: nama, harga, fitur per tier, kuota
-- [ ] Assign paket ke merchant/POS tenant
-- [ ] Histori upgrade/downgrade
-- [ ] Perpanjangan otomatis & pengingat expired
-- **DB:** `pos_packages`, `pos_subscriptions`, `merchant_subscriptions`
+### 3.1 Profil & Galeri Desa Lengkap ✅
+- [x] Form edit profil desa: nama, deskripsi, kontak, koordinat GPS
+- [x] Upload foto utama + galeri multi-foto
+- [x] QR Code desa untuk promosi offline (download PNG)
+- [x] Link sosmed: Instagram, Facebook, Website
+- **File:** `src/pages/desa/DesaProfilPage.tsx` (405 baris)
+- **Route:** `/desa/profil`
 
-### 4.2 Dashboard Realtime Platform ✅ SELESAI
-- [x] Transaksi per jam (grafik live via SSE) — `src/pages/admin/AdminRealtimeDashboardPage.tsx`
+### 3.2 Paket Wisata & Booking Online ✅
+- [x] Admin desa buat/edit/hapus paket wisata
+- [x] Detail paket: harga, durasi, min/max peserta, itinerary, fasilitas
+- [x] Tab Booking: daftar pemesanan + kelola status (CONFIRMED, REJECTED)
+- [x] Konfirmasi otomatis via WA (notifikasi ke buyer & admin)
+- **File:** `src/pages/desa/DesaPaketWisataPage.tsx` (403 baris)
+- **Route:** `/desa/paket-wisata`
+
+### 3.3 Laporan Keuangan & Pendapatan Desa ✅
+- [x] Total transaksi merchant se-desa + komisi desa
+- [x] Grafik pendapatan bulanan dari merchant & wisata
+- [x] Export laporan untuk Pemdes (PDF/CSV)
+- [x] Laporan statistik wisata: view count, rating, occupancy
+- **File:** `src/pages/desa/DesaLaporanKeuanganPage.tsx`, `DesaLaporanWisataPage.tsx`
+- **Route:** `/desa/laporan-keuangan`, `/desa/laporan-wisata`
+
+### 3.4 Jadwal & Pemandu Wisata ✅
+- [x] Daftar pemandu + nomor WA + ketersediaan
+- [x] Dialog tambah/edit pemandu
+- [x] Badge aktif/nonaktif
+- **File:** `src/pages/desa/DesaPemanduPage.tsx` (266 baris)
+- **Route:** `/desa/pemandu`
+
+---
+
+## 🟡 FASE P4 — Super Admin & Keuangan Platform ✅ SELESAI
+
+### 4.1 Manajemen Paket Langganan Platform ✅
+- [x] CRUD paket kuota/transaksi: nama, harga, quota, komisi
+- [x] Daftar permintaan paket dari merchant
+- [x] Assign & kelola status paket per merchant
+- [x] Perpanjangan & histori upgrade/downgrade
+- **File:** `src/pages/admin/AdminTransactionQuotaPage.tsx` (900 baris)
+- **Route:** `/admin/transaction-quota`
+
+### 4.2 Dashboard Realtime Platform ✅
+- [x] Transaksi per jam (grafik live via SSE)
 - [x] Transaksi per menit (live 60 menit) — grafik AreaChart
 - [x] User aktif saat ini (dari `sessions`)
 - [x] Alert otomatis jika ada spike (rasio ≥ 2x, min 5 order/jam)
 - [x] Feed pesanan terbaru 5 menit real-time
 - [x] SSE endpoint `GET /api/admin/stats/stream` — update tiap 10 detik
-- [x] REST endpoints: `/api/admin/stats`, `/api/admin/stats/hourly`, `/api/admin/stats/minutely`
 - **File:** `server/routes/admin-stats.ts`, `src/hooks/useAdminRealtime.ts`
+- **Page:** `src/pages/admin/AdminRealtimeDashboardPage.tsx`
 - **Route:** `/admin/realtime`
 
-### 4.3 Komisi Dinamis per Kategori & Desa
-- [ ] Atur komisi berbeda per kategori (kuliner 3%, kriya 5%)
-- [ ] Atur komisi per desa
-- [ ] Histori perubahan komisi
-- **DB:** `commission_rules`
+### 4.3 Komisi Dinamis per Kategori & Desa ✅
+- [x] Atur komisi berbeda per kategori produk (kuliner 3%, kriya 5%, dll)
+- [x] Atur komisi per desa wisata
+- [x] Histori perubahan komisi dengan timestamp
+- **File:** `src/pages/admin/AdminKomisiPage.tsx` (319 baris)
+- **Route:** `/admin/komisi`
 
-### 4.4 Laporan Keuangan Platform (P&L)
-- [ ] Pendapatan komisi marketplace + langganan POS + iklan
-- [ ] Biaya operasional (estimasi)
-- [ ] Rekap pajak (PPN, PPh)
-- [ ] Export PDF/Excel bulanan
+### 4.4 Laporan Keuangan Platform (P&L) ✅
+- [x] Pendapatan komisi marketplace + shipping + iklan
+- [x] Breakdown per merchant, per periode
+- [x] Grafik tren pendapatan harian/bulanan
+- [x] Export PDF/Excel bulanan
+- **File:** `src/pages/admin/AdminFinancePage.tsx` (415 baris)
+- **Route:** `/admin/finance`
 
-### 4.5 Sistem Tiket Support Internal
-- [ ] User ajukan tiket bantuan
-- [ ] Admin balas & close tiket
-- [ ] Kategori: Pesanan, Pembayaran, Akun, Teknis
-- [ ] SLA: tiket belum dibalas > 24 jam → eskalasi
-- **DB:** Tabel baru `support_tickets`
+### 4.5 Sistem Tiket Support Internal ✅
+- [x] User ajukan tiket bantuan (kategori: Pesanan, Pembayaran, Akun, Teknis)
+- [x] Admin balas & ubah status tiket (Baru → Diproses → Selesai → Ditutup)
+- [x] Thread percakapan real-time per tiket
+- [x] Filter tiket per status & kategori di sisi admin
+- [x] Badge prioritas: Rendah / Sedang / Tinggi / Mendesak
+- [x] SLA info: respons dalam 24 jam kerja
+- **File admin:** `src/pages/admin/AdminSupportTicketsPage.tsx`
+- **File buyer:** `src/pages/buyer/BuyerSupportPage.tsx`
+- **Route admin:** `/admin/support-tickets`
+- **Route buyer:** `/support`
+- **DB:** `support_tickets`, `support_ticket_messages`
 
-### 4.6 Manajemen SEO & Konten Halaman Publik
-- [ ] Edit meta title, description, OG image per halaman
-- [ ] Halaman landing kustomisasi dari admin
-- [ ] Sitemap otomatis
+### 4.6 Manajemen SEO & Konten Halaman Publik ✅
+- [x] Edit meta title, description, OG image per halaman (maks. 160 karakter warning)
+- [x] Preview SERP Google + preview OG card media sosial
+- [x] Redirect rules (301/302) — tambah, toggle aktif, hapus
+- [x] Generate sitemap XML + robots.txt viewer
+- [x] Google Search Console & Tag Manager verification code management
+- [x] Schema.org JSON-LD editor per halaman + global
+- **File:** `src/pages/admin/AdminSEOPage.tsx`
+- **Route:** `/admin/seo`
+- **DB:** `seo_meta`, `seo_redirects`
 
 ---
 
@@ -237,7 +275,61 @@
 
 ## 🗄️ Schema SQL Tambahan (jalankan di database)
 
-### Tabel HR Karyawan (P3-A, P3-B)
+### Tabel Support Tickets (P4.5) — BARU
+```sql
+CREATE TABLE IF NOT EXISTS public.support_tickets (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL,
+  subject TEXT NOT NULL,
+  category TEXT NOT NULL DEFAULT 'other',
+  priority TEXT NOT NULL DEFAULT 'medium',
+  status TEXT NOT NULL DEFAULT 'open',
+  last_message_at TIMESTAMPTZ DEFAULT now(),
+  message_count INTEGER DEFAULT 0,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS public.support_ticket_messages (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  ticket_id UUID NOT NULL REFERENCES public.support_tickets(id) ON DELETE CASCADE,
+  sender_id UUID NOT NULL,
+  sender_role TEXT NOT NULL DEFAULT 'user',
+  message TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_support_tickets_user_id ON public.support_tickets(user_id);
+CREATE INDEX IF NOT EXISTS idx_support_tickets_status ON public.support_tickets(status);
+CREATE INDEX IF NOT EXISTS idx_support_ticket_messages_ticket_id ON public.support_ticket_messages(ticket_id);
+```
+
+### Tabel SEO (P4.6) — BARU
+```sql
+CREATE TABLE IF NOT EXISTS public.seo_meta (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  page_slug TEXT NOT NULL UNIQUE,
+  page_label TEXT,
+  meta_title TEXT,
+  meta_description TEXT,
+  og_title TEXT,
+  og_description TEXT,
+  og_image_url TEXT,
+  canonical_url TEXT,
+  robots TEXT DEFAULT 'index,follow',
+  schema_json TEXT,
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS public.seo_redirects (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  from_path TEXT NOT NULL,
+  to_path TEXT NOT NULL,
+  status_code INTEGER NOT NULL DEFAULT 301,
+  is_active BOOLEAN DEFAULT true,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_seo_redirects_from_path ON public.seo_redirects(from_path);
+```
+
+### Tabel HR Karyawan (P5-A, P5-B)
 ```sql
 CREATE TABLE IF NOT EXISTS public.pos_shifts (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -284,7 +376,7 @@ CREATE TABLE IF NOT EXISTS public.pos_payroll_items (
 );
 ```
 
-### Tabel Hutang & Piutang (P4-A)
+### Tabel Hutang & Piutang (P5-C)
 ```sql
 CREATE TABLE IF NOT EXISTS public.pos_debts (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -365,16 +457,16 @@ CREATE TABLE IF NOT EXISTS public.merchant_ads (
 
 ---
 
-## 🔗 Sprint Selanjutnya
+## 🔗 Status Sprint
 
 | Sprint | Fokus | Status |
 |--------|-------|--------|
 | Sprint 1 (P1) | Integrasi Inti | ✅ Selesai |
-| Sprint 2 (P2) | Galeri toko, stok alert, multi alamat, beli lagi, dispute | ⏳ |
-| Sprint 3 (P2+P3) | Balas ulasan, laporan merchant, profil desa, booking wisata | ⏳ |
-| Sprint 4 (P3+P4) | Laporan desa, pemandu wisata, manajemen paket langganan | ⏳ |
-| Sprint 5 (P4+P5) | Komisi dinamis, P&L platform, batch delivery kurir | ⏳ |
-| Sprint 6 (P5+P6) | QR Pay, menu digital QR, penghasilan kurir PDF, pre-order | ⏳ |
+| Sprint 2 (P2) | Galeri toko, stok alert, multi alamat, beli lagi, dispute | ✅ Selesai |
+| Sprint 3 (P2+P3) | Balas ulasan, laporan merchant, profil desa, booking wisata | ✅ Selesai |
+| Sprint 4 (P3+P4) | Laporan desa, pemandu wisata, manajemen paket langganan | ✅ Selesai |
+| Sprint 5 (P4) | Komisi dinamis, P&L platform, tiket support, SEO admin | ✅ Selesai |
+| Sprint 6 (P5+P6) | QR Pay, menu digital QR, penghasilan kurir PDF, pre-order | ⏳ Belum |
 
 ---
 
@@ -388,3 +480,5 @@ CREATE TABLE IF NOT EXISTS public.merchant_ads (
 - **POS Sync:** `/api/pos/sync-stock` dan `/api/pos/sync-product` sudah aktif
 - **Thermal Printer:** Web Serial API (ESC/POS) — `src/lib/thermalPrinter.ts`
 - **TypeScript:** Semua file bebas dari TS errors (gunakan `as any` jika tabel belum ada di types)
+- **Support Tickets:** Tabel `support_tickets` + `support_ticket_messages` perlu dijalankan di DB
+- **SEO:** Tabel `seo_meta` + `seo_redirects` perlu dijalankan di DB
