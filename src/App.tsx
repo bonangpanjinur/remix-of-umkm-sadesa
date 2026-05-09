@@ -91,6 +91,7 @@ const AdminWhatsAppPage = lazy(() => import("./pages/admin/AdminWhatsAppPage"));
 const AdminApiKeysPage = lazy(() => import("./pages/admin/AdminApiKeysPage"));
 const AdminPushNotificationPage = lazy(() => import("./pages/admin/AdminPushNotificationPage"));
 const AdminCashbackPage = lazy(() => import("./pages/admin/AdminCashbackPage"));
+const AdminIklanPage = lazy(() => import("./pages/admin/AdminIklanPage"));
 
 // Courier Pages
 const CourierHistoryPage = lazy(() => import("./pages/courier/CourierHistoryPage"));
@@ -136,6 +137,7 @@ const MerchantDuesPage = lazy(() => import("./pages/merchant/MerchantDuesPage"))
 const MerchantNotifikasiWAPage = lazy(() => import("./pages/merchant/MerchantNotifikasiWAPage"));
 const MerchantImportExportPage = lazy(() => import("./pages/merchant/MerchantImportExportPage"));
 const MerchantInsightPage = lazy(() => import("./pages/merchant/MerchantInsightPage"));
+const MerchantIklanPage = lazy(() => import("./pages/merchant/MerchantIklanPage"));
 
 // POS SaaS Pages
 const POSSetupPage = lazy(() => import("./pages/pos/POSSetupPage"));
@@ -626,6 +628,11 @@ const App = () => (
                   <AdminCashbackPage />
                 </ProtectedRoute>
               } />
+              <Route path="/admin/iklan" element={
+                <ProtectedRoute allowedRoles={['admin']}>
+                  <AdminIklanPage />
+                </ProtectedRoute>
+              } />
 
               {/* Verifikator routes */}
               <Route path="/verifikator" element={
@@ -772,6 +779,11 @@ const App = () => (
               <Route path="/merchant/insight" element={
                 <ProtectedRoute>
                   <MerchantInsightPage />
+                </ProtectedRoute>
+              } />
+              <Route path="/merchant/iklan" element={
+                <ProtectedRoute>
+                  <MerchantIklanPage />
                 </ProtectedRoute>
               } />
 

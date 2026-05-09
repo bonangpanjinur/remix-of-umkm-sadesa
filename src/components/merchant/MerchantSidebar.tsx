@@ -22,7 +22,8 @@ import {
   Wallet as WalletIcon,
   MessageSquare,
   FileSpreadsheet,
-  Lightbulb
+  Lightbulb,
+  Megaphone
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
@@ -112,6 +113,7 @@ export function MerchantSidebar() {
     { label: 'Import / Export', href: '/merchant/import-export', icon: <FileSpreadsheet className="h-4 w-4" /> },
     { label: 'Notifikasi WA', href: '/merchant/notifikasi-wa', icon: <MessageSquare className="h-4 w-4" /> },
     { label: 'Insight Bisnis', href: '/merchant/insight', icon: <Lightbulb className="h-4 w-4" /> },
+    { label: 'Iklan Berbayar', href: '/merchant/iklan', icon: <Megaphone className="h-4 w-4" /> },
     { label: 'Analitik', href: '/merchant/analytics', icon: <BarChart3 className="h-4 w-4" /> },
     { label: 'Statistik Pengunjung', href: '/merchant/visitor-stats', icon: <Eye className="h-4 w-4" /> },
     { label: 'Ulasan', href: '/merchant/reviews', icon: <Star className="h-4 w-4" />, badge: unrepliedReviews },

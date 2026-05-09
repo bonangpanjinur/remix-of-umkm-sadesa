@@ -174,6 +174,49 @@ pos_omzet_targets (id, tenant_id, outlet_id, month, year, daily_target, monthly_
 
 ---
 
+### [P6-D] Iklan Berbayar / Sponsored Listing ✅
+
+**File dibuat:**
+- `src/pages/merchant/MerchantIklanPage.tsx` — sisi merchant
+- `src/pages/admin/AdminIklanPage.tsx` — sisi super admin
+- Route merchant: `/merchant/iklan`
+- Route admin: `/admin/iklan`
+
+**Tabel DB baru (gunakan `as any` pattern):**
+```sql
+ad_packages (id, name, placement_type, description, price_per_day, max_days, is_active, created_at)
+merchant_ads (id, merchant_id, package_id, placement_type, title, description, image_url,
+              link_url, duration_days, start_date, end_date, status, payment_amount,
+              payment_proof_url, rejection_reason, view_count, click_count, created_at)
+```
+
+**Jenis penempatan iklan (`placement_type`):**
+- `search_top` — Teratas Pencarian (Rp 15.000/hari)
+- `category_top` — Teratas Kategori (Rp 20.000/hari)
+- `home_banner` — Banner Homepage (Rp 50.000/hari, maks. 14 hari)
+- `product_recommend` — Rekomendasi Produk (Rp 10.000/hari)
+
+**Status iklan:** `pending` → `active` → `expired` | `rejected`
+
+**Fitur MerchantIklanPage:**
+- Stats bar: iklan aktif, pending, total dilihat, total belanja iklan
+- **Tab Beli Iklan**: 4 kartu paket dengan warna berbeda per placement, tombol "Pasang Iklan"
+- **Dialog Pembelian**: isi judul (80 kar), deskripsi, upload gambar iklan opsional, URL tujuan, pilih durasi (1–maks hari), kalkulasi total otomatis, upload bukti bayar (storage Supabase), ajukan
+- **Tab Iklan Saya**: aktif + pending — tampilkan status, countdown, progress bar sisa waktu, impresi/klik/CTR
+- **Tab Riwayat**: expired & rejected — tampilkan alasan penolakan jika ditolak
+- Fallback paket default jika tabel `ad_packages` belum ada
+
+**Fitur AdminIklanPage:**
+- Stats bar: total pendapatan iklan, pending approval (dengan badge merah), iklan aktif, total impresi, total klik + CTR
+- **Tab Pending Approval**: kartu per iklan — merchant, judul, placement, durasi, bayar, lihat bukti bayar (modal image viewer), tombol Setujui & Aktifkan / Tolak (dengan alasan)
+- **Tab Semua Iklan**: filter per status, tabel lengkap semua iklan, aksi approve/reject/expire inline
+- **Tab Paket Harga**: CRUD paket (tambah/edit/hapus), tombol "Buat Paket Default" (seed 4 paket sekaligus), toggle aktif/non-aktif
+- **Tab Performa**: revenue per placement, statistik keseluruhan (total, approve rate, CTR), top 5 merchant pengiklan
+- Dialog reject dengan input alasan wajib
+- Dialog lihat bukti pembayaran (image viewer)
+
+---
+
 ## 🔵 PRIORITAS 5 — SaaS Infrastructure (SELESAI ✅)
 
 ### [P5-A] Landing Page Berlangganan ✅

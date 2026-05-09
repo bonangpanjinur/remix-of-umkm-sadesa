@@ -82,6 +82,7 @@ export function AdminSidebar({
     { label: 'Laporan', href: '/admin/reports', icon: <FileText className="h-4 w-4" /> },
     { label: 'Banner Homepage', href: '/admin/banners', icon: <Image className="h-4 w-4" /> },
     { label: 'Promosi', href: '/admin/promotions', icon: <Megaphone className="h-4 w-4" /> },
+    { label: 'Iklan Berbayar', href: '/admin/iklan', icon: <Megaphone className="h-4 w-4" /> },
     { label: 'Broadcast', href: '/admin/broadcast', icon: <Bell className="h-4 w-4" /> },
     { label: 'Push Notification', href: '/admin/push-notification', icon: <Bell className="h-4 w-4" /> },
     { label: 'Kode Verifikator', href: '/admin/codes', icon: <TicketCheck className="h-4 w-4" /> },
