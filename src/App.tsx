@@ -138,6 +138,9 @@ const MerchantNotifikasiWAPage = lazy(() => import("./pages/merchant/MerchantNot
 const MerchantImportExportPage = lazy(() => import("./pages/merchant/MerchantImportExportPage"));
 const MerchantInsightPage = lazy(() => import("./pages/merchant/MerchantInsightPage"));
 const MerchantIklanPage = lazy(() => import("./pages/merchant/MerchantIklanPage"));
+const MerchantGalleryPage = lazy(() => import("./pages/merchant/MerchantGalleryPage"));
+const MerchantFinancePage = lazy(() => import("./pages/merchant/MerchantFinancePage"));
+const MerchantStockPage = lazy(() => import("./pages/merchant/MerchantStockPage"));
 
 // POS SaaS Pages
 const POSSetupPage = lazy(() => import("./pages/pos/POSSetupPage"));
@@ -205,6 +208,7 @@ const ProductComparePage = lazy(() => import("./pages/buyer/ProductComparePage")
 const LoyaltyPage = lazy(() => import("./pages/buyer/LoyaltyPage"));
 const VoucherPage = lazy(() => import("./pages/buyer/VoucherPage"));
 const RekomendasisPage = lazy(() => import("./pages/buyer/RekomendasisPage"));
+const DisputePage = lazy(() => import("./pages/buyer/DisputePage"));
 
 // Notifications
 const NotificationsPage = lazy(() => import("./pages/NotificationsPage"));
@@ -447,6 +451,11 @@ const App = () => (
               <Route path="/cashback" element={<ProtectedRoute><CashbackPage /></ProtectedRoute>} />
               <Route path="/referral" element={<ProtectedRoute><ReferralPage /></ProtectedRoute>} />
               <Route path="/langganan" element={<ProtectedRoute><SubscriptionPage /></ProtectedRoute>} />
+              <Route path="/orders/:orderId/dispute" element={
+                <ProtectedRoute>
+                  <DisputePage />
+                </ProtectedRoute>
+              } />
               {/* Admin routes */}
               <Route path="/admin" element={
                 <ProtectedRoute allowedRoles={['admin']}>
@@ -715,6 +724,21 @@ const App = () => (
               <Route path="/merchant/refunds" element={
                 <ProtectedRoute>
                   <MerchantRefundsPage />
+                </ProtectedRoute>
+              } />
+              <Route path="/merchant/gallery" element={
+                <ProtectedRoute>
+                  <MerchantGalleryPage />
+                </ProtectedRoute>
+              } />
+              <Route path="/merchant/finance" element={
+                <ProtectedRoute>
+                  <MerchantFinancePage />
+                </ProtectedRoute>
+              } />
+              <Route path="/merchant/stock" element={
+                <ProtectedRoute>
+                  <MerchantStockPage />
                 </ProtectedRoute>
               } />
               <Route path="/merchant/subscription" element={

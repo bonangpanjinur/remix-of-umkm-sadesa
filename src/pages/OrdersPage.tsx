@@ -10,7 +10,7 @@ import { BottomNav } from "@/components/layout/BottomNav";
 import {
   Package, Clock, Truck, CheckCircle, XCircle, ShoppingBag,
   Store, LogIn, MapPin, Star, RefreshCw, ChevronRight, CalendarDays,
-  MessageCircle, X, RotateCcw,
+  MessageCircle, X, RotateCcw, AlertCircle,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -587,6 +587,14 @@ const OrdersPage = () => {
                                 onClick={(e) => { e.stopPropagation(); handleReorder(order); }}
                               >
                                 <RotateCcw className="w-3 h-3 mr-1" /> Pesan Lagi
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="text-xs h-8 rounded-full px-4 border-red-200 text-red-600 hover:bg-red-50"
+                                onClick={(e) => { e.stopPropagation(); navigate(`/orders/${order.id}/dispute`); }}
+                              >
+                                <AlertCircle className="w-3 h-3 mr-1" /> Komplain
                               </Button>
                             </>
                           )}

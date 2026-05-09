@@ -281,7 +281,7 @@ router.post("/select", async (req: Request, res: Response) => {
     "commission_rules", "broadcast_messages", "village_events", "user_villages",
     "courier_ratings", "verifikator_events",
     "cashback_rules", "cashback_transactions", "referral_usages",
-    "product_subscriptions", "api_keys",
+    "product_subscriptions", "api_keys", "stock_history",
   ];
 
   const tbl = String(table).replace(/[^a-z0-9_]/g, "");
