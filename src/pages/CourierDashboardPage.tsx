@@ -89,6 +89,11 @@ export default function CourierDashboardPage() {
   const courierStatus = courierQueryData ? { registration_status: courierQueryData.registration_status, rejection_reason: (courierQueryData as any).rejection_reason } : null;
   const loading = courierLoading;
 
+  const fetchCourierData = () => {
+    queryClient.invalidateQueries({ queryKey: ['courier-profile', user?.id] });
+    queryClient.invalidateQueries({ queryKey: ['courier-assigned-orders', courier?.id] });
+  };
+
   // Query: ride request count + assigned orders (hanya jika approved)
   const { data: rideRequestCount = 0 } = useQuery({
     queryKey: ['courier-ride-count'],
