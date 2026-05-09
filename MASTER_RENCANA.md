@@ -16,7 +16,8 @@
 | **P3** | Admin Desa & Ekosistem Wisata | ✅ Selesai |
 | **P4** | Super Admin & Keuangan Platform | ✅ Selesai |
 | **P5** | POS Lanjutan & Kurir | ✅ Selesai (Batch Delivery + Slip PDF + Printer WiFi/BT/USB) |
-| **P6** | Diferensiasi & Monetisasi | ⚡ Sebagian Selesai (fitur inti ada, QR Pay & Menu Digital belum) |
+| **P6** | Diferensiasi & Monetisasi | ✅ Selesai |
+| **P7** | Menu Digital QR untuk Restoran | ✅ **BARU** — Selesai |
 
 ---
 
@@ -256,7 +257,53 @@
 
 ### Fitur POS Lanjutan (Roadmap)
 - [ ] QR Pay (Buyer bayar di kasir POS via QR dari app)
-- [ ] Menu Digital QR untuk Restoran (scan → tampil menu tanpa install app)
+
+---
+
+## 🟢 FASE P7 — Menu Digital QR ✅ SELESAI **BARU**
+
+### P7.1 Menu Digital QR untuk Restoran ✅
+
+**Konsep:** Kasir cetak QR code per meja → Pelanggan scan dengan HP → Lihat menu langsung di browser → Pesan tanpa antri, tanpa install aplikasi
+
+#### Fitur Kasir (POS Dashboard)
+- [x] Halaman **Menu Digital QR** (`/pos/menu-qr`) di sidebar POS
+- [x] Tampilkan semua meja restoran dengan status (tersedia/terisi/reservasi)
+- [x] QR code per meja otomatis di-generate (link ke halaman menu publik)
+- [x] Tombol **Cetak QR** per meja — print dengan nama restoran, nama meja, dan instruksi
+- [x] Tombol **Unduh PNG** untuk simpan QR ke perangkat
+- [x] Tombol **Cetak Semua QR** — print semua meja sekaligus dalam grid 3 kolom
+- [x] Salin link menu per meja ke clipboard
+- [x] Tombol Preview Menu — lihat tampilan seperti pelanggan
+- [x] Filter per area/seksi meja
+
+#### Halaman Menu Publik (Pelanggan)
+- [x] **Tanpa login** — langsung buka di HP setelah scan QR
+- [x] Route: `/menu/:tenantId/:tableId` dan `/menu/:tenantId`
+- [x] Header: logo restoran, nama restoran, nama meja aktif
+- [x] Filter kategori menu (scrollable horizontal chips)
+- [x] Pencarian menu real-time
+- [x] Kartu produk: foto, nama, deskripsi, harga, harga coret (diskon)
+- [x] Tombol + / − untuk atur jumlah per item
+- [x] Catatan per item (contoh: "pedas ya", "tanpa bawang")
+- [x] **Keranjang** dengan badge hitungan item
+- [x] Nama pemesan (opsional) dan catatan ke dapur
+- [x] **Kirim ke Dapur** — pesanan langsung masuk ke `pos_table_orders` (KDS)
+- [x] Halaman konfirmasi dengan nomor pesanan
+- [x] Status meja otomatis berubah ke "Terisi" setelah pesanan dikirim
+
+#### Backend API (Tanpa Auth)
+- [x] `GET /api/menu/:tenantId` — info restoran + produk aktif per kategori
+- [x] `GET /api/menu/:tenantId/table/:tableId` — validasi & info meja
+- [x] `POST /api/menu/:tenantId/order` — kirim pesanan (verifikasi harga server-side, anti-manipulasi)
+
+#### File
+- **Kasir:** `src/pages/pos/POSMenuQRPage.tsx`
+- **Publik:** `src/pages/MenuPublicPage.tsx`
+- **API:** `server/routes/digital-menu.ts`
+- **DB:** `pos_tables`, `pos_table_orders` (dengan kolom `source: 'qr_menu'`)
+- **Route Publik:** `/menu/:tenantId/:tableId`
+- **Route Kasir:** `/pos/menu-qr`
 
 ---
 

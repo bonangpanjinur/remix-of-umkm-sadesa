@@ -10,6 +10,7 @@ import adminStatsRouter from "./admin-stats";
 import courierRouter from "./courier";
 import printerRouter from "./printer";
 import qrpayRouter from "./qrpay";
+import digitalMenuRouter from "./digital-menu";
 
 const router = Router();
 
@@ -24,5 +25,6 @@ router.use("/admin", adminStatsRouter);
 router.use("/courier", courierRouter);
 router.use("/printer", printerRouter);
 router.use("/qrpay", qrpayRouter);
+router.use("/menu", digitalMenuRouter);
 
 export default router;

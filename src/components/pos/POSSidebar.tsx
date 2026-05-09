@@ -7,7 +7,7 @@ import {
   ArrowRightLeft, GitCompare, Shield, KeyRound,
   Ticket, Star, Globe, Banknote, Monitor, BookOpen,
   FlaskConical, ChefHat, Table2, Tv2,
-  Calendar, Clock, DollarSign, Target, CreditCard
+  Calendar, Clock, DollarSign, Target, CreditCard, QrCode
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { usePOS } from '@/contexts/POSContext';
@@ -28,6 +28,7 @@ export function POSSidebar() {
     { label: 'Dashboard', href: '/pos', icon: <LayoutDashboard className="h-4 w-4" /> },
     { label: 'Kasir (POS)', href: '/pos/kasir', icon: <ShoppingCart className="h-4 w-4" /> },
     { label: 'Manajemen Meja', href: '/pos/meja', icon: <Table2 className="h-4 w-4" /> },
+    { label: 'Menu Digital QR', href: '/pos/menu-qr', icon: <QrCode className="h-4 w-4" /> },
     { label: 'KDS (Dapur)', href: '/pos/kds', icon: <Tv2 className="h-4 w-4" /> },
     { label: 'Transaksi', href: '/pos/transaksi', icon: <ClipboardList className="h-4 w-4" /> },
     { label: 'Retur', href: '/pos/retur', icon: <RotateCcw className="h-4 w-4" /> },

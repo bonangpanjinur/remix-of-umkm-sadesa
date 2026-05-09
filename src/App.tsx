@@ -152,6 +152,7 @@ const MerchantGrosirPage = lazy(() => import("./pages/merchant/MerchantGrosirPag
 const MerchantPajakPage = lazy(() => import("./pages/merchant/MerchantPajakPage"));
 const DesaDonasiPage = lazy(() => import("./pages/desa/DesaDonasiPage"));
 const QRPayConfirmPage = lazy(() => import("./pages/QRPayConfirmPage"));
+const MenuPublicPage = lazy(() => import("./pages/MenuPublicPage"));
 
 // POS SaaS Pages
 const POSSetupPage = lazy(() => import("./pages/pos/POSSetupPage"));
@@ -194,6 +195,7 @@ const POSPenggajianPage = lazy(() => import("./pages/pos/POSPenggajianPage"));
 const POSHutangPiutangPage = lazy(() => import("./pages/pos/POSHutangPiutangPage"));
 const POSTargetOmzetPage = lazy(() => import("./pages/pos/POSTargetOmzetPage"));
 const POSHargaPage = lazy(() => import("./pages/pos/POSHargaPage"));
+const POSMenuQRPage = lazy(() => import("./pages/pos/POSMenuQRPage"));
 
 // Desa Pages
 const DesaDashboardPage = lazy(() => import("./pages/desa/DesaDashboardPage"));
@@ -1008,6 +1010,11 @@ const App = () => (
               <Route path="/pos/hutang-piutang" element={<ProtectedRoute><POSHutangPiutangPage /></ProtectedRoute>} />
               <Route path="/pos/target-omzet" element={<ProtectedRoute><POSTargetOmzetPage /></ProtectedRoute>} />
               <Route path="/pos/harga" element={<POSHargaPage />} />
+              <Route path="/pos/menu-qr" element={<ProtectedRoute><POSMenuQRPage /></ProtectedRoute>} />
+
+              {/* Menu Digital QR — publik, tidak perlu login */}
+              <Route path="/menu/:tenantId/:tableId" element={<MenuPublicPage />} />
+              <Route path="/menu/:tenantId" element={<MenuPublicPage />} />
 
               {/* QR Pay — halaman konfirmasi buyer, akses publik (tidak perlu login untuk buka, login saat konfirmasi) */}
               <Route path="/qrpay/:token" element={<QRPayConfirmPage />} />
