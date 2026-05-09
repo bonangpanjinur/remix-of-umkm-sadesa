@@ -26,7 +26,9 @@ import {
   Megaphone,
   Images,
   TrendingUp,
-  Layers
+  Layers,
+  Clock,
+  FileText
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
@@ -142,6 +144,10 @@ export function MerchantSidebar() {
     { label: 'Jadwal Promo', href: '/merchant/scheduled-promo', icon: <Calendar className="h-4 w-4" /> },
     { label: 'Voucher', href: '/merchant/vouchers', icon: <Ticket className="h-4 w-4" /> },
     { label: 'Promo', href: '/merchant/promo', icon: <Percent className="h-4 w-4" /> },
+    { label: 'Bundle Produk', href: '/merchant/bundle', icon: <Package className="h-4 w-4" /> },
+    { label: 'Pre-order & Reservasi', href: '/merchant/preorder', icon: <Clock className="h-4 w-4" /> },
+    { label: 'Grosir & B2B', href: '/merchant/grosir', icon: <Layers className="h-4 w-4" /> },
+    { label: 'Laporan Pajak', href: '/merchant/pajak', icon: <FileText className="h-4 w-4" /> },
     { label: 'Kuota', href: '/merchant/subscription', icon: <CreditCard className="h-4 w-4" /> },
     { label: 'Penarikan', href: '/merchant/withdrawal', icon: <Wallet className="h-4 w-4" /> },
     { label: 'Iuran Kas', href: '/merchant/dues', icon: <WalletIcon className="h-4 w-4" /> },

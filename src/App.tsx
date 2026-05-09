@@ -145,6 +145,11 @@ const MerchantIklanPage = lazy(() => import("./pages/merchant/MerchantIklanPage"
 const MerchantGalleryPage = lazy(() => import("./pages/merchant/MerchantGalleryPage"));
 const MerchantFinancePage = lazy(() => import("./pages/merchant/MerchantFinancePage"));
 const MerchantStockPage = lazy(() => import("./pages/merchant/MerchantStockPage"));
+const MerchantBundlePage = lazy(() => import("./pages/merchant/MerchantBundlePage"));
+const MerchantPreOrderPage = lazy(() => import("./pages/merchant/MerchantPreOrderPage"));
+const MerchantGrosirPage = lazy(() => import("./pages/merchant/MerchantGrosirPage"));
+const MerchantPajakPage = lazy(() => import("./pages/merchant/MerchantPajakPage"));
+const DesaDonasiPage = lazy(() => import("./pages/desa/DesaDonasiPage"));
 
 // POS SaaS Pages
 const POSSetupPage = lazy(() => import("./pages/pos/POSSetupPage"));
@@ -850,6 +855,26 @@ const App = () => (
                   <MerchantIklanPage />
                 </ProtectedRoute>
               } />
+              <Route path="/merchant/bundle" element={
+                <ProtectedRoute>
+                  <MerchantBundlePage />
+                </ProtectedRoute>
+              } />
+              <Route path="/merchant/preorder" element={
+                <ProtectedRoute>
+                  <MerchantPreOrderPage />
+                </ProtectedRoute>
+              } />
+              <Route path="/merchant/grosir" element={
+                <ProtectedRoute>
+                  <MerchantGrosirPage />
+                </ProtectedRoute>
+              } />
+              <Route path="/merchant/pajak" element={
+                <ProtectedRoute>
+                  <MerchantPajakPage />
+                </ProtectedRoute>
+              } />
 
               {/* Admin Desa routes - only tourism, no merchants */}
               <Route path="/desa" element={
@@ -890,6 +915,11 @@ const App = () => (
               <Route path="/desa/laporan-wisata" element={
                 <ProtectedRoute allowedRoles={['admin_desa', 'admin']}>
                   <DesaLaporanWisataPage />
+                </ProtectedRoute>
+              } />
+              <Route path="/desa/donasi" element={
+                <ProtectedRoute allowedRoles={['admin_desa', 'admin']}>
+                  <DesaDonasiPage />
                 </ProtectedRoute>
               } />
               {/* P1.4: Verifikasi merchant oleh admin desa */}

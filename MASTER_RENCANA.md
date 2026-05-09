@@ -252,24 +252,55 @@
 
 ---
 
-## 🟢 FASE P6 — Diferensiasi & Monetisasi ✅ Sebagian Selesai
+## 🟢 FASE P6 — Diferensiasi & Monetisasi ✅ SELESAI
 
-### Sudah Selesai ✅
-| Fitur | File | Status |
-|-------|------|--------|
-| Notifikasi WA untuk Merchant | `MerchantNotifikasiWAPage.tsx` | ✅ |
-| Import/Export Produk CSV Massal | `MerchantImportExportPage.tsx` | ✅ |
-| Insight Bisnis Mendalam (Merchant) | `MerchantInsightPage.tsx` | ✅ |
-| Iklan Berbayar / Sponsored Listing | `MerchantIklanPage.tsx`, `AdminIklanPage.tsx` | ✅ |
+### Semua Fitur P6 Sudah Selesai ✅
+| Fitur | File | Route | Status |
+|-------|------|-------|--------|
+| Notifikasi WA untuk Merchant | `MerchantNotifikasiWAPage.tsx` | `/merchant/notifikasi-wa` | ✅ |
+| Import/Export Produk CSV Massal | `MerchantImportExportPage.tsx` | `/merchant/import-export` | ✅ |
+| Insight Bisnis Mendalam (Merchant) | `MerchantInsightPage.tsx` | `/merchant/insight` | ✅ |
+| Iklan Berbayar / Sponsored Listing | `MerchantIklanPage.tsx`, `AdminIklanPage.tsx` | `/merchant/iklan`, `/admin/iklan` | ✅ |
+| Program Loyalitas Multi-level (Bronze/Silver/Gold/Platinum) | `LoyaltyPage.tsx` | `/loyalty` | ✅ |
+| Affiliate & Referral Marketing | `ReferralPage.tsx` | `/referral` | ✅ |
+| **Bundle Produk (Tiered + Diskon)** | `MerchantBundlePage.tsx` | `/merchant/bundle` | ✅ **BARU** |
+| **Pre-order & Reservasi Meja Restoran** | `MerchantPreOrderPage.tsx` | `/merchant/preorder` | ✅ **BARU** |
+| **Grosir & Marketplace B2B** | `MerchantGrosirPage.tsx` | `/merchant/grosir` | ✅ **BARU** |
+| **Laporan Pajak Otomatis (e-SPT)** | `MerchantPajakPage.tsx` | `/merchant/pajak` | ✅ **BARU** |
+| **Donasi & Crowdfunding Desa** | `DesaDonasiPage.tsx` | `/desa/donasi` | ✅ **BARU** |
 
-### Belum Dikerjakan
-- [ ] Pre-order & Reservasi Meja (Restoran)
-- [ ] Bundle Produk (Merchant)
-- [ ] Program Loyalitas Multi-level (Silver/Gold/Platinum)
-- [ ] Marketplace B2B (Grosir Antar Merchant)
-- [ ] Laporan Pajak Otomatis (format e-SPT)
-- [ ] Donasi & Crowdfunding Desa (saat checkout)
-- [ ] Affiliate & Influencer Marketing (kode referral)
+### Detail Fitur Baru P6
+
+#### Bundle Produk (`/merchant/bundle`)
+- Buat paket 2-5 produk dengan harga lebih hemat
+- Kalkulasi diskon otomatis dari harga normal
+- Batas stok & tanggal berlaku per bundle
+- Toggle aktif/nonaktif bundle
+
+#### Pre-order & Reservasi Meja (`/merchant/preorder`)
+- Tab Reservasi: lihat & konfirmasi/tolak reservasi meja per tanggal
+- Tab Item Pre-order: CRUD item yang memerlukan pemesanan H-N hari
+- Tab Kelola Meja: denah meja (indoor/outdoor/VIP/private), kapasitas per meja
+- Status reservasi: Menunggu → Dikonfirmasi → Selesai / Dibatalkan
+
+#### Grosir & B2B (`/merchant/grosir`)
+- Tiered pricing per produk (≥10 unit -5%, ≥50 unit -10%, ≥100 unit -15%)
+- Tab Pesanan B2B: kelola pesanan massal dari pembeli/bisnis
+- Konfirmasi/tolak/proses pesanan grosir
+
+#### Laporan Pajak e-SPT (`/merchant/pajak`)
+- Rekap otomatis PPN 11% dan PPh Final UMKM 0,5% per bulan
+- Tabel rekap tahunan (12 bulan) + detail per bulan
+- Export PDF laporan siap cetak
+- Panduan lengkap cara lapor SPT via DJP Online
+- Disclaimer: estimasi, bukan laporan pajak resmi
+
+#### Donasi & Crowdfunding Desa (`/desa/donasi`)
+- Admin desa buat kampanye galang dana (infrastruktur, pendidikan, wisata, dll)
+- Progress bar pencapaian target + jumlah donatur
+- Tab Donatur: riwayat donasi + pesan donatur
+- Share link kampanye dengan 1 klik
+- Toggle aktif/nonaktif kampanye
 
 ---
 
@@ -400,6 +431,124 @@ CREATE TABLE IF NOT EXISTS public.pos_omzet_targets (
   created_at TIMESTAMPTZ DEFAULT now(),
   UNIQUE(tenant_id, outlet_id, month, year)
 );
+```
+
+### Tabel Bundle Produk (P6 - BARU)
+```sql
+CREATE TABLE IF NOT EXISTS public.product_bundles (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  merchant_id UUID NOT NULL,
+  name TEXT NOT NULL,
+  description TEXT,
+  image_url TEXT,
+  original_price NUMERIC NOT NULL DEFAULT 0,
+  bundle_price NUMERIC NOT NULL DEFAULT 0,
+  discount_percent INTEGER DEFAULT 0,
+  is_active BOOLEAN DEFAULT true,
+  stock_limit INTEGER,
+  valid_until DATE,
+  items JSONB DEFAULT '[]',
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+```
+
+### Tabel Pre-order & Reservasi Meja (P6 - BARU)
+```sql
+CREATE TABLE IF NOT EXISTS public.preorder_items (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  merchant_id UUID NOT NULL,
+  name TEXT NOT NULL,
+  description TEXT,
+  price NUMERIC NOT NULL DEFAULT 0,
+  min_lead_days INTEGER NOT NULL DEFAULT 1,
+  max_quantity INTEGER,
+  is_active BOOLEAN DEFAULT true,
+  image_url TEXT,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS public.merchant_tables (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  merchant_id UUID NOT NULL,
+  number TEXT NOT NULL,
+  capacity INTEGER NOT NULL DEFAULT 4,
+  type TEXT NOT NULL DEFAULT 'indoor',
+  is_available BOOLEAN DEFAULT true,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS public.table_reservations (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  merchant_id UUID NOT NULL,
+  table_id UUID REFERENCES public.merchant_tables(id) ON DELETE SET NULL,
+  buyer_id UUID NOT NULL,
+  date DATE NOT NULL,
+  time_slot TEXT NOT NULL,
+  persons INTEGER NOT NULL DEFAULT 2,
+  status TEXT NOT NULL DEFAULT 'pending',
+  notes TEXT,
+  contact_name TEXT,
+  contact_phone TEXT,
+  special_request TEXT,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_table_reservations_merchant_date ON public.table_reservations(merchant_id, date);
+```
+
+### Tabel Grosir / B2B (P6 - BARU)
+```sql
+CREATE TABLE IF NOT EXISTS public.wholesale_products (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  merchant_id UUID NOT NULL,
+  product_id UUID NOT NULL,
+  min_order_qty INTEGER NOT NULL DEFAULT 10,
+  tiers JSONB DEFAULT '[]',
+  notes TEXT,
+  is_active BOOLEAN DEFAULT true,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  UNIQUE(merchant_id, product_id)
+);
+CREATE TABLE IF NOT EXISTS public.wholesale_orders (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  merchant_id UUID NOT NULL,
+  buyer_id UUID NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending',
+  total NUMERIC NOT NULL DEFAULT 0,
+  items JSONB DEFAULT '[]',
+  contact_name TEXT,
+  contact_phone TEXT,
+  notes TEXT,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+```
+
+### Tabel Donasi & Crowdfunding (P6 - BARU)
+```sql
+CREATE TABLE IF NOT EXISTS public.donation_campaigns (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  village_id UUID NOT NULL,
+  title TEXT NOT NULL,
+  description TEXT,
+  story TEXT,
+  image_url TEXT,
+  target_amount NUMERIC NOT NULL DEFAULT 0,
+  current_amount NUMERIC NOT NULL DEFAULT 0,
+  donor_count INTEGER NOT NULL DEFAULT 0,
+  category TEXT NOT NULL DEFAULT 'infrastruktur',
+  deadline DATE,
+  is_active BOOLEAN DEFAULT true,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS public.donations (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  campaign_id UUID NOT NULL REFERENCES public.donation_campaigns(id) ON DELETE CASCADE,
+  donor_id UUID,
+  amount NUMERIC NOT NULL DEFAULT 0,
+  message TEXT,
+  is_anonymous BOOLEAN DEFAULT false,
+  payment_method TEXT,
+  payment_status TEXT DEFAULT 'pending',
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_donations_campaign_id ON public.donations(campaign_id);
 ```
 
 ### Tabel Iklan (P6-D)
