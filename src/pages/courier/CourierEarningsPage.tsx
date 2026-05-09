@@ -1,6 +1,6 @@
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Wallet, TrendingUp, Package, CheckCircle, ArrowLeft } from 'lucide-react';
+import { Wallet, TrendingUp, Package, CheckCircle, ArrowLeft, FileDown } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -102,9 +102,15 @@ export default function CourierEarningsPage() {
     <div className="min-h-screen bg-background">
       <Header />
       <div className="max-w-lg mx-auto px-4 py-6 space-y-6">
-        <Button variant="ghost" size="sm" onClick={() => navigate('/courier')}>
-          <ArrowLeft className="h-4 w-4 mr-2" /> Kembali
-        </Button>
+        <div className="flex items-center justify-between">
+          <Button variant="ghost" size="sm" onClick={() => navigate('/courier')}>
+            <ArrowLeft className="h-4 w-4 mr-2" /> Kembali
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => navigate('/courier/slip')}>
+            <FileDown className="h-4 w-4 mr-1.5" />
+            Download Slip PDF
+          </Button>
+        </div>
 
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="grid grid-cols-2 gap-3">
           <Card className="bg-gradient-to-br from-primary to-primary/80 text-primary-foreground">

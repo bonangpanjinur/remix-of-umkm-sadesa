@@ -1,6 +1,6 @@
 # 📋 DesaMart — Master Rencana & Roadmap
 
-> **Dibuat:** Mei 2026 | **Terakhir diperbarui:** Mei 2026
+> **Dibuat:** Mei 2026 | **Terakhir diperbarui:** Mei 2026 (P5 Kurir ✅)
 > **Stack:** React 18 + Vite + Express + PostgreSQL (Replit) + TypeScript + Tailwind + shadcn/ui
 > **Catatan:** File ini adalah satu-satunya dokumen perencanaan. Hapus file lama yang terpisah.
 
@@ -15,7 +15,7 @@
 | **P2** | Pengalaman Pembeli & Toko | ✅ Selesai |
 | **P3** | Admin Desa & Ekosistem Wisata | ✅ Selesai |
 | **P4** | Super Admin & Keuangan Platform | ✅ Selesai |
-| **P5** | POS Lanjutan & Kurir | ✅ Fitur POS Selesai |
+| **P5** | POS Lanjutan & Kurir | ✅ Selesai (incl. Batch Delivery & Slip PDF) |
 | **P6** | Diferensiasi & Monetisasi | ✅ Sebagian Selesai |
 
 ---
@@ -241,12 +241,20 @@
 | Landing Page Paket Berlangganan | `POSHargaPage.tsx` | ✅ |
 | Export PDF Laporan Kasir & Stok | `POSLaporanKasirPage.tsx`, `POSLaporanStokPage.tsx` | ✅ |
 
-### Fitur Kurir yang Perlu Dibuat
-- [ ] Navigasi Google Maps + Batch pengiriman 2-3 pesanan sekaligus
-- [ ] Laporan Penghasilan Kurir PDF (slip mingguan/bulanan)
-- **DB:** `courier_earnings`, `courier_balance_logs`
+### Fitur Kurir ✅ SELESAI
+| Fitur | File | API | Status |
+|-------|------|-----|--------|
+| Multi-Order Batch Delivery (2–3 pesanan) | `OrderBatchingPanel.tsx` | `POST /api/courier/batch-accept` | ✅ **BARU** |
+| Slip Penghasilan PDF (mingguan/bulanan) | `CourierSlipPage.tsx` | `GET /api/courier/earnings-summary` | ✅ **BARU** |
+| Daftar pesanan tersedia untuk di-batch | `OrderBatchingPanel.tsx` | `GET /api/courier/available-orders` | ✅ **BARU** |
+| Batalkan batch delivery | — | `POST /api/courier/batch-cancel` | ✅ **BARU** |
 
-### Fitur POS Lanjutan yang Perlu Dibuat
+- **Route:** `/courier/slip` (download slip PDF mingguan atau bulanan)
+- **DB:** `courier_earnings`, `courier_balance_logs`
+- **Fitur Slip PDF:** Pilih periode minggu (8 minggu) atau bulan (12 bulan), rincian harian, download PDF resmi berlogo DesaMart
+- **Fitur Batch:** Cek real-time pesanan tersedia, pilih 2–3, terima atomik lewat server (anti-race-condition)
+
+### Fitur POS Lanjutan (Roadmap)
 - [ ] QR Pay (Buyer bayar di kasir POS via QR dari app)
 - [ ] Menu Digital QR untuk Restoran (scan → tampil menu tanpa install app)
 
@@ -615,7 +623,60 @@ CREATE TABLE IF NOT EXISTS public.merchant_ads (
 | Sprint 3 (P2+P3) | Balas ulasan, laporan merchant, profil desa, booking wisata | ✅ Selesai |
 | Sprint 4 (P3+P4) | Laporan desa, pemandu wisata, manajemen paket langganan | ✅ Selesai |
 | Sprint 5 (P4) | Komisi dinamis, P&L platform, tiket support, SEO admin | ✅ Selesai |
-| Sprint 6 (P5+P6) | QR Pay, menu digital QR, penghasilan kurir PDF, pre-order | ⏳ Belum |
+| Sprint 6a (P5 Kurir) | Batch delivery 2–3 order + Slip PDF penghasilan mingguan/bulanan | ✅ Selesai |
+| Sprint 6b (P5+P6) | QR Pay, menu digital QR, pre-order lanjutan | ⏳ Belum |
+
+---
+
+## 🔗 Analisis Gap Integrasi Antar Fitur
+
+> Daftar lengkap fitur yang **sudah ada tapi belum terhubung satu sama lain** — perlu disambungkan agar ekosistem bekerja penuh.
+
+### 🔴 GAP KRITIS (Berdampak Langsung ke Alur Bisnis)
+
+| # | Fitur A | ↔ | Fitur B | Gap | Rekomendasi |
+|---|---------|---|---------|-----|-------------|
+| G-01 | **Batch Delivery** | ↔ | **Notifikasi Buyer** | Saat kurir terima 3 order sekaligus, buyer masing-masing tidak mendapat notif SSE "Kurir sedang dalam perjalanan" | `batch-accept` endpoint perlu INSERT ke `notifications` per buyer |
+| G-02 | **Slip Penghasilan Kurir** | ↔ | **Admin Keuangan** | Admin tidak bisa lihat total slip yang sudah didownload / rekap penghasilan kurir dari panel admin | Tambah endpoint `/api/admin/courier-earnings-report` + tabel `courier_slip_logs` |
+| G-03 | **POS Kasir (sales)** | ↔ | **Stok Marketplace** | `pos_marketplace_sync` sudah ada tapi tidak dipanggil otomatis setelah transaksi POS — harus manual | Panggil `sync-stock` otomatis via trigger setelah `pos_sales` INSERT |
+| G-04 | **Booking Wisata** | ↔ | **Notifikasi WA** | Konfirmasi booking dari admin desa tidak mengirim WA ke pembeli — hanya notif in-app | Integrasikan `POST /api/whatsapp/send` di endpoint konfirmasi booking |
+| G-05 | **Dispute/Komplain** | ↔ | **Kurir** | Jika dispute terjadi akibat kesalahan kurir (salah alamat, rusak), kurir tidak mendapat notif | Tambah notif ke kurir jika `dispute_type = 'delivery'` |
+| G-06 | **Program Loyalitas** | ↔ | **POS Kasir** | Poin loyalitas hanya dihitung dari marketplace, bukan dari transaksi langsung di kasir POS | Tambah `loyalty_points` ke `pos_sales` — kurangi poin saat checkout kasir |
+
+### 🟠 GAP MEDIUM (Fungsional Tapi Tidak Optimal)
+
+| # | Fitur A | ↔ | Fitur B | Gap | Rekomendasi |
+|---|---------|---|---------|-----|-------------|
+| G-07 | **Flash Sale** | ↔ | **Stok Produk** | Flash sale tidak otomatis nonaktif saat stok habis — perlu manual | Trigger atau cron check stok saat `orders` INSERT |
+| G-08 | **Voucher** | ↔ | **Grosir/B2B** | Voucher diskon tidak bisa dipakai di pesanan grosir (`wholesale_orders`) | Tambah field `voucher_id` ke `wholesale_orders` |
+| G-09 | **Ojek Desa (Ride)** | ↔ | **Penghasilan Kurir** | `courier_earnings` belum otomatis diisi saat ride COMPLETED — hanya pengiriman yang otomatis | Tambah INSERT ke `courier_earnings` saat `ride_requests.status = 'COMPLETED'` |
+| G-10 | **Bundle Produk** | ↔ | **Keranjang Belanja** | Bundle produk di `product_bundles` tidak bisa ditambahkan ke cart — hanya tampil di halaman merchant | Tambah logic bundle ke `CartContext` — 1 item bundle = multiple `cart_items` |
+| G-11 | **Laporan Pajak (e-SPT)** | ↔ | **Data Order** | Laporan pajak merchant menggunakan data simulasi, bukan dari tabel `orders` aktual | Hubungkan query ke `orders WHERE merchant_id = X AND status IN ('DONE','DELIVERED')` |
+| G-12 | **Referral/Affiliate** | ↔ | **Order Marketplace** | Kode referral tidak otomatis memberikan cashback/poin ke referrer saat order DONE | Tambah trigger di `orders` UPDATE saat status = 'DONE', cek `referral_code` di profiles |
+
+### 🟡 GAP MINOR (UX / Data Konsistensi)
+
+| # | Fitur A | ↔ | Fitur B | Gap | Rekomendasi |
+|---|---------|---|---------|-----|-------------|
+| G-13 | **Pre-order** | ↔ | **Notifikasi Push** | Konfirmasi pre-order tidak mengirim push notification ke buyer | Tambah `POST /api/push/send` di endpoint konfirmasi pre-order |
+| G-14 | **Donasi Desa** | ↔ | **Laporan Keuangan Desa** | Total donasi tidak masuk ke grafik pendapatan desa di `DesaLaporanKeuanganPage` | Query `donation_campaigns.current_amount` dan tampilkan sebagai sumber pendapatan |
+| G-15 | **KDS (Dapur)** | ↔ | **Stok Bahan Baku** | Saat order KDS selesai dimasak, bahan baku resep tidak otomatis berkurang | Hubungkan `pos_kds_items` UPDATE ke `pos_stock` via server route |
+| G-16 | **Galeri Merchant** | ↔ | **Profil Toko Publik** | Foto galeri (`merchant_gallery`) tidak tampil di halaman publik toko (`/toko/:slug`) | Tambah query galeri di `MerchantProfilePage` |
+| G-17 | **Absensi Karyawan** | ↔ | **Payroll** | Absensi sudah ada tapi kalkulasi gaji otomatis di payroll masih menggunakan data statis | Hubungkan `pos_attendances` ke kalkulasi `present_days` di `pos_payroll_items` |
+| G-18 | **Insight Merchant** | ↔ | **Iklan Berbayar** | Halaman insight tidak menunjukkan ROI iklan yang sedang berjalan | Tambah section "Performa Iklan" di `MerchantInsightPage` dengan data dari `merchant_ads` |
+
+### ✅ Integrasi yang Sudah Berjalan dengan Baik
+
+| Integrasi | Status |
+|-----------|--------|
+| Order → Notifikasi Buyer + Merchant (SSE) | ✅ |
+| POS Sync → Marketplace (manual trigger) | ✅ |
+| Merchant Approve → Notifikasi WA + in-app | ✅ |
+| Kurir Lokasi → Tracking Real-time (SSE) | ✅ |
+| Xendit Webhook → Order PAID otomatis | ✅ |
+| Ojek Accept → Notif Passenger (server) | ✅ |
+| Push Notification → Admin Broadcast | ✅ |
+| Rating Review → Avg Rating Merchant (trigger DB) | ✅ |
 
 ---
 
@@ -631,3 +692,5 @@ CREATE TABLE IF NOT EXISTS public.merchant_ads (
 - **TypeScript:** Semua file bebas dari TS errors (gunakan `as any` jika tabel belum ada di types)
 - **Support Tickets:** Tabel `support_tickets` + `support_ticket_messages` perlu dijalankan di DB
 - **SEO:** Tabel `seo_meta` + `seo_redirects` perlu dijalankan di DB
+- **Courier Batch API:** `POST /api/courier/batch-accept`, `GET /api/courier/available-orders`, `POST /api/courier/batch-cancel`
+- **Courier Slip API:** `GET /api/courier/earnings-summary?period_start=X&period_end=Y`

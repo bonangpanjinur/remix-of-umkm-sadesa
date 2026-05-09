@@ -103,6 +103,7 @@ const CourierWithdrawalPage = lazy(() => import("./pages/courier/CourierWithdraw
 const CourierChatPage = lazy(() => import("./pages/courier/CourierChatPage"));
 const CourierRidesPage = lazy(() => import("./pages/courier/CourierRidesPage"));
 const CourierPerformaPage = lazy(() => import("./pages/courier/CourierPerformaPage"));
+const CourierSlipPage = lazy(() => import("./pages/courier/CourierSlipPage"));
 
 // Ride Pages
 const RideBookingPage = lazy(() => import("./pages/ride/RideBookingPage"));
@@ -422,6 +423,11 @@ const App = () => (
               <Route path="/courier/rides" element={
                 <ProtectedRoute>
                   <CourierRidesPage />
+                </ProtectedRoute>
+              } />
+              <Route path="/courier/slip" element={
+                <ProtectedRoute>
+                  <CourierSlipPage />
                 </ProtectedRoute>
               } />
               
