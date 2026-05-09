@@ -423,7 +423,9 @@ export default function CourierDashboardPage() {
             <CourierLocationUpdater
               courierId={courier.id}
               onLocationUpdate={(lat, lng) => {
-                setCourier({ ...courier, current_lat: lat, current_lng: lng });
+                queryClient.setQueryData(['courier-profile', user?.id], (old: any) =>
+                  old ? { ...old, current_lat: lat, current_lng: lng } : old
+                );
               }}
             />
           </motion.div>
