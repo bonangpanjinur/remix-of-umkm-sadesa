@@ -6,7 +6,7 @@
  */
 import { Router, Request, Response } from "express";
 import { pool } from "../db";
-import { sendToChannel } from "../sse-manager";
+import { sendToChannel, broadcastDbEvent } from "../sse-manager";
 
 const router = Router();
 
@@ -176,6 +176,29 @@ router.post("/:tenantId/order", async (req: Request, res: Response) => {
     );
 
     const orderId = orderRes.rows[0].id;
+
+    // Broadcast ke SSE postgres_changes agar KDS & komponen lain bisa refresh
+    broadcastDbEvent({
+      type: "postgres_changes",
+      table: "pos_table_orders",
+      event: "INSERT",
+      schema: "public",
+      record: {
+        id: orderId,
+        tenant_id: tenantId,
+        outlet_id: table.outlet_id,
+        table_id,
+        table_name: table_name || table.name,
+        order_number: orderNumber,
+        status: "pending",
+        items: verifiedItems,
+        customer_name: customer_name || "Tamu",
+        notes: notes || null,
+        source: "qr_menu",
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+    });
 
     // Kirim notifikasi realtime ke kasir yang sedang login di tenant ini
     sendToChannel(`pos_qr_orders:${tenantId}`, {
