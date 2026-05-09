@@ -92,6 +92,7 @@ const AdminApiKeysPage = lazy(() => import("./pages/admin/AdminApiKeysPage"));
 const AdminPushNotificationPage = lazy(() => import("./pages/admin/AdminPushNotificationPage"));
 const AdminCashbackPage = lazy(() => import("./pages/admin/AdminCashbackPage"));
 const AdminIklanPage = lazy(() => import("./pages/admin/AdminIklanPage"));
+const AdminRealtimeDashboardPage = lazy(() => import("./pages/admin/AdminRealtimeDashboardPage"));
 
 // Courier Pages
 const CourierHistoryPage = lazy(() => import("./pages/courier/CourierHistoryPage"));
@@ -630,6 +631,11 @@ const App = () => (
               <Route path="/admin/rides" element={
                 <ProtectedRoute allowedRoles={['admin']}>
                   <AdminRidesPage />
+                </ProtectedRoute>
+              } />
+              <Route path="/admin/realtime" element={
+                <ProtectedRoute allowedRoles={['admin']}>
+                  <AdminRealtimeDashboardPage />
                 </ProtectedRoute>
               } />
               <Route path="/admin/system-health" element={

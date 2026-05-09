@@ -62,6 +62,7 @@ export function AdminSidebar({
 
   const menuItems: SidebarItem[] = [
     { label: 'Dashboard', href: '/admin', icon: <LayoutDashboard className="h-4 w-4" /> },
+    { label: 'Realtime Monitor', href: '/admin/realtime', icon: <Activity className="h-4 w-4" /> },
     { label: 'Pesanan', href: '/admin/orders', icon: <Receipt className="h-4 w-4" />, badge: pendingOrders },
     { label: 'Pengguna', href: '/admin/users', icon: <Users className="h-4 w-4" /> },
     { label: 'Role & Permission', href: '/admin/roles', icon: <Shield className="h-4 w-4" /> },

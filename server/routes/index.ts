@@ -6,6 +6,7 @@ import sseRouter from "./sse";
 import pushRouter from "./push";
 import publicApiRouter from "./public-api";
 import posRouter from "./pos";
+import adminStatsRouter from "./admin-stats";
 
 const router = Router();
 
@@ -16,5 +17,6 @@ router.use("/sse", sseRouter);
 router.use("/push", pushRouter);
 router.use("/v1", publicApiRouter);
 router.use("/pos", posRouter);
+router.use("/admin", adminStatsRouter);
 
 export default router;
