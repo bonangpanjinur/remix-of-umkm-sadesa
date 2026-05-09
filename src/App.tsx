@@ -153,6 +153,7 @@ const MerchantPajakPage = lazy(() => import("./pages/merchant/MerchantPajakPage"
 const DesaDonasiPage = lazy(() => import("./pages/desa/DesaDonasiPage"));
 const QRPayConfirmPage = lazy(() => import("./pages/QRPayConfirmPage"));
 const MenuPublicPage = lazy(() => import("./pages/MenuPublicPage"));
+const OrderStatusPage = lazy(() => import("./pages/OrderStatusPage"));
 
 // POS SaaS Pages
 const POSSetupPage = lazy(() => import("./pages/pos/POSSetupPage"));
@@ -1015,6 +1016,7 @@ const App = () => (
               {/* Menu Digital QR — publik, tidak perlu login */}
               <Route path="/menu/:tenantId/:tableId" element={<MenuPublicPage />} />
               <Route path="/menu/:tenantId" element={<MenuPublicPage />} />
+              <Route path="/order/:tenantId/:orderId" element={<OrderStatusPage />} />
 
               {/* QR Pay — halaman konfirmasi buyer, akses publik (tidak perlu login untuk buka, login saat konfirmasi) */}
               <Route path="/qrpay/:token" element={<QRPayConfirmPage />} />

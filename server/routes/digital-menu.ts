@@ -233,4 +233,32 @@ router.post("/:tenantId/order", async (req: Request, res: Response) => {
   }
 });
 
+// GET /api/menu/:tenantId/order/:orderId — status pesanan untuk pelanggan (publik)
+router.get("/:tenantId/order/:orderId", async (req: Request, res: Response) => {
+  const { tenantId, orderId } = req.params;
+  const client = await pool.connect();
+  try {
+    const r = await client.query(
+      `SELECT id, order_number, status, items, notes, customer_name,
+              table_name, source, cooking_started_at, ready_at, served_at, created_at, updated_at
+       FROM public.pos_table_orders
+       WHERE id = $1 AND tenant_id = $2`,
+      [orderId, tenantId]
+    );
+    if (!r.rows[0]) {
+      return res.status(404).json({ error: "Pesanan tidak ditemukan" });
+    }
+    const order = r.rows[0];
+    // Parse items jika masih string
+    if (typeof order.items === "string") {
+      try { order.items = JSON.parse(order.items); } catch { order.items = []; }
+    }
+    return res.json({ order });
+  } catch (err) {
+    return res.status(500).json({ error: err instanceof Error ? err.message : "Server error" });
+  } finally {
+    client.release();
+  }
+});
+
 export default router;

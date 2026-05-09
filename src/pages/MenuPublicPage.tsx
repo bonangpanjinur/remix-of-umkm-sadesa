@@ -1,12 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import {
   ShoppingCart, Plus, Minus, Trash2, ChefHat, Send,
-  CheckCircle2, Phone, Store, Clock, RefreshCw
+  CheckCircle2, Store, Clock, RefreshCw, Eye
 } from 'lucide-react';
 
 interface Tenant {
@@ -53,6 +52,7 @@ function formatRupiah(amount: number, currency = 'IDR'): string {
 
 export default function MenuPublicPage() {
   const { tenantId, tableId } = useParams<{ tenantId: string; tableId?: string }>();
+  const navigate = useNavigate();
 
   const [pageState, setPageState] = useState<PageState>('loading');
   const [tenant, setTenant] = useState<Tenant | null>(null);
@@ -172,6 +172,12 @@ export default function MenuPublicPage() {
       setCart([]);
       setShowCart(false);
       setPageState('success');
+      // Auto-navigasi ke halaman tracking setelah 3 detik
+      setTimeout(() => {
+        if (tenantId && data.order_id) {
+          navigate(`/order/${tenantId}/${data.order_id}`);
+        }
+      }, 3000);
     } catch (err: any) {
       toast.error(err.message || 'Gagal mengirim pesanan');
       setPageState('menu');
@@ -208,23 +214,44 @@ export default function MenuPublicPage() {
             <CheckCircle2 className="h-10 w-10 text-emerald-600" />
           </div>
           <h2 className="text-2xl font-bold text-gray-800 mb-1">Pesanan Terkirim!</h2>
-          <p className="text-gray-500 text-sm mb-4">Dapur sedang memproses pesanan Anda</p>
-          <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4 mb-4">
+          <p className="text-gray-500 text-sm mb-4">Dapur sedang memproses pesanan kamu</p>
+
+          <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4 mb-3">
             <p className="text-xs text-emerald-600 font-medium mb-1">Nomor Pesanan</p>
             <p className="text-xl font-mono font-bold text-emerald-700">{orderNumber}</p>
           </div>
+
           {tableName && (
-            <p className="text-sm text-gray-600 mb-4">
+            <p className="text-sm text-gray-600 mb-3">
               📍 <strong>{tableName}</strong>
             </p>
           )}
-          <p className="text-xs text-gray-400 mb-6">Pesawat tidak perlu menunggu di kasir. Pelayan akan mengantarkan pesanan Anda.</p>
-          <Button
-            className="w-full bg-emerald-600 hover:bg-emerald-700"
-            onClick={() => { setPageState('menu'); }}
-          >
-            Pesan Lagi
-          </Button>
+
+          <p className="text-xs text-gray-400 mb-5">
+            Tidak perlu ke kasir — pelayan akan mengantarkan pesanan ke mejamu.
+          </p>
+
+          <div className="space-y-2">
+            <Button
+              className="w-full bg-emerald-600 hover:bg-emerald-700 h-11 font-semibold"
+              onClick={() => tenantId && orderId && navigate(`/order/${tenantId}/${orderId}`)}
+            >
+              <Eye className="h-4 w-4 mr-2" />
+              Lacak Status Pesanan
+            </Button>
+            <Button
+              variant="outline"
+              className="w-full h-10 text-sm"
+              onClick={() => setPageState('menu')}
+            >
+              Pesan Lagi
+            </Button>
+          </div>
+
+          <p className="text-[11px] text-gray-400 mt-4 flex items-center justify-center gap-1">
+            <Clock className="h-3 w-3" />
+            Halaman tracking otomatis terbuka dalam 3 detik...
+          </p>
         </div>
       </div>
     );
