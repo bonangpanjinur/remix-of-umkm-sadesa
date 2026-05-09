@@ -2,7 +2,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { ShoppingCart, Trash2, User, PauseCircle, Receipt, Tag, Star, Percent, Ticket, Gift, ChevronDown, X } from 'lucide-react';
+import { ShoppingCart, Trash2, User, PauseCircle, Receipt, Tag, Star, Percent, Ticket, Gift, ChevronDown, X, QrCode } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { POSCartItem } from './POSCartItem';
 import { POSLoyaltySection } from './POSLoyaltySection';
@@ -42,6 +42,7 @@ interface Props {
   onOpenHeldBills: () => void;
   onHoldBill: () => void;
   onOpenPayment: () => void;
+  onOpenQRPay?: () => void;
   onClearCart: () => void;
   onTogglePoints: (v: boolean) => void;
   onPointsInput: (v: string) => void;
@@ -61,7 +62,7 @@ export function POSCart({
   pointsEarned, appliedPromo, promoDiscount, appliedVoucher, voucherDiscount,
   voucherCode, voucherError, subtotal, taxAmount, total, heldBillsCount,
   formatCurrency, onUpdateQty, onRemoveItem, onUpdateDiscount, onSetDiscount,
-  onSetNotes, onOpenCustomer, onOpenHeldBills, onHoldBill, onOpenPayment,
+  onSetNotes, onOpenCustomer, onOpenHeldBills, onHoldBill, onOpenPayment, onOpenQRPay,
   onClearCart, onTogglePoints, onPointsInput, onApplyVoucher, onRemoveVoucher,
   onSetVoucherCode, onSetVoucherError,
 }: Props) {
@@ -230,6 +231,11 @@ export function POSCart({
             <Receipt className="h-4 w-4 mr-1.5" />Bayar <span className="ml-1 text-[10px] text-emerald-200 hidden sm:inline">F2</span>
           </Button>
         </div>
+        {onOpenQRPay && (
+          <Button variant="outline" className="w-full h-9 text-sm border-emerald-400 text-emerald-700 hover:bg-emerald-50" onClick={onOpenQRPay} disabled={cart.length === 0} title="Pembeli bayar via scan QR dari app DesaMart">
+            <QrCode className="h-4 w-4 mr-1.5 text-emerald-600" />QR Pay — Scan dari App DesaMart
+          </Button>
+        )}
 
         <Textarea value={notes} onChange={e => onSetNotes(e.target.value)}
           placeholder="Catatan transaksi..." rows={1} className="text-xs resize-none" />

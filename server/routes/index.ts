@@ -9,6 +9,7 @@ import posRouter from "./pos";
 import adminStatsRouter from "./admin-stats";
 import courierRouter from "./courier";
 import printerRouter from "./printer";
+import qrpayRouter from "./qrpay";
 
 const router = Router();
 
@@ -22,5 +23,6 @@ router.use("/pos", posRouter);
 router.use("/admin", adminStatsRouter);
 router.use("/courier", courierRouter);
 router.use("/printer", printerRouter);
+router.use("/qrpay", qrpayRouter);
 
 export default router;

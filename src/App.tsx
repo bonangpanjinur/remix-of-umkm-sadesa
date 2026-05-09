@@ -151,6 +151,7 @@ const MerchantPreOrderPage = lazy(() => import("./pages/merchant/MerchantPreOrde
 const MerchantGrosirPage = lazy(() => import("./pages/merchant/MerchantGrosirPage"));
 const MerchantPajakPage = lazy(() => import("./pages/merchant/MerchantPajakPage"));
 const DesaDonasiPage = lazy(() => import("./pages/desa/DesaDonasiPage"));
+const QRPayConfirmPage = lazy(() => import("./pages/QRPayConfirmPage"));
 
 // POS SaaS Pages
 const POSSetupPage = lazy(() => import("./pages/pos/POSSetupPage"));
@@ -1007,6 +1008,9 @@ const App = () => (
               <Route path="/pos/hutang-piutang" element={<ProtectedRoute><POSHutangPiutangPage /></ProtectedRoute>} />
               <Route path="/pos/target-omzet" element={<ProtectedRoute><POSTargetOmzetPage /></ProtectedRoute>} />
               <Route path="/pos/harga" element={<POSHargaPage />} />
+
+              {/* QR Pay — halaman konfirmasi buyer, akses publik (tidak perlu login untuk buka, login saat konfirmasi) */}
+              <Route path="/qrpay/:token" element={<QRPayConfirmPage />} />
 
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />

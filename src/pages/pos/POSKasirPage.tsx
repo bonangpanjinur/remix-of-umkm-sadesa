@@ -9,13 +9,14 @@ import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
-import { Search, Package, ChevronLeft, Barcode, CheckCircle2, Star, Ticket, Percent, Printer, Gift, MessageCircle, FileDown } from 'lucide-react';
+import { Search, Package, ChevronLeft, Barcode, CheckCircle2, Star, Ticket, Percent, Printer, Gift, MessageCircle, FileDown, QrCode } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { POSSidebar } from '@/components/pos/POSSidebar';
 import { BarcodeScanner } from '@/components/pos/BarcodeScanner';
 import { POSCart } from '@/components/pos/kasir/POSCart';
 import { POSPaymentDialog } from '@/components/pos/kasir/POSPaymentDialog';
 import { POSHeldBills } from '@/components/pos/kasir/POSHeldBills';
+import { QRPayDialog } from '@/components/pos/kasir/QRPayDialog';
 import { cn } from '@/lib/utils';
 import type {
   CartItem, HeldBill, Customer, LoyaltyProgram,
@@ -79,6 +80,9 @@ export default function POSKasirPage() {
   const [paymentDialog, setPaymentDialog] = useState(false);
   const [successDialog, setSuccessDialog] = useState(false);
   const [lastSale, setLastSale] = useState<any>(null);
+
+  // QR Pay
+  const [qrPayDialog, setQrPayDialog] = useState(false);
 
   // Hold Bill
   const [heldBills, setHeldBills] = useState<HeldBill[]>([]);
@@ -308,12 +312,15 @@ export default function POSKasirPage() {
     else if (field === 'splitAmount2') setSplitAmount2(value as string);
   };
 
-  const processPayment = async () => {
+  const processPayment = async (paymentMethodOverride?: string) => {
     if (!tenant || !activeOutlet || !user) return;
-    if (isSplitPayment) {
-      if (Number(splitAmount1) + Number(splitAmount2) < total) { toast.error('Total bayar kurang dari total transaksi'); return; }
-    } else if (paymentMethod === 'cash' && (Number(paymentAmount) || 0) < total) {
-      toast.error('Jumlah bayar kurang dari total'); return;
+    const effectiveMethod = paymentMethodOverride || paymentMethod;
+    if (!paymentMethodOverride) {
+      if (isSplitPayment) {
+        if (Number(splitAmount1) + Number(splitAmount2) < total) { toast.error('Total bayar kurang dari total transaksi'); return; }
+      } else if (effectiveMethod === 'cash' && (Number(paymentAmount) || 0) < total) {
+        toast.error('Jumlah bayar kurang dari total'); return;
+      }
     }
     if (usePoints && loyaltyProgram && pointsToRedeem < loyaltyProgram.min_redeem_points) {
       toast.error(`Min. tukar ${loyaltyProgram.min_redeem_points} poin`); return;
@@ -326,9 +333,9 @@ export default function POSKasirPage() {
         customer_id: selectedCustomer?.id || null,
         customer_name: selectedCustomer?.name || customerName || null,
         subtotal, discount_amount: discount, tax_amount: taxAmount, total,
-        payment_method: isSplitPayment ? `split:${paymentMethod}+${splitMethod2}` : paymentMethod,
+        payment_method: isSplitPayment ? `split:${effectiveMethod}+${splitMethod2}` : effectiveMethod,
         payment_amount: isSplitPayment ? (Number(splitAmount1) + Number(splitAmount2)) : (Number(paymentAmount) || total),
-        change_amount: isSplitPayment ? Math.max(0, (Number(splitAmount1) + Number(splitAmount2)) - total) : change,
+        change_amount: isSplitPayment ? Math.max(0, (Number(splitAmount1) + Number(splitAmount2)) - total) : (effectiveMethod === 'cash' ? change : 0),
         status: 'completed', notes: notes || null,
         promotion_id: appliedPromo?.id || null, promotion_discount: promoDiscount,
         voucher_id: appliedVoucher?.id || null, voucher_code: appliedVoucher?.code || null, voucher_discount: voucherDiscount,
@@ -435,7 +442,7 @@ export default function POSKasirPage() {
       }
 
       setLastSale({
-        saleNumber, total, change, paymentMethod,
+        saleNumber, total, change: effectiveMethod === 'cash' ? change : 0, paymentMethod: effectiveMethod,
         customerName: selectedCustomer?.name || customerName || 'Umum',
         items: [...cart], pointsEarned, pointsRedeemed: usePoints ? pointsToRedeem : 0,
         pointsDiscount, promoDiscount, voucherDiscount,
@@ -541,7 +548,7 @@ export default function POSKasirPage() {
     const storePhone = (tenant as any)?.phone || '';
     const now = new Date();
     const tgl = now.toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-    const payLabel: Record<string, string> = { cash: 'Tunai', qris: 'QRIS', transfer: 'Transfer', debit: 'Debit' };
+    const payLabel: Record<string, string> = { cash: 'Tunai', qris: 'QRIS', transfer: 'Transfer', debit: 'Debit', qr_pay: 'QR Pay' };
     const methodLabel = payLabel[lastSale.paymentMethod] || lastSale.paymentMethod;
 
     const lines: string[] = [];
@@ -594,7 +601,7 @@ export default function POSKasirPage() {
     const receiptFooter = (tenant as any)?.receipt_footer || 'Terima kasih telah berbelanja!';
     const now = new Date();
     const tgl = now.toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-    const payLabel: Record<string, string> = { cash: 'Tunai', qris: 'QRIS', transfer: 'Transfer', debit: 'Debit' };
+    const payLabel: Record<string, string> = { cash: 'Tunai', qris: 'QRIS', transfer: 'Transfer', debit: 'Debit', qr_pay: 'QR Pay' };
     const methodLabel = payLabel[lastSale.paymentMethod] || lastSale.paymentMethod;
 
     const itemRows = lastSale.items.map((item: any) => {
@@ -775,7 +782,7 @@ export default function POSKasirPage() {
           onSetDiscount={setDiscount} onSetNotes={setNotes}
           onOpenCustomer={() => setCustomerDialog(true)}
           onOpenHeldBills={() => setHeldBillsDialog(true)}
-          onHoldBill={holdBill} onOpenPayment={openPayment} onClearCart={clearCart}
+          onHoldBill={holdBill} onOpenPayment={openPayment} onOpenQRPay={() => setQrPayDialog(true)} onClearCart={clearCart}
           onTogglePoints={handleTogglePoints} onPointsInput={handlePointsInput}
           onApplyVoucher={applyVoucher} onRemoveVoucher={removeVoucher}
           onSetVoucherCode={setVoucherCode} onSetVoucherError={setVoucherError}
@@ -917,6 +924,24 @@ export default function POSKasirPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* QR Pay Dialog */}
+      <QRPayDialog
+        open={qrPayDialog}
+        onOpenChange={setQrPayDialog}
+        amount={total}
+        tenantId={tenant?.id || ''}
+        outletId={activeOutlet?.id || ''}
+        cashierName={user?.email || 'Kasir'}
+        storeName={tenant?.name || activeOutlet?.name || 'Toko'}
+        authToken={typeof window !== 'undefined' ? (localStorage.getItem('session_token') || '') : ''}
+        onSuccess={(buyerName) => {
+          setQrPayDialog(false);
+          // Proses transaksi dengan override metode qr_pay (hindari state async issue)
+          processPayment('qr_pay');
+          toast.success(`QR Pay berhasil! Dibayar oleh ${buyerName}`);
+        }}
+      />
 
       {/* Barcode Scanner */}
       <BarcodeScanner open={scannerOpen} onClose={() => setScannerOpen(false)} onDetect={onBarcodeDetect} />

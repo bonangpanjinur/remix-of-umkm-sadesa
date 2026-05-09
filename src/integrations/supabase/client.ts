@@ -120,6 +120,11 @@ function sseDisconnect() {
  * For broadcast: match on channelName and event
  */
 function dispatchSSEEvent(payload: any) {
+  // Dispatch broadcast events as window custom events agar komponen bisa listen tanpa subscribe Supabase
+  if (payload.type === "broadcast") {
+    window.dispatchEvent(new CustomEvent("sse_broadcast", { detail: payload }));
+  }
+
   for (const sub of _sseSubscriptions) {
     if (payload.type === "postgres_changes" && sub.type === "postgres_changes") {
       // Match table
