@@ -133,7 +133,7 @@ export default function AdminRealtimeDashboardPage() {
       : null;
 
   return (
-    <AdminLayout>
+    <AdminLayout title="Dashboard Realtime" subtitle="Monitor aktivitas platform secara langsung">
       <div className="space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
