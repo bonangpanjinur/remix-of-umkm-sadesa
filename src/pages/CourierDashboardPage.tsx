@@ -89,6 +89,11 @@ export default function CourierDashboardPage() {
   const courierStatus = courierQueryData ? { registration_status: courierQueryData.registration_status, rejection_reason: (courierQueryData as any).rejection_reason } : null;
   const loading = courierLoading;
 
+  const fetchCourierData = () => {
+    queryClient.invalidateQueries({ queryKey: ['courier-profile', user?.id] });
+    queryClient.invalidateQueries({ queryKey: ['courier-assigned-orders', courier?.id] });
+  };
+
   // Query: ride request count + assigned orders (hanya jika approved)
   const { data: rideRequestCount = 0 } = useQuery({
     queryKey: ['courier-ride-count'],
@@ -260,7 +265,7 @@ export default function CourierDashboardPage() {
             <Button variant="outline" onClick={() => navigate('/')}>
               Beranda
             </Button>
-            <Button onClick={() => { setLoading(true); fetchCourierData(); }}>
+            <Button onClick={() => { fetchCourierData(); }}>
               <RefreshCw className="h-4 w-4 mr-1" /> Coba Lagi
             </Button>
           </div>
@@ -418,7 +423,9 @@ export default function CourierDashboardPage() {
             <CourierLocationUpdater
               courierId={courier.id}
               onLocationUpdate={(lat, lng) => {
-                setCourier({ ...courier, current_lat: lat, current_lng: lng });
+                queryClient.setQueryData(['courier-profile', user?.id], (old: any) =>
+                  old ? { ...old, current_lat: lat, current_lng: lng } : old
+                );
               }}
             />
           </motion.div>

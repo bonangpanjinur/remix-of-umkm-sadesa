@@ -86,9 +86,7 @@ export default function NotificationsPage() {
       .update({ is_read: true, read_at: new Date().toISOString() })
       .eq('id', id);
 
-    setNotifications(prev =>
-      prev.map(n => (n.id === id ? { ...n, is_read: true } : n))
-    );
+    queryClient.invalidateQueries({ queryKey: ['notifications', user?.id] });
   };
 
   const markAllAsRead = async () => {
@@ -100,12 +98,12 @@ export default function NotificationsPage() {
       .eq('user_id', user.id)
       .eq('is_read', false);
 
-    setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+    queryClient.invalidateQueries({ queryKey: ['notifications', user.id] });
   };
 
   const deleteNotification = async (id: string) => {
     await supabase.from('notifications').delete().eq('id', id);
-    setNotifications(prev => prev.filter(n => n.id !== id));
+    queryClient.invalidateQueries({ queryKey: ['notifications', user?.id] });
   };
 
   const getIcon = (type: string) => {
