@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils';
 import { usePOS } from '@/contexts/POSContext';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { QROrderNotificationBell } from './QROrderNotificationBell';
 
 interface POSLayoutProps {
   children: ReactNode;
@@ -82,6 +83,7 @@ export function POSLayout({ children, title, subtitle, actions, fullWidth }: POS
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <QROrderNotificationBell />
             {actions}
           </div>
         </div>

@@ -6,6 +6,7 @@
  */
 import { Router, Request, Response } from "express";
 import { pool } from "../db";
+import { sendToChannel } from "../sse-manager";
 
 const router = Router();
 
@@ -98,7 +99,7 @@ router.post("/:tenantId/order", async (req: Request, res: Response) => {
   try {
     // Validasi tenant aktif
     const tenantRes = await client.query(
-      `SELECT id, name, store_name FROM public.pos_tenants WHERE id = $1 AND is_active = true`,
+      `SELECT id, name FROM public.pos_tenants WHERE id = $1 AND is_active = true`,
       [tenantId]
     );
     if (!tenantRes.rows[0]) {
@@ -174,10 +175,30 @@ router.post("/:tenantId/order", async (req: Request, res: Response) => {
       [table_id]
     );
 
+    const orderId = orderRes.rows[0].id;
+
+    // Kirim notifikasi realtime ke kasir yang sedang login di tenant ini
+    sendToChannel(`pos_qr_orders:${tenantId}`, {
+      type: "broadcast",
+      channel: `pos_qr_orders:${tenantId}`,
+      event: "new_order",
+      payload: {
+        order_id: orderId,
+        order_number: orderNumber,
+        table_id,
+        table_name: table_name || table.name,
+        customer_name: customer_name || "Tamu",
+        items: verifiedItems,
+        subtotal,
+        notes: notes || null,
+        created_at: new Date().toISOString(),
+      },
+    });
+
     return res.json({
       success: true,
-      order_id: orderRes.rows[0].id,
-      order_number: orderRes.rows[0].order_number,
+      order_id: orderId,
+      order_number: orderNumber,
       items: verifiedItems,
       subtotal,
       message: "Pesanan berhasil dikirim ke dapur!",
