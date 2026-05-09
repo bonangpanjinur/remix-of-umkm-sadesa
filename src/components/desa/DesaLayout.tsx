@@ -9,9 +9,10 @@ interface DesaLayoutProps {
   children: ReactNode;
   title: string;
   subtitle?: string;
+  actions?: ReactNode;
 }
 
-export function DesaLayout({ children, title, subtitle }: DesaLayoutProps) {
+export function DesaLayout({ children, title, subtitle, actions }: DesaLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
@@ -45,6 +46,7 @@ export function DesaLayout({ children, title, subtitle }: DesaLayoutProps) {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            {actions}
             <NotificationDropdown />
           </div>
         </div>

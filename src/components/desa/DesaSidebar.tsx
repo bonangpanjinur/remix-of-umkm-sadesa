@@ -3,7 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { 
   LayoutDashboard, Mountain, ChevronLeft, Home,
   TrendingUp, Calendar, Award, Megaphone, Map, BarChart3,
-  ShieldCheck
+  ShieldCheck, Building2, Package, User, DollarSign
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
@@ -54,15 +54,19 @@ export function DesaSidebar() {
   }, [user]);
 
   const menuItems: SidebarItem[] = [
-    { label: 'Dashboard',          href: '/desa',                    icon: <LayoutDashboard className="h-4 w-4" /> },
-    { label: 'Wisata',             href: '/desa/tourism',            icon: <Mountain className="h-4 w-4" /> },
-    { label: 'Verifikasi Merchant',href: '/desa/merchants',          icon: <ShieldCheck className="h-4 w-4" />, badge: pendingMerchants },
-    { label: 'Laporan Ekonomi',    href: '/desa/ekonomi',            icon: <TrendingUp className="h-4 w-4" /> },
-    { label: 'Event Desa',         href: '/desa/event',              icon: <Calendar className="h-4 w-4" /> },
-    { label: 'Keanggotaan UMKM',   href: '/desa/keanggotaan',        icon: <Award className="h-4 w-4" /> },
-    { label: 'Broadcast',          href: '/desa/broadcast',          icon: <Megaphone className="h-4 w-4" /> },
-    { label: 'Peta Interaktif',    href: '/desa/peta',               icon: <Map className="h-4 w-4" /> },
-    { label: 'Laporan Wisata',     href: '/desa/laporan-wisata',     icon: <BarChart3 className="h-4 w-4" /> },
+    { label: 'Dashboard',           href: '/desa',                     icon: <LayoutDashboard className="h-4 w-4" /> },
+    { label: 'Profil Desa',         href: '/desa/profil',              icon: <Building2 className="h-4 w-4" /> },
+    { label: 'Destinasi Wisata',    href: '/desa/tourism',             icon: <Mountain className="h-4 w-4" /> },
+    { label: 'Paket Wisata',        href: '/desa/paket-wisata',        icon: <Package className="h-4 w-4" /> },
+    { label: 'Pemandu Wisata',      href: '/desa/pemandu',             icon: <User className="h-4 w-4" /> },
+    { label: 'Verifikasi Merchant', href: '/desa/merchants',           icon: <ShieldCheck className="h-4 w-4" />, badge: pendingMerchants },
+    { label: 'Laporan Keuangan',    href: '/desa/laporan-keuangan',    icon: <DollarSign className="h-4 w-4" /> },
+    { label: 'Laporan Ekonomi',     href: '/desa/ekonomi',             icon: <TrendingUp className="h-4 w-4" /> },
+    { label: 'Event Desa',          href: '/desa/event',               icon: <Calendar className="h-4 w-4" /> },
+    { label: 'Keanggotaan UMKM',    href: '/desa/keanggotaan',         icon: <Award className="h-4 w-4" /> },
+    { label: 'Broadcast',           href: '/desa/broadcast',           icon: <Megaphone className="h-4 w-4" /> },
+    { label: 'Peta Interaktif',     href: '/desa/peta',                icon: <Map className="h-4 w-4" /> },
+    { label: 'Laporan Wisata',      href: '/desa/laporan-wisata',      icon: <BarChart3 className="h-4 w-4" /> },
   ];
 
   return (

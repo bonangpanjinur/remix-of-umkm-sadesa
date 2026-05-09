@@ -48,6 +48,12 @@ const FK_MAP: Record<string, { fk: string; ref_col?: string }> = {
   "ride_requests:couriers":          { fk: "driver_id",     ref_col: "id" },
   "refund_requests:orders":          { fk: "order_id",      ref_col: "id" },
   "merchant_gallery:merchants":      { fk: "merchant_id",   ref_col: "id" },
+  "tourism_guides:villages":         { fk: "village_id",    ref_col: "id" },
+  "tourism_packages:villages":       { fk: "village_id",    ref_col: "id" },
+  "tourism_packages:tourism_guides": { fk: "guide_id",      ref_col: "id" },
+  "tourism_bookings:villages":       { fk: "village_id",    ref_col: "id" },
+  "tourism_bookings:tourism_packages":{ fk: "package_id",   ref_col: "id" },
+  "tourism_bookings:tourism_guides": { fk: "guide_id",      ref_col: "id" },
   "merchant_dues:trade_groups":      { fk: "group_id",      ref_col: "id" },
   "merchant_dues:merchants":         { fk: "merchant_id",   ref_col: "id" },
   "courier_ratings:orders":          { fk: "order_id",      ref_col: "id" },
@@ -282,6 +288,7 @@ router.post("/select", async (req: Request, res: Response) => {
     "courier_ratings", "verifikator_events",
     "cashback_rules", "cashback_transactions", "referral_usages",
     "product_subscriptions", "api_keys", "stock_history",
+    "tourism_guides", "tourism_packages", "tourism_bookings",
   ];
 
   const tbl = String(table).replace(/[^a-z0-9_]/g, "");

@@ -194,6 +194,14 @@ const DesaKeanggotaanPage = lazy(() => import("./pages/desa/DesaKeanggotaanPage"
 const DesaBroadcastPage = lazy(() => import("./pages/desa/DesaBroadcastPage"));
 const DesaPetaPage = lazy(() => import("./pages/desa/DesaPetaPage"));
 const DesaLaporanWisataPage = lazy(() => import("./pages/desa/DesaLaporanWisataPage"));
+// P3: Admin Desa & Ekosistem Wisata
+const DesaProfilPage = lazy(() => import("./pages/desa/DesaProfilPage"));
+const DesaPaketWisataPage = lazy(() => import("./pages/desa/DesaPaketWisataPage"));
+const DesaPemanduPage = lazy(() => import("./pages/desa/DesaPemanduPage"));
+const DesaLaporanKeuanganPage = lazy(() => import("./pages/desa/DesaLaporanKeuanganPage"));
+
+// P3: Buyer Tourism Booking
+const TourismBookingPage = lazy(() => import("./pages/buyer/TourismBookingPage"));
 
 // Buyer Pages
 const CashbackPage = lazy(() => import("./pages/buyer/CashbackPage"));
@@ -209,6 +217,7 @@ const LoyaltyPage = lazy(() => import("./pages/buyer/LoyaltyPage"));
 const VoucherPage = lazy(() => import("./pages/buyer/VoucherPage"));
 const RekomendasisPage = lazy(() => import("./pages/buyer/RekomendasisPage"));
 const DisputePage = lazy(() => import("./pages/buyer/DisputePage"));
+const InvoicePage = lazy(() => import("./pages/InvoicePage"));
 
 // Notifications
 const NotificationsPage = lazy(() => import("./pages/NotificationsPage"));
@@ -279,6 +288,11 @@ const App = () => (
               <Route path="/product/:id" element={<ProductDetail />} />
               <Route path="/tourism" element={<TourismPage />} />
               <Route path="/tourism/:id" element={<TourismDetail />} />
+              <Route path="/tourism/booking/:packageId" element={
+                <ProtectedRoute>
+                  <TourismBookingPage />
+                </ProtectedRoute>
+              } />
               <Route path="/village/:id" element={<VillageDetailPage />} />
               <Route path="/merchant/:slugOrId" element={<MerchantSlugResolver />} />
               <Route path="/shops" element={<ShopsPage />} />
@@ -454,6 +468,11 @@ const App = () => (
               <Route path="/orders/:orderId/dispute" element={
                 <ProtectedRoute>
                   <DisputePage />
+                </ProtectedRoute>
+              } />
+              <Route path="/orders/:orderId/invoice" element={
+                <ProtectedRoute>
+                  <InvoicePage />
                 </ProtectedRoute>
               } />
               {/* Admin routes */}
@@ -857,6 +876,27 @@ const App = () => (
               <Route path="/desa/merchants" element={
                 <ProtectedRoute allowedRoles={['admin_desa', 'admin']}>
                   <DesaMerchantPage />
+                </ProtectedRoute>
+              } />
+              {/* P3: Admin Desa & Ekosistem Wisata */}
+              <Route path="/desa/profil" element={
+                <ProtectedRoute allowedRoles={['admin_desa', 'admin']}>
+                  <DesaProfilPage />
+                </ProtectedRoute>
+              } />
+              <Route path="/desa/paket-wisata" element={
+                <ProtectedRoute allowedRoles={['admin_desa', 'admin']}>
+                  <DesaPaketWisataPage />
+                </ProtectedRoute>
+              } />
+              <Route path="/desa/pemandu" element={
+                <ProtectedRoute allowedRoles={['admin_desa', 'admin']}>
+                  <DesaPemanduPage />
+                </ProtectedRoute>
+              } />
+              <Route path="/desa/laporan-keuangan" element={
+                <ProtectedRoute allowedRoles={['admin_desa', 'admin']}>
+                  <DesaLaporanKeuanganPage />
                 </ProtectedRoute>
               } />
 
