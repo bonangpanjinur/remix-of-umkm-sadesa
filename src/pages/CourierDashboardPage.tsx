@@ -265,7 +265,7 @@ export default function CourierDashboardPage() {
             <Button variant="outline" onClick={() => navigate('/')}>
               Beranda
             </Button>
-            <Button onClick={() => { setLoading(true); fetchCourierData(); }}>
+            <Button onClick={() => { fetchCourierData(); }}>
               <RefreshCw className="h-4 w-4 mr-1" /> Coba Lagi
             </Button>
           </div>
