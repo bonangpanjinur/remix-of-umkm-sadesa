@@ -18,3 +18,9 @@ id = "Azbwlf7NgJwXyYUW8FDNa"
 uri = "file://docs/RENCANA_PERBAIKAN.md"
 type = "text"
 title = "Rencana Perbaikan & Prioritas Sprint"
+
+[[outputs]]
+id = "jtz2_qxz4pZ9EbIgzS0gD"
+uri = "file://ROADMAP_FITUR.md"
+type = "text"
+title = "Roadmap Prioritas Fitur DesaMart"
