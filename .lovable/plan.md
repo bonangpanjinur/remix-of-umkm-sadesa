@@ -1,152 +1,76 @@
-# Fitur yang Belum Ada & Layak Diimplementasikan
+## Tujuan
+Menganalisis seluruh file SQL yang ada (116+ di `migrations_backup/`, 131 di `migrations/`, dan `main_migration.sql` 2186 baris) lalu mengkonsolidasikannya menjadi **5 file migrasi baru** yang bersih, terurut, dan idempotent (aman dijalankan ulang tanpa error).
 
-Berdasarkan eksplorasi codebase DesaMart, berikut daftar fitur yang **belum tersedia** namun memberi dampak besar pada pengalaman, retensi, dan pendapatan platform. Dikelompokkan per area, diurutkan berdasarkan dampak vs effort.
+## Lokasi Output
+Folder baru: **`supabase/migrations_consolidated/`**
 
----
+Semua file akan menggunakan `CREATE TABLE IF NOT EXISTS`, `CREATE OR REPLACE FUNCTION`, `DROP POLICY IF EXISTS` sebelum `CREATE POLICY`, dan blok `DO $$ ... EXCEPTION WHEN duplicate_object`/`IF NOT EXISTS` agar bebas error saat migrasi.
 
-## A. Buyer Experience (impact tinggi, effort sedang)
+## Pembagian 5 File
 
-1. **Loyalty / Poin & Cashback**
-   Poin per transaksi, redeem jadi diskon. Memicu repeat order — fitur klasik marketplace yang belum ada di project.
+### 1. `01_foundation_and_auth.sql`
+**Fondasi sistem & autentikasi**
+- Extensions (`pgcrypto`, `pg_trgm`)
+- Enum `app_role`
+- Fungsi utilitas: `update_updated_at_column()`, `set_updated_at()`
+- Tabel: `profiles`, `user_roles`, `user_villages`, `password_reset_tokens`, `rate_limits`
+- Fungsi role: `has_role`, `has_any_role`, `get_user_roles`, `is_admin`, `is_merchant`, `is_verifikator`
+- Trigger `handle_new_user` (auto-create profile)
+- GRANT + RLS + Policies untuk tabel di atas
 
-2. **Referral Program ("Ajak Teman")**
-   Kode referral unik per user, reward untuk pengundang & yang diundang. Cocok untuk pertumbuhan organik di komunitas desa.
+### 2. `02_core_entities.sql`
+**Entitas inti marketplace**
+- `villages`, `categories`, `tourism`
+- `merchants` (+ slug function `generate_merchant_slug`)
+- `merchant_subscriptions`, `merchant_gallery`, `merchant_favorites`
+- `trade_groups`, `group_members`, `group_announcements`, `kas_payments`
+- `verifikator_codes`, `verifikator_earnings`, `verifikator_withdrawals`
+- `transaction_packages`, `quota_tiers`, `quota_usage_logs`
+- `couriers`, `courier_earnings`, `courier_deposits`, `courier_balance_logs`, `courier_withdrawal_requests`
+- Views: `public_merchants`, `public_couriers` (SECURITY INVOKER)
+- GRANT + RLS + Policies
 
-3. **Live Order Tracking di Buyer Side dengan Map**
-   Sudah ada `CourierMap` & realtime tracking untuk kurir. Belum ada halaman buyer yang menampilkan posisi kurir di peta secara live (saat ini hanya status text).
+### 3. `03_commerce_orders.sql`
+**Produk, pesanan, dan transaksi**
+- `products`, `product_images`, `product_variants`
+- `orders`, `order_items` (constraint status lengkap)
+- `flash_sales`, `vouchers`, `voucher_usages`, `promotions`
+- `reviews`, `refund_requests`, `withdrawal_requests`
+- `platform_fees`, `insurance_fund`
+- `ride_requests` (Ojek Desa)
+- Fungsi helper: `is_order_courier`, `is_order_merchant`
+- GRANT + RLS + Policies
 
-4. **Repeat Order / "Pesan Lagi"** dari halaman Orders
-   1-click reorder dari riwayat — sederhana, sangat berguna untuk produk konsumsi harian.
+### 4. `04_communications_pos.sql`
+**Chat, notifikasi, POS, halal, alamat**
+- `notifications`, `broadcast_notifications`, `push_subscriptions`
+- `chat_messages` + fungsi `is_chat_participant` + trigger auto-delete 3 jam
+- `saved_addresses`, `wishlists`
+- `pos_packages`, `pos_settings`, `pos_subscriptions`, `pos_transactions`
+- `halal_regulations`
+- `page_views`
+- Storage buckets: `chat-images`, `review-images`, `products`, `halal-certificates`, `payment-proofs`, dll + storage policies
+- GRANT + RLS + Policies
 
-5. **Subscribe & Save (Langganan Mingguan/Bulanan)**
-   Untuk produk rutin (sayur, sembako). Auto-create order pada interval tertentu.
+### 5. `05_admin_settings_seed.sql`
+**Pengaturan admin, audit, backup, RPC, realtime, seed data**
+- `app_settings`, `admin_audit_logs`, `backup_logs`, `backup_schedules`, `seo_settings`
+- RPC penting: `accept_ride`, fungsi-fungsi balance/refund, dll
+- Realtime publication: `ALTER PUBLICATION supabase_realtime ADD TABLE ...` (dibungkus DO block agar idempotent)
+- Seed data: kategori default, `app_settings` default (COD, fees), `pos_packages` default, `transaction_packages` default, `halal_regulations`
+- GRANT + RLS + Policies sisa
 
-6. **Group Buy / Patungan Tetangga**
-   Kumpulan order dari tetangga sekompleks → 1 pengiriman → ongkir lebih murah. Sangat relevan dengan tema desa.
+## Strategi Anti-Error
+1. **Urutan file penting** — file 01 → 05 sesuai dependency. Tabel yang direferensikan harus dibuat lebih dulu.
+2. **Idempotent guards**: `IF NOT EXISTS`, `OR REPLACE`, `DROP ... IF EXISTS` sebelum CREATE POLICY/TRIGGER, `ON CONFLICT DO NOTHING` untuk seed.
+3. **GRANT setelah CREATE TABLE** dengan urutan: CREATE → GRANT → ENABLE RLS → POLICY.
+4. **Tidak ada foreign key cross-file yang melompat ke tabel belum dibuat** — sudah diatur lewat urutan grouping.
+5. **Tidak menyentuh schema reserved** (`auth`, `storage` schema langsung — hanya `storage.objects` policy & `storage.buckets` insert).
+6. **Realtime publication** dibungkus blok pengecekan agar tidak error jika tabel sudah di-publish.
 
-7. **Wishlist Price Drop & Stock Alert**
-   Notifikasi push saat item wishlist turun harga atau restock.
+## Catatan
+- Folder `migrations/` dan `migrations_backup/` lama **tidak dihapus** — tetap sebagai arsip.
+- Folder baru `migrations_consolidated/` murni untuk dokumentasi/migrasi ulang ke environment baru. Tidak akan otomatis dijalankan oleh Supabase CLI (karena bukan di `migrations/`).
+- Jika Anda ingin file ini menggantikan `migrations/` aktif, beri tahu setelah plan disetujui.
 
----
-
-## B. Merchant Tools (impact tinggi, effort sedang)
-
-8. **Inventory Bulk Import/Export (CSV/Excel)**
-   Saat ini produk diinput satu-satu. Bulk import mempercepat onboarding merchant baru.
-
-9. **Stock Auto-Restock Alert + Threshold**
-   Notifikasi merchant saat stok di bawah batas minimum.
-
-10. **Product Variants (ukuran, warna, rasa)**
-    Saat ini 1 produk = 1 SKU. Tambah varian dengan stok & harga berbeda.
-
-11. **Discount Bundling ("Beli 2 Hemat")**
-    Promo bundle multi-produk, beda dari flash sale yang sudah ada.
-
-12. **Auto-Reply Chat / FAQ Templates**
-    Merchant set template balasan cepat ("Stok ready", "Dikirim besok").
-
-13. **Merchant Mobile Notification Sound Per Event**
-    Sudah ada beep untuk order baru. Tambah konfigurasi suara berbeda untuk chat, refund request, dsb.
-
----
-
-## C. Courier / Ojek Desa (impact menengah)
-
-14. **Courier Performance Score & Rating dari Buyer**
-    Rating per pengiriman → leaderboard kurir → bonus dari admin.
-
-15. **Multi-Stop Delivery (Batching)**
-    1 kurir ambil beberapa order dari 1 toko sekaligus. Penghematan besar untuk pasar desa.
-
-16. **Heatmap Permintaan untuk Kurir**
-    Peta area dengan banyak request agar kurir tahu posisi optimal.
-
----
-
-## D. Tourism Module (saat ini cukup pasif)
-
-17. **Booking & Tiket Wisata Online**
-    Saat ini Tourism hanya direktori. Tambah pembelian tiket + QR code masuk.
-
-18. **Review & Foto Pengunjung Wisata**
-    User-generated content untuk meningkatkan trust.
-
-19. **Paket Wisata + Homestay + Kuliner UMKM**
-    Cross-sell antar modul (wisata ↔ merchant lokal).
-
----
-
-## E. Admin / Operasional (impact tinggi untuk skalabilitas)
-
-20. **Dashboard Anomaly Detection**
-    Alert otomatis saat lonjakan refund, order cancel, atau churn merchant.
-
-21. **A/B Testing Banner & Promo**
-    Test 2 varian banner di homepage, ukur CTR.
-
-22. **Audit Log Searchable Timeline**
-    `auditLog.ts` sudah ada — tambah UI filter/search yang user-friendly per entitas.
-
-23. **Email Marketing Broadcast (selain push notification)**
-    Sudah ada `AdminBroadcastPage`. Tambah jalur email + template builder sederhana.
-
----
-
-## F. Trust & Safety (impact tinggi, sering terabaikan)
-
-24. **Buyer Verification (KTP optional untuk COD besar)**
-    Cegah fake order COD. Threshold transaksi tertentu wajib upload KTP.
-
-25. **Dispute Center (selain Refund)**
-    Mediasi 3-pihak (buyer-merchant-admin) dengan timeline & evidence upload.
-
-26. **2FA untuk Merchant & Admin**
-    OTP via email/SMS saat login dari device baru.
-
----
-
-## G. PWA & Performance (quick wins)
-
-27. **Offline Mode untuk Browse Produk**
-    Cache produk terakhir dilihat di service worker — buyer di area sinyal lemah tetap bisa lihat.
-
-28. **App Shortcuts (Android Long-Press Icon)**
-    Quick action: "Pesan Lagi", "Cari Produk", "Top-up". Edit `manifest.webmanifest`.
-
-29. **Skeleton Loading Konsisten Semua Halaman**
-    Beberapa halaman masih flash-blank. Standardize skeleton component.
-
----
-
-## H. AI Features (pakai Lovable AI Gateway, tanpa API key tambahan)
-
-30. **AI Product Description Generator untuk Merchant**
-    Input nama + foto produk → AI generate deskripsi menarik (Gemini Flash).
-
-31. **AI Customer Service Bot (Layer Pertama)**
-    Bot jawab pertanyaan umum sebelum eskalasi ke merchant. Hemat waktu UMKM.
-
-32. **AI Smart Search (Semantic)**
-    "Sambal pedas yang halal & murah" → pencarian semantik, bukan cuma keyword match.
-
-33. **AI Image Auto-Tagging Produk**
-    Upload foto → AI saran kategori + tag otomatis.
-
----
-
-## Rekomendasi Prioritas (Top 5)
-
-| # | Fitur | Alasan |
-|---|---|---|
-| 1 | **Repeat Order** | Effort kecil, retention tinggi |
-| 2 | **Live Map Tracking di Buyer** | Infrastruktur sudah ada, tinggal UI |
-| 3 | **AI Product Description Generator** | Lovable AI free, langsung bantu merchant |
-| 4 | **Loyalty Points** | Memicu repeat purchase signifikan |
-| 5 | **Product Variants** | Blocker bagi banyak kategori produk |
-
----
-
-## Langkah Selanjutnya
-
-Pilih 1–3 fitur dari daftar di atas (atau kombinasi), lalu saya akan buat plan teknis detail (skema DB, komponen, edge function, RLS) untuk masing-masing.
+Setelah plan disetujui, saya akan membuat ke-5 file tersebut secara paralel.
